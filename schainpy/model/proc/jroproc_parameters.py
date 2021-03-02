@@ -129,7 +129,7 @@ class ParametersProc(ProcessingUnit):
 
         if self.dataIn.type == "Spectra":
 
-            self.dataOut.data_pre = (self.dataIn.data_spc, self.dataIn.data_cspc)
+            self.dataOut.data_pre = [self.dataIn.data_spc, self.dataIn.data_cspc]
             self.dataOut.data_spc = self.dataIn.data_spc
             self.dataOut.data_cspc = self.dataIn.data_cspc
             self.dataOut.nProfiles = self.dataIn.nProfiles
@@ -199,13 +199,11 @@ def target(tups):
 
     return obj.FitGau(args)
 
+class RemoveWideGC(Operation):
+    ''' This class remove the wide clutter and replace it with a simple interpolation points
+        This mainly applies to CLAIRE radar
 
-class SpectralFilters(Operation):
-
-    '''This class allows the Rainfall / Wind Selection for CLAIRE RADAR
-
-        LimitR :    It is the limit in m/s of Rainfall
-        LimitW :    It is the limit in m/s for Winds
+        ClutterWidth :    Width to look for the clutter peak
 
         Input:
 
@@ -215,91 +213,103 @@ class SpectralFilters(Operation):
         Affected:
 
         self.dataOut.data_pre :        It is used for the new SPC and CSPC ranges of wind
-        self.dataOut.spcparam_range :  Used in SpcParamPlot
-        self.dataOut.SPCparam :        Used in PrecipitationProc
 
-
+        Written by D. Scipión 25.02.2021
     '''
-
     def __init__(self):
         Operation.__init__(self)
-        self.i=0
-
-    def run(self, dataOut, PositiveLimit=1.5, NegativeLimit=2.5):
-
-
-        #Limite de vientos
-        LimitR = PositiveLimit
-        LimitN = NegativeLimit
+        self.i = 0
+        self.ich = 0
+        self.ir = 0
+    
+    def run(self, dataOut, ClutterWidth=2.5):
 
         self.spc = dataOut.data_pre[0].copy()
-        self.cspc = dataOut.data_pre[1].copy()
-
-        self.Num_Hei = self.spc.shape[2]
-        self.Num_Bin = self.spc.shape[1]
+        self.spc_out = dataOut.data_pre[0].copy()
         self.Num_Chn = self.spc.shape[0]
+        self.Num_Hei = self.spc.shape[1]
+        VelRange = dataOut.spc_range[2][:-1]
+        dv = VelRange[1]-VelRange[0]
 
+        # Find the velocities that corresponds to zero
+        gc_values = numpy.where(numpy.abs(VelRange) <= ClutterWidth)
+
+        # Removing novalid data from the spectra
+        for ich in range(self.Num_Chn):
+            # Estimate the noise at aech range
+
+            for ir in range(self.Num_Hei):
+                # Estimate the noise at aech range
+                HSn = hildebrand_sekhon(self.spc[ich,:,ir],dataOut.nIncohInt)
+                # Removing the noise floor at each range
+                novalid = numpy.where(self.spc[ich,:,ir] < HSn)
+                self.spc[novalid,ir] = HSn
+
+                junk = [HSn, numpy.transpose(self.spc[ich,gc_values,ir]), HSn]
+                j1index = numpy.where(numpy.diff[junk]>0)
+                j2index = numpy.where(numpy.diff[junk]<0)
+                junk3 = numpy.diff(j1index)
+                junk4 = numpy.diff(j2index)
+
+                valleyindex = j2index[junk4>1]
+                peakindex = j1index[junk3>1]
+
+                # Identify the clutter (close to zero)
+                isvalid = numpy.where(where.abs(VelRange[gc_values[peakindex]]) <= 2.5*dv)
+                # if isempty(isvalid)
+                #     continue
+                # if numel(isvalid)>1
+                    # [~,vindex]= numpy.max(spc[gc_values[peakindex[isvalid]],ir])
+                    # isvalid = isvalid[vindex]
+                # clutter peak
+                gcpeak = peakindex[isvalid]
+                # left and right index of the clutter
+                gcvl = valleyindex[numpy.where(valleyindex < gcpeak, 1, 'last' )]
+                gcvr = valleyindex[numpy.where(valleyindex > gcpeak, 1)]
+
+                # Removing the clutter
+                interpindex = [gc_values(gcvl), gc_values(gcvr)]
+                gcindex = gc_values[gcvl+1:gcvr-1]
+                self.spc_out[ich,gcindex,ir] = numpy.interp(VelRange[gcindex],VelRange[interpindex],self.spc[ich,interpindex,ir])
+
+        dataOut.data_pre[0] = self.spc_out
+        return dataOut
+
+class SpectralFilters(Operation):
+    ''' This class allows to replace the novalid values with noise for each channel 
+        This applies to CLAIRE RADAR
+
+        PositiveLimit :    RightLimit of novalid data
+        NegativeLimit :    LeftLimit of novalid data
+
+        Input:
+
+        self.dataOut.data_pre :        SPC and CSPC
+        self.dataOut.spc_range :       To select wind and rainfall velocities
+
+        Affected:
+
+        self.dataOut.data_pre :        It is used for the new SPC and CSPC ranges of wind
+
+        Written by D. Scipión 29.01.2021
+    '''
+    def __init__(self):
+        Operation.__init__(self)
+        self.i = 0
+    
+    def run(self, dataOut, PositiveLimit=1.5, NegativeLimit=-1.5):
+
+        self.spc = dataOut.data_pre[0].copy()
+        self.Num_Chn = self.spc.shape[0]
         VelRange = dataOut.spc_range[2]
-        TimeRange = dataOut.spc_range[1]
-        FrecRange = dataOut.spc_range[0]
 
-        Vmax= 2*numpy.max(dataOut.spc_range[2])
-        Tmax= 2*numpy.max(dataOut.spc_range[1])
-        Fmax= 2*numpy.max(dataOut.spc_range[0])
+        # novalid corresponds to data within the Negative and PositiveLimit
+        novalid = numpy.where((VelRange[:-1] >= NegativeLimit) & (VelRange[:-1] <= PositiveLimit))
 
-        Breaker1R=VelRange[numpy.abs(VelRange-(-LimitN)).argmin()]
-        Breaker1R=numpy.where(VelRange == Breaker1R)
-
-        Delta = self.Num_Bin/2 - Breaker1R[0]
-
-
-        '''Reacomodando SPCrange'''
-
-        VelRange=numpy.roll(VelRange,-(int(self.Num_Bin/2)) ,axis=0)
-
-        VelRange[-(int(self.Num_Bin/2)):]+= Vmax
-
-        FrecRange=numpy.roll(FrecRange,-(int(self.Num_Bin/2)),axis=0)
-
-        FrecRange[-(int(self.Num_Bin/2)):]+= Fmax
-
-        TimeRange=numpy.roll(TimeRange,-(int(self.Num_Bin/2)),axis=0)
-
-        TimeRange[-(int(self.Num_Bin/2)):]+= Tmax
-
-        ''' ------------------ '''
-
-        Breaker2R=VelRange[numpy.abs(VelRange-(LimitR)).argmin()]
-        Breaker2R=numpy.where(VelRange == Breaker2R)
-
-
-        SPCroll = numpy.roll(self.spc,-(int(self.Num_Bin/2)) ,axis=1)
-
-        SPCcut = SPCroll.copy()
+        # Removing novalid data from the spectra
         for i in range(self.Num_Chn):
-
-            SPCcut[i,0:int(Breaker2R[0]),:] = dataOut.noise[i]
-            SPCcut[i,-int(Delta):,:] = dataOut.noise[i]
-
-            SPCcut[i]=SPCcut[i]- dataOut.noise[i]
-            SPCcut[ numpy.where( SPCcut<0 ) ] = 1e-20
-
-            SPCroll[i]=SPCroll[i]-dataOut.noise[i]
-            SPCroll[ numpy.where( SPCroll<0 ) ] = 1e-20
-
-        SPC_ch1 = SPCroll
-
-        SPC_ch2 = SPCcut
-
-        SPCparam = (SPC_ch1, SPC_ch2, self.spc)
-        dataOut.SPCparam = numpy.asarray(SPCparam)
-
-
-        dataOut.spcparam_range=numpy.zeros([self.Num_Chn,self.Num_Bin+1])
-
-        dataOut.spcparam_range[2]=VelRange
-        dataOut.spcparam_range[1]=TimeRange
-        dataOut.spcparam_range[0]=FrecRange
+            self.spc[i,novalid,:] = dataOut.noise[i]
+        dataOut.data_pre[0] = self.spc
         return dataOut
 
 class GaussianFit(Operation):
@@ -367,8 +377,8 @@ class GaussianFit(Operation):
         SPCparam = []
         SPC_ch1 = numpy.empty([self.Num_Bin,self.Num_Hei])
         SPC_ch2 = numpy.empty([self.Num_Bin,self.Num_Hei])
-        SPC_ch1[:] = 0#numpy.NaN
-        SPC_ch2[:] = 0#numpy.NaN
+        SPC_ch1[:] = 0 #numpy.NaN
+        SPC_ch2[:] = 0 #numpy.NaN
 
 
 
@@ -614,31 +624,8 @@ class PrecipitationProc(Operation):
         Operation.__init__(self)
         self.i=0
 
-
-    def gaus(self,xSamples,Amp,Mu,Sigma):
-        return ( Amp / ((2*numpy.pi)**0.5 * Sigma) ) * numpy.exp( -( xSamples - Mu )**2 / ( 2 * (Sigma**2) ))
-
-
-
-    def Moments(self, ySamples, xSamples):
-        Pot = numpy.nansum( ySamples )                              # Potencia, momento 0
-        yNorm = ySamples / Pot
-
-        Vr = numpy.nansum( yNorm * xSamples )                       # Velocidad radial, mu, corrimiento doppler, primer momento
-        Sigma2 = abs(numpy.nansum( yNorm * ( xSamples - Vr )**2 ))  # Segundo Momento
-        Desv = Sigma2**0.5                                          # Desv. Estandar, Ancho espectral
-
-        return numpy.array([Pot, Vr, Desv])
-
     def run(self, dataOut, radar=None, Pt=5000, Gt=295.1209, Gr=70.7945, Lambda=0.6741, aL=2.5118,
-            tauW=4e-06, ThetaT=0.1656317, ThetaR=0.36774087, Km = 0.93, Altitude=3350):
-
-
-        Velrange = dataOut.spcparam_range[2]
-        FrecRange = dataOut.spcparam_range[0]
-
-        dV= Velrange[1]-Velrange[0]
-        dF= FrecRange[1]-FrecRange[0]
+            tauW=4e-06, ThetaT=0.1656317, ThetaR=0.36774087, Km2 = 0.93, Altitude=3350):
 
         if radar == "MIRA35C" :
 
@@ -650,17 +637,16 @@ class PrecipitationProc(Operation):
 
         else:
 
-            self.spc = dataOut.SPCparam[1].copy() #dataOut.data_pre[0].copy() #
+            self.spc = dataOut.data_pre[0].copy()
 
-            """NOTA SE DEBE REMOVER EL RANGO DEL PULSO TX"""
-
+            #NOTA SE DEBE REMOVER EL RANGO DEL PULSO TX
             self.spc[:,:,0:7]= numpy.NaN
-
-            """##########################################"""
 
             self.Num_Hei = self.spc.shape[2]
             self.Num_Bin = self.spc.shape[1]
             self.Num_Chn = self.spc.shape[0]
+
+            VelRange = dataOut.spc_range[2]
 
             ''' Se obtiene la constante del RADAR '''
 
@@ -670,104 +656,72 @@ class PrecipitationProc(Operation):
             self.Lambda = Lambda
             self.aL = aL
             self.tauW = tauW
-            self.ThetaT = ThetaT
+            self.ThetaT = ThetaT 
             self.ThetaR = ThetaR
+            self.GSys = 10**(36.63/10) # Ganancia de los LNA 36.63 dB
+            self.lt = 10**(1.67/10) # Perdida en cables Tx 1.67 dB
+            self.lr = 10**(5.73/10) # Perdida en cables Rx 5.73 dB
 
             Numerator = ( (4*numpy.pi)**3 * aL**2 * 16 * numpy.log(2) )
             Denominator = ( Pt * Gt * Gr * Lambda**2 * SPEED_OF_LIGHT * tauW * numpy.pi * ThetaT * ThetaR)
             RadarConstant = 10e-26 * Numerator / Denominator #
+            ExpConstant = 10**(40/10) #Constante Experimental
 
-            ''' =============================  '''
+            SignalPower = numpy.zeros([self.Num_Chn,self.Num_Bin,self.Num_Hei])
+            for i in range(self.Num_Chn):
+                SignalPower[i,:,:] = self.spc[i,:,:] - dataOut.noise[i]
+                SignalPower[numpy.where(SignalPower < 0)] = 1e-20
 
-            self.spc[0] = (self.spc[0]-dataOut.noise[0])
-            self.spc[1] = (self.spc[1]-dataOut.noise[1])
-            self.spc[2] = (self.spc[2]-dataOut.noise[2])
+            SPCmean = numpy.mean(SignalPower, 0)
 
-            self.spc[ numpy.where(self.spc < 0)] = 0
+            Pr = SPCmean[:,:]/dataOut.normFactor
 
-            SPCmean = (numpy.mean(self.spc,0) - numpy.mean(dataOut.noise))
-            SPCmean[ numpy.where(SPCmean < 0)] = 0
+            # Declaring auxiliary variables
+            Range = dataOut.heightList*1000. #Range in m
+            # replicate the heightlist to obtain a matrix [Num_Bin,Num_Hei]
+            rMtrx = numpy.transpose(numpy.transpose([dataOut.heightList*1000.] * self.Num_Bin))
+            zMtrx = rMtrx+Altitude
+            # replicate the VelRange to obtain a matrix [Num_Bin,Num_Hei]
+            VelMtrx = numpy.transpose(numpy.tile(VelRange[:-1], (self.Num_Hei,1)))
 
-            ETAn = numpy.zeros([self.Num_Bin,self.Num_Hei])
-            ETAv = numpy.zeros([self.Num_Bin,self.Num_Hei])
-            ETAd = numpy.zeros([self.Num_Bin,self.Num_Hei])
+            # height dependence to air density Foote and Du Toit (1969)
+            delv_z = 1 + 3.68e-5 * zMtrx + 1.71e-9 * zMtrx**2
+            VMtrx = VelMtrx / delv_z #Normalized velocity
+            VMtrx[numpy.where(VMtrx> 9.6)] = numpy.NaN
+            # Diameter is related to the fall speed of falling drops
+            D_Vz = -1.667 * numpy.log( 0.9369 - 0.097087 * VMtrx ) # D in [mm]
+            # Only valid for D>= 0.16 mm
+            D_Vz[numpy.where(D_Vz < 0.16)] = numpy.NaN
 
-            Pr = SPCmean[:,:]
+            #Calculate Radar Reflectivity ETAn
+            ETAn = (RadarConstant *ExpConstant) * Pr * rMtrx**2  #Reflectivity (ETA)
+            ETAd = ETAn * 6.18 * exp( -0.6 * D_Vz ) * delv_z
+            # Radar Cross Section
+            sigmaD = Km2 * (D_Vz * 1e-3 )**6 * numpy.pi**5 / Lambda**4 
+            # Drop Size Distribution
+            DSD = ETAn / sigmaD
+            # Equivalente Reflectivy
+            Ze_eqn = numpy.nansum( DSD * D_Vz**6 ,axis=0)
+            Ze_org = numpy.nansum(ETAn * Lambda**4, axis=0) / (1e-18*numpy.pi**5 * Km2) # [mm^6 /m^3]
+            # RainFall Rate
+            RR = 0.0006*numpy.pi * numpy.nansum( D_Vz**3 * DSD * VelMtrx ,0) #mm/hr
 
-            VelMeteoro = numpy.mean(SPCmean,axis=0)
-
-            D_range = numpy.zeros([self.Num_Bin,self.Num_Hei])
-            SIGMA = numpy.zeros([self.Num_Bin,self.Num_Hei])
-            N_dist = numpy.zeros([self.Num_Bin,self.Num_Hei])
-            V_mean = numpy.zeros(self.Num_Hei)
-            del_V = numpy.zeros(self.Num_Hei)
-            Z = numpy.zeros(self.Num_Hei)
-            Ze = numpy.zeros(self.Num_Hei)
-            RR = numpy.zeros(self.Num_Hei)
-
-            Range = dataOut.heightList*1000.
-
-            for R in range(self.Num_Hei):
-
-                h = Range[R] + Altitude #Range from ground to radar pulse altitude
-                del_V[R] = 1 + 3.68 * 10**-5 * h + 1.71 * 10**-9 * h**2    #Density change correction for velocity
-
-                D_range[:,R] = numpy.log( (9.65 - (Velrange[0:self.Num_Bin] / del_V[R])) / 10.3 ) / -0.6 #Diameter range [m]x10**-3
-
-                '''NOTA: ETA(n) dn = ETA(f) df
-
-                    dn = 1     Diferencial de muestreo
-                    df = ETA(n) / ETA(f)
-
-                '''
-
-                ETAn[:,R] = RadarConstant * Pr[:,R] * (Range[R] )**2 #Reflectivity (ETA)
-
-                ETAv[:,R]=ETAn[:,R]/dV
-
-                ETAd[:,R]=ETAv[:,R]*6.18*exp(-0.6*D_range[:,R])
-
-                SIGMA[:,R] = Km * (D_range[:,R] * 1e-3 )**6 * numpy.pi**5 / Lambda**4      #Equivalent Section of drops (sigma)
-
-                N_dist[:,R] = ETAn[:,R] / SIGMA[:,R]
-
-                DMoments = self.Moments(Pr[:,R], Velrange[0:self.Num_Bin])
-
-                try:
-                    popt01,pcov = curve_fit(self.gaus, Velrange[0:self.Num_Bin] , Pr[:,R] , p0=DMoments)
-                except:
-                    popt01=numpy.zeros(3)
-                    popt01[1]= DMoments[1]
-
-                if popt01[1]<0 or popt01[1]>20:
-                    popt01[1]=numpy.NaN
-
-
-                V_mean[R]=popt01[1]
-
-                Z[R] = numpy.nansum( N_dist[:,R] * (D_range[:,R])**6 )#*10**-18
-
-                RR[R] = 0.0006*numpy.pi * numpy.nansum( D_range[:,R]**3 * N_dist[:,R] * Velrange[0:self.Num_Bin] ) #Rainfall rate
-
-                Ze[R] = (numpy.nansum( ETAn[:,R]) * Lambda**4) / ( 10**-18*numpy.pi**5 * Km)
-
-
-
-        RR2 = (Z/200)**(1/1.6)
-        dBRR = 10*numpy.log10(RR)
-        dBRR2 = 10*numpy.log10(RR2)
-
-        dBZe = 10*numpy.log10(Ze)
-        dBZ = 10*numpy.log10(Z)
+        # Censoring the data
+        # Removing data with SNRth < 0dB se debe considerar el SNR por canal
+        SNRth = 10**(-30/10) #-20dB
+        novalid = numpy.where((dataOut.data_SNR[0,:] <SNRth) | (dataOut.data_SNR[1,:] <SNRth) | (dataOut.data_SNR[2,:] <SNRth)) # AND condition. Maybe OR condition better
+        W = numpy.nanmean(dataOut.data_DOP,0)
+        W[novalid] = numpy.NaN
+        Ze_org[novalid] = numpy.NaN
+        RR[novalid] = numpy.NaN
 
         dataOut.data_output = RR[8]
         dataOut.data_param = numpy.ones([3,self.Num_Hei])
         dataOut.channelList = [0,1,2]
-
-        dataOut.data_param[0]=dBZ
-        dataOut.data_param[1]=V_mean
+        
+        dataOut.data_param[0]=10*numpy.log10(Ze_org)
+        dataOut.data_param[1]=W
         dataOut.data_param[2]=RR
-
         return dataOut
 
     def dBZeMODE2(self, dataOut): #    Processing for MIRA35C
@@ -784,7 +738,7 @@ class PrecipitationProc(Operation):
 
         ETA = numpy.sum(SNR,1)
 
-        ETA = numpy.where(ETA is not 0. , ETA, numpy.NaN)
+        ETA = numpy.where(ETA != 0. , ETA, numpy.NaN)
 
         Ze = numpy.ones([self.Num_Chn, self.Num_Hei] )
 
@@ -832,7 +786,7 @@ class FullSpectralAnalysis(Operation):
 
         Output:
 
-            self.dataOut.data_output :    Zonal wind, Meridional wind and Vertical wind
+            self.dataOut.data_output :    Zonal wind, Meridional wind, and Vertical wind
 
 
         Parameters affected:    Winds, height range, SNR
@@ -848,7 +802,7 @@ class FullSpectralAnalysis(Operation):
         """Erick: NOTE THE RANGE OF THE PULSE TX MUST BE REMOVED"""
 
         SNRspc = spc.copy()
-        SNRspc[:,:,0:7]= numpy.NaN
+        SNRspc[:,:,0:7]= numpy.NaN # D. Scipión... the cleaning should not be hardwired in the code... it needs to be flexible... NEEDS TO BE REMOVED
 
         """##########################################"""
 
@@ -920,7 +874,7 @@ class FullSpectralAnalysis(Operation):
                 velocityY=numpy.append(velocityY, numpy.NaN)
 
             if dbSNR[Height] > SNRlimit:
-                velocityV=numpy.append(velocityV, -Vver) # reason for this minus sign -> convention? (taken from Ericks version)
+                velocityV=numpy.append(velocityV, -Vver) # reason for this minus sign -> convention? (taken from Ericks version) D.S. yes!
             else:
                 velocityV=numpy.append(velocityV, numpy.NaN)
 
@@ -944,19 +898,12 @@ class FullSpectralAnalysis(Operation):
         return ( Amp / ((2*numpy.pi)**0.5 * Sigma) ) * numpy.exp( -( xSamples - Mu )**2 / ( 2 * (Sigma**2) ))
 
     def Moments(self, ySamples, xSamples):
-        '''***
-        Variables corresponding to moments of distribution.
-        Also used as initial coefficients for curve_fit.
-        Vr was corrected. Only a velocity when x is velocity, of course.
-        ***'''
-        Pot = numpy.nansum( ySamples )                                  # Potencia, momento 0
-        yNorm = ySamples / Pot
-        x_range = (numpy.max(xSamples)-numpy.min(xSamples))
-        Vr = numpy.nansum( yNorm * xSamples )*x_range/len(xSamples)     # Velocidad radial, mu, corrimiento doppler, primer momento
-        Sigma2 = abs(numpy.nansum( yNorm * ( xSamples - Vr )**2 ))      # Segundo Momento
-        Desv = Sigma2**0.5                                              # Desv. Estandar, Ancho espectral
-
-        return numpy.array([Pot, Vr, Desv])
+        Power = numpy.nanmean(ySamples)                                 # Power, 0th Moment
+        yNorm = ySamples / numpy.nansum(ySamples)
+        RadVel = numpy.nansum(xSamples * yNorm)                         # Radial Velocity, 1st Moment
+        Sigma2 = abs(numpy.nansum(yNorm * (xSamples - RadVel)**2))     # Spectral Width, 2nd Moment
+        StdDev = Sigma2**0.5                                            # Desv. Estandar, Ancho espectral
+        return numpy.array([Power,RadVel,StdDev])
 
     def StopWindEstimation(self, error_code):
         '''
@@ -1033,11 +980,12 @@ class FullSpectralAnalysis(Operation):
         PhaseInter = numpy.ones(spc.shape[0])                           # intercept to the slope of the phases, channelwise
         xFrec = AbbsisaRange[0][0:spc.shape[1]]                         # frequency range
         xVel = AbbsisaRange[2][0:spc.shape[1]]                          # velocity range
-        SPCav = numpy.average(spc, axis=0)-numpy.average(noise)         # spc[0]-noise[0]
+        SPCav = numpy.average(spc, axis=0)-numpy.average(noise)         # spc[0]-noise[0] %D.S. why??? I suggest only spc....
 
         SPCmoments_vel = self.Moments(SPCav, xVel )  # SPCmoments_vel[1] corresponds to vertical velocity and is used to determine if signal corresponds to wind (if .. <3)
+        # D.S. I suggest to each moment to be calculated independently, because the signal level y/o interferences are not the same in all channels and 
+        # signal or SNR seems to be contaminated
         CSPCmoments = []
-
 
         '''Getting Eij and Nij'''
 
@@ -1052,10 +1000,13 @@ class FullSpectralAnalysis(Operation):
         spc_norm = spc.copy() # need copy() because untouched spc is needed for normalization of cspc below
         spc_norm = numpy.where(numpy.isfinite(spc_norm), spc_norm, numpy.NAN)
 
+        # D. Scipión: It is necessary to define DeltaF or DeltaV... it is wrong to use Factor_Norm. It's constant... not a variable
+        
+        # For each channel
         for i in range(spc.shape[0]):
 
             spc_sub = spc_norm[i,:] - noise[i] # spc not smoothed here or in previous version.
-
+            # D. Scipión: Factor_Norm has to be replaced by DeltaF or DeltaV - It's a constant
             Factor_Norm = 2*numpy.max(xFrec) / numpy.count_nonzero(~numpy.isnan(spc_sub)) # usually = Freq range / nfft
             normalized_spc = spc_sub / (numpy.nansum(numpy.abs(spc_sub)) * Factor_Norm)
 
@@ -1111,6 +1062,8 @@ class FullSpectralAnalysis(Operation):
         '''
 
         radarWavelength = 0.6741 # meters
+        # D.S. This does not need to hardwired... It has to be in function of the radar frequency
+
         count_limit_freq = numpy.abs(popt[1]) + widthlimit # Hz, m/s can be also used if velocity is desired abscissa.
         # count_limit_freq = numpy.max(xFrec)
 
@@ -1393,13 +1346,13 @@ class SpectralMoments(Operation):
             max_spec = aux.max()
             m = aux.tolist().index(max_spec)
 
-            #Smooth
+            # Smooth
             if (smooth == 0):
                 spec2 = spec
             else:
                 spec2 = scipy.ndimage.filters.uniform_filter1d(spec,size=smooth)
 
-            #    Calculo de Momentos
+            # Moments Estimation
             bb = spec2[numpy.arange(m,spec2.size)]
             bb = (bb<n0).nonzero()
             bb = bb[0]
@@ -1425,14 +1378,17 @@ class SpectralMoments(Operation):
 
             valid = numpy.arange(int(m + bb0 - ss1 + 1)) + ss1
 
-            power = ((spec2[valid] - n0) * fwindow[valid]).sum()
+            signal_power = ((spec2[valid] - n0) * fwindow[valid]).mean()    # D. Scipión added with correct definition
+            total_power = (spec2[valid] * fwindow[valid]).mean()            # D. Scipión added with correct definition
+            power = ((spec2[valid] - n0) * fwindow[valid]).sum() 
             fd = ((spec2[valid]- n0)*freq[valid] * fwindow[valid]).sum() / power
             w = numpy.sqrt(((spec2[valid] - n0)*fwindow[valid]*(freq[valid]- fd)**2).sum() / power)
             snr = (spec2.mean()-n0)/n0
             if (snr < 1.e-20) :
                 snr = 1.e-20
 
-            vec_power[ind] = power
+            # vec_power[ind] = power    #D. Scipión replaced with the line below
+            vec_power[ind] = total_power
             vec_fd[ind] = fd
             vec_w[ind] = w
             vec_snr[ind] = snr
