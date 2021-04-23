@@ -27,7 +27,6 @@ import matplotlib.pyplot as plt
 
 SPEED_OF_LIGHT = 299792458
 
-
 '''solving pickling issue'''
 
 def _pickle_method(method):
@@ -223,56 +222,64 @@ class RemoveWideGC(Operation):
         self.ir = 0
     
     def run(self, dataOut, ClutterWidth=2.5):
+        # print ('Entering RemoveWideGC ... ')
 
         self.spc = dataOut.data_pre[0].copy()
         self.spc_out = dataOut.data_pre[0].copy()
         self.Num_Chn = self.spc.shape[0]
-        self.Num_Hei = self.spc.shape[1]
+        self.Num_Hei = self.spc.shape[2]
         VelRange = dataOut.spc_range[2][:-1]
         dv = VelRange[1]-VelRange[0]
 
         # Find the velocities that corresponds to zero
-        gc_values = numpy.where(numpy.abs(VelRange) <= ClutterWidth)
+        gc_values = numpy.squeeze(numpy.where(numpy.abs(VelRange) <= ClutterWidth))
 
         # Removing novalid data from the spectra
-        for ich in range(self.Num_Chn):
-            # Estimate the noise at aech range
-
-            for ir in range(self.Num_Hei):
-                # Estimate the noise at aech range
+        for ich in range(self.Num_Chn) :
+            for ir in range(self.Num_Hei) :
+                # Estimate the noise at each range
                 HSn = hildebrand_sekhon(self.spc[ich,:,ir],dataOut.nIncohInt)
+
                 # Removing the noise floor at each range
                 novalid = numpy.where(self.spc[ich,:,ir] < HSn)
-                self.spc[novalid,ir] = HSn
+                self.spc[ich,novalid,ir] = HSn
 
-                junk = [HSn, numpy.transpose(self.spc[ich,gc_values,ir]), HSn]
-                j1index = numpy.where(numpy.diff[junk]>0)
-                j2index = numpy.where(numpy.diff[junk]<0)
-                junk3 = numpy.diff(j1index)
-                junk4 = numpy.diff(j2index)
+                junk = numpy.append(numpy.insert(numpy.squeeze(self.spc[ich,gc_values,ir]),0,HSn),HSn)
+                j1index = numpy.squeeze(numpy.where(numpy.diff(junk)>0))
+                j2index = numpy.squeeze(numpy.where(numpy.diff(junk)<0))
+                if ((numpy.size(j1index)<=1) | (numpy.size(j2index)<=1)) : 
+                    continue
+                junk3 = numpy.squeeze(numpy.diff(j1index))
+                junk4 = numpy.squeeze(numpy.diff(j2index))
+                
+                valleyindex = j2index[numpy.where(junk4>1)]
+                peakindex = j1index[numpy.where(junk3>1)]
 
-                valleyindex = j2index[junk4>1]
-                peakindex = j1index[junk3>1]
-
-                # Identify the clutter (close to zero)
-                isvalid = numpy.where(where.abs(VelRange[gc_values[peakindex]]) <= 2.5*dv)
-                # if isempty(isvalid)
-                #     continue
-                # if numel(isvalid)>1
-                    # [~,vindex]= numpy.max(spc[gc_values[peakindex[isvalid]],ir])
-                    # isvalid = isvalid[vindex]
+                isvalid = numpy.squeeze(numpy.where(numpy.abs(VelRange[gc_values[peakindex]]) <= 2.5*dv))
+                if numpy.size(isvalid) == 0 :
+                    continue
+                if numpy.size(isvalid) >1 :
+                    vindex = numpy.argmax(self.spc[ich,gc_values[peakindex[isvalid]],ir])
+                    isvalid = isvalid[vindex]
+                
                 # clutter peak
                 gcpeak = peakindex[isvalid]
-                # left and right index of the clutter
-                gcvl = valleyindex[numpy.where(valleyindex < gcpeak, 1, 'last' )]
-                gcvr = valleyindex[numpy.where(valleyindex > gcpeak, 1)]
+                vl = numpy.where(valleyindex < gcpeak)
+                if numpy.size(vl) == 0:
+                    continue
+                gcvl = valleyindex[vl[0][-1]]
+                vr = numpy.where(valleyindex > gcpeak)
+                if numpy.size(vr) == 0:
+                    continue
+                gcvr = valleyindex[vr[0][0]]
 
                 # Removing the clutter
-                interpindex = [gc_values(gcvl), gc_values(gcvr)]
+                interpindex = numpy.array([gc_values[gcvl], gc_values[gcvr]])
                 gcindex = gc_values[gcvl+1:gcvr-1]
                 self.spc_out[ich,gcindex,ir] = numpy.interp(VelRange[gcindex],VelRange[interpindex],self.spc[ich,interpindex,ir])
 
         dataOut.data_pre[0] = self.spc_out
+        #print ('Leaving RemoveWideGC ... ')
         return dataOut
 
 class SpectralFilters(Operation):
@@ -297,14 +304,14 @@ class SpectralFilters(Operation):
         Operation.__init__(self)
         self.i = 0
     
-    def run(self, dataOut, PositiveLimit=1.5, NegativeLimit=-1.5):
+    def run(self, dataOut, ):
 
         self.spc = dataOut.data_pre[0].copy()
         self.Num_Chn = self.spc.shape[0]
         VelRange = dataOut.spc_range[2]
 
         # novalid corresponds to data within the Negative and PositiveLimit
-        novalid = numpy.where((VelRange[:-1] >= NegativeLimit) & (VelRange[:-1] <= PositiveLimit))
+        
 
         # Removing novalid data from the spectra
         for i in range(self.Num_Chn):
@@ -331,135 +338,186 @@ class GaussianFit(Operation):
         self.i=0
 
 
-    def run(self, dataOut, num_intg=7, pnoise=1., SNRlimit=-9): #num_intg: Incoherent integrations, pnoise: Noise, vel_arr: range of velocities, similar to the ftt points
+    # def run(self, dataOut, num_intg=7, pnoise=1., SNRlimit=-9): #num_intg: Incoherent integrations, pnoise: Noise, vel_arr: range of velocities, similar to the ftt points
+    def run(self, dataOut, SNRdBlimit=-9, method='generalized'):
         """This routine will find a couple of generalized Gaussians to a power spectrum
+        methods: generalized, squared
         input: spc
         output:
-            Amplitude0,shift0,width0,p0,Amplitude1,shift1,width1,p1,noise
+            noise, amplitude0,shift0,width0,p0,Amplitude1,shift1,width1,p1
         """
-
+        print ('Entering ',method,' double Gaussian fit')
         self.spc = dataOut.data_pre[0].copy()
         self.Num_Hei = self.spc.shape[2]
         self.Num_Bin = self.spc.shape[1]
         self.Num_Chn = self.spc.shape[0]
-        Vrange = dataOut.abscissaList
-
-        GauSPC = numpy.empty([self.Num_Chn,self.Num_Bin,self.Num_Hei])
-        SPC_ch1 = numpy.empty([self.Num_Bin,self.Num_Hei])
-        SPC_ch2 = numpy.empty([self.Num_Bin,self.Num_Hei])
-        SPC_ch1[:] = numpy.NaN
-        SPC_ch2[:] = numpy.NaN
-
 
         start_time = time.time()
 
-        noise_ = dataOut.spc_noise[0].copy()
-
-
         pool = Pool(processes=self.Num_Chn)
-        args = [(Vrange, Ch, pnoise, noise_, num_intg, SNRlimit) for Ch in range(self.Num_Chn)]
+        args = [(dataOut.spc_range[2], ich, dataOut.spc_noise[ich], dataOut.nIncohInt, SNRdBlimit) for ich in range(self.Num_Chn)]
         objs = [self for __ in range(self.Num_Chn)]
         attrs = list(zip(objs, args))
-        gauSPC = pool.map(target, attrs)
-        dataOut.SPCparam = numpy.asarray(SPCparam)
+        DGauFitParam = pool.map(target, attrs)
+        # Parameters:
+        # 0. Noise, 1. Amplitude, 2. Shift, 3. Width 4. Power
+        dataOut.DGauFitParams = numpy.asarray(DGauFitParam)
 
-        ''' Parameters:
-            1. Amplitude
-            2. Shift
-            3. Width
-            4. Power
-               '''
+        # Double Gaussian Curves
+        gau0 = numpy.zeros([self.Num_Chn,self.Num_Bin,self.Num_Hei])
+        gau0[:] = numpy.NaN
+        gau1 = numpy.zeros([self.Num_Chn,self.Num_Bin,self.Num_Hei])
+        gau1[:] = numpy.NaN
+        x_mtr = numpy.transpose(numpy.tile(dataOut.getVelRange(1)[:-1], (self.Num_Hei,1)))
+        for iCh in range(self.Num_Chn):
+            N0 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][0,:,0]] * self.Num_Bin))
+            N1 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][0,:,1]] * self.Num_Bin))
+            A0 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][1,:,0]] * self.Num_Bin))
+            A1 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][1,:,1]] * self.Num_Bin))
+            v0 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][2,:,0]] * self.Num_Bin))
+            v1 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][2,:,1]] * self.Num_Bin))
+            s0 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][3,:,0]] * self.Num_Bin))
+            s1 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][3,:,1]] * self.Num_Bin))
+            if method == 'genealized':
+                p0 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][4,:,0]] * self.Num_Bin))
+                p1 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][4,:,1]] * self.Num_Bin))
+            elif method == 'squared':
+                p0 = 2.
+                p1 = 2. 
+            gau0[iCh] = A0*numpy.exp(-0.5*numpy.abs((x_mtr-v0)/s0)**p0)+N0
+            gau1[iCh] = A1*numpy.exp(-0.5*numpy.abs((x_mtr-v1)/s1)**p1)+N1
+        dataOut.GaussFit0 = gau0
+        dataOut.GaussFit1 = gau1
+
+        print('Leaving ',method ,' double Gaussian fit')
+        return dataOut
 
     def FitGau(self, X):
+        # print('Entering FitGau')
+        # Assigning the variables
+        Vrange, ch, wnoise, num_intg, SNRlimit = X
+        # Noise Limits
+        noisebl = wnoise * 0.9
+        noisebh = wnoise * 1.1
+        # Radar Velocity
+        Va = max(Vrange)
+        deltav = Vrange[1] - Vrange[0]
+        x = numpy.arange(self.Num_Bin)
 
-        Vrange, ch, pnoise, noise_, num_intg, SNRlimit = X
+        # print ('stop 0')
 
-        SPCparam = []
-        SPC_ch1 = numpy.empty([self.Num_Bin,self.Num_Hei])
-        SPC_ch2 = numpy.empty([self.Num_Bin,self.Num_Hei])
-        SPC_ch1[:] = 0 #numpy.NaN
-        SPC_ch2[:] = 0 #numpy.NaN
+        # 5 parameters, 2 Gaussians
+        DGauFitParam = numpy.zeros([5, self.Num_Hei,2])
+        DGauFitParam[:] = numpy.NaN
 
-
-
+        # SPCparam = []
+        # SPC_ch1 = numpy.zeros([self.Num_Bin,self.Num_Hei])
+        # SPC_ch2 = numpy.zeros([self.Num_Bin,self.Num_Hei])
+        # SPC_ch1[:] = 0 #numpy.NaN
+        # SPC_ch2[:] = 0 #numpy.NaN
+        # print ('stop 1')
         for ht in range(self.Num_Hei):
-
-
+            # print (ht)
+            # print ('stop 2')
+            # Spectra at each range
             spc =  numpy.asarray(self.spc)[ch,:,ht]
+            snr = ( spc.mean() - wnoise ) / wnoise
+            snrdB = 10.*numpy.log10(snr)
 
+            #print ('stop 3')
+            if snrdB < SNRlimit :
+                # snr = numpy.NaN
+                # SPC_ch1[:,ht] = 0#numpy.NaN
+                # SPC_ch1[:,ht] = 0#numpy.NaN
+                # SPCparam = (SPC_ch1,SPC_ch2)
+                # print ('SNR less than SNRth')
+                continue
+            # wnoise = hildebrand_sekhon(spc,num_intg)
+            # print ('stop 2.01')
             #############################################
             # normalizing spc and noise
             # This part differs from gg1
-            spc_norm_max = max(spc)
+            # spc_norm_max = max(spc) #commented by D. Scipión 19.03.2021
             #spc = spc / spc_norm_max
-            pnoise = pnoise #/ spc_norm_max
+            # pnoise = pnoise #/ spc_norm_max #commented by D. Scipión 19.03.2021
             #############################################
 
+            # print ('stop 2.1')
             fatspectra=1.0
-
-            wnoise = noise_ #/ spc_norm_max
+            # noise per channel.... we might want to use the noise at each range
+            
+            # wnoise = noise_ #/ spc_norm_max #commented by D. Scipión 19.03.2021
                 #wnoise,stdv,i_max,index =enoise(spc,num_intg) #noise estimate using Hildebrand Sekhon, only wnoise is used
                 #if wnoise>1.1*pnoise: # to be tested later
                 #    wnoise=pnoise
-            noisebl=wnoise*0.9;
-            noisebh=wnoise*1.1
-            spc=spc-wnoise
+            # noisebl = wnoise*0.9
+            # noisebh = wnoise*1.1
+            spc = spc - wnoise # signal
 
-            minx=numpy.argmin(spc)
+            # print ('stop 2.2')
+            minx = numpy.argmin(spc)
             #spcs=spc.copy()
-            spcs=numpy.roll(spc,-minx)
-            cum=numpy.cumsum(spcs)
-            tot_noise=wnoise * self.Num_Bin  #64;
+            spcs = numpy.roll(spc,-minx)
+            cum = numpy.cumsum(spcs)
+            # tot_noise = wnoise * self.Num_Bin  #64;
 
-            snr = sum(spcs)/tot_noise
-            snrdB=10.*numpy.log10(snr)
-
-            if snrdB < SNRlimit :
-                snr = numpy.NaN
-                SPC_ch1[:,ht] = 0#numpy.NaN
-                SPC_ch1[:,ht] = 0#numpy.NaN
-                SPCparam = (SPC_ch1,SPC_ch2)
-                continue
+            # print ('stop 2.3')
+            # snr = sum(spcs) / tot_noise
+            # snrdB = 10.*numpy.log10(snr)
+            #print ('stop 3')
+            # if snrdB < SNRlimit :
+                # snr = numpy.NaN
+                # SPC_ch1[:,ht] = 0#numpy.NaN
+                # SPC_ch1[:,ht] = 0#numpy.NaN
+                # SPCparam = (SPC_ch1,SPC_ch2)
+                # print ('SNR less than SNRth')
+                # continue
 
 
             #if snrdB<-18 or numpy.isnan(snrdB) or num_intg<4:
             #    return [None,]*4,[None,]*4,None,snrdB,None,None,[None,]*5,[None,]*9,None
+            # print ('stop 4')
+            cummax = max(cum)
+            epsi = 0.08 * fatspectra # cumsum to narrow down the energy region
+            cumlo = cummax * epsi
+            cumhi = cummax * (1-epsi)
+            powerindex = numpy.array(numpy.where(numpy.logical_and(cum>cumlo, cum<cumhi))[0])
 
-            cummax=max(cum);
-            epsi=0.08*fatspectra # cumsum to narrow down the energy region
-            cumlo=cummax*epsi;
-            cumhi=cummax*(1-epsi)
-            powerindex=numpy.array(numpy.where(numpy.logical_and(cum>cumlo, cum<cumhi))[0])
-
-
+            # print ('stop 5')
             if len(powerindex) < 1:# case for powerindex 0
+                # print ('powerindex < 1')
                 continue
-            powerlo=powerindex[0]
-            powerhi=powerindex[-1]
-            powerwidth=powerhi-powerlo
+            powerlo = powerindex[0]
+            powerhi = powerindex[-1]
+            powerwidth = powerhi-powerlo
+            if powerwidth <= 1:
+                # print('powerwidth <= 1')
+                continue
+        
+            # print ('stop 6')
+            firstpeak = powerlo + powerwidth/10.# first gaussian energy location
+            secondpeak = powerhi - powerwidth/10. #second gaussian energy location
+            midpeak = (firstpeak + secondpeak)/2.
+            firstamp = spcs[int(firstpeak)]
+            secondamp = spcs[int(secondpeak)]
+            midamp = spcs[int(midpeak)]
 
-            firstpeak=powerlo+powerwidth/10.# first gaussian energy location
-            secondpeak=powerhi-powerwidth/10.#second gaussian energy location
-            midpeak=(firstpeak+secondpeak)/2.
-            firstamp=spcs[int(firstpeak)]
-            secondamp=spcs[int(secondpeak)]
-            midamp=spcs[int(midpeak)]
-
-            x=numpy.arange( self.Num_Bin )
-            y_data=spc+wnoise
+            y_data = spc + wnoise
 
             '''    single Gaussian    '''
-            shift0=numpy.mod(midpeak+minx, self.Num_Bin )
-            width0=powerwidth/4.#Initialization entire power of spectrum divided by 4
-            power0=2.
-            amplitude0=midamp
-            state0=[shift0,width0,amplitude0,power0,wnoise]
-            bnds=(( 0,(self.Num_Bin-1) ),(1,powerwidth),(0,None),(0.5,3.),(noisebl,noisebh))
-            lsq1=fmin_l_bfgs_b(self.misfit1,state0,args=(y_data,x,num_intg),bounds=bnds,approx_grad=True)
+            shift0 = numpy.mod(midpeak+minx, self.Num_Bin )
+            width0 = powerwidth/4.#Initialization entire power of spectrum divided by 4
+            power0 = 2.
+            amplitude0 = midamp
+            state0 = [shift0,width0,amplitude0,power0,wnoise]
+            bnds = ((0,self.Num_Bin-1),(1,powerwidth),(0,None),(0.5,3.),(noisebl,noisebh))
+            lsq1 = fmin_l_bfgs_b(self.misfit1, state0, args=(y_data,x,num_intg), bounds=bnds, approx_grad=True)
+            # print ('stop 7.1')
+            # print (bnds)
 
-            chiSq1=lsq1[1];
+            chiSq1=lsq1[1]
 
-
+            # print ('stop 8')
             if fatspectra<1.0 and powerwidth<4:
                     choice=0
                     Amplitude0=lsq1[0][2]
@@ -473,127 +531,142 @@ class GaussianFit(Operation):
                     noise=lsq1[0][4]
                     #return (numpy.array([shift0,width0,Amplitude0,p0]),
                     #        numpy.array([shift1,width1,Amplitude1,p1]),noise,snrdB,chiSq1,6.,sigmas1,[None,]*9,choice)
-
-            '''    two gaussians    '''
+            
+            # print ('stop 9')
+            '''    two Gaussians    '''
             #shift0=numpy.mod(firstpeak+minx,64); shift1=numpy.mod(secondpeak+minx,64)
-            shift0=numpy.mod(firstpeak+minx, self.Num_Bin );
-            shift1=numpy.mod(secondpeak+minx, self.Num_Bin )
-            width0=powerwidth/6.;
-            width1=width0
-            power0=2.;
-            power1=power0
-            amplitude0=firstamp;
-            amplitude1=secondamp
-            state0=[shift0,width0,amplitude0,power0,shift1,width1,amplitude1,power1,wnoise]
+            shift0 = numpy.mod(firstpeak+minx, self.Num_Bin )
+            shift1 = numpy.mod(secondpeak+minx, self.Num_Bin )
+            width0 = powerwidth/6.
+            width1 = width0
+            power0 = 2.
+            power1 = power0
+            amplitude0 = firstamp
+            amplitude1 = secondamp
+            state0 = [shift0,width0,amplitude0,power0,shift1,width1,amplitude1,power1,wnoise]
             #bnds=((0,63),(1,powerwidth/2.),(0,None),(0.5,3.),(0,63),(1,powerwidth/2.),(0,None),(0.5,3.),(noisebl,noisebh))
-            bnds=(( 0,(self.Num_Bin-1) ),(1,powerwidth/2.),(0,None),(0.5,3.),( 0,(self.Num_Bin-1)),(1,powerwidth/2.),(0,None),(0.5,3.),(noisebl,noisebh))
+            bnds=((0,self.Num_Bin-1),(1,powerwidth/2.),(0,None),(0.5,3.),(0,self.Num_Bin-1),(1,powerwidth/2.),(0,None),(0.5,3.),(noisebl,noisebh))
             #bnds=(( 0,(self.Num_Bin-1) ),(1,powerwidth/2.),(0,None),(0.5,3.),( 0,(self.Num_Bin-1)),(1,powerwidth/2.),(0,None),(0.5,3.),(0.1,0.5))
 
+            # print ('stop 10')
             lsq2 = fmin_l_bfgs_b( self.misfit2 , state0 , args=(y_data,x,num_intg) , bounds=bnds , approx_grad=True )
 
+            # print ('stop 11')
+            chiSq2 = lsq2[1]
 
-            chiSq2=lsq2[1];
+            # print ('stop 12')
 
+            oneG = (chiSq1<5 and chiSq1/chiSq2<2.0) and (abs(lsq2[0][0]-lsq2[0][4])<(lsq2[0][1]+lsq2[0][5])/3. or abs(lsq2[0][0]-lsq2[0][4])<10)
 
-
-            oneG=(chiSq1<5 and chiSq1/chiSq2<2.0) and (abs(lsq2[0][0]-lsq2[0][4])<(lsq2[0][1]+lsq2[0][5])/3. or abs(lsq2[0][0]-lsq2[0][4])<10)
-
+            # print ('stop 13')
             if snrdB>-12: # when SNR is strong pick the peak with least shift (LOS velocity) error
                 if oneG:
-                    choice=0
+                    choice = 0
                 else:
-                    w1=lsq2[0][1]; w2=lsq2[0][5]
-                    a1=lsq2[0][2]; a2=lsq2[0][6]
-                    p1=lsq2[0][3]; p2=lsq2[0][7]
-                    s1=(2**(1+1./p1))*scipy.special.gamma(1./p1)/p1;
-                    s2=(2**(1+1./p2))*scipy.special.gamma(1./p2)/p2;
-                    gp1=a1*w1*s1; gp2=a2*w2*s2 # power content of each ggaussian with proper p scaling
+                    w1 = lsq2[0][1]; w2 = lsq2[0][5]
+                    a1 = lsq2[0][2]; a2 = lsq2[0][6]
+                    p1 = lsq2[0][3]; p2 = lsq2[0][7]
+                    s1 = (2**(1+1./p1))*scipy.special.gamma(1./p1)/p1
+                    s2 = (2**(1+1./p2))*scipy.special.gamma(1./p2)/p2
+                    gp1 = a1*w1*s1; gp2 = a2*w2*s2 # power content of each ggaussian with proper p scaling
 
                     if gp1>gp2:
                         if a1>0.7*a2:
-                            choice=1
+                            choice = 1
                         else:
-                            choice=2
+                            choice = 2
                     elif gp2>gp1:
                         if a2>0.7*a1:
-                            choice=2
+                            choice = 2
                         else:
-                            choice=1
+                            choice = 1
                     else:
-                        choice=numpy.argmax([a1,a2])+1
+                        choice = numpy.argmax([a1,a2])+1
                         #else:
                         #choice=argmin([std2a,std2b])+1
 
             else: # with low SNR go to the most energetic peak
-                choice=numpy.argmax([lsq1[0][2]*lsq1[0][1],lsq2[0][2]*lsq2[0][1],lsq2[0][6]*lsq2[0][5]])
+                choice = numpy.argmax([lsq1[0][2]*lsq1[0][1],lsq2[0][2]*lsq2[0][1],lsq2[0][6]*lsq2[0][5]])
 
+            # print ('stop 14')
+            shift0 = lsq2[0][0]
+            vel0 = Vrange[0] + shift0 * deltav
+            shift1 = lsq2[0][4]
+            # vel1=Vrange[0] + shift1 * deltav
 
-            shift0=lsq2[0][0];
-            vel0=Vrange[0] + shift0*(Vrange[1]-Vrange[0])
-            shift1=lsq2[0][4];
-            vel1=Vrange[0] + shift1*(Vrange[1]-Vrange[0])
-
-            max_vel = 1.0
-
+            # max_vel = 1.0
+            # Va = max(Vrange)
+            # deltav = Vrange[1]-Vrange[0]
+            # print ('stop 15')
             #first peak will be 0, second peak will be 1
-            if vel0 > -1.0 and vel0 < max_vel : #first peak is in the correct range
-                shift0=lsq2[0][0]
-                width0=lsq2[0][1]
-                Amplitude0=lsq2[0][2]
-                p0=lsq2[0][3]
+            # if vel0 > -1.0 and vel0 < max_vel : #first peak is in the correct range # Commented by D.Scipión 19.03.2021
+            if vel0 > -Va and vel0 < Va : #first peak is in the correct range
+                shift0 = lsq2[0][0]
+                width0 = lsq2[0][1]
+                Amplitude0 = lsq2[0][2]
+                p0 = lsq2[0][3]
 
-                shift1=lsq2[0][4]
-                width1=lsq2[0][5]
-                Amplitude1=lsq2[0][6]
-                p1=lsq2[0][7]
-                noise=lsq2[0][8]
+                shift1 = lsq2[0][4]
+                width1 = lsq2[0][5]
+                Amplitude1 = lsq2[0][6]
+                p1 = lsq2[0][7]
+                noise = lsq2[0][8]
             else:
-                shift1=lsq2[0][0]
-                width1=lsq2[0][1]
-                Amplitude1=lsq2[0][2]
-                p1=lsq2[0][3]
+                shift1 = lsq2[0][0]
+                width1 = lsq2[0][1]
+                Amplitude1 = lsq2[0][2]
+                p1 = lsq2[0][3]
 
-                shift0=lsq2[0][4]
-                width0=lsq2[0][5]
-                Amplitude0=lsq2[0][6]
-                p0=lsq2[0][7]
-                noise=lsq2[0][8]
+                shift0 = lsq2[0][4]
+                width0 = lsq2[0][5]
+                Amplitude0 = lsq2[0][6]
+                p0 = lsq2[0][7]
+                noise = lsq2[0][8]
 
             if Amplitude0<0.05: # in case the peak is noise
-                shift0,width0,Amplitude0,p0 = [0,0,0,0]#4*[numpy.NaN]
+                shift0,width0,Amplitude0,p0 = 4*[numpy.NaN]
             if Amplitude1<0.05:
-                shift1,width1,Amplitude1,p1 = [0,0,0,0]#4*[numpy.NaN]
+                shift1,width1,Amplitude1,p1 = 4*[numpy.NaN]
 
+            # print ('stop 16 ') 
+            # SPC_ch1[:,ht] = noise + Amplitude0*numpy.exp(-0.5*(abs(x-shift0)/width0)**p0)
+            # SPC_ch2[:,ht] = noise + Amplitude1*numpy.exp(-0.5*(abs(x-shift1)/width1)**p1)
+            # SPCparam = (SPC_ch1,SPC_ch2)
 
-            SPC_ch1[:,ht] = noise + Amplitude0*numpy.exp(-0.5*(abs(x-shift0))/width0)**p0
-            SPC_ch2[:,ht] = noise + Amplitude1*numpy.exp(-0.5*(abs(x-shift1))/width1)**p1
-            SPCparam = (SPC_ch1,SPC_ch2)
+            DGauFitParam[0,ht,0] = noise
+            DGauFitParam[0,ht,1] = noise
+            DGauFitParam[1,ht,0] = Amplitude0
+            DGauFitParam[1,ht,1] = Amplitude1
+            DGauFitParam[2,ht,0] = Vrange[0] + shift0 * deltav
+            DGauFitParam[2,ht,1] = Vrange[0] + shift1 * deltav
+            DGauFitParam[3,ht,0] = width0 * deltav
+            DGauFitParam[3,ht,1] = width1 * deltav
+            DGauFitParam[4,ht,0] = p0
+            DGauFitParam[4,ht,1] = p1
 
-
-        return GauSPC
+        # print (DGauFitParam.shape)
+        # print ('Leaving FitGau')
+        return DGauFitParam
+        # return SPCparam
+        # return GauSPC
 
     def y_model1(self,x,state):
-        shift0,width0,amplitude0,power0,noise=state
-        model0=amplitude0*numpy.exp(-0.5*abs((x-shift0)/width0)**power0)
-
-        model0u=amplitude0*numpy.exp(-0.5*abs((x-shift0- self.Num_Bin )/width0)**power0)
-
-        model0d=amplitude0*numpy.exp(-0.5*abs((x-shift0+ self.Num_Bin )/width0)**power0)
-        return model0+model0u+model0d+noise
+        shift0, width0, amplitude0, power0, noise = state
+        model0 = amplitude0*numpy.exp(-0.5*abs((x - shift0)/width0)**power0)
+        model0u = amplitude0*numpy.exp(-0.5*abs((x - shift0 - self.Num_Bin)/width0)**power0)
+        model0d = amplitude0*numpy.exp(-0.5*abs((x - shift0 + self.Num_Bin)/width0)**power0)
+        return model0 + model0u + model0d + noise
 
     def y_model2(self,x,state): #Equation for two generalized Gaussians with Nyquist
-        shift0,width0,amplitude0,power0,shift1,width1,amplitude1,power1,noise=state
-        model0=amplitude0*numpy.exp(-0.5*abs((x-shift0)/width0)**power0)
-
-        model0u=amplitude0*numpy.exp(-0.5*abs((x-shift0- self.Num_Bin )/width0)**power0)
-
-        model0d=amplitude0*numpy.exp(-0.5*abs((x-shift0+ self.Num_Bin )/width0)**power0)
-        model1=amplitude1*numpy.exp(-0.5*abs((x-shift1)/width1)**power1)
-
-        model1u=amplitude1*numpy.exp(-0.5*abs((x-shift1- self.Num_Bin )/width1)**power1)
-
-        model1d=amplitude1*numpy.exp(-0.5*abs((x-shift1+ self.Num_Bin )/width1)**power1)
-        return model0+model0u+model0d+model1+model1u+model1d+noise
+        shift0, width0, amplitude0, power0, shift1, width1, amplitude1, power1, noise = state
+        model0 = amplitude0*numpy.exp(-0.5*abs((x-shift0)/width0)**power0)
+        model0u = amplitude0*numpy.exp(-0.5*abs((x - shift0 - self.Num_Bin)/width0)**power0)
+        model0d = amplitude0*numpy.exp(-0.5*abs((x - shift0 + self.Num_Bin)/width0)**power0)
+        
+        model1 = amplitude1*numpy.exp(-0.5*abs((x - shift1)/width1)**power1)
+        model1u = amplitude1*numpy.exp(-0.5*abs((x - shift1 - self.Num_Bin)/width1)**power1)
+        model1d = amplitude1*numpy.exp(-0.5*abs((x - shift1 + self.Num_Bin)/width1)**power1)
+        return model0 + model0u + model0d + model1 + model1u + model1d + noise
 
     def misfit1(self,state,y_data,x,num_intg): # This function compares how close real data is with the model data, the close it is, the better it is.
 
@@ -625,7 +698,9 @@ class PrecipitationProc(Operation):
         self.i=0
 
     def run(self, dataOut, radar=None, Pt=5000, Gt=295.1209, Gr=70.7945, Lambda=0.6741, aL=2.5118,
-            tauW=4e-06, ThetaT=0.1656317, ThetaR=0.36774087, Km2 = 0.93, Altitude=3350):
+            tauW=4e-06, ThetaT=0.1656317, ThetaR=0.36774087, Km2 = 0.93, Altitude=3350,SNRdBlimit=-30):
+
+        # print ('Entering PrecepitationProc ... ')
 
         if radar == "MIRA35C" :
 
@@ -673,7 +748,6 @@ class PrecipitationProc(Operation):
                 SignalPower[numpy.where(SignalPower < 0)] = 1e-20
 
             SPCmean = numpy.mean(SignalPower, 0)
-
             Pr = SPCmean[:,:]/dataOut.normFactor
 
             # Declaring auxiliary variables
@@ -708,9 +782,9 @@ class PrecipitationProc(Operation):
 
         # Censoring the data
         # Removing data with SNRth < 0dB se debe considerar el SNR por canal
-        SNRth = 10**(-30/10) #-20dB
-        novalid = numpy.where((dataOut.data_SNR[0,:] <SNRth) | (dataOut.data_SNR[1,:] <SNRth) | (dataOut.data_SNR[2,:] <SNRth)) # AND condition. Maybe OR condition better
-        W = numpy.nanmean(dataOut.data_DOP,0)
+        SNRth = 10**(SNRdBlimit/10) #-30dB
+        novalid = numpy.where((dataOut.data_snr[0,:] <SNRth) | (dataOut.data_snr[1,:] <SNRth) | (dataOut.data_snr[2,:] <SNRth)) # AND condition. Maybe OR condition better
+        W = numpy.nanmean(dataOut.data_dop,0)
         W[novalid] = numpy.NaN
         Ze_org[novalid] = numpy.NaN
         RR[novalid] = numpy.NaN
@@ -720,8 +794,10 @@ class PrecipitationProc(Operation):
         dataOut.channelList = [0,1,2]
         
         dataOut.data_param[0]=10*numpy.log10(Ze_org)
-        dataOut.data_param[1]=W
+        dataOut.data_param[1]=-W
         dataOut.data_param[2]=RR
+
+        # print ('Leaving PrecepitationProc ... ')
         return dataOut
 
     def dBZeMODE2(self, dataOut): #    Processing for MIRA35C
@@ -792,23 +868,11 @@ class FullSpectralAnalysis(Operation):
         Parameters affected:    Winds, height range, SNR
 
     """
-    def run(self, dataOut, Xi01=None, Xi02=None, Xi12=None, Eta01=None, Eta02=None, Eta12=None, SNRlimit=7, minheight=None, maxheight=None):
-
-        self.indice=int(numpy.random.rand()*1000)
+    def run(self, dataOut, Xi01=None, Xi02=None, Xi12=None, Eta01=None, Eta02=None, Eta12=None, SNRdBlimit=-30, 
+        minheight=None, maxheight=None, NegativeLimit=None, PositiveLimit=None):
 
         spc = dataOut.data_pre[0].copy()
         cspc = dataOut.data_pre[1]
-
-        """Erick: NOTE THE RANGE OF THE PULSE TX MUST BE REMOVED"""
-
-        SNRspc = spc.copy()
-        SNRspc[:,:,0:7]= numpy.NaN # D. Scipión... the cleaning should not be hardwired in the code... it needs to be flexible... NEEDS TO BE REMOVED
-
-        """##########################################"""
-
-
-        nChannel = spc.shape[0]
-        nProfiles = spc.shape[1]
         nHeights = spc.shape[2]
 
         # first_height = 0.75 #km (ref: data header 20170822)
@@ -835,112 +899,81 @@ class FullSpectralAnalysis(Operation):
         else:
             ChanDist = numpy.array([[Xi01, Eta01],[Xi02,Eta02],[Xi12,Eta12]])
 
-        FrecRange = dataOut.spc_range[0]
+        # 4 variables: zonal, meridional, vertical, and average SNR
+        data_param = numpy.zeros([4,nHeights]) * numpy.NaN
+        velocityX = numpy.zeros([nHeights]) * numpy.NaN
+        velocityY = numpy.zeros([nHeights]) * numpy.NaN
+        velocityZ = numpy.zeros([nHeights]) * numpy.NaN
 
-        data_SNR=numpy.zeros([nProfiles])
-        noise = dataOut.noise
-
-        dataOut.data_snr = (numpy.mean(SNRspc,axis=1)- noise[0]) / noise[0]
-
-        dataOut.data_snr[numpy.where( dataOut.data_snr <0 )] = 1e-20
-
-
-        data_output=numpy.ones([spc.shape[0],spc.shape[2]])*numpy.NaN
-
-        velocityX=[]
-        velocityY=[]
-        velocityV=[]
-
-        dbSNR = 10*numpy.log10(dataOut.data_snr)
-        dbSNR = numpy.average(dbSNR,0)
+        dbSNR = 10*numpy.log10(numpy.average(dataOut.data_snr,0))
 
         '''***********************************************WIND ESTIMATION**************************************'''
-
         for Height in range(nHeights):
 
             if Height >= range_min and Height < range_max:
-                # error_code unused, yet maybe useful for future analysis.
-                [Vzon,Vmer,Vver, error_code] = self.WindEstimation(spc[:,:,Height], cspc[:,:,Height], pairsList, ChanDist, Height, noise, dataOut.spc_range, dbSNR[Height], SNRlimit)
-            else:
-                Vzon,Vmer,Vver = 0., 0., numpy.NaN
+                # error_code will be useful in future analysis
+                [Vzon,Vmer,Vver, error_code] = self.WindEstimation(spc[:,:,Height], cspc[:,:,Height], pairsList, 
+                    ChanDist, Height, dataOut.noise, dataOut.spc_range, dbSNR[Height], SNRdBlimit, NegativeLimit, PositiveLimit,dataOut.frequency)
 
+            if abs(Vzon) < 100. and abs(Vmer) < 100.:
+                velocityX[Height] = Vzon
+                velocityY[Height] = -Vmer
+                velocityZ[Height] = Vver
+        
+        # Censoring data with SNR threshold
+        dbSNR [dbSNR < SNRdBlimit] = numpy.NaN
 
-            if abs(Vzon) < 100. and abs(Vzon) > 0. and abs(Vmer) < 100. and abs(Vmer) > 0.:
-                velocityX=numpy.append(velocityX, Vzon)
-                velocityY=numpy.append(velocityY, -Vmer)
-
-            else:
-                velocityX=numpy.append(velocityX, numpy.NaN)
-                velocityY=numpy.append(velocityY, numpy.NaN)
-
-            if dbSNR[Height] > SNRlimit:
-                velocityV=numpy.append(velocityV, -Vver) # reason for this minus sign -> convention? (taken from Ericks version) D.S. yes!
-            else:
-                velocityV=numpy.append(velocityV, numpy.NaN)
-
-
-        '''Change the numpy.array (velocityX) sign when trying to process BLTR data (Erick)'''
-        data_output[0] = numpy.array(velocityX)
-        data_output[1] = numpy.array(velocityY)
-        data_output[2] = velocityV
-
-
-        dataOut.data_output = data_output
-
+        data_param[0] = velocityX
+        data_param[1] = velocityY
+        data_param[2] = velocityZ
+        data_param[3] = dbSNR
+        dataOut.data_param = data_param
         return dataOut
-
 
     def moving_average(self,x, N=2):
         """ convolution for smoothenig data. note that last N-1 values are convolution with zeroes """
         return numpy.convolve(x, numpy.ones((N,))/N)[(N-1):]
 
     def gaus(self,xSamples,Amp,Mu,Sigma):
-        return ( Amp / ((2*numpy.pi)**0.5 * Sigma) ) * numpy.exp( -( xSamples - Mu )**2 / ( 2 * (Sigma**2) ))
+        return Amp * numpy.exp(-0.5*((xSamples - Mu)/Sigma)**2)
 
     def Moments(self, ySamples, xSamples):
         Power = numpy.nanmean(ySamples)                                 # Power, 0th Moment
         yNorm = ySamples / numpy.nansum(ySamples)
         RadVel = numpy.nansum(xSamples * yNorm)                         # Radial Velocity, 1st Moment
-        Sigma2 = abs(numpy.nansum(yNorm * (xSamples - RadVel)**2))     # Spectral Width, 2nd Moment
-        StdDev = Sigma2**0.5                                            # Desv. Estandar, Ancho espectral
+        Sigma2 = numpy.nansum(yNorm * (xSamples - RadVel)**2)      # Spectral Width, 2nd Moment
+        StdDev = numpy.sqrt(numpy.abs(Sigma2))                                            # Desv. Estandar, Ancho espectral
         return numpy.array([Power,RadVel,StdDev])
 
     def StopWindEstimation(self, error_code):
-        '''
-            the wind calculation and returns zeros
-        '''
-        Vzon = 0
-        Vmer = 0
-        Vver = numpy.nan
+        Vzon = numpy.NaN
+        Vmer = numpy.NaN
+        Vver = numpy.NaN
         return Vzon, Vmer, Vver, error_code
 
     def AntiAliasing(self, interval, maxstep):
         """
             function to prevent errors from aliased values when computing phaseslope
         """
-        antialiased = numpy.zeros(len(interval))*0.0
+        antialiased = numpy.zeros(len(interval))
         copyinterval = interval.copy()
 
         antialiased[0] = copyinterval[0]
 
         for i in range(1,len(antialiased)):
-
             step = interval[i] - interval[i-1]
-
             if step > maxstep:
                 copyinterval -= 2*numpy.pi
                 antialiased[i] = copyinterval[i]
-
             elif step < maxstep*(-1):
                 copyinterval += 2*numpy.pi
                 antialiased[i] = copyinterval[i]
-
             else:
                 antialiased[i] = copyinterval[i].copy()
 
         return antialiased
 
-    def WindEstimation(self, spc, cspc, pairsList, ChanDist, Height, noise, AbbsisaRange, dbSNR, SNRlimit):
+    def WindEstimation(self, spc, cspc, pairsList, ChanDist, Height, noise, AbbsisaRange, dbSNR, SNRlimit, NegativeLimit, PositiveLimit, radfreq):
         """
             Function that Calculates Zonal, Meridional and Vertical wind velocities.
             Initial Version by E. Bocanegra updated by J. Zibell until Nov. 2019.
@@ -972,46 +1005,40 @@ class FullSpectralAnalysis(Operation):
 
         error_code = 0
 
+        nChan = spc.shape[0]
+        nProf = spc.shape[1]
+        nPair = cspc.shape[0]
 
-        SPC_Samples = numpy.ones([spc.shape[0],spc.shape[1]])           # for normalized spc values for one height
-        phase = numpy.ones([spc.shape[0],spc.shape[1]])                 # phase between channels
-        CSPC_Samples = numpy.ones([spc.shape[0],spc.shape[1]],dtype=numpy.complex_)      # for normalized cspc values
-        PhaseSlope = numpy.zeros(spc.shape[0])                          # slope of the phases, channelwise
-        PhaseInter = numpy.ones(spc.shape[0])                           # intercept to the slope of the phases, channelwise
-        xFrec = AbbsisaRange[0][0:spc.shape[1]]                         # frequency range
-        xVel = AbbsisaRange[2][0:spc.shape[1]]                          # velocity range
-        SPCav = numpy.average(spc, axis=0)-numpy.average(noise)         # spc[0]-noise[0] %D.S. why??? I suggest only spc....
+        SPC_Samples = numpy.zeros([nChan, nProf])           # for normalized spc values for one height
+        CSPC_Samples = numpy.zeros([nPair, nProf], dtype=numpy.complex_)      # for normalized cspc values
+        phase = numpy.zeros([nPair, nProf])                 # phase between channels
+        PhaseSlope = numpy.zeros(nPair)                     # slope of the phases, channelwise
+        PhaseInter = numpy.zeros(nPair)                     # intercept to the slope of the phases, channelwise
+        xFrec = AbbsisaRange[0][:-1]                        # frequency range
+        xVel = AbbsisaRange[2][:-1]                         # velocity range
+        xSamples = xFrec                                    # the frequency range is taken
+        delta_x = xSamples[1] - xSamples[0]                 # delta_f or delta_x
 
-        SPCmoments_vel = self.Moments(SPCav, xVel )  # SPCmoments_vel[1] corresponds to vertical velocity and is used to determine if signal corresponds to wind (if .. <3)
-        # D.S. I suggest to each moment to be calculated independently, because the signal level y/o interferences are not the same in all channels and 
-        # signal or SNR seems to be contaminated
-        CSPCmoments = []
+        # only consider velocities with in NegativeLimit and PositiveLimit 
+        if (NegativeLimit is None):
+            NegativeLimit = numpy.min(xVel)
+        if (PositiveLimit is None):
+            PositiveLimit = numpy.max(xVel)
+        xvalid = numpy.where((xVel > NegativeLimit) & (xVel < PositiveLimit))
+        xSamples_zoom = xSamples[xvalid]
 
         '''Getting Eij and Nij'''
-
         Xi01, Xi02, Xi12 = ChanDist[:,0]
         Eta01, Eta02, Eta12 = ChanDist[:,1]
 
-        # update nov 19
-        widthlimit = 7 # maximum width in Hz of the gaussian, empirically determined. Anything above 10 is unrealistic, often values between 1 and 5 correspond to proper fits.
-
+        # spwd limit - updated by D. Scipión 30.03.2021
+        widthlimit = 10
         '''************************* SPC is normalized ********************************'''
-
-        spc_norm = spc.copy() # need copy() because untouched spc is needed for normalization of cspc below
-        spc_norm = numpy.where(numpy.isfinite(spc_norm), spc_norm, numpy.NAN)
-
-        # D. Scipión: It is necessary to define DeltaF or DeltaV... it is wrong to use Factor_Norm. It's constant... not a variable
-        
+        spc_norm = spc.copy() 
         # For each channel
-        for i in range(spc.shape[0]):
-
-            spc_sub = spc_norm[i,:] - noise[i] # spc not smoothed here or in previous version.
-            # D. Scipión: Factor_Norm has to be replaced by DeltaF or DeltaV - It's a constant
-            Factor_Norm = 2*numpy.max(xFrec) / numpy.count_nonzero(~numpy.isnan(spc_sub)) # usually = Freq range / nfft
-            normalized_spc = spc_sub / (numpy.nansum(numpy.abs(spc_sub)) * Factor_Norm)
-
-            xSamples = xFrec                   # the frequency range is taken
-            SPC_Samples[i] = normalized_spc             # Normalized SPC values are taken
+        for i in range(nChan):
+            spc_sub = spc_norm[i,:] - noise[i]  # only the signal power
+            SPC_Samples[i] = spc_sub / (numpy.nansum(spc_sub) * delta_x)
 
         '''********************** FITTING MEAN SPC GAUSSIAN **********************'''
 
@@ -1025,30 +1052,26 @@ class FullSpectralAnalysis(Operation):
             due to subtraction of the noise, some values are below zero. Raw "spc" values should be
             >= 0, as it is the modulus squared of the signals (complex * it's conjugate)
         """
+        # initial conditions
+        popt = [1e-10,0,1e-10] 
+        # Spectra average
+        SPCMean = numpy.average(SPC_Samples,0) 
+        # Moments in frequency
+        SPCMoments = self.Moments(SPCMean[xvalid], xSamples_zoom)
 
-        SPCMean = numpy.average(SPC_Samples, axis=0)
-
-        popt = [1e-10,0,1e-10]
-        SPCMoments = self.Moments(SPCMean, xSamples)
-
-        if dbSNR > SNRlimit and numpy.abs(SPCmoments_vel[1]) < 3:
+        # Gauss Fit SPC in frequency domain
+        if dbSNR > SNRlimit: # only if SNR > SNRth
             try:
-                popt,pcov = curve_fit(self.gaus,xSamples,SPCMean,p0=SPCMoments)#, bounds=(-numpy.inf, [numpy.inf, numpy.inf, 10])). Setting bounds does not make the code faster but only keeps the fit from finding the minimum.
-                if popt[2] > widthlimit: # CONDITION
+                popt,pcov = curve_fit(self.gaus,xSamples_zoom,SPCMean[xvalid],p0=SPCMoments)
+                if popt[2] <= 0 or popt[2] > widthlimit: # CONDITION
                     return self.StopWindEstimation(error_code = 1)
-
-                FitGauss = self.gaus(xSamples,*popt)
-
+                FitGauss = self.gaus(xSamples_zoom,*popt)
             except :#RuntimeError:
                 return self.StopWindEstimation(error_code = 2)
-
         else:
             return self.StopWindEstimation(error_code = 3)
 
-
-
         '''***************************** CSPC Normalization *************************
-            new  section:
                 The Spc spectra are used to normalize the crossspectra. Peaks from precipitation
                 influence the norm which is not desired. First, a range is identified where the
                 wind peak is estimated -> sum_wind is sum of those frequencies. Next, the area
@@ -1060,160 +1083,81 @@ class FullSpectralAnalysis(Operation):
 
                 A norm is found according to Briggs 92.
         '''
-
-        radarWavelength = 0.6741 # meters
-        # D.S. This does not need to hardwired... It has to be in function of the radar frequency
-
-        count_limit_freq = numpy.abs(popt[1]) + widthlimit # Hz, m/s can be also used if velocity is desired abscissa.
-        # count_limit_freq = numpy.max(xFrec)
-
-        channel_integrals = numpy.zeros(3)
-
-        for i in range(spc.shape[0]):
-            '''
-                find the point in array corresponding to count_limit frequency.
-                sum over all frequencies in the range around zero Hz @ math.ceil(N_freq/2)
-            '''
-            N_freq = numpy.count_nonzero(~numpy.isnan(spc[i,:]))
-            count_limit_int = int(math.ceil( count_limit_freq / numpy.max(xFrec) * (N_freq / 2)  )) # gives integer point
-            sum_wind = numpy.nansum( spc[i, (math.ceil(N_freq/2) - count_limit_int) : (math.ceil(N_freq / 2) + count_limit_int)] ) #N_freq/2 is where frequency (velocity) is zero, i.e. middle of spectrum.
-            sum_noise = (numpy.mean(spc[i, :4]) + numpy.mean(spc[i, -6:-2]))/2.0 * (N_freq - 2*count_limit_int)
-            channel_integrals[i] = (sum_noise + sum_wind) * (2*numpy.max(xFrec) / N_freq)
-
-
-        cross_integrals_peak = numpy.zeros(3)
-        # cross_integrals_totalrange = numpy.zeros(3)
-
-        for i in range(spc.shape[0]):
-
-            cspc_norm = cspc[i,:].copy()    # cspc not smoothed here or in previous version
-
+        # for each pair
+        for i in range(nPair):
+            cspc_norm = cspc[i,:].copy()
             chan_index0 = pairsList[i][0]
             chan_index1 = pairsList[i][1]
-
-            cross_integrals_peak[i] = channel_integrals[chan_index0]*channel_integrals[chan_index1]
-            normalized_cspc = cspc_norm / numpy.sqrt(cross_integrals_peak[i])
-            CSPC_Samples[i] = normalized_cspc
-
-            ''' Finding cross integrals without subtracting any peaks:'''
-            # FactorNorm0 = 2*numpy.max(xFrec) / numpy.count_nonzero(~numpy.isnan(spc[chan_index0,:]))
-            # FactorNorm1 = 2*numpy.max(xFrec) / numpy.count_nonzero(~numpy.isnan(spc[chan_index1,:]))
-            # cross_integrals_totalrange[i] = (numpy.nansum(spc[chan_index0,:])) * FactorNorm0  *  (numpy.nansum(spc[chan_index1,:])) * FactorNorm1
-            # normalized_cspc = cspc_norm / numpy.sqrt(cross_integrals_totalrange[i])
-            # CSPC_Samples[i] = normalized_cspc
-
-
+            CSPC_Samples[i] = cspc_norm / (numpy.sqrt(numpy.nansum(spc_norm[chan_index0])*numpy.nansum(spc_norm[chan_index1])) * delta_x)
             phase[i] = numpy.arctan2(CSPC_Samples[i].imag, CSPC_Samples[i].real)
 
+        CSPCmoments = numpy.vstack([self.Moments(numpy.abs(CSPC_Samples[0,xvalid]), xSamples_zoom),
+                                    self.Moments(numpy.abs(CSPC_Samples[1,xvalid]), xSamples_zoom),
+                                    self.Moments(numpy.abs(CSPC_Samples[2,xvalid]), xSamples_zoom)])
 
-        CSPCmoments = numpy.vstack([self.Moments(numpy.abs(CSPC_Samples[0]), xSamples),
-                                    self.Moments(numpy.abs(CSPC_Samples[1]), xSamples),
-                                    self.Moments(numpy.abs(CSPC_Samples[2]), xSamples)])
-
-
-        '''***Sorting out NaN entries***'''
-        CSPCMask01 = numpy.abs(CSPC_Samples[0])
-        CSPCMask02 = numpy.abs(CSPC_Samples[1])
-        CSPCMask12 = numpy.abs(CSPC_Samples[2])
-
-        mask01 = ~numpy.isnan(CSPCMask01)
-        mask02 = ~numpy.isnan(CSPCMask02)
-        mask12 = ~numpy.isnan(CSPCMask12)
-
-        CSPCMask01 = CSPCMask01[mask01]
-        CSPCMask02 = CSPCMask02[mask02]
-        CSPCMask12 = CSPCMask12[mask12]
-
-
-        popt01, popt02, popt12 = [1e-10,1e-10,1e-10], [1e-10,1e-10,1e-10] ,[1e-10,1e-10,1e-10]
-        FitGauss01, FitGauss02, FitGauss12 = numpy.empty(len(xSamples))*0, numpy.empty(len(xSamples))*0, numpy.empty(len(xSamples))*0
+        popt01, popt02, popt12 = [1e-10,0,1e-10], [1e-10,0,1e-10] ,[1e-10,0,1e-10]
+        FitGauss01, FitGauss02, FitGauss12 = numpy.zeros(len(xSamples)), numpy.zeros(len(xSamples)), numpy.zeros(len(xSamples))
 
         '''*******************************FIT GAUSS CSPC************************************'''
-
         try:
-            popt01,pcov = curve_fit(self.gaus,xSamples[mask01],numpy.abs(CSPCMask01),p0=CSPCmoments[0])
+            popt01,pcov = curve_fit(self.gaus,xSamples_zoom,numpy.abs(CSPC_Samples[0][xvalid]),p0=CSPCmoments[0])
             if popt01[2] > widthlimit: # CONDITION
                 return self.StopWindEstimation(error_code = 4)
-
-            popt02,pcov = curve_fit(self.gaus,xSamples[mask02],numpy.abs(CSPCMask02),p0=CSPCmoments[1])
+            popt02,pcov = curve_fit(self.gaus,xSamples_zoom,numpy.abs(CSPC_Samples[1][xvalid]),p0=CSPCmoments[1])
             if popt02[2] > widthlimit: # CONDITION
                 return self.StopWindEstimation(error_code = 4)
-
-            popt12,pcov = curve_fit(self.gaus,xSamples[mask12],numpy.abs(CSPCMask12),p0=CSPCmoments[2])
+            popt12,pcov = curve_fit(self.gaus,xSamples_zoom,numpy.abs(CSPC_Samples[2][xvalid]),p0=CSPCmoments[2])
             if popt12[2] > widthlimit: # CONDITION
                 return self.StopWindEstimation(error_code = 4)
 
-            FitGauss01 = self.gaus(xSamples, *popt01)
-            FitGauss02 = self.gaus(xSamples, *popt02)
-            FitGauss12 = self.gaus(xSamples, *popt12)
-
+            FitGauss01 = self.gaus(xSamples_zoom, *popt01)
+            FitGauss02 = self.gaus(xSamples_zoom, *popt02)
+            FitGauss12 = self.gaus(xSamples_zoom, *popt12)
         except:
             return self.StopWindEstimation(error_code = 5)
 
 
         '''************* Getting Fij ***************'''
-
-
-        #Punto en Eje X de la Gaussiana donde se encuentra el centro -- x-axis point of the gaussian where the center is located
-        # -> PointGauCenter
+        # x-axis point of the gaussian where the center is located from GaussFit of spectra
         GaussCenter = popt[1]
-        ClosestCenter = xSamples[numpy.abs(xSamples-GaussCenter).argmin()]
-        PointGauCenter = numpy.where(xSamples==ClosestCenter)[0][0]
+        ClosestCenter = xSamples_zoom[numpy.abs(xSamples_zoom-GaussCenter).argmin()]
+        PointGauCenter = numpy.where(xSamples_zoom==ClosestCenter)[0][0]
 
-        #Punto e^-1 hubicado en la Gaussiana  -- point where e^-1 is located in the gaussian
+        # Point where e^-1 is located in the gaussian
         PeMinus1 = numpy.max(FitGauss) * numpy.exp(-1)
-        FijClosest = FitGauss[numpy.abs(FitGauss-PeMinus1).argmin()] # El punto mas cercano a "Peminus1" dentro de "FitGauss"
+        FijClosest = FitGauss[numpy.abs(FitGauss-PeMinus1).argmin()] # The closest point to"Peminus1" in "FitGauss"
         PointFij = numpy.where(FitGauss==FijClosest)[0][0]
-
-        Fij = numpy.abs(xSamples[PointFij] - xSamples[PointGauCenter])
+        Fij = numpy.abs(xSamples_zoom[PointFij] - xSamples_zoom[PointGauCenter])
 
         '''********** Taking frequency ranges from mean SPCs **********'''
-
-        #GaussCenter = popt[1]     #Primer momento 01
-        GauWidth = popt[2] * 3/2        #Ancho de banda de Gau01 -- Bandwidth of Gau01 TODO why *3/2?
+        GauWidth = popt[2] * 3/2        # Bandwidth of Gau01
         Range = numpy.empty(2)
         Range[0] = GaussCenter - GauWidth
         Range[1] = GaussCenter + GauWidth
-        #Punto en Eje X de la Gaussiana donde se encuentra ancho de banda (min:max) -- Point in x-axis where the bandwidth is located (min:max)
-        ClosRangeMin = xSamples[numpy.abs(xSamples-Range[0]).argmin()]
-        ClosRangeMax = xSamples[numpy.abs(xSamples-Range[1]).argmin()]
-
-        PointRangeMin = numpy.where(xSamples==ClosRangeMin)[0][0]
-        PointRangeMax = numpy.where(xSamples==ClosRangeMax)[0][0]
-
+        # Point in x-axis where the bandwidth is located (min:max)
+        ClosRangeMin = xSamples_zoom[numpy.abs(xSamples_zoom-Range[0]).argmin()]
+        ClosRangeMax = xSamples_zoom[numpy.abs(xSamples_zoom-Range[1]).argmin()]
+        PointRangeMin = numpy.where(xSamples_zoom==ClosRangeMin)[0][0]
+        PointRangeMax = numpy.where(xSamples_zoom==ClosRangeMax)[0][0]
         Range = numpy.array([ PointRangeMin, PointRangeMax ])
-
-        FrecRange = xFrec[ Range[0] : Range[1] ]
-
+        FrecRange = xSamples_zoom[ Range[0] : Range[1] ]
 
         '''************************** Getting Phase Slope ***************************'''
-
-        for i in range(1,3): # Changed to only compute two
-
-            if len(FrecRange) > 5 and len(FrecRange) < spc.shape[1] * 0.3:
-                # PhaseRange=self.moving_average(phase[i,Range[0]:Range[1]],N=1)  #used before to smooth phase with N=3
-                PhaseRange = phase[i,Range[0]:Range[1]].copy()
-
+        for i in range(nPair):
+            if len(FrecRange) > 5:
+                PhaseRange = phase[i, xvalid[0][Range[0]:Range[1]]].copy()
                 mask = ~numpy.isnan(FrecRange) & ~numpy.isnan(PhaseRange)
-
-
                 if len(FrecRange) == len(PhaseRange):
-
                     try:
                         slope, intercept, _, _, _ = stats.linregress(FrecRange[mask], self.AntiAliasing(PhaseRange[mask], 4.5))
                         PhaseSlope[i] = slope
                         PhaseInter[i] = intercept
-
                     except:
                         return self.StopWindEstimation(error_code = 6)
-
                 else:
                     return self.StopWindEstimation(error_code = 7)
-
             else:
                 return self.StopWindEstimation(error_code = 8)
-
-
 
         '''*** Constants A-H correspond to the convention as in Briggs and Vincent 1992 ***'''
 
@@ -1222,9 +1166,12 @@ class FullSpectralAnalysis(Operation):
 
         '''****** Getting constants F and G ******'''
         MijEijNij = numpy.array([[Xi02,Eta02], [Xi12,Eta12]])
-        MijResult0 = (-PhaseSlope[1] * cC) / (2*numpy.pi)
-        MijResult1 = (-PhaseSlope[2] * cC) / (2*numpy.pi)
-        MijResults = numpy.array([MijResult0,MijResult1])
+        # MijEijNij = numpy.array([[Xi01,Eta01], [Xi02,Eta02], [Xi12,Eta12]])
+        # MijResult0 = (-PhaseSlope[0] * cC) / (2*numpy.pi)
+        MijResult1 = (-PhaseSlope[1] * cC) / (2*numpy.pi)
+        MijResult2 = (-PhaseSlope[2] * cC) / (2*numpy.pi)
+        # MijResults = numpy.array([MijResult0, MijResult1, MijResult2])
+        MijResults = numpy.array([MijResult1, MijResult2])
         (cF,cG) = numpy.linalg.solve(MijEijNij, MijResults)
 
         '''****** Getting constants A, B and H ******'''
@@ -1232,38 +1179,21 @@ class FullSpectralAnalysis(Operation):
         W02 = numpy.nanmax( FitGauss02 )
         W12 = numpy.nanmax( FitGauss12 )
 
-        WijResult0 = ((cF * Xi01 + cG * Eta01)**2)/cC - numpy.log(W01 / numpy.sqrt(numpy.pi / cC))
-        WijResult1 = ((cF * Xi02 + cG * Eta02)**2)/cC - numpy.log(W02 / numpy.sqrt(numpy.pi / cC))
-        WijResult2 = ((cF * Xi12 + cG * Eta12)**2)/cC - numpy.log(W12 / numpy.sqrt(numpy.pi / cC))
-
-        WijResults = numpy.array([WijResult0, WijResult1, WijResult2])
+        WijResult01 = ((cF * Xi01 + cG * Eta01)**2)/cC - numpy.log(W01 / numpy.sqrt(numpy.pi / cC))
+        WijResult02 = ((cF * Xi02 + cG * Eta02)**2)/cC - numpy.log(W02 / numpy.sqrt(numpy.pi / cC))
+        WijResult12 = ((cF * Xi12 + cG * Eta12)**2)/cC - numpy.log(W12 / numpy.sqrt(numpy.pi / cC))
+        WijResults = numpy.array([WijResult01, WijResult02, WijResult12])
 
         WijEijNij = numpy.array([ [Xi01**2, Eta01**2, 2*Xi01*Eta01] , [Xi02**2, Eta02**2, 2*Xi02*Eta02] , [Xi12**2, Eta12**2, 2*Xi12*Eta12] ])
         (cA,cB,cH) = numpy.linalg.solve(WijEijNij, WijResults)
 
         VxVy = numpy.array([[cA,cH],[cH,cB]])
         VxVyResults = numpy.array([-cF,-cG])
-        (Vx,Vy) = numpy.linalg.solve(VxVy, VxVyResults)
-
-        Vzon = Vy
-        Vmer = Vx
-
-        # Vmag=numpy.sqrt(Vzon**2+Vmer**2) # unused
-        # Vang=numpy.arctan2(Vmer,Vzon)   # unused
-
-
-        ''' using frequency as abscissa. Due to three channels, the offzenith angle is zero
-            and Vrad equal to Vver. formula taken from Briggs 92, figure 4.
-        '''
-        if numpy.abs( popt[1] ) < 3.5 and len(FrecRange) > 4:
-            Vver = 0.5 * radarWavelength * popt[1] * 100 # *100 to get cm (/s)
-        else:
-            Vver = numpy.NaN
-
+        (Vmer,Vzon) = numpy.linalg.solve(VxVy, VxVyResults)
+        Vver =  -SPCMoments[1]*SPEED_OF_LIGHT/(2*radfreq)
         error_code = 0
 
         return Vzon, Vmer, Vver, error_code
-
 
 class SpectralMoments(Operation):
 
