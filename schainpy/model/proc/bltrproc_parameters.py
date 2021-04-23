@@ -68,12 +68,23 @@ class BLTRParametersProc(ProcessingUnit):
         self.dataOut.data_param = self.dataOut.data[mode]
         self.dataOut.heightList = self.dataOut.height[0]
         self.dataOut.data_snr = self.dataOut.data_snr[mode]
+        
+        data_param = numpy.zeros([4, len(self.dataOut.heightList)])
 
+        SNRavg = numpy.average(self.dataOut.data_snr, axis=0)
+        SNRavgdB = 10*numpy.log10(SNRavg)
+        # Censoring Data
         if snr_threshold is not None:
-            SNRavg = numpy.average(self.dataOut.data_snr, axis=0)
-            SNRavgdB = 10*numpy.log10(SNRavg)
             for i in range(3):
                 self.dataOut.data_param[i][SNRavgdB <= snr_threshold] = numpy.nan
+        # Including AvgSNR in data_param
+        for i in range(data_param.shape[0]):
+            if i == 3:
+                data_param[i] = SNRavgdB
+            else:
+                data_param[i] = self.dataOut.data_param[i]
+
+        self.dataOut.data_param = data_param
 
 # TODO
 
