@@ -3,7 +3,7 @@ import datetime
 import numpy
 
 from schainpy.model.graphics.jroplot_base import Plot, plt
-from schainpy.model.graphics.jroplot_spectra import SpectraPlot, RTIPlot, CoherencePlot
+from schainpy.model.graphics.jroplot_spectra import SpectraPlot, RTIPlot, CoherencePlot, SpectraCutPlot
 from schainpy.utils import log
 
 EARTH_RADIUS = 6.3710e3
@@ -35,9 +35,22 @@ class SpectralMomentsPlot(SpectraPlot):
     Plot for Spectral Moments
     '''
     CODE = 'spc_moments'
-    colormap = 'jet'
-    plot_type = 'pcolor'
+    # colormap = 'jet'
+    # plot_type = 'pcolor'
 
+class DobleGaussianPlot(SpectraPlot):
+    '''
+    Plot for Double Gaussian Plot
+    '''
+    CODE = 'gaussian_fit'
+    # colormap = 'jet'
+    # plot_type = 'pcolor'
+
+class DoubleGaussianSpectraCutPlot(SpectraCutPlot):
+    '''
+    Plot SpectraCut with Double Gaussian Fit
+    '''
+    CODE = 'cut_gaussian_fit'
 
 class SnrPlot(RTIPlot):
     '''
@@ -82,7 +95,7 @@ class PowerPlot(RTIPlot):
     def update(self, dataOut):
 
         data = {
-            'pow': 10*numpy.log10(dataOut.data_pow)    
+            'pow': 10*numpy.log10(dataOut.data_pow/dataOut.normFactor)    
         }
 
         return data, {}
@@ -170,7 +183,7 @@ class GenericRTIPlot(Plot):
         if not self.xlabel:
             self.xlabel = 'Time'
 
-        self.ylabel = 'Height [km]'
+        self.ylabel = 'Range [km]'
         if not self.titles:
             self.titles = self.data.parameters \
                 if self.data.parameters else ['Param {}'.format(x) for x in range(self.nrows)]
