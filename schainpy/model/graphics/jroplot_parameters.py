@@ -172,8 +172,7 @@ class GenericRTIPlot(Plot):
 
         self.ylabel = 'Height [km]'
         if not self.titles:
-            self.titles = self.data.parameters \
-                if self.data.parameters else ['Param {}'.format(x) for x in range(self.nrows)]
+            self.titles = ['Param {}'.format(x) for x in range(self.nrows)]
 
     def update(self, dataOut):
 

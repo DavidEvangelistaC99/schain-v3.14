@@ -1,16 +1,8 @@
 import os
 import sys
 import glob
-import fnmatch
-import datetime
-import time
-import re
-import h5py
 import numpy
 
-import pylab as plb
-from scipy.optimize import curve_fit
-from scipy import asarray as ar, exp
 
 SPEED_OF_LIGHT = 299792458
 SPEED_OF_LIGHT = 3e8
@@ -19,9 +11,9 @@ from .utils import folder_in_range
 
 import schainpy.admin
 from schainpy.model.data.jrodata import Spectra
-from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecorator
+from schainpy.model.proc.jroproc_base import ProcessingUnit
 from schainpy.utils import log
-from schainpy.model.io.jroIO_base import JRODataReader
+
 
 def pol2cart(rho, phi):
     x = rho * numpy.cos(phi)
@@ -423,7 +415,6 @@ class BLTRSpectraReader (ProcessingUnit):
         copy = self.data_block.copy()
         spc = copy * numpy.conjugate(copy)
         self.data_spc = numpy.absolute(spc)  # valor absoluto o magnitud
-        self.dataOut.data_spc = self.data_spc
 
         cspc = self.data_block.copy()
         self.data_cspc = self.data_block.copy()
