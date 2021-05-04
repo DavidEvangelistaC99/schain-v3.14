@@ -68,6 +68,7 @@ class BLTRParametersProc(ProcessingUnit):
         SNRavgdB = 10*numpy.log10(SNRavg)
         self.dataOut.data_snr_avg_db = SNRavgdB.reshape(1, *SNRavgdB.shape)
 
+        # Censoring Data
         if snr_threshold is not None:
             for i in range(3):
                 self.dataOut.data_param[i][SNRavgdB <= snr_threshold] = numpy.nan
