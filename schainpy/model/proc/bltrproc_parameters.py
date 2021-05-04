@@ -5,14 +5,10 @@ Created on Oct 24, 2016
 '''
 
 import numpy
-import copy
 import datetime
 import time
-from time import gmtime
 
-from numpy import transpose
-
-from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecorator
+from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation
 from schainpy.model.data.jrodata import Parameters
 
 
@@ -68,23 +64,14 @@ class BLTRParametersProc(ProcessingUnit):
         self.dataOut.data_param = self.dataOut.data[mode]
         self.dataOut.heightList = self.dataOut.height[0]
         self.dataOut.data_snr = self.dataOut.data_snr[mode]
-        
-        data_param = numpy.zeros([4, len(self.dataOut.heightList)])
-
         SNRavg = numpy.average(self.dataOut.data_snr, axis=0)
         SNRavgdB = 10*numpy.log10(SNRavg)
+        self.dataOut.data_snr_avg_db = SNRavgdB.reshape(1, *SNRavgdB.shape)
+
         # Censoring Data
         if snr_threshold is not None:
             for i in range(3):
                 self.dataOut.data_param[i][SNRavgdB <= snr_threshold] = numpy.nan
-        # Including AvgSNR in data_param
-        for i in range(data_param.shape[0]):
-            if i == 3:
-                data_param[i] = SNRavgdB
-            else:
-                data_param[i] = self.dataOut.data_param[i]
-
-        self.dataOut.data_param = data_param
 
 # TODO
 

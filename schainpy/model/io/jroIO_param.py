@@ -196,11 +196,11 @@ class HDFReader(Reader, ProcessingUnit):
 
         if self.description:
             for key, value in self.description['Metadata'].items():
-                meta[key] = self.fp[value].value
+                meta[key] = self.fp[value][()]
         else:
             grp = self.fp['Metadata']
             for name in grp:
-                meta[name] = grp[name].value            
+                meta[name] = grp[name][()]
 
         if self.extras:
             for key, value in self.extras.items():
@@ -217,26 +217,26 @@ class HDFReader(Reader, ProcessingUnit):
             for key, value in self.description['Data'].items():
                 if isinstance(value, str):
                     if isinstance(self.fp[value], h5py.Dataset):
-                        data[key] = self.fp[value].value
+                        data[key] = self.fp[value][()]
                     elif isinstance(self.fp[value], h5py.Group):
                         array = []
                         for ch in self.fp[value]:
-                            array.append(self.fp[value][ch].value)
+                            array.append(self.fp[value][ch][()])
                         data[key] = numpy.array(array)
                 elif isinstance(value, list):
                     array = []
                     for ch in value:
-                        array.append(self.fp[ch].value)
+                        array.append(self.fp[ch][()])
                     data[key] = numpy.array(array)
         else:
             grp = self.fp['Data']
             for name in grp:
                 if isinstance(grp[name], h5py.Dataset):
-                    array = grp[name].value
+                    array = grp[name][()]
                 elif isinstance(grp[name], h5py.Group):
                     array = []
                     for ch in grp[name]:
-                        array.append(grp[name][ch].value)
+                        array.append(grp[name][ch][()])
                     array = numpy.array(array)
                 else:
                     log.warning('Unknown type: {}'.format(name))

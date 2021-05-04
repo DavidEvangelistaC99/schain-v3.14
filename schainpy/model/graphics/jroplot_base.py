@@ -231,7 +231,6 @@ class Plot(Operation):
         self.attr_time = kwargs.get('attr_time', 'utctime')
         self.attr_data = kwargs.get('attr_data', 'data_param')
         self.decimation = kwargs.get('decimation', None)
-        self.showSNR = kwargs.get('showSNR', False)
         self.oneFigure = kwargs.get('oneFigure', True)
         self.width = kwargs.get('width', None)
         self.height = kwargs.get('height', None)
@@ -261,6 +260,9 @@ class Plot(Operation):
                 'Sending to server: {}'.format(self.server),
                 self.name
             )
+
+        if isinstance(self.attr_data, str):
+            self.attr_data = [self.attr_data]
 
     def __setup_plot(self):
         '''
@@ -322,6 +324,7 @@ class Plot(Operation):
                     self.pf_axes.append(cax)
 
         for n in range(self.nrows):
+            print(self.nrows)
             if self.colormaps is not None:
                 cmap = plt.get_cmap(self.colormaps[n])
             else:
@@ -503,32 +506,32 @@ class Plot(Operation):
 
         fig = self.figures[n]
 
-        figname = os.path.join(
-            self.save,
-            self.save_code,
-            '{}_{}.png'.format(                
-                self.save_code,
-                self.getDateTime(self.data.max_time).strftime(
-                    '%Y%m%d_%H%M%S'
-                    ),
-                )
-            )
-        log.log('Saving figure: {}'.format(figname), self.name)
-        if not os.path.isdir(os.path.dirname(figname)):
-            os.makedirs(os.path.dirname(figname))
-        fig.savefig(figname)
-
         if self.throttle == 0:
             figname = os.path.join(
                 self.save,
-                '{}_{}.png'.format(
+                self.save_code,
+                '{}_{}.png'.format(                
                     self.save_code,
-                    self.getDateTime(self.data.min_time).strftime(
-                        '%Y%m%d'
+                    self.getDateTime(self.data.max_time).strftime(
+                        '%Y%m%d_%H%M%S'
                         ),
                     )
                 )
+            log.log('Saving figure: {}'.format(figname), self.name)
+            if not os.path.isdir(os.path.dirname(figname)):
+                os.makedirs(os.path.dirname(figname))
             fig.savefig(figname)
+
+        figname = os.path.join(
+            self.save,
+            '{}_{}.png'.format(
+                self.save_code,
+                self.getDateTime(self.data.min_time).strftime(
+                    '%Y%m%d'
+                    ),
+                )
+            )
+        fig.savefig(figname)
 
     def send_to_server(self):
         '''
