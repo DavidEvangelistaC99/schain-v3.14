@@ -163,7 +163,7 @@ class GenericRTIPlot(Plot):
     def setup(self):
         self.xaxis = 'time'
         self.ncols = 1
-        self.nrows = self.data.shape(self.attr_data)[0]
+        self.nrows = self.data.shape('param')[0]
         self.nplots = self.nrows
         self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.08, 'right':0.95, 'top': 0.95})
         
@@ -178,7 +178,7 @@ class GenericRTIPlot(Plot):
     def update(self, dataOut):
 
         data = {
-            self.attr_data : getattr(dataOut, self.attr_data)
+            'param' : numpy.concatenate([getattr(dataOut, attr) for attr in self.attr_data], axis=0)
         }
 
         meta = {}
@@ -189,7 +189,7 @@ class GenericRTIPlot(Plot):
         # self.data.normalize_heights()
         self.x = self.data.times
         self.y = self.data.yrange
-        self.z = self.data[self.attr_data]
+        self.z = self.data['param']
 
         self.z = numpy.ma.masked_invalid(self.z)
 

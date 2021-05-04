@@ -75,7 +75,7 @@ class SpectraPlot(Plot):
         for n, ax in enumerate(self.axes):
             noise = data['noise'][n]
             if self.CODE == 'spc_moments':
-                mean = data['moments'][n, 2]
+                mean = data['moments'][n, 1]
             if ax.firsttime:
                 self.xmax = self.xmax if self.xmax else numpy.nanmax(x)
                 self.xmin = self.xmin if self.xmin else -self.xmax
@@ -466,7 +466,7 @@ class SpectraCutPlot(Plot):
                 self.figures[0].legend(ax.plt, labels, loc='center right')
             else:
                 for i, line in enumerate(ax.plt):
-                    line.set_data(x, z[n, :, i])
+                    line.set_data(x, z[n, :, index[i]])
             self.titles.append('CH {}'.format(n))
 
 
