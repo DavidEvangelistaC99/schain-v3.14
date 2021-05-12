@@ -324,7 +324,6 @@ class Plot(Operation):
                     self.pf_axes.append(cax)
 
         for n in range(self.nrows):
-            print(self.nrows)
             if self.colormaps is not None:
                 cmap = plt.get_cmap(self.colormaps[n])
             else:
@@ -531,6 +530,9 @@ class Plot(Operation):
                     ),
                 )
             )
+        log.log('Saving figure: {}'.format(figname), self.name)
+        if not os.path.isdir(os.path.dirname(figname)):
+            os.makedirs(os.path.dirname(figname))
         fig.savefig(figname)
 
     def send_to_server(self):
@@ -684,7 +686,7 @@ class Plot(Operation):
     def close(self):
 
         if self.data and not self.data.flagNoData:
-            self.save_time = self.data.max_time
+            self.save_time = 0
             self.__plot()
         if self.data and not self.data.flagNoData and self.pause:
             figpause(10)

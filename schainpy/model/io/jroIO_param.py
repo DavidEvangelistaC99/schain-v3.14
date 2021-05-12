@@ -93,6 +93,7 @@ class HDFReader(Reader, ProcessingUnit):
         self.extras = {}
         self.filefmt = "*%Y%j***"
         self.folderfmt = "*%Y%j"
+        self.utcoffset = 0
 
     def setup(self, **kwargs):
 
@@ -169,10 +170,8 @@ class HDFReader(Reader, ProcessingUnit):
 
         startTime = self.startTime
         endTime = self.endTime
-
-        thisUtcTime = self.data['utctime']
+        thisUtcTime = self.data['utctime'] + self.utcoffset
         self.interval = numpy.min(thisUtcTime[1:] - thisUtcTime[:-1])
-
         thisDatetime = datetime.datetime.utcfromtimestamp(thisUtcTime[0])
 
         thisDate = thisDatetime.date()
