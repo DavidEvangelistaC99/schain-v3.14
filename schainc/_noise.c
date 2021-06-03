@@ -24,7 +24,7 @@ static PyObject *hildebrand_sekhon(PyObject *self, PyObject *args) {
   if (nums_min <= 5) nums_min = 5;
   double sump = 0;
   double sumq = 0;
-  int j = 0;
+  long j = 0;
   int cont = 1;
   double rtest = 0;
   while ((cont == 1) && (j < lenOfData)) {
@@ -46,8 +46,8 @@ static PyObject *hildebrand_sekhon(PyObject *self, PyObject *args) {
 
   Py_DECREF(data_array);
 
-  return PyLong_FromLong(lnoise);
-  //return Py_BuildValue("d", lnoise);
+  // return PyLong_FromLong(lnoise);
+  return PyFloat_FromDouble(lnoise);
 }
 
 

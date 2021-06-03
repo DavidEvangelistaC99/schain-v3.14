@@ -435,6 +435,9 @@ class Spectra(JROData):
         Constructor
         '''
 
+        self.data_dc = None
+        self.data_spc = None
+        self.data_cspc = None
         self.useLocalTime = True
         self.radarControllerHeaderObj = RadarControllerHeader()
         self.systemHeaderObj = SystemHeader()
