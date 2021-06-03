@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2020 Jicamarca Radio Observatory
+# Copyright (c) 2012-2021 Jicamarca Radio Observatory
 # All rights reserved.
 #
 # Distributed under the terms of the BSD 3-clause license.
@@ -44,9 +44,15 @@ class SpectraPlot(Plot):
         data['rti'] = dataOut.getPower()
         data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
         meta['xrange'] = (dataOut.getFreqRange(1)/1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
+        
         if self.CODE == 'spc_moments':
             data['moments'] = dataOut.moments
-        
+            # data['spc'] = 10*numpy.log10(dataOut.data_pre[0]/dataOut.normFactor)
+        if self.CODE == 'gaussian_fit':
+            # data['moments'] = dataOut.moments
+            data['gaussfit'] = dataOut.DGauFitParams
+            # data['spc'] = 10*numpy.log10(dataOut.data_pre[0]/dataOut.normFactor)
+
         return data, meta 
     
     def plot(self):
@@ -60,7 +66,7 @@ class SpectraPlot(Plot):
             x = self.data.xrange[2]
             self.xlabel = "Velocity (m/s)"
 
-        if self.CODE == 'spc_moments':
+        if (self.CODE == 'spc_moments') | (self.CODE == 'gaussian_fit'):
             x = self.data.xrange[2]
             self.xlabel = "Velocity (m/s)"
 
@@ -76,6 +82,10 @@ class SpectraPlot(Plot):
             noise = data['noise'][n]
             if self.CODE == 'spc_moments':
                 mean = data['moments'][n, 1]
+            if self.CODE == 'gaussian_fit': 
+                # mean = data['moments'][n, 1]
+                gau0 = data['gaussfit'][n][2,:,0]
+                gau1 = data['gaussfit'][n][2,:,1]
             if ax.firsttime:
                 self.xmax = self.xmax if self.xmax else numpy.nanmax(x)
                 self.xmin = self.xmin if self.xmin else -self.xmax
@@ -93,7 +103,11 @@ class SpectraPlot(Plot):
                     ax.plt_noise = self.pf_axes[n].plot(numpy.repeat(noise, len(y)), y,
                                                         color="k", linestyle="dashed", lw=1)[0]
                 if self.CODE == 'spc_moments':
-                    ax.plt_mean = ax.plot(mean, y, color='k')[0]
+                    ax.plt_mean = ax.plot(mean, y, color='k', lw=1)[0]
+                if self.CODE == 'gaussian_fit':
+                    # ax.plt_mean = ax.plot(mean, y, color='k', lw=1)[0]
+                    ax.plt_gau0 = ax.plot(gau0, y, color='r', lw=1)[0]
+                    ax.plt_gau1 = ax.plot(gau1, y, color='y', lw=1)[0]
             else:
                 ax.plt.set_array(z[n].T.ravel())
                 if self.showprofile:
@@ -101,6 +115,10 @@ class SpectraPlot(Plot):
                     ax.plt_noise.set_data(numpy.repeat(noise, len(y)), y)
                 if self.CODE == 'spc_moments':
                     ax.plt_mean.set_data(mean, y)
+                if self.CODE == 'gaussian_fit':
+                    # ax.plt_mean.set_data(mean, y)
+                    ax.plt_gau0.set_data(gau0, y)
+                    ax.plt_gau1.set_data(gau1, y)
             self.titles.append('CH {}: {:3.2f}dB'.format(n, noise))
 
 
@@ -428,10 +446,12 @@ class SpectraCutPlot(Plot):
 
         data = {}
         meta = {}
-        spc = 10*numpy.log10(dataOut.data_spc/dataOut.normFactor)
+        spc = 10*numpy.log10(dataOut.data_pre[0]/dataOut.normFactor)
         data['spc'] = spc
         meta['xrange'] = (dataOut.getFreqRange(1)/1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
-
+        if self.CODE == 'cut_gaussian_fit':
+            data['gauss_fit0'] = 10*numpy.log10(dataOut.GaussFit0/dataOut.normFactor)
+            data['gauss_fit1'] = 10*numpy.log10(dataOut.GaussFit1/dataOut.normFactor)
         return data, meta
 
     def plot(self):
@@ -442,13 +462,18 @@ class SpectraCutPlot(Plot):
             x = self.data.xrange[1]
             self.xlabel = "Time (ms)"
         else:
-            x = self.data.xrange[2]
+            x = self.data.xrange[2][:-1]
+            self.xlabel = "Velocity (m/s)"
+        
+        if self.CODE == 'cut_gaussian_fit':
+            x = self.data.xrange[2][:-1]
             self.xlabel = "Velocity (m/s)"
 
         self.titles = []
 
         y = self.data.yrange
-        z = self.data[-1]['spc']
+        data = self.data[-1]
+        z = data['spc']
 
         if self.height_index:
             index = numpy.array(self.height_index)
@@ -456,17 +481,33 @@ class SpectraCutPlot(Plot):
             index = numpy.arange(0, len(y), int((len(y))/9))
 
         for n, ax in enumerate(self.axes):
+            if self.CODE == 'cut_gaussian_fit': 
+                gau0 = data['gauss_fit0']
+                gau1 = data['gauss_fit1']
             if ax.firsttime:
                 self.xmax = self.xmax if self.xmax else numpy.nanmax(x)
                 self.xmin = self.xmin if self.xmin else -self.xmax
                 self.ymin = self.ymin if self.ymin else numpy.nanmin(z)
                 self.ymax = self.ymax if self.ymax else numpy.nanmax(z)
-                ax.plt = ax.plot(x, z[n, :, index].T)
+                ax.plt = ax.plot(x, z[n, :, index].T, lw=0.25)
+                if self.CODE == 'cut_gaussian_fit':
+                    ax.plt_gau0 = ax.plot(x, gau0[n, :, index].T, lw=1, linestyle='-.')
+                    for i, line in enumerate(ax.plt_gau0):
+                        line.set_color(ax.plt[i].get_color())    
+                    ax.plt_gau1 = ax.plot(x, gau1[n, :, index].T, lw=1, linestyle='--')
+                    for i, line in enumerate(ax.plt_gau1):
+                        line.set_color(ax.plt[i].get_color())  
                 labels = ['Range = {:2.1f}km'.format(y[i]) for i in index]
                 self.figures[0].legend(ax.plt, labels, loc='center right')
             else:
                 for i, line in enumerate(ax.plt):
-                    line.set_data(x, z[n, :, index[i]])
+                    line.set_data(x, z[n, :, index[i]].T)
+                for i, line in enumerate(ax.plt_gau0):
+                    line.set_data(x, gau0[n, :, index[i]].T)
+                    line.set_color(ax.plt[i].get_color())
+                for i, line in enumerate(ax.plt_gau1):
+                    line.set_data(x, gau1[n, :, index[i]].T)
+                    line.set_color(ax.plt[i].get_color())
             self.titles.append('CH {}'.format(n))
 
 
