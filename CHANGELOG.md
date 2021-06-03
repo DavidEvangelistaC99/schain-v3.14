@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 3.0.1
+
+* First release candidate
+
 ## 3.0.0
 
 * Python 3.x & 2.X compatible
