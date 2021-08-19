@@ -113,8 +113,8 @@ class DigitalRFReader(ProcessingUnit):
             numpy.arange(self.__nSamples, dtype=numpy.float) * \
             self.__deltaHeigth
 
-        self.dataOut.channelList = list(range(self.__num_subchannels))
-
+        #self.dataOut.channelList = list(range(self.__num_subchannels))
+        self.dataOut.channelList = list(range(len(self.__channelList)))
         self.dataOut.blocksize   = self.dataOut.nChannels * self.dataOut.nHeights
 
         # self.dataOut.channelIndexList = None
@@ -344,9 +344,12 @@ class DigitalRFReader(ProcessingUnit):
             endUTCSecond  = (endDatetime - datetime.datetime(1970,
                                                             1, 1)).total_seconds() + self.__timezone
 
+
+        print(startUTCSecond,endUTCSecond)
         start_index, end_index = self.digitalReadObj.get_bounds(
             channelNameList[channelList[0]])
 
+        print("*****",start_index,end_index)
         if not startUTCSecond:
             startUTCSecond = start_index / self.__sample_rate
 
@@ -403,8 +406,10 @@ class DigitalRFReader(ProcessingUnit):
         # por que en el otro metodo lo primero q se hace es sumar samplestoread
         self.__thisUnixSample = int(startUTCSecond * self.__sample_rate) - self.__samples_to_read
 
-        self.__data_buffer    = numpy.zeros(
-            (self.__num_subchannels, self.__samples_to_read), dtype=numpy.complex)
+        #self.__data_buffer    = numpy.zeros(
+        #    (self.__num_subchannels, self.__samples_to_read), dtype=numpy.complex)
+        self.__data_buffer    = numpy.zeros((int(len(channelList)), self.__samples_to_read), dtype=numpy.complex)
+
 
         self.__setFileHeader()
         self.isConfig = True
@@ -436,7 +441,7 @@ class DigitalRFReader(ProcessingUnit):
         try:
             self.digitalReadObj.reload(complete_update=True)
         except:
-            self.digitalReadObj = digital_rf.DigitalRFReader(self.path) 
+            self.digitalReadObj = digital_rf.DigitalRFReader(self.path)
 
         start_index, end_index  = self.digitalReadObj.get_bounds(
             self.__channelNameList[self.__channelList[0]])
@@ -476,7 +481,7 @@ class DigitalRFReader(ProcessingUnit):
         # Set the next data
         self.__flagDiscontinuousBlock = False
         self.__thisUnixSample        += self.__samples_to_read
-        
+
         if self.__thisUnixSample + 2 * self.__samples_to_read > self.__endUTCSecond * self.__sample_rate:
             print ("[Reading] There are no more data into selected time-range")
             if self.__online:
@@ -492,7 +497,7 @@ class DigitalRFReader(ProcessingUnit):
         indexChannel = 0
 
         dataOk = False
-        
+
         for thisChannelName in self.__channelNameList:  # TODO VARIOS CHANNELS?
             for indexSubchannel in range(self.__num_subchannels):
                 try:
@@ -519,8 +524,8 @@ class DigitalRFReader(ProcessingUnit):
                                                                                              result.shape[0],
                                                                                              self.__samples_to_read))
                     break
-                
-                self.__data_buffer[indexSubchannel, :] = result * volt_scale
+
+                self.__data_buffer[indexChannel, :] = result * volt_scale
                 indexChannel+=1
 
                 dataOk       = True
@@ -587,7 +592,7 @@ class DigitalRFReader(ProcessingUnit):
                     return
 
                 print('[Reading] waiting %d seconds to read a new block' % seconds)
-                time.sleep(seconds)
+                sleep(seconds)
 
         self.dataOut.data                   = self.__data_buffer[:, self.__bufferIndex:self.__bufferIndex + self.__nSamples]
         self.dataOut.utctime                = ( self.__thisUnixSample + self.__bufferIndex) / self.__sample_rate
@@ -624,12 +629,12 @@ class DigitalRFReader(ProcessingUnit):
         '''
         This method will be called many times so here you should put all your code
         '''
-        
+
         if not self.isConfig:
             self.setup(**kwargs)
         #self.i = self.i+1
         self.getData(seconds=self.__delay)
-        
+
         return
 
 @MPDecorator

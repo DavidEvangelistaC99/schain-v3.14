@@ -1287,7 +1287,7 @@ class CombineProfiles(Operation):
 
         return dataOut
 
-class PulsePairVoltage(Operation):
+class PulsePair(Operation):
     '''
     Function PulsePair(Signal Power, Velocity)
     The real component of Lag[0] provides Intensity Information
@@ -1324,6 +1324,7 @@ class PulsePairVoltage(Operation):
         '''
         n= Numero de PRF's de entrada
         '''
+        print("[INICIO]-setup  del METODO PULSE PAIR")
         self.__initime        = None
         self.__lastdatatime   = 0
         self.__dataReady      = False
@@ -1482,6 +1483,7 @@ class PulsePairVoltage(Operation):
             dataOut.dataPP_SNR      = data_snrPP
             dataOut.dataPP_WIDTH    = data_specwidth
             dataOut.PRFbyAngle      = self.n         #numero de PRF*cada angulo rotado que equivale a un tiempo.
+            dataOut.nProfiles       = int(dataOut.nProfiles/n)
             dataOut.utctime         = avgdatatime
             dataOut.flagNoData      = False
         return dataOut

@@ -44,7 +44,7 @@ class SpectraPlot(Plot):
         data['rti'] = dataOut.getPower()
         data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
         meta['xrange'] = (dataOut.getFreqRange(1)/1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
-        
+
         if self.CODE == 'spc_moments':
             data['moments'] = dataOut.moments
             # data['spc'] = 10*numpy.log10(dataOut.data_pre[0]/dataOut.normFactor)
@@ -53,8 +53,8 @@ class SpectraPlot(Plot):
             data['gaussfit'] = dataOut.DGauFitParams
             # data['spc'] = 10*numpy.log10(dataOut.data_pre[0]/dataOut.normFactor)
 
-        return data, meta 
-    
+        return data, meta
+
     def plot(self):
         if self.xaxis == "frequency":
             x = self.data.xrange[0]
@@ -82,7 +82,7 @@ class SpectraPlot(Plot):
             noise = data['noise'][n]
             if self.CODE == 'spc_moments':
                 mean = data['moments'][n, 1]
-            if self.CODE == 'gaussian_fit': 
+            if self.CODE == 'gaussian_fit':
                 # mean = data['moments'][n, 1]
                 gau0 = data['gaussfit'][n][2,:,0]
                 gau1 = data['gaussfit'][n][2,:,1]
@@ -164,8 +164,8 @@ class CrossSpectraPlot(Plot):
 
         data['cspc'] = numpy.array(tmp)
 
-        return data, meta 
-    
+        return data, meta
+
     def plot(self):
 
         if self.xaxis == "frequency":
@@ -177,7 +177,7 @@ class CrossSpectraPlot(Plot):
         else:
             x = self.data.xrange[2]
             self.xlabel = "Velocity (m/s)"
-        
+
         self.titles = []
 
         y = self.data.yrange
@@ -201,13 +201,13 @@ class CrossSpectraPlot(Plot):
                 ax.plt.set_array(coh.T.ravel())
             self.titles.append(
                 'Coherence Ch{} * Ch{}'.format(pair[0], pair[1]))
-                                   
+
             ax = self.axes[2 * n + 1]
             if ax.firsttime:
                 ax.plt = ax.pcolormesh(x, y, phase.T,
                                        vmin=-180,
                                        vmax=180,
-                                       cmap=plt.get_cmap(self.colormap_phase) 
+                                       cmap=plt.get_cmap(self.colormap_phase)
                                        )
             else:
                 ax.plt.set_array(phase.T.ravel())
@@ -226,6 +226,7 @@ class RTIPlot(Plot):
     def setup(self):
         self.xaxis = 'time'
         self.ncols = 1
+        print("ch",self.data.channels)
         self.nrows = len(self.data.channels)
         self.nplots = len(self.data.channels)
         self.ylabel = 'Range [km]'
@@ -266,6 +267,7 @@ class RTIPlot(Plot):
                                        cmap=plt.get_cmap(self.colormap)
                                        )
                 if self.showprofile:
+                    print("test-------------------------------------1")
                     ax.plot_profile = self.pf_axes[n].plot(
                         data['rti'][n], self.y)[0]
                     ax.plot_noise = self.pf_axes[n].plot(numpy.repeat(data['noise'][n], len(self.y)), self.y,
@@ -335,7 +337,7 @@ class PhasePlot(CoherencePlot):
 
 class NoisePlot(Plot):
     '''
-    Plot for noise 
+    Plot for noise
     '''
 
     CODE = 'noise'
@@ -380,7 +382,7 @@ class NoisePlot(Plot):
                 y = Y[ch]
                 self.axes[0].lines[ch].set_data(x, y)
 
-        
+
 class PowerProfilePlot(Plot):
 
     CODE = 'pow_profile'
@@ -412,10 +414,10 @@ class PowerProfilePlot(Plot):
         self.y = y
 
         x = self.data[-1][self.CODE]
-        
+
         if self.xmin is None: self.xmin = numpy.nanmin(x)*0.9
         if self.xmax is None: self.xmax = numpy.nanmax(x)*1.1
-        
+
         if self.axes[0].firsttime:
             for ch in self.data.channels:
                 self.axes[0].plot(x[ch], y, lw=1, label='Ch{}'.format(ch))
@@ -464,7 +466,7 @@ class SpectraCutPlot(Plot):
         else:
             x = self.data.xrange[2][:-1]
             self.xlabel = "Velocity (m/s)"
-        
+
         if self.CODE == 'cut_gaussian_fit':
             x = self.data.xrange[2][:-1]
             self.xlabel = "Velocity (m/s)"
@@ -481,7 +483,7 @@ class SpectraCutPlot(Plot):
             index = numpy.arange(0, len(y), int((len(y))/9))
 
         for n, ax in enumerate(self.axes):
-            if self.CODE == 'cut_gaussian_fit': 
+            if self.CODE == 'cut_gaussian_fit':
                 gau0 = data['gauss_fit0']
                 gau1 = data['gauss_fit1']
             if ax.firsttime:
@@ -493,10 +495,10 @@ class SpectraCutPlot(Plot):
                 if self.CODE == 'cut_gaussian_fit':
                     ax.plt_gau0 = ax.plot(x, gau0[n, :, index].T, lw=1, linestyle='-.')
                     for i, line in enumerate(ax.plt_gau0):
-                        line.set_color(ax.plt[i].get_color())    
+                        line.set_color(ax.plt[i].get_color())
                     ax.plt_gau1 = ax.plot(x, gau1[n, :, index].T, lw=1, linestyle='--')
                     for i, line in enumerate(ax.plt_gau1):
-                        line.set_color(ax.plt[i].get_color())  
+                        line.set_color(ax.plt[i].get_color())
                 labels = ['Range = {:2.1f}km'.format(y[i]) for i in index]
                 self.figures[0].legend(ax.plt, labels, loc='center right')
             else:
@@ -600,7 +602,7 @@ class BeaconPhase(Plot):
             server=None, folder=None, username=None, password=None,
             ftp_wei=0, exp_code=0, sub_exp_code=0, plot_pos=0):
 
-        if dataOut.flagNoData:         
+        if dataOut.flagNoData:
             return dataOut
 
         if not isTimeInHourRange(dataOut.datatime, xmin, xmax):

@@ -2,7 +2,7 @@ import os,sys
 import datetime
 import time
 from schainpy.controller import Project
-path    = '/home/alex/Downloads/NEW_WR2/spc16removeDC'
+path    = '/home/soporte/Downloads/RAWDATA_PP'
 figpath = path
 desc            = "Simulator Test"
 
@@ -63,11 +63,11 @@ opObj11.addParameter(name='removeDC', value=1, format='int')
 procUnitConfObjB= controllerObj.addProcUnit(datatype='ParametersProc',inputId=procUnitConfObjA.getId())
 
 
-opObj10 = procUnitConfObjB.addOperation(name='ParameterWriter')
+opObj10 = procUnitConfObjB.addOperation(name='HDFWriter')
 opObj10.addParameter(name='path',value=figpath)
 #opObj10.addParameter(name='mode',value=0)
 opObj10.addParameter(name='blocksPerFile',value='100',format='int')
-opObj10.addParameter(name='metadataList',value='utctimeInit,timeInterval',format='list')
-opObj10.addParameter(name='dataList',value='dataPP_POW,dataPP_DOP,dataPP_SNR,dataPP_WIDTH')#,format='list'
+opObj10.addParameter(name='metadataList',value='utctimeInit,paramInterval,profileIndex,heightList,flagDataAsBlock',format='list')
+opObj10.addParameter(name='dataList',value='dataPP_POW,dataPP_DOP,dataPP_SNR,dataPP_WIDTH,utctime',format='list')#,format='list'
 
 controllerObj.start()

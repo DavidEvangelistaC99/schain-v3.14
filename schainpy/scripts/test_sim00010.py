@@ -2,6 +2,18 @@ import os, sys
 import datetime
 import time
 from schainpy.controller import Project
+'''
+NOTA:
+Este script de prueba.
+- Unidad del lectura 'SimulatorReader'.
+- Unidad de procesamiento VoltageProc
+- Unidad de procesamiento SpectraProc (profileIndex no esta en metadata porque se queda en voltage.)
+- Operacion removeDC.
+- Unidad de procesamiento ParametersProc
+- Operacion SpectralMoments
+- Operacion SpectralMomentsPlot
+- Unidad de escrituda 'HDFWriter'.
+'''
 
 desc = "USRP_test"
 filename = "USRP_processing.xml"
@@ -10,8 +22,8 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 
 ############## USED TO PLOT IQ VOLTAGE, POWER AND SPECTRA #############
 ######PATH DE LECTURA, ESCRITURA, GRAFICOS Y ENVIO WEB#################
-path    = '/home/alex/Downloads/test_rawdata'
-figpath = '/home/alex/Downloads/hdf5_test'
+path    = '/home/soporte/Downloads/RAWDATA'
+figpath = '/home/soporte/Downloads/IMAGE'
 ######################## UNIDAD DE LECTURA#############################
 '''
 readUnitConfObj = controllerObj.addReadUnit(datatype='VoltageReader',
@@ -63,20 +75,19 @@ procUnitConfObjC= controllerObj.addProcUnit(datatype='ParametersProc',inputId=pr
 procUnitConfObjC.addOperation(name='SpectralMoments')
 #opObj11 = procUnitConfObjC.addOperation(name='PowerPlot')
 
-'''
+
 opObj11 = procUnitConfObjC.addOperation(name='SpectralMomentsPlot')
 #opObj11.addParameter(name='xmin', value=14)
 #opObj11.addParameter(name='xmax', value=15)
-#opObj11.addParameter(name='save', value=figpath)
+opObj11.addParameter(name='save', value=figpath)
 opObj11.addParameter(name='showprofile', value=1)
-#opObj11.addParameter(name='save_period', value=10)
-'''
+opObj11.addParameter(name='save_period', value=10)
 
-opObj10 = procUnitConfObjC.addOperation(name='ParameterWriter')
-opObj10.addParameter(name='path',value=figpath)
+opObj10 = procUnitConfObjC.addOperation(name='HDFWriter')
+opObj10.addParameter(name='path',value=path)
 #opObj10.addParameter(name='mode',value=0)
 opObj10.addParameter(name='blocksPerFile',value='100',format='int')
-opObj10.addParameter(name='metadataList',value='utctimeInit,timeInterval',format='list')
-opObj10.addParameter(name='dataList',value='data_POW,data_DOP,data_WIDTH,data_SNR')#,format='list'
+opObj10.addParameter(name='metadataList',value='utctimeInit,heightList,nIncohInt,nCohInt,nProfiles,channelList',format='list')#profileIndex
+opObj10.addParameter(name='dataList',value='data_pow,data_dop,utctime',format='list')#,format='list'
 
 controllerObj.start()

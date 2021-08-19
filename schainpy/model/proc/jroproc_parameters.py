@@ -1,4 +1,4 @@
-import numpy
+import numpy,os,h5py
 import math
 from scipy import optimize, interpolate, signal, stats, ndimage
 import scipy
@@ -45,6 +45,12 @@ def _unpickle_method(func_name, obj, cls):
             break
     return func.__get__(obj, cls)
 
+def isNumber(str):
+    try:
+        float(str)
+        return True
+    except:
+        return False
 
 class ParametersProc(ProcessingUnit):
 
@@ -108,6 +114,13 @@ class ParametersProc(ProcessingUnit):
             self.dataOut.flagNoData = False
             self.dataOut.utctimeInit = self.dataIn.utctime
             self.dataOut.paramInterval = self.dataIn.nProfiles*self.dataIn.nCohInt*self.dataIn.ippSeconds
+
+            if hasattr(self.dataIn, 'flagDataAsBlock'):
+                self.dataOut.flagDataAsBlock = self.dataIn.flagDataAsBlock
+
+            if hasattr(self.dataIn, 'profileIndex'):
+                self.dataOut.profileIndex = self.dataIn.profileIndex
+
             if hasattr(self.dataIn, 'dataPP_POW'):
                 self.dataOut.dataPP_POW = self.dataIn.dataPP_POW
 
@@ -142,6 +155,9 @@ class ParametersProc(ProcessingUnit):
             self.dataOut.pairsList = self.dataIn.pairsList
             self.dataOut.groupList = self.dataIn.pairsList
             self.dataOut.flagNoData = False
+
+            if hasattr(self.dataIn, 'flagDataAsBlock'):
+                self.dataOut.flagDataAsBlock = self.dataIn.flagDataAsBlock
 
             if hasattr(self.dataIn, 'ChanDist'): #Distances of receiver channels
                 self.dataOut.ChanDist = self.dataIn.ChanDist
@@ -220,7 +236,7 @@ class RemoveWideGC(Operation):
         self.i = 0
         self.ich = 0
         self.ir = 0
-    
+
     def run(self, dataOut, ClutterWidth=2.5):
         # print ('Entering RemoveWideGC ... ')
 
@@ -247,11 +263,11 @@ class RemoveWideGC(Operation):
                 junk = numpy.append(numpy.insert(numpy.squeeze(self.spc[ich,gc_values,ir]),0,HSn),HSn)
                 j1index = numpy.squeeze(numpy.where(numpy.diff(junk)>0))
                 j2index = numpy.squeeze(numpy.where(numpy.diff(junk)<0))
-                if ((numpy.size(j1index)<=1) | (numpy.size(j2index)<=1)) : 
+                if ((numpy.size(j1index)<=1) | (numpy.size(j2index)<=1)) :
                     continue
                 junk3 = numpy.squeeze(numpy.diff(j1index))
                 junk4 = numpy.squeeze(numpy.diff(j2index))
-                
+
                 valleyindex = j2index[numpy.where(junk4>1)]
                 peakindex = j1index[numpy.where(junk3>1)]
 
@@ -261,7 +277,7 @@ class RemoveWideGC(Operation):
                 if numpy.size(isvalid) >1 :
                     vindex = numpy.argmax(self.spc[ich,gc_values[peakindex[isvalid]],ir])
                     isvalid = isvalid[vindex]
-                
+
                 # clutter peak
                 gcpeak = peakindex[isvalid]
                 vl = numpy.where(valleyindex < gcpeak)
@@ -283,7 +299,7 @@ class RemoveWideGC(Operation):
         return dataOut
 
 class SpectralFilters(Operation):
-    ''' This class allows to replace the novalid values with noise for each channel 
+    ''' This class allows to replace the novalid values with noise for each channel
         This applies to CLAIRE RADAR
 
         PositiveLimit :    RightLimit of novalid data
@@ -303,7 +319,7 @@ class SpectralFilters(Operation):
     def __init__(self):
         Operation.__init__(self)
         self.i = 0
-    
+
     def run(self, dataOut, ):
 
         self.spc = dataOut.data_pre[0].copy()
@@ -311,7 +327,7 @@ class SpectralFilters(Operation):
         VelRange = dataOut.spc_range[2]
 
         # novalid corresponds to data within the Negative and PositiveLimit
-        
+
 
         # Removing novalid data from the spectra
         for i in range(self.Num_Chn):
@@ -383,7 +399,7 @@ class GaussianFit(Operation):
                 p1 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][4,:,1]] * self.Num_Bin))
             elif method == 'squared':
                 p0 = 2.
-                p1 = 2. 
+                p1 = 2.
             gau0[iCh] = A0*numpy.exp(-0.5*numpy.abs((x_mtr-v0)/s0)**p0)+N0
             gau1[iCh] = A1*numpy.exp(-0.5*numpy.abs((x_mtr-v1)/s1)**p1)+N1
         dataOut.GaussFit0 = gau0
@@ -445,7 +461,7 @@ class GaussianFit(Operation):
             # print ('stop 2.1')
             fatspectra=1.0
             # noise per channel.... we might want to use the noise at each range
-            
+
             # wnoise = noise_ #/ spc_norm_max #commented by D. Scipión 19.03.2021
                 #wnoise,stdv,i_max,index =enoise(spc,num_intg) #noise estimate using Hildebrand Sekhon, only wnoise is used
                 #if wnoise>1.1*pnoise: # to be tested later
@@ -493,7 +509,7 @@ class GaussianFit(Operation):
             if powerwidth <= 1:
                 # print('powerwidth <= 1')
                 continue
-        
+
             # print ('stop 6')
             firstpeak = powerlo + powerwidth/10.# first gaussian energy location
             secondpeak = powerhi - powerwidth/10. #second gaussian energy location
@@ -531,7 +547,7 @@ class GaussianFit(Operation):
                     noise=lsq1[0][4]
                     #return (numpy.array([shift0,width0,Amplitude0,p0]),
                     #        numpy.array([shift1,width1,Amplitude1,p1]),noise,snrdB,chiSq1,6.,sigmas1,[None,]*9,choice)
-            
+
             # print ('stop 9')
             '''    two Gaussians    '''
             #shift0=numpy.mod(firstpeak+minx,64); shift1=numpy.mod(secondpeak+minx,64)
@@ -628,7 +644,7 @@ class GaussianFit(Operation):
             if Amplitude1<0.05:
                 shift1,width1,Amplitude1,p1 = 4*[numpy.NaN]
 
-            # print ('stop 16 ') 
+            # print ('stop 16 ')
             # SPC_ch1[:,ht] = noise + Amplitude0*numpy.exp(-0.5*(abs(x-shift0)/width0)**p0)
             # SPC_ch2[:,ht] = noise + Amplitude1*numpy.exp(-0.5*(abs(x-shift1)/width1)**p1)
             # SPCparam = (SPC_ch1,SPC_ch2)
@@ -662,7 +678,7 @@ class GaussianFit(Operation):
         model0 = amplitude0*numpy.exp(-0.5*abs((x-shift0)/width0)**power0)
         model0u = amplitude0*numpy.exp(-0.5*abs((x - shift0 - self.Num_Bin)/width0)**power0)
         model0d = amplitude0*numpy.exp(-0.5*abs((x - shift0 + self.Num_Bin)/width0)**power0)
-        
+
         model1 = amplitude1*numpy.exp(-0.5*abs((x - shift1)/width1)**power1)
         model1u = amplitude1*numpy.exp(-0.5*abs((x - shift1 - self.Num_Bin)/width1)**power1)
         model1d = amplitude1*numpy.exp(-0.5*abs((x - shift1 + self.Num_Bin)/width1)**power1)
@@ -731,7 +747,7 @@ class PrecipitationProc(Operation):
             self.Lambda = Lambda
             self.aL = aL
             self.tauW = tauW
-            self.ThetaT = ThetaT 
+            self.ThetaT = ThetaT
             self.ThetaR = ThetaR
             self.GSys = 10**(36.63/10) # Ganancia de los LNA 36.63 dB
             self.lt = 10**(1.67/10) # Perdida en cables Tx 1.67 dB
@@ -771,7 +787,7 @@ class PrecipitationProc(Operation):
             ETAn = (RadarConstant *ExpConstant) * Pr * rMtrx**2  #Reflectivity (ETA)
             ETAd = ETAn * 6.18 * exp( -0.6 * D_Vz ) * delv_z
             # Radar Cross Section
-            sigmaD = Km2 * (D_Vz * 1e-3 )**6 * numpy.pi**5 / Lambda**4 
+            sigmaD = Km2 * (D_Vz * 1e-3 )**6 * numpy.pi**5 / Lambda**4
             # Drop Size Distribution
             DSD = ETAn / sigmaD
             # Equivalente Reflectivy
@@ -792,7 +808,7 @@ class PrecipitationProc(Operation):
         dataOut.data_output = RR[8]
         dataOut.data_param = numpy.ones([3,self.Num_Hei])
         dataOut.channelList = [0,1,2]
-        
+
         dataOut.data_param[0]=10*numpy.log10(Ze_org)
         dataOut.data_param[1]=-W
         dataOut.data_param[2]=RR
@@ -868,7 +884,7 @@ class FullSpectralAnalysis(Operation):
         Parameters affected:    Winds, height range, SNR
 
     """
-    def run(self, dataOut, Xi01=None, Xi02=None, Xi12=None, Eta01=None, Eta02=None, Eta12=None, SNRdBlimit=-30, 
+    def run(self, dataOut, Xi01=None, Xi02=None, Xi12=None, Eta01=None, Eta02=None, Eta12=None, SNRdBlimit=-30,
         minheight=None, maxheight=None, NegativeLimit=None, PositiveLimit=None):
 
         spc = dataOut.data_pre[0].copy()
@@ -912,14 +928,14 @@ class FullSpectralAnalysis(Operation):
 
             if Height >= range_min and Height < range_max:
                 # error_code will be useful in future analysis
-                [Vzon,Vmer,Vver, error_code] = self.WindEstimation(spc[:,:,Height], cspc[:,:,Height], pairsList, 
+                [Vzon,Vmer,Vver, error_code] = self.WindEstimation(spc[:,:,Height], cspc[:,:,Height], pairsList,
                     ChanDist, Height, dataOut.noise, dataOut.spc_range, dbSNR[Height], SNRdBlimit, NegativeLimit, PositiveLimit,dataOut.frequency)
 
             if abs(Vzon) < 100. and abs(Vmer) < 100.:
                 velocityX[Height] = Vzon
                 velocityY[Height] = -Vmer
                 velocityZ[Height] = Vver
-        
+
         # Censoring data with SNR threshold
         dbSNR [dbSNR < SNRdBlimit] = numpy.NaN
 
@@ -1019,7 +1035,7 @@ class FullSpectralAnalysis(Operation):
         xSamples = xFrec                                    # the frequency range is taken
         delta_x = xSamples[1] - xSamples[0]                 # delta_f or delta_x
 
-        # only consider velocities with in NegativeLimit and PositiveLimit 
+        # only consider velocities with in NegativeLimit and PositiveLimit
         if (NegativeLimit is None):
             NegativeLimit = numpy.min(xVel)
         if (PositiveLimit is None):
@@ -1034,7 +1050,7 @@ class FullSpectralAnalysis(Operation):
         # spwd limit - updated by D. Scipión 30.03.2021
         widthlimit = 10
         '''************************* SPC is normalized ********************************'''
-        spc_norm = spc.copy() 
+        spc_norm = spc.copy()
         # For each channel
         for i in range(nChan):
             spc_sub = spc_norm[i,:] - noise[i]  # only the signal power
@@ -1053,9 +1069,9 @@ class FullSpectralAnalysis(Operation):
             >= 0, as it is the modulus squared of the signals (complex * it's conjugate)
         """
         # initial conditions
-        popt = [1e-10,0,1e-10] 
+        popt = [1e-10,0,1e-10]
         # Spectra average
-        SPCMean = numpy.average(SPC_Samples,0) 
+        SPCMean = numpy.average(SPC_Samples,0)
         # Moments in frequency
         SPCMoments = self.Moments(SPCMean[xvalid], xSamples_zoom)
 
@@ -1310,7 +1326,7 @@ class SpectralMoments(Operation):
 
             signal_power = ((spec2[valid] - n0) * fwindow[valid]).mean()    # D. Scipión added with correct definition
             total_power = (spec2[valid] * fwindow[valid]).mean()            # D. Scipión added with correct definition
-            power = ((spec2[valid] - n0) * fwindow[valid]).sum() 
+            power = ((spec2[valid] - n0) * fwindow[valid]).sum()
             fd = ((spec2[valid]- n0)*freq[valid] * fwindow[valid]).sum() / power
             w = numpy.sqrt(((spec2[valid] - n0)*fwindow[valid]*(freq[valid]- fd)**2).sum() / power)
             snr = (spec2.mean()-n0)/n0
@@ -3884,3 +3900,567 @@ class SMOperations():
 #         error[indInvalid1] = 13
 #
 #         return heights, error
+
+
+class WeatherRadar(Operation):
+    '''
+    Function tat implements Weather Radar operations-
+    Input:
+    Output:
+    Parameters affected:
+    '''
+    isConfig  = False
+
+    def __init__(self):
+        Operation.__init__(self)
+
+    def setup(self,dataOut,Pt=0,Gt=0,Gr=0,lambda_=0, aL=0,
+                tauW= 0,thetaT=0,thetaR=0,Km =0):
+        self.nCh      = dataOut.nChannels
+        self.nHeis    = dataOut.nHeights
+        deltaHeight   = dataOut.heightList[1] - dataOut.heightList[0]
+        self.Range    = numpy.arange(dataOut.nHeights)*deltaHeight + dataOut.heightList[0]
+        self.Range    = self.Range.reshape(1,self.nHeis)
+        self.Range    = numpy.tile(self.Range,[self.nCh,1])
+        '''-----------1 Constante del Radar----------'''
+        self.Pt       = Pt
+        self.Gt       = Gt
+        self.Gr       = Gr
+        self.lambda_  = lambda_
+        self.aL       = aL
+        self.tauW     = tauW
+        self.thetaT   = thetaT
+        self.thetaR   = thetaR
+        self.Km       = Km
+        Numerator     = ((4*numpy.pi)**3 * aL**2 * 16 *numpy.log(2))
+        Denominator   = (Pt * Gt * Gr * lambda_**2 * SPEED_OF_LIGHT * tauW * numpy.pi*thetaT*thetaR)
+        self.RadarConstant = Numerator/Denominator
+        '''-----------2 Reflectividad del Radar y Factor de Reflectividad------'''
+        self.n_radar       = numpy.zeros((self.nCh,self.nHeis))
+        self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
+
+    def setMoments(self,dataOut,i):
+
+        type = dataOut.inputUnit
+        nCh  = dataOut.nChannels
+        nHeis= dataOut.nHeights
+        data_param = numpy.zeros((nCh,4,nHeis))
+        if type == "Voltage":
+            data_param[:,0,:] = dataOut.dataPP_POW/(dataOut.nCohInt**2)
+            data_param[:,1,:] = dataOut.dataPP_DOP
+            data_param[:,2,:] = dataOut.dataPP_WIDTH
+            data_param[:,3,:] = dataOut.dataPP_SNR
+        if type == "Spectra":
+            data_param[:,0,:] = dataOut.data_POW
+            data_param[:,1,:] = dataOut.data_DOP
+            data_param[:,2,:] = dataOut.data_WIDTH
+        def setMoments(self,dataOut,i):
+            data_param[:,3,:] = dataOut.data_SNR
+
+            return data_param[:,i,:]
+
+
+    def run(self,dataOut,Pt=25,Gt=200.0,Gr=50.0,lambda_=0.32, aL=2.5118,
+                tauW= 4.0e-6,thetaT=0.165,thetaR=0.367,Km =0.93):
+
+        if not self.isConfig:
+            self.setup(dataOut= dataOut,Pt=25,Gt=200.0,Gr=50.0,lambda_=0.32, aL=2.5118,
+                        tauW= 4.0e-6,thetaT=0.165,thetaR=0.367,Km =0.93)
+            self.isConfig = True
+        '''-----------------------------Potencia de Radar -Signal S-----------------------------'''
+        Pr               = self.setMoments(dataOut,0)
+
+        for R in range(self.nHeis):
+            self.n_radar[:,R] = self.RadarConstant*Pr[:,R]* (self.Range[:,R])**2
+
+            self.Z_radar[:,R] = self.n_radar[:,R]* self.lambda_**4/( numpy.pi**5 * self.Km**2)
+
+        '''----------- Factor de Reflectividad Equivalente lamda_ < 10 cm , lamda_= 3.2cm-------'''
+        Zeh  =  self.Z_radar
+        dBZeh = 10*numpy.log10(Zeh)
+        dataOut.factor_Zeh= dBZeh
+        self.n_radar       = numpy.zeros((self.nCh,self.nHeis))
+        self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
+
+        return dataOut
+
+class PedestalInformation(Operation):
+    path_ped     = None
+    path_adq     = None
+    t_Interval_p = None
+    n_Muestras_p = None
+    isConfig     = False
+    blocksPerfile= None
+    f_a_p        = None
+    online       = None
+    angulo_adq   = None
+    nro_file     = None
+    nro_key_p    = None
+
+
+    def __init__(self):
+        Operation.__init__(self)
+
+    def getfirstFilefromPath(self,path,meta,ext):
+        validFilelist = []
+        #print("SEARH",path)
+        try:
+            fileList      = os.listdir(path)
+        except:
+            print("check path - fileList")
+        if len(fileList)<1:
+         return None
+        # meta    1234 567 8-18 BCDE
+        # H,D,PE  YYYY DDD EPOC .ext
+
+        for thisFile in fileList:
+            #print("HI",thisFile)
+            if meta =="PE":
+                try:
+                    number= int(thisFile[len(meta)+7:len(meta)+17])
+                except:
+                     print("There is a file or folder with different format")
+            if meta == "D":
+                try:
+                    number= int(thisFile[8:11])
+                except:
+                    print("There is a file or folder with different format")
+
+            if not isNumber(str=number):
+                continue
+            if (os.path.splitext(thisFile)[-1].lower() != ext.lower()):
+                continue
+            validFilelist.sort()
+            validFilelist.append(thisFile)
+        if len(validFilelist)>0:
+            validFilelist = sorted(validFilelist,key=str.lower)
+            return validFilelist
+        return None
+
+    def gettimeutcfromDirFilename(self,path,file):
+        dir_file= path+"/"+file
+        fp      = h5py.File(dir_file,'r')
+        #epoc    = fp['Metadata'].get('utctimeInit')[()]
+        epoc    = fp['Data'].get('utc')[()]
+        fp.close()
+        return epoc
+
+    def getDatavaluefromDirFilename(self,path,file,value):
+        dir_file= path+"/"+file
+        fp      = h5py.File(dir_file,'r')
+        array    = fp['Data'].get(value)[()]
+        fp.close()
+        return array
+
+    def getFile_KeyP(self,list_pedestal,list_adq):
+        print(list_pedestal)
+        print(list_adq)
+
+    def getNROFile(self,utc_adq,utc_ped_list):
+        c=0
+        for i in range(len(utc_ped_list)):
+            if utc_adq>utc_ped_list[i]:
+                c +=1
+
+        return c-1,utc_ped_list[c-1],utc_ped_list[c]
+
+
+    def setup_offline(self,list_pedestal,list_adq):
+        print("SETUP OFFLINE")
+        print(self.path_ped)
+        print(self.path_adq)
+        print(len(self.list_pedestal))
+        print(len(self.list_adq))
+        utc_ped_list=[]
+        for i in range(len(self.list_pedestal)):
+            utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[i]))
+
+        #utc_ped_list= utc_ped_list
+        utc_adq     = self.gettimeutcfromDirFilename(path=self.path_adq,file=self.list_adq[0])
+        #print("utc_ped_list",utc_ped_list)
+        print("utc_adq",utc_adq)
+        nro_file,utc_ped = self.getNROFile(utc_adq=utc_adq, utc_ped_list= utc_ped_list)
+
+        print("nro_file",nro_file,"utc_ped",utc_ped)
+        print("nro_file",i)
+        nro_key_p    = int((utc_adq-utc_ped)/self.t_Interval_p)
+        print("nro_key_p",nro_key_p)
+
+        ff_pedestal  = self.list_pedestal[nro_file]
+        #angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azimuth")
+        angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azi_pos")
+
+        print("utc_pedestal_init             :",utc_ped+nro_key_p*self.t_Interval_p)
+        print("angulo_array                  :",angulo[nro_key_p])
+        self.nro_file  = nro_file
+        self.nro_key_p = nro_key_p
+
+    def setup_online(self,dataOut):
+        utc_adq =dataOut.utctime
+        print("Online-utc_adq",utc_adq)
+        print(len(self.list_pedestal))
+        utc_ped_list=[]
+        for i in range(len(self.list_pedestal)):
+            utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[i]))
+        print(utc_ped_list[:20])
+        #print(utc_ped_list[488:498])
+        print("ultimo UTC-PEDESTAL",utc_ped_list[-1])
+        nro_file,utc_ped,utc_ped_1 = self.getNROFile(utc_adq=utc_adq, utc_ped_list= utc_ped_list)
+        print("nro_file",nro_file,"utc_ped",utc_ped,"utc_ped_1",utc_ped_1)
+        print("name_PEDESTAL",self.list_pedestal[nro_file])
+        nro_key_p    = int((utc_adq-utc_ped)/self.t_Interval_p)
+        print("nro_key_p",nro_key_p)
+        ff_pedestal  = self.list_pedestal[nro_file]
+        #angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azimuth")
+        angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azi_pos")
+
+        print("utc_pedestal_init             :",utc_ped+nro_key_p*self.t_Interval_p)
+        print("angulo_array                  :",angulo[nro_key_p])
+        self.nro_file  = nro_file
+        self.nro_key_p = nro_key_p
+
+
+        '''
+        print("############################")
+        utc_adq = dataOut.utctime
+        print("ONLINE",dataOut.utctime)
+        print("utc_adq"     , utc_adq)
+        utc_pedestal= self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[0])
+        print("utc_pedestal", utc_pedestal)
+        flag_i  = 0
+        flag    = 0
+        ready   = 0
+        if len(self.list_pedestal)!=0:
+            enable_p=1
+        if (enable_p!=0):
+            while(flag_i==0):
+                if utc_adq>utc_pedestal:
+                    nro_file = int((utc_adq - utc_pedestal)/(self.t_Interval_p*self.n_Muestras_p))
+                    print("nro_file--------------------",nro_file)
+                    print(len(self.list_pedestal))
+                    if nro_file> len(self.list_pedestal):
+                        nro_file = len(self.list_pedestal)-1
+                    ff_pedestal  = self.list_pedestal[nro_file]
+                    print(ff_pedestal)
+                    utc_pedestal = self.gettimeutcfromDirFilename(path=self.path_ped,file=ff_pedestal)
+                    while(flag==0):
+                        print("adq",utc_adq)
+                        print("ped",utc_pedestal)
+                        print("nro_file",nro_file)
+                        if utc_adq >utc_pedestal:
+                            print("DENTRO DEL IF-SETUP")
+                            ff_pedestal  = self.list_pedestal[nro_file]
+                            if 0<(utc_adq - utc_pedestal)<(self.t_Interval_p*self.n_Muestras_p):
+                                nro_file= nro_file
+                                ff_pedestal  = self.list_pedestal[nro_file]
+                                ready = 1
+                            if (utc_adq-utc_pedestal)>(self.t_Interval_p*self.n_Muestras_p):
+                                nro_tmp= int((utc_adq-utc_pedestal)/(self.n_Muestras_p))
+                                nro_file= nro_file+1*nro_tmp#chsssssssssssssssssssasssddasdas/     equear esta condicion
+                                if nro_tmp==0:
+                                    nro_file= nro_file +1
+                                ff_pedestal  = self.list_pedestal[nro_file]
+                                print("",ff_pedestal)
+                                utc_pedestal = self.gettimeutcfromDirFilename(path=self.path_ped,file=ff_pedestal)
+                        else:
+                            print("DENTRO DEL ELSE-SETUP")
+                            nro_tmp= int((utc_pedestal-utc_adq)/(self.n_Muestras_p))
+                            if utc_pedestal>utc_adq and nro_tmp==0:
+                                nro_tmp= int((utc_pedestal-utc_adq))
+                            print("nro_tmp",nro_tmp)
+                            if nro_file>nro_tmp:
+                                nro_file = nro_file-1*nro_tmp
+                            else:
+                                nro_file =nro_file -1
+
+                            ff_pedestal  = self.list_pedestal[nro_file]
+                            utc_pedestal = self.gettimeutcfromDirFilename(path=self.path_ped,file=ff_pedestal)
+
+                        if ready:
+                            angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azimuth")
+                            nro_key_p    = int((utc_adq-utc_pedestal)/self.t_Interval_p)
+                            print("nro_file                      :",nro_file)
+                            print("name_file                     :",ff_pedestal)
+                            print("utc_pedestal_file             :",utc_pedestal)
+                            print("nro_key_p                     :",nro_key_p)
+                            print("utc_pedestal_init             :",utc_pedestal+nro_key_p*self.t_Interval_p)
+                            print("angulo_array                  :",angulo[nro_key_p])
+                            flag=1
+                            flag_i=1
+        else:
+            print("La lista de archivos de pedestal o adq esta vacia")
+            nro_file=None
+            nro_key_p=None
+        self.nro_file  = nro_file
+        self.nro_key_p = nro_key_p
+        '''
+
+    def setup(self,dataOut,path_ped,path_adq,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online):
+        self.__dataReady      = False
+        self.path_ped     = path_ped
+        self.path_adq     = path_adq
+        self.t_Interval_p = t_Interval_p
+        self.n_Muestras_p = n_Muestras_p
+        self.blocksPerfile= blocksPerfile
+        self.f_a_p        = f_a_p
+        self.online       = online
+        self.angulo_adq   = numpy.zeros(self.blocksPerfile)
+        self.__profIndex  = 0
+        print(self.path_ped)
+        print(self.path_adq)
+        self.list_pedestal = self.getfirstFilefromPath(path=self.path_ped,meta="PE",ext=".hdf5")
+        print("LIST NEW", self.list_pedestal[:20])
+        self.list_adq      = self.getfirstFilefromPath(path=self.path_adq,meta="D",ext=".hdf5")
+        print("*************Longitud list pedestal****************",len(self.list_pedestal))
+
+        if self.online:
+            print("Enable Online")
+            self.setup_online(dataOut)
+        else:
+            self.setup_offline(list_pedestal=self.list_pedestal,list_adq=self.list_adq)
+
+    def setNextFileP(self,dataOut):
+        if self.online:
+            data_pedestal = self.setNextFileonline()
+        else:
+            data_pedestal = self.setNextFileoffline()
+
+        return data_pedestal
+
+
+    def setNextFileoffline(self):
+        tmp =0
+        for j in range(self.blocksPerfile):
+            #print("NUMERO DEL BLOQUE:",j)
+            iterador = self.nro_key_p +self.f_a_p*(j-tmp)
+            #print("iterador",iterador)
+            if iterador < self.n_Muestras_p:
+                    self.nro_file = self.nro_file
+            else:
+                self.nro_file = self.nro_file+1
+                dif      = self.blocksPerfile-(self.nro_key_p+self.f_a_p*(j-tmp-1))
+                tmp      = j
+                self.nro_key_p= self.f_a_p-dif
+                iterador = self.nro_key_p
+            #print("nro_file",self.nro_file)
+            try:
+                ff_pedestal  = self.list_pedestal[self.nro_file]
+            except:
+                return numpy.ones(self.blocksPerfile)*numpy.nan
+
+            angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azimuth")
+            self.angulo_adq[j]= angulo[iterador]
+
+        return self.angulo_adq
+
+    def setNextFileonline(self):
+        tmp           = 0
+        self.nTries_p = 3
+        self.delay    = 3
+        ready         = 1
+        for j in range(self.blocksPerfile):
+            iterador = self.nro_key_p +self.f_a_p*(j-tmp)
+            if iterador < self.n_Muestras_p:
+                    self.nro_file = self.nro_file
+            else:
+                self.nro_file = self.nro_file+1
+                dif      = self.blocksPerfile-(self.nro_key_p+self.f_a_p*(j-tmp-1))
+                tmp      = j
+                self.nro_key_p= self.f_a_p-dif
+                iterador = self.nro_key_p
+            print("nro_file---------------- :",self.nro_file)
+            try:
+                # update list_pedestal
+                self.list_pedestal = self.getfirstFilefromPath(path=self.path_ped,meta="PE",ext=".hdf5")
+                ff_pedestal  = self.list_pedestal[self.nro_file]
+            except:
+                ff_pedestal  = None
+                ready        = 0
+                for nTries_p in range(self.nTries_p):
+                    try:
+                        # update list_pedestal
+                        self.list_pedestal = self.getfirstFilefromPath(path=self.path_ped,meta="PE",ext=".hdf5")
+                        ff_pedestal  = self.list_pedestal[self.nro_file]
+                    except:
+                        ff_pedestal  = None
+                    if ff_pedestal is not None:
+                        ready=1
+                        break
+                    log.warning("Waiting %0.2f sec for the next file: \"%s\" , try %02d ..." % (self.delay, self.nro_file, nTries_p + 1))
+                    time.sleep(self.delay)
+                    continue
+                    #return numpy.ones(self.blocksPerfile)*numpy.nan
+
+            if ready == 1:
+                #angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azimuth")
+                angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azi_pos")
+
+            else:
+                print("there is no pedestal file")
+                angulo       =  numpy.ones(self.n_Muestras_p)*numpy.nan
+            self.angulo_adq[j]= angulo[iterador]
+        print("Angulo",self.angulo_adq)
+        print("Angulo",len(self.angulo_adq))
+        #self.nro_key_p=iterador + self.f_a_p
+        #if self.nro_key_p<  self.n_Muestras_p:
+        #    self.nro_file = self.nro_file
+        #else:
+        #    self.nro_file = self.nro_file+1
+        #    self.nro_key_p= self.nro_key_p
+        return self.angulo_adq
+
+
+    def run(self, dataOut,path_ped,path_adq,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online):
+        if not self.isConfig:
+            self.setup( dataOut, path_ped,path_adq,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online)
+            self.isConfig   = True
+
+        dataOut.flagNoData                         = True
+        #print("profIndex",self.__profIndex)
+
+        if self.__profIndex==0:
+            angulo_adq       = self.setNextFileP(dataOut)
+            dataOut.azimuth  = angulo_adq
+            self.__dataReady = True
+        self.__profIndex += 1
+        if self.__profIndex== blocksPerfile:
+            self.__profIndex = 0
+        if self.__dataReady:
+            #print(self.__profIndex,dataOut.azimuth[:10])
+            dataOut.flagNoData      = False
+        return dataOut
+
+
+class Block360(Operation):
+    '''
+    '''
+    isConfig       = False
+    __profIndex    = 0
+    __initime      = None
+    __lastdatatime = None
+    __buffer       = None
+    __dataReady    = False
+    n              = None
+    __nch          = 0
+    __nHeis        = 0
+    index          = 0
+
+    def __init__(self,**kwargs):
+        Operation.__init__(self,**kwargs)
+
+    def setup(self, dataOut, n = None):
+        '''
+        n= Numero de PRF's de entrada
+        '''
+        self.__initime        = None
+        self.__lastdatatime   = 0
+        self.__dataReady      = False
+        self.__buffer         = 0
+        self.__buffer_1D      = 0
+        self.__profIndex      = 0
+        self.index            = 0
+        self.__nch            = dataOut.nChannels
+        self.__nHeis          = dataOut.nHeights
+        ##print("ELVALOR DE n es:", n)
+        if n == None:
+            raise ValueError("n should be specified.")
+
+        if n != None:
+            if n<1:
+                print("n should be greater than 2")
+                raise ValueError("n should be greater than 2")
+
+        self.n       = n
+        #print("nHeights")
+        self.__buffer = numpy.zeros(( dataOut.nChannels,n, dataOut.nHeights))
+        self.__buffer2= numpy.zeros(n)
+
+    def putData(self,data):
+        '''
+        Add a profile to he __buffer and increase in one the __profiel Index
+        '''
+        #print("line 4049",data.dataPP_POW.shape,data.dataPP_POW[:10])
+        #print("line 4049",data.azimuth.shape,data.azimuth)
+        self.__buffer[:,self.__profIndex,:]= data.dataPP_POW
+        #print("me casi",self.index,data.azimuth[self.index])
+        #print(self.__profIndex, self.index , data.azimuth[self.index] )
+        #print("magic",data.profileIndex)
+        #print(data.azimuth[self.index])
+        #print("index",self.index)
+
+        self.__buffer2[self.__profIndex] = data.azimuth[self.index]
+        #print("q pasa")
+        self.index+=1
+        #print("index",self.index,data.azimuth[:10])
+        self.__profIndex      += 1
+        return        #················· Remove DC···································
+
+    def pushData(self,data):
+        '''
+        Return the PULSEPAIR and the profiles used in the operation
+        Affected :  self.__profileIndex
+        '''
+        #print("pushData")
+
+        data_360 = self.__buffer
+        data_p   = self.__buffer2
+        n                = self.__profIndex
+
+        self.__buffer    = numpy.zeros((self.__nch, self.n,self.__nHeis))
+        self.__buffer2 = numpy.zeros(self.n)
+        self.__profIndex = 0
+        #print("pushData")
+        return data_360,n,data_p
+
+
+    def byProfiles(self,dataOut):
+
+        self.__dataReady     =  False
+        data_360           =  None
+        data_p             = None
+        #print("dataOu",dataOut.dataPP_POW)
+        self.putData(data=dataOut)
+        #print("profIndex",self.__profIndex)
+        if self.__profIndex  == self.n:
+            data_360,n,data_p  = self.pushData(data=dataOut)
+            self.__dataReady                   = True
+
+        return data_360,data_p
+
+
+    def blockOp(self, dataOut, datatime= None):
+        if self.__initime == None:
+            self.__initime = datatime
+        data_360,data_p = self.byProfiles(dataOut)
+        self.__lastdatatime           = datatime
+
+        if data_360 is None:
+            return None, None,None
+
+        avgdatatime    = self.__initime
+        deltatime      = datatime - self.__lastdatatime
+        self.__initime = datatime
+        #print(data_360.shape,avgdatatime,data_p.shape)
+        return data_360,avgdatatime,data_p
+
+    def run(self, dataOut,n = None,**kwargs):
+
+        if not self.isConfig:
+            self.setup(dataOut = dataOut, n    = n , **kwargs)
+            self.index = 0
+            #print("comova",self.isConfig)
+            self.isConfig   = True
+        if self.index==dataOut.azimuth.shape[0]:
+            self.index=0
+        data_360, avgdatatime,data_p = self.blockOp(dataOut, dataOut.utctime)
+        dataOut.flagNoData                         = True
+
+        if self.__dataReady:
+            dataOut.data_360         = data_360 # S
+            #print("DATAREADY---------------------------------------------")
+            print("data_360",dataOut.data_360.shape)
+            dataOut.data_azi         = data_p
+            #print("jroproc_parameters",data_p[0],data_p[-1])#,data_360.shape,avgdatatime)
+            dataOut.utctime         = avgdatatime
+            dataOut.flagNoData      = False
+        return dataOut

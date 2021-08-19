@@ -252,7 +252,7 @@ class Plot(Operation):
         self.__throttle_plot = apply_throttle(self.throttle)
         code = self.attr_data if self.attr_data else self.CODE
         self.data = PlotterData(self.CODE, self.exp_code, self.localtime)
-        
+
         if self.server:
             if not self.server.startswith('tcp://'):
                 self.server = 'tcp://{}'.format(self.server)
@@ -271,7 +271,7 @@ class Plot(Operation):
 
         self.setup()
 
-        self.time_label = 'LT' if self.localtime else 'UTC'        
+        self.time_label = 'LT' if self.localtime else 'UTC'
 
         if self.width is None:
             self.width = 8
@@ -376,7 +376,7 @@ class Plot(Operation):
         '''
         Set min and max values, labels, ticks and titles
         '''
-            
+
         for n, ax in enumerate(self.axes):
             if ax.firsttime:
                 if self.xaxis != 'time':
@@ -459,14 +459,14 @@ class Plot(Operation):
 
         self.plot()
         self.format()
-        
+
         for n, fig in enumerate(self.figures):
             if self.nrows == 0 or self.nplots == 0:
                 log.warning('No data', self.name)
                 fig.text(0.5, 0.5, 'No Data', fontsize='large', ha='center')
                 fig.canvas.manager.set_window_title(self.CODE)
                 continue
-            
+
             fig.canvas.manager.set_window_title('{} - {}'.format(self.title,
                                                                  self.getDateTime(self.data.max_time).strftime('%Y/%m/%d')))
             fig.canvas.draw()
@@ -476,7 +476,7 @@ class Plot(Operation):
 
             if self.save:
                 self.save_figure(n)
-        
+
         if self.server:
             self.send_to_server()
 
@@ -489,33 +489,44 @@ class Plot(Operation):
             'interval': dataOut.timeInterval,
             'channels': dataOut.channelList
         }
-        
+
         data, meta = self.update(dataOut)
         metadata.update(meta)
         self.data.update(data, timestamp, metadata)
-    
+
     def save_figure(self, n):
         '''
         '''
-
-        if (self.data.max_time - self.save_time) <= self.save_period:
-            return
+        if self.oneFigure:
+            if (self.data.max_time - self.save_time) <= self.save_period:
+                return
 
         self.save_time = self.data.max_time
 
         fig = self.figures[n]
-
         if self.throttle == 0:
-            figname = os.path.join(
-                self.save,
-                self.save_code,
-                '{}_{}.png'.format(                
+            if self.oneFigure:
+                figname = os.path.join(
+                    self.save,
                     self.save_code,
-                    self.getDateTime(self.data.max_time).strftime(
-                        '%Y%m%d_%H%M%S'
-                        ),
+                    '{}_{}.png'.format(
+                        self.save_code,
+                        self.getDateTime(self.data.max_time).strftime(
+                            '%Y%m%d_%H%M%S'
+                            ),
+                        )
                     )
-                )
+            else:
+                figname = os.path.join(
+                    self.save,
+                    self.save_code,
+                    '{}_ch{}_{}.png'.format(
+                        self.save_code,n,
+                        self.getDateTime(self.data.max_time).strftime(
+                            '%Y%m%d_%H%M%S'
+                            ),
+                        )
+                    )
             log.log('Saving figure: {}'.format(figname), self.name)
             if not os.path.isdir(os.path.dirname(figname)):
                 os.makedirs(os.path.dirname(figname))
@@ -530,6 +541,7 @@ class Plot(Operation):
                     ),
                 )
             )
+
         log.log('Saving figure: {}'.format(figname), self.name)
         if not os.path.isdir(os.path.dirname(figname)):
             os.makedirs(os.path.dirname(figname))
@@ -541,14 +553,14 @@ class Plot(Operation):
 
         if self.exp_code == None:
             log.warning('Missing `exp_code` skipping sending to server...')
-        
+
         last_time = self.data.max_time
         interval = last_time - self.sender_time
         if interval < self.sender_period:
             return
 
         self.sender_time = last_time
-        
+
         attrs = ['titles', 'zmin', 'zmax', 'tag', 'ymin', 'ymax']
         for attr in attrs:
             value = getattr(self, attr)
@@ -565,7 +577,7 @@ class Plot(Operation):
         self.data.meta['interval'] = int(interval)
 
         self.sender_queue.append(last_time)
-        
+
         while True:
             try:
                 tm = self.sender_queue.popleft()
@@ -604,7 +616,7 @@ class Plot(Operation):
         self.ncols: number of cols
         self.nplots: number of plots (channels or pairs)
         self.ylabel: label for Y axes
-        self.titles: list of axes title 
+        self.titles: list of axes title
 
         '''
         raise NotImplementedError
@@ -619,14 +631,14 @@ class Plot(Operation):
         '''
         Must be defined in the child class, update self.data with new data
         '''
-        
+
         data = {
             self.CODE: getattr(dataOut, 'data_{}'.format(self.CODE))
         }
         meta = {}
 
         return data, meta
-    
+
     def run(self, dataOut, **kwargs):
         '''
         Main plotting routine
@@ -650,7 +662,7 @@ class Plot(Operation):
                 self.poll.register(self.socket, zmq.POLLIN)
 
         tm = getattr(dataOut, self.attr_time)
-        
+
         if self.data and 'time' in self.xaxis and (tm - self.tmin) >= self.xrange*60*60:
             self.save_time = tm
             self.__plot()
@@ -667,7 +679,7 @@ class Plot(Operation):
                 dt = self.getDateTime(tm)
                 if self.xmin is None:
                     self.tmin = tm
-                    self.xmin = dt.hour    
+                    self.xmin = dt.hour
                 minutes = (self.xmin-int(self.xmin)) * 60
                 seconds = (minutes - int(minutes)) * 60
                 self.tmin = (dt.replace(hour=int(self.xmin), minute=int(minutes), second=int(seconds)) -
@@ -690,4 +702,3 @@ class Plot(Operation):
             self.__plot()
         if self.data and not self.data.flagNoData and self.pause:
             figpause(10)
-

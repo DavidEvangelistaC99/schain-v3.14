@@ -273,13 +273,13 @@ class JROData(GenericData):
         '''
         '''
         return self.radarControllerHeaderObj.ippSeconds
-    
+
     @ippSeconds.setter
     def ippSeconds(self, ippSeconds):
         '''
         '''
         self.radarControllerHeaderObj.ippSeconds = ippSeconds
-    
+
     @property
     def code(self):
         '''
@@ -370,7 +370,7 @@ class Voltage(JROData):
         self.flagShiftFFT = False
         self.flagDataAsBlock = False  # Asumo que la data es leida perfil a perfil
         self.profileIndex = 0
-        self.metadata_list = ['type', 'heightList', 'timeZone', 'nProfiles', 'channelList', 'nCohInt', 
+        self.metadata_list = ['type', 'heightList', 'timeZone', 'nProfiles', 'channelList', 'nCohInt',
             'code', 'nCode', 'nBaud', 'ippSeconds', 'ipp']
 
     def getNoisebyHildebrand(self, channel=None):
@@ -461,7 +461,7 @@ class Spectra(JROData):
         self.ippFactor = 1
         self.beacon_heiIndexList = []
         self.noise_estimation = None
-        self.metadata_list = ['type', 'heightList', 'timeZone', 'pairsList', 'channelList', 'nCohInt', 
+        self.metadata_list = ['type', 'heightList', 'timeZone', 'pairsList', 'channelList', 'nCohInt',
             'code', 'nCode', 'nBaud', 'ippSeconds', 'ipp','nIncohInt', 'nFFTPoints', 'nProfiles']
 
     def getNoisebyHildebrand(self, xmin_index=None, xmax_index=None, ymin_index=None, ymax_index=None):
@@ -611,7 +611,7 @@ class Spectra(JROData):
         print("This property should not be initialized")
 
         return
-    
+
     noise = property(getNoise, setValue, "I'm the 'nHeights' property.")
 
 
@@ -708,7 +708,7 @@ class Fits(JROData):
         return self.ipp_sec
 
     noise = property(getNoise, "I'm the 'nHeights' property.")
-    
+
 
 class Correlation(JROData):
 
@@ -966,7 +966,7 @@ class PlotterData(object):
         '''
 
         self.data[tm] = data
-        
+
         for key, value in meta.items():
             setattr(self, key, value)
 
@@ -1012,7 +1012,7 @@ class PlotterData(object):
             meta['xrange'] = self.roundFloats(self.xrange[2][::dx].tolist())
         else:
             data = self.roundFloats(self.data[tm][self.key].tolist())
-        
+
         ret = {
             'plot': plot_name,
             'code': self.exp_code,

@@ -89,7 +89,7 @@ class SpectraHeisProc(ProcessingUnit):
         if self.dataIn.type == "Fits":
             self.__updateObjFromFits()
             self.dataOut.flagNoData = False
-            return 
+            return
 
         if self.dataIn.type == "SpectraHeis":
             self.dataOut.copy(self.dataIn)
@@ -302,6 +302,9 @@ class IncohInt4SpectraHeis(Operation):
         if self.__initime == None:
             self.__initime = datatime
 
+        #if self.__profIndex == 0:
+        #    self.__initime = datatime
+
         if self.__byTime:
             avgdata = self.byTime(data, datatime)
         else:
@@ -330,6 +333,7 @@ class IncohInt4SpectraHeis(Operation):
             self.setup(n=n, timeInterval=timeInterval, overlapping=overlapping)
             self.isConfig = True
 
+        #print("utc_time",dataOut.utctime)
         avgdata, avgdatatime = self.integrate(dataOut.data_spc, dataOut.utctime)
 
 #        dataOut.timeInterval *= n
@@ -343,5 +347,5 @@ class IncohInt4SpectraHeis(Operation):
 #             dataOut.timeInterval = dataOut.ippSeconds * dataOut.nIncohInt
 #            dataOut.timeInterval = self.__timeInterval*self.n
             dataOut.flagNoData = False
-        
+
         return dataOut
