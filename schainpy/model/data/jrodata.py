@@ -76,6 +76,8 @@ def hildebrand_sekhon(data, navg):
     """
 
     sortdata = numpy.sort(data, axis=None)
+    #print(numpy.shape(data))
+    #exit()
     '''
     lenOfData = len(sortdata)
     nums_min = lenOfData*0.2
@@ -273,13 +275,13 @@ class JROData(GenericData):
         '''
         '''
         return self.radarControllerHeaderObj.ippSeconds
-    
+
     @ippSeconds.setter
     def ippSeconds(self, ippSeconds):
         '''
         '''
         self.radarControllerHeaderObj.ippSeconds = ippSeconds
-    
+
     @property
     def code(self):
         '''
@@ -370,7 +372,7 @@ class Voltage(JROData):
         self.flagShiftFFT = False
         self.flagDataAsBlock = False  # Asumo que la data es leida perfil a perfil
         self.profileIndex = 0
-        self.metadata_list = ['type', 'heightList', 'timeZone', 'nProfiles', 'channelList', 'nCohInt', 
+        self.metadata_list = ['type', 'heightList', 'timeZone', 'nProfiles', 'channelList', 'nCohInt',
             'code', 'nCode', 'nBaud', 'ippSeconds', 'ipp']
 
     def getNoisebyHildebrand(self, channel=None):
@@ -428,6 +430,103 @@ class Voltage(JROData):
     noise = property(getNoise, "I'm the 'nHeights' property.")
 
 
+class CrossProds(JROData):
+
+    # data es un numpy array de 2 dmensiones (canales, alturas)
+    data = None
+
+    def __init__(self):
+        '''
+        Constructor
+        '''
+
+        self.useLocalTime = True
+        '''
+        self.radarControllerHeaderObj = RadarControllerHeader()
+        self.systemHeaderObj = SystemHeader()
+        self.type = "Voltage"
+        self.data = None
+#         self.dtype = None
+#        self.nChannels = 0
+#        self.nHeights = 0
+        self.nProfiles = None
+        self.heightList = None
+        self.channelList = None
+#        self.channelIndexList = None
+        self.flagNoData = True
+        self.flagDiscontinuousBlock = False
+        self.utctime = None
+        self.timeZone = None
+        self.dstFlag = None
+        self.errorCount = None
+        self.nCohInt = None
+        self.blocksize = None
+        self.flagDecodeData = False  # asumo q la data no esta decodificada
+        self.flagDeflipData = False  # asumo q la data no esta sin flip
+        self.flagShiftFFT = False
+        self.flagDataAsBlock = False  # Asumo que la data es leida perfil a perfil
+        self.profileIndex = 0
+
+
+    def getNoisebyHildebrand(self, channel=None):
+
+
+        if channel != None:
+            data = self.data[channel]
+            nChannels = 1
+        else:
+            data = self.data
+            nChannels = self.nChannels
+
+        noise = numpy.zeros(nChannels)
+        power = data * numpy.conjugate(data)
+
+        for thisChannel in range(nChannels):
+            if nChannels == 1:
+                daux = power[:].real
+            else:
+                daux = power[thisChannel, :].real
+            noise[thisChannel] = hildebrand_sekhon(daux, self.nCohInt)
+
+        return noise
+
+    def getNoise(self, type=1, channel=None):
+
+        if type == 1:
+            noise = self.getNoisebyHildebrand(channel)
+
+        return noise
+
+    def getPower(self, channel=None):
+
+        if channel != None:
+            data = self.data[channel]
+        else:
+            data = self.data
+
+        power = data * numpy.conjugate(data)
+        powerdB = 10 * numpy.log10(power.real)
+        powerdB = numpy.squeeze(powerdB)
+
+        return powerdB
+
+    def getTimeInterval(self):
+
+        timeInterval = self.ippSeconds * self.nCohInt
+
+        return timeInterval
+
+    noise = property(getNoise, "I'm the 'nHeights' property.")
+    timeInterval = property(getTimeInterval, "I'm the 'timeInterval' property")
+    '''
+    def getTimeInterval(self):
+
+        timeInterval = self.ippSeconds * self.nCohInt
+
+        return timeInterval
+
+
+
 class Spectra(JROData):
 
     def __init__(self):
@@ -458,7 +557,7 @@ class Spectra(JROData):
         self.ippFactor = 1
         self.beacon_heiIndexList = []
         self.noise_estimation = None
-        self.metadata_list = ['type', 'heightList', 'timeZone', 'pairsList', 'channelList', 'nCohInt', 
+        self.metadata_list = ['type', 'heightList', 'timeZone', 'pairsList', 'channelList', 'nCohInt',
             'code', 'nCode', 'nBaud', 'ippSeconds', 'ipp','nIncohInt', 'nFFTPoints', 'nProfiles']
 
     def getNoisebyHildebrand(self, xmin_index=None, xmax_index=None, ymin_index=None, ymax_index=None):
@@ -608,7 +707,7 @@ class Spectra(JROData):
         print("This property should not be initialized")
 
         return
-    
+
     noise = property(getNoise, setValue, "I'm the 'nHeights' property.")
 
 
@@ -705,7 +804,7 @@ class Fits(JROData):
         return self.ipp_sec
 
     noise = property(getNoise, "I'm the 'nHeights' property.")
-    
+
 
 class Correlation(JROData):
 
@@ -886,6 +985,7 @@ class Parameters(Spectra):
         else:
             return self.paramInterval
 
+
     def setValue(self, value):
 
         print("This property should not be initialized")
@@ -928,6 +1028,10 @@ class PlotterData(object):
             self.plottypes = ['cspc', 'spc', 'noise', 'rti']
         elif code == 'rti':
             self.plottypes = ['noise', 'rti']
+        elif code == 'crossprod':
+            self.plottypes = ['crossprod', 'kay']
+        elif code == 'spectrogram':
+            self.plottypes = ['spc', 'spectrogram']
         else:
             self.plottypes = [code]
 
@@ -976,9 +1080,11 @@ class PlotterData(object):
                 plot = 'snr'
             elif 'spc_moments' == plot:
                 plot = 'moments'
+            elif 'spc_oblique' == plot:
+                plot = 'oblique'
             self.data[plot] = {}
 
-        if 'spc' in self.data or 'rti' in self.data or 'cspc' in self.data or 'moments' in self.data:
+        if 'spc' in self.data or 'rti' in self.data or 'cspc' in self.data or 'moments' in self.data or 'oblique' in self.data:
             self.data['noise'] = {}
             self.data['rti'] = {}
             if 'noise' not in self.plottypes:
@@ -1020,16 +1126,33 @@ class PlotterData(object):
         self.__heights.append(dataOut.heightList)
         self.__all_heights.update(dataOut.heightList)
 
+
+
         for plot in self.plottypes:
-            if plot in ('spc', 'spc_moments', 'spc_cut'):
+            if plot in ('spc', 'spc_moments', 'spc_cut', 'spc_oblique'):
+
+
+                self.shift1 = dataOut.Oblique_params[0][1]
+                self.shift2 = dataOut.Oblique_params[0][4]
+                self.shift1_error = dataOut.Oblique_param_errors[0][1]
+                self.shift2_error = dataOut.Oblique_param_errors[0][4]
+                
                 z = dataOut.data_spc/dataOut.normFactor
+                #print(dataOut.normFactor)
+                #print(z[0,3,15])
+                #print("here")
+                #print(dataOut.data_spc[0,0,0])
+                #exit()
                 buffer = 10*numpy.log10(z)
             if plot == 'cspc':
                 buffer = (dataOut.data_spc, dataOut.data_cspc)
+                self.nFactor=dataOut.normFactor
             if plot == 'noise':
                 buffer = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
             if plot in ('rti', 'spcprofile'):
                 buffer = dataOut.getPower()
+                #print(buffer[0,0])
+                #exit()
             if plot == 'snr_db':
                 buffer = dataOut.data_SNR
             if plot == 'snr':
@@ -1048,6 +1171,277 @@ class PlotterData(object):
                 buffer = dataOut.data_output
             if plot == 'param':
                 buffer = dataOut.data_param
+            if plot == 'spectrogram':
+                maxHei = 1350 #11
+                #maxHei = 2500
+                maxHei = 0
+                #maxHei = 990 #12
+                ###maxHei = 990
+                indb = numpy.where(dataOut.heightList <= maxHei)
+                hei = indb[0][-1]
+                #hei = 19
+                print(hei)
+                #hei = 0
+                factor = dataOut.nIncohInt
+                #print(factor)
+
+                #exit(1)
+                z = dataOut.data_spc[:,:,hei] / factor
+
+                #for j in range(z.shape[1]):
+                    #z[:,j] = z[:,j]/hildebrand_sekhon(z[], self.nCohInt)
+
+                ##z = z/hildebrand_sekhon(z, factor)
+                noise  = numpy.zeros(dataOut.nChannels)
+                for i in range(dataOut.nChannels):
+                    #daux         = numpy.sort(pair0[i,:,:],axis= None)
+                    noise[i]=hildebrand_sekhon( z[i,:] ,dataOut.nIncohInt)
+                #for j in range(z.shape[1]):
+                    #z[:,j] = z[:,j]/noise
+
+                #print(z.shape[1])
+                norm_factor = numpy.copy(z[:,int(z.shape[1]/2)])#/z[:,int(z.shape[1]/2)])*8000
+                #print(norm_factor)
+                #print(z[0,315:325])
+                #norm_factor = norm_factor.reshape((z.shape[0],z.shape[1]))
+                #print(norm_factor)
+                #exit(1)
+                #print(z.shape[1])
+
+                #for j in range(z.shape[1]):
+                    #z[:,j] = z[:,j]/norm_factor
+
+                #print(z[0,315:325])
+                #exit(1)
+
+                #z = numpy.mean(dataOut.data_spc[:,:,:],axis=2) / factor
+                z = numpy.where(numpy.isfinite(z), z, numpy.NAN)
+                #avg = numpy.average(z, axis=1)
+                #print((dataOut.data_spc.shape))
+                #exit(1)
+                self.hei = hei
+                self.heightList = dataOut.heightList
+                self.DH = (dataOut.heightList[1] - dataOut.heightList[0])/dataOut.step
+                self.nProfiles = dataOut.nProfiles
+                #print(dataOut.heightList)
+
+
+                buffer = 10 * numpy.log10(z)
+
+
+                ###buffer = z
+                import matplotlib.pyplot as plt
+                fig, axes = plt.subplots(figsize=(14, 10))
+                x = numpy.linspace(0,20,numpy.shape(buffer)[1])
+                x = numpy.fft.fftfreq(numpy.shape(buffer)[1],0.00001)
+                x = numpy.fft.fftshift(x)
+
+                plt.plot(x,buffer[0,:])
+                axes = plt.gca()
+                axes.set_xlim([-10000,10000])
+
+                #axes.set_xlim([0,30000])
+                #axes.set_ylim([-100,0.0025*1e10])
+                plt.show()
+                import time
+                #time.sleep(20)
+                #exit(1)
+
+
+
+                #if dataOut.profileIndex
+
+            if plot == 'xmit':
+                y_1=numpy.arctan2(dataOut.output_LP[:,0,2].imag,dataOut.output_LP[:,0,2].real)* 180 / (numpy.pi*10)
+                y_2=numpy.abs(dataOut.output_LP[:,0,2])
+                norm=numpy.max(y_2)
+                norm=max(norm,0.1)
+                y_2=y_2/norm
+
+                buffer = numpy.vstack((y_1,y_2))
+                self.NLAG = dataOut.NLAG
+
+            if plot == 'crossprod':
+                buffer = dataOut.crossprods
+                self.NDP = dataOut.NDP
+
+            if plot == 'crossprodlp':
+                buffer = 10*numpy.log10(numpy.abs(dataOut.output_LP))
+                self.NRANGE = dataOut.NRANGE
+                self.NLAG = dataOut.NLAG
+
+
+            if plot == 'noisedp':
+                buffer = 10*numpy.log10(dataOut.noise_final)
+                #print(buffer)
+
+            if plot == 'FaradayAngle':
+                buffer = numpy.degrees(dataOut.phi)
+                #print(buffer)
+
+            if plot == 'RTIDP':
+                buffer = dataOut.data_for_RTI_DP
+                self.NDP = dataOut.NDP
+
+            if plot == 'RTILP':
+                buffer = dataOut.data_for_RTI_LP
+                self.NRANGE = dataOut.NRANGE
+
+
+            if plot == 'denrti':
+                buffer = dataOut.DensityFinal
+
+
+            if plot == 'denrtiLP':
+
+                #buffer = numpy.reshape(numpy.concatenate((dataOut.ph2[:dataOut.cut],dataOut.ne[dataOut.cut:dataOut.NACF])),(1,-1))
+                buffer = dataOut.DensityFinal
+                #self.flagDataAsBlock = dataOut.flagDataAsBlock
+                #self.NDP = dataOut.NDP
+            if plot == 'den':
+                buffer = dataOut.ph2[:dataOut.NSHTS]
+                self.dphi=dataOut.dphi[:dataOut.NSHTS]
+                self.sdp2=dataOut.sdp2[:dataOut.NSHTS]
+                self.sdn1=dataOut.sdn1[:dataOut.NSHTS]#/self.dphi
+                self.NSHTS=dataOut.NSHTS
+                '''
+                flag1=False
+                flag0=True
+                for i in range(12,dataOut.NSHTS):
+                    print("H: ",i*15)
+                    print(abs((dataOut.sdn1[i]/(dataOut.dphi[i]**2))*100))
+                    if flag0:
+                        if abs((dataOut.sdn1[i]/dataOut.dphi[i]))<0.0005*abs(dataOut.dphi[i]):
+                            print("***************************** FIRST: ",(i)*15,"*****************************")
+                            flag1=True
+                            flag0=False
+                        #pass
+                        #print("****************************************GOOD****************************************")
+                    #else:
+                        #print("****************************************",(i-1)*15,"****************************************")
+                        #break
+                    if flag1:
+                        if abs((dataOut.sdn1[i]/dataOut.dphi[i]))>0.0005*abs(dataOut.dphi[i]):
+                            print("***************************** LAST: ",(i-1)*15,"*****************************")
+                            break
+                        #print("H: ",i*15)
+                        #print(dataOut.sdn1[i])
+                        '''
+            if plot == 'denLP':
+                buffer = dataOut.ph2[:dataOut.NSHTS]
+                self.dphi=dataOut.dphi[:dataOut.NSHTS]
+                self.sdp2=dataOut.sdp2[:dataOut.NSHTS]
+                self.ne=dataOut.ne[:dataOut.NACF]
+                self.ene=dataOut.ene[:dataOut.NACF]*dataOut.ne[:dataOut.NACF]*0.434
+                #self.ene=10**dataOut.ene[:dataOut.NACF]
+                self.NSHTS=dataOut.NSHTS
+                self.cut=dataOut.cut
+
+            if plot == 'ETemp':
+                #buffer = dataOut.ElecTempClean
+                buffer = dataOut.ElecTempFinal
+            if plot == 'ITemp':
+                #buffer = dataOut.IonTempClean
+                buffer = dataOut.IonTempFinal
+            if plot == 'ETempLP':
+                #buffer = dataOut.IonTempClean
+                #buffer = numpy.reshape(numpy.concatenate((dataOut.te2[:dataOut.cut],dataOut.te[dataOut.cut:])),(1,-1))
+                buffer = dataOut.ElecTempFinal
+                #print(buffer)
+            if plot == 'ITempLP':
+                #buffer = dataOut.IonTempClean
+                #buffer = numpy.reshape(numpy.concatenate((dataOut.ti2[:dataOut.cut],dataOut.ti[dataOut.cut:])),(1,-1))
+                buffer = dataOut.IonTempFinal
+
+            if plot == 'HFracLP':
+                #buffer = dataOut.IonTempClean
+                #buffer = numpy.reshape(numpy.concatenate((dataOut.phy2[:dataOut.cut],dataOut.ph[dataOut.cut:])),(1,-1))
+                buffer = dataOut.PhyFinal
+            if plot == 'HeFracLP':
+                #buffer = dataOut.IonTempClean
+                #nan_array=numpy.empty((dataOut.cut))
+                #nan_array[:]=numpy.nan
+                #buffer = numpy.reshape(numpy.concatenate((nan_array,dataOut.phe[dataOut.cut:])),(1,-1))
+                buffer = dataOut.PheFinal
+
+
+
+
+
+            if plot =='acfs':
+                buffer = dataOut.acfs_to_plot
+                self.acfs_error_to_plot=dataOut.acfs_error_to_plot
+                self.lags_to_plot=dataOut.lags_to_plot
+                self.x_igcej_to_plot=dataOut.x_igcej_to_plot
+                self.x_ibad_to_plot=dataOut.x_ibad_to_plot
+                self.y_igcej_to_plot=dataOut.y_igcej_to_plot
+                self.y_ibad_to_plot=dataOut.y_ibad_to_plot
+                self.NSHTS = dataOut.NSHTS
+                self.DPL = dataOut.DPL
+            if plot =='acfs_LP':
+
+                aux=numpy.zeros((dataOut.NACF,dataOut.IBITS),'float32')
+                self.errors=numpy.zeros((dataOut.NACF,dataOut.IBITS),'float32')
+                self.lags_LP_to_plot=numpy.zeros((dataOut.NACF,dataOut.IBITS),'float32')
+                '''
+                for i in range(dataOut.NACF):
+                    for j in range(dataOut.IBITS):
+                        aux[i,j]=dataOut.fit_array_real[i,j]/dataOut.fit_array_real[i,0]
+                        aux[i,j]=max(min(aux[i,j],1.0),-1.0)*dataOut.DH+dataOut.heightList[i]
+                        '''
+                for i in range(dataOut.NACF):
+                    for j in range(dataOut.IBITS):
+                        if numpy.abs(dataOut.errors[j,i]/dataOut.output_LP_integrated.real[0,i,0])<1.0:
+                            aux[i,j]=dataOut.output_LP_integrated.real[j,i,0]/dataOut.output_LP_integrated.real[0,i,0]
+                            aux[i,j]=max(min(aux[i,j],1.0),-1.0)*dataOut.DH+dataOut.heightList[i]
+                            self.lags_LP_to_plot[i,j]=dataOut.lags_LP[j]
+                            self.errors[i,j]=dataOut.errors[j,i]/dataOut.output_LP_integrated.real[0,i,0]*dataOut.DH
+                        else:
+                            aux[i,j]=numpy.nan
+                            self.lags_LP_to_plot[i,j]=numpy.nan
+                            self.errors[i,j]=numpy.nan
+
+
+
+                buffer = aux
+
+                #self.lags_LP_to_plot=dataOut.lags_LP
+
+                self.NACF = dataOut.NACF
+                self.NLAG = dataOut.NLAG
+
+            if plot == 'tempsDP':
+
+                buffer = dataOut.te2
+                self.ete2 = dataOut.ete2
+                self.ti2 = dataOut.ti2
+                self.eti2 = dataOut.eti2
+
+                self.NSHTS = dataOut.NSHTS
+
+            if plot == 'temps_LP':
+
+                buffer = numpy.concatenate((dataOut.te2[:dataOut.cut],dataOut.te[dataOut.cut:]))
+                self.ete = numpy.concatenate((dataOut.ete2[:dataOut.cut],dataOut.ete[dataOut.cut:]))
+                self.ti = numpy.concatenate((dataOut.ti2[:dataOut.cut],dataOut.ti[dataOut.cut:]))
+                self.eti = numpy.concatenate((dataOut.eti2[:dataOut.cut],dataOut.eti[dataOut.cut:]))
+
+                self.NACF = dataOut.NACF
+
+
+            if plot == 'fracs_LP':
+
+                aux_nan=numpy.zeros(dataOut.cut,'float32')
+                aux_nan[:]=numpy.nan
+                buffer = numpy.concatenate((aux_nan,dataOut.ph[dataOut.cut:]))
+                self.eph = numpy.concatenate((aux_nan,dataOut.eph[dataOut.cut:]))
+                self.phe = dataOut.phe[dataOut.cut:]
+                self.ephe = dataOut.ephe[dataOut.cut:]
+
+                self.NACF = dataOut.NACF
+                self.cut = dataOut.cut
+
+
             if plot == 'scope':
                 buffer = dataOut.data
                 self.flagDataAsBlock = dataOut.flagDataAsBlock
@@ -1076,6 +1470,10 @@ class PlotterData(object):
             elif plot == 'spc_moments':
                 self.data['spc'][tm] = buffer
                 self.data['moments'][tm] = dataOut.moments
+            elif plot == 'spc_oblique':
+                self.data['spc'][tm] = buffer
+                self.data['shift1'][tm] = dataOut.Oblique_params[0]
+                self.data['shift2'][tm] = dataOut.Oblique_params[3]
             else:
                 if self.buffering:
                     self.data[plot][tm] = buffer
@@ -1141,6 +1539,7 @@ class PlotterData(object):
         meta['interval'] = float(self.interval)
         meta['localtime'] = self.localtime
         meta['yrange'] = self.roundFloats(self.heights[::dy].tolist())
+
         if 'spc' in self.data or 'cspc' in self.data:
             meta['xrange'] = self.roundFloats(self.xrange[2][::dx].tolist())
         else:

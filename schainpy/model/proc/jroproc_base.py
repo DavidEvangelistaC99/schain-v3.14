@@ -169,7 +169,7 @@ def MPDecorator(BaseClass):
             self.op_type = 'external'
             self.name = BaseClass.__name__
             self.__doc__ = BaseClass.__doc__
-            
+
             if 'plot' in self.name.lower() and not self.name.endswith('_'):
                 self.name = '{}{}'.format(self.CODE.upper(), 'Plot')
             

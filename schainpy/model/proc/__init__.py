@@ -14,3 +14,9 @@ from .jroproc_spectra_lags import *
 from .jroproc_spectra_acf import *
 from .bltrproc_parameters import *
 from .pxproc_parameters import *
+
+
+###########DP###########
+from .jroproc_voltage_lags import *
+###########DP###########
+from .jroproc_spectra_lags_faraday import *
