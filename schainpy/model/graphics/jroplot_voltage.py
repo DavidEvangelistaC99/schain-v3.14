@@ -173,6 +173,8 @@ class ScopePlot(Plot):
         thisDatetime = datetime.datetime.utcfromtimestamp(self.data.times[-1])
 
         scope = self.data[-1][self.CODE]
+        #print("shape----scope",scope.shape)
+        #print("shape----data",len(self.data.yrange))
 
         if self.data.flagDataAsBlock:
 

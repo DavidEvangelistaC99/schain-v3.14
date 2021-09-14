@@ -7,8 +7,9 @@ from schainpy.controller import Project
 #path='/DATA_RM/TEST_HDF5/d2021214'
 #path='/DATA_RM/TEST_HDF5/d2021229'
 
+#path='/DATA_RM/TEST_HDF5/d2021231'
+#path='/DATA_RM/TEST_HDF5/ADQ_OFFLINE/d2021231'
 path='/DATA_RM/TEST_HDF5/d2021231'
-
 
 path_adq=path
 #path_ped='/DATA_RM/TEST_PEDESTAL/P2021200'
@@ -17,6 +18,7 @@ path_adq=path
 #path_ped='/DATA_RM/TEST_PEDESTAL/P20210819'
 #path_ped='/DATA_RM/TEST_PEDESTAL/P20210819-154315'
 path_ped='/DATA_RM/TEST_PEDESTAL/PEDESTAL_OFFLINE/P20210819-161524'
+
 
 figpath = '/home/soporte/Pictures'
 desc            = "Simulator Test"
@@ -46,11 +48,11 @@ opObj11.addParameter(name='t_Interval_p', value='0.01', format='float')
 opObj11.addParameter(name='n_Muestras_p', value='100', format='float')
 opObj11.addParameter(name='blocksPerfile', value='100', format='int')
 opObj11.addParameter(name='f_a_p', value='10', format='int')
-opObj11.addParameter(name='online', value='1', format='int')# habilitar el enable aqui tambien
+opObj11.addParameter(name='online', value='0', format='int')# habilitar el enable aqui tambien
 
 
 opObj11 = procUnitConfObjA.addOperation(name='Block360')
-opObj11.addParameter(name='n', value='40', format='int')
+opObj11.addParameter(name='n', value='10', format='int')
 # este bloque funciona bien con divisores de 360 no olvidar 0 10 20 30 40 60 90 120 180
 
 opObj11= procUnitConfObjA.addOperation(name='WeatherPlot',optype='other')

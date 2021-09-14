@@ -24,7 +24,8 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #######################################################################
 #path = '/media/data/data/vientos/57.2063km/echoes/NCO_Woodman'
 #path = '/DATA_RM/TEST_INTEGRACION'
-path = '/DATA_RM/TEST_ONLINE'
+#path = '/DATA_RM/TEST_ONLINE'
+path = '/DATA_RM/TEST_INTEGRACION/ADQ_OFFLINE/'
 path_pp = '/DATA_RM/TEST_HDF5'
 
 figpath = '/home/soporte/Pictures/TEST_INTEGRACION_IMG'
@@ -56,7 +57,7 @@ readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             endTime='23:59:59',
                                             delay=0,
                                             #set=0,
-                                            online=1,
+                                            online=0,
                                             walk=1,
                                             ippKm = 60)
 
@@ -75,7 +76,7 @@ procUnitConfObjA = controllerObj.addProcUnit(datatype='VoltageProc', inputId=rea
 #opObj11 = procUnitConfObjA.addOperation(name='setRadarFrequency')
 #opObj11.addParameter(name='frequency', value='70312500')
 opObj11 = procUnitConfObjA.addOperation(name='PulsePair', optype='other')
-opObj11.addParameter(name='n', value='625', format='int')#10
+opObj11.addParameter(name='n', value='16', format='int')#10 VOY A USAR 250 DADO  QUE LA VELOCIDAD ES 10 GRADOS
 opObj11.addParameter(name='removeDC', value=1, format='int')
 # Ploteo TEST
 '''

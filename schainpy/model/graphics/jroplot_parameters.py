@@ -205,6 +205,8 @@ class GenericRTIPlot(Plot):
         self.y = self.data.yrange
         self.z = self.data['param']
 
+        self.z = 10*numpy.log10(self.z)
+
         self.z = numpy.ma.masked_invalid(self.z)
 
         if self.decimation is None:
@@ -397,28 +399,35 @@ class WeatherPlot(Plot):
 
         data = {}
         meta = {}
-        data['weather'] = 10*numpy.log10(dataOut.data_360[0]/(650**2))
+        data['weather'] = 10*numpy.log10(dataOut.data_360[0]/(250**2))
         data['azi']     = dataOut.data_azi
 
         return data, meta
 
     def plot(self):
         thisDatetime = datetime.datetime.utcfromtimestamp(self.data.times[-1])
-
+        print("--------------------------------------",self.ini,"-----------------------------------")
+        print("time",self.data.times[-1])
         data   = self.data[-1]
+        #print("debug_0", data)
         tmp_h     = (data['weather'].shape[1])/10.0
+        #print("debug_1",tmp_h)
         stoprange = float(tmp_h*1.5)#stoprange = float(33*1.5) por ahora 400
         rangestep = float(0.15)
         r      = numpy.arange(0, stoprange, rangestep)
         self.y = 2*r
-
+        print("---------------")
         tmp_v  = data['weather']
-        print("tmp_v",tmp_v.shape)
+        #print("tmp_v",tmp_v.shape)
         tmp_z  = data['azi']
+        print("tmp_z-------------->",tmp_z)
+        ##if self.ini==0:
+        ##    tmp_z= [0,1,2,3,4,5,6,7,8,9]
+
         #print("tmp_z",tmp_z.shape)
         res             = 1
         step   = (360/(res*tmp_v.shape[0]))
-        print("step",step)
+        #print("step",step)
         mode   = 1
         if mode==0:
             #print("self.ini",self.ini)
@@ -438,6 +447,9 @@ class WeatherPlot(Plot):
             self.ini            = self.ini+1
 
         if mode==1:
+            #print("################")
+            #print("################")
+            #print("mode",self.ini)
             #print("self.ini",self.ini)
             if self.ini==0:
                 res             = 1
@@ -476,27 +488,50 @@ class WeatherPlot(Plot):
                 self.buf_tmp= numpy.vstack((self.buf_tmp,tmp_v))
                 print("ERROR_INMINENTE",self.buf_tmp.shape)
                 if self.buf_tmp.shape[0]==360:
+                    print("entre aqui en 360 grados")
                     self.buffer_ini=self.buf_tmp
                 else:
-                    val=30.0
-                    ones            = numpy.ones([(360-self.buf_tmp.shape[0]),self.buf_tmp.shape[1]])*val
-                    self.buffer_ini = numpy.vstack((self.buf_tmp,ones))
+                    # nuevo#########
+                    self.buffer_ini[0:self.buf_tmp.shape[0],:]=self.buf_tmp
+                    ################
+                    #val=30.0
+                    #ones            = numpy.ones([(360-self.buf_tmp.shape[0]),self.buf_tmp.shape[1]])*val
+                    #self.buffer_ini = numpy.vstack((self.buf_tmp,ones))
 
                 self.buf_azi    = numpy.hstack((self.buf_azi,tmp_z))
                 n      = ((360/res)-len(self.buf_azi))
+                print("n----->",n)
                 if n==0:
                     self.buffer_ini_azi = self.buf_azi
                 else:
                     start  = self.buf_azi[-1]+res
                     end    = self.buf_azi[0]-res
+                    print("start",start)
+                    print("end",end)
                     if start>end:
                         end =end+360
                     azi_zeros           = numpy.linspace(start,end,int(n))
                     azi_zeros           = numpy.where(azi_zeros>360,azi_zeros-360,azi_zeros)
+                    print("self.buf_azi",self.buf_azi[0])
+                    print("tmp_Z 0 ",tmp_z[0])
+                    print("tmp_Z -1",tmp_z[-1])
                     if tmp_z[0]<self.buf_azi[0] <tmp_z[-1]:
+                        print("activando indicador")
                         self.indicador=1
                     if self.indicador==1:
                         azi_zeros           = numpy.ones(360-len(self.buf_azi))*(tmp_z[-1]+res)
+                        ###start  = tmp_z[-1]+res
+                        ###end    = tmp_z[0]-res
+                        ###if start>end:
+                        ###    end =end+360
+                        ###azi_zeros           = numpy.linspace(start,end,int(n))
+                        ###azi_zeros           = numpy.where(azi_zeros>360,azi_zeros-360,azi_zeros)
+                        print("azi_zeros",azi_zeros)
+
+                        ######self.buffer_ini_azi = numpy.hstack((self.buf_azi,azi_zeros))
+                        #self.buffer_ini[0:tmv.shape[0],:]=tmp_v
+                        ##self.indicador=0
+
                     #    self.indicador = True
                     #if self.indicador==True:
                     #    azi_zeros           = numpy.ones(360-len(self.buf_azi))*(tmp_z[-1]+res)
@@ -513,7 +548,10 @@ class WeatherPlot(Plot):
 
             else:
                 step   = (360/(res*tmp_v.shape[0]))
-                tmp_v=tmp_v+5+(self.ini-step)*1
+                # aqui estaba realizando el debug de simulacion
+                # tmp_v=tmp_v +5 en cada step sumaba 5
+                # y el mismo valor despues de la primera vuelta
+                #tmp_v=tmp_v+5+(self.ini-step)*1### aqui yo habia sumado 5 por las puras
 
                 start= tmp_z[0]
                 end  = tmp_z[-1]
@@ -569,17 +607,21 @@ class WeatherPlot(Plot):
                 self.flag = self.flag +1
                 if self.flag==step:
                     self.flag=0
-
+        numpy.set_printoptions(suppress=True)
+        print("buffer_ini_azi")
+        print(self.buffer_ini_azi)
         for i,ax in enumerate(self.axes):
             if ax.firsttime:
                 plt.clf()
-                cgax, pm = wrl.vis.plot_ppi(self.buffer_ini,r=r,az=self.buffer_ini_azi,fig=self.figures[0], proj='cg', vmin=30, vmax=70)
+                cgax, pm = wrl.vis.plot_ppi(self.buffer_ini,r=r,az=self.buffer_ini_azi,fig=self.figures[0], proj='cg', vmin=1, vmax=60)
             else:
                 plt.clf()
-                cgax, pm = wrl.vis.plot_ppi(self.buffer_ini,r=r,az=self.buffer_ini_azi,fig=self.figures[0], proj='cg', vmin=30, vmax=70)
+                cgax, pm = wrl.vis.plot_ppi(self.buffer_ini,r=r,az=self.buffer_ini_azi,fig=self.figures[0], proj='cg', vmin=1, vmax=60)
         caax = cgax.parasites[0]
         paax = cgax.parasites[1]
         cbar = plt.gcf().colorbar(pm, pad=0.075)
         caax.set_xlabel('x_range [km]')
         caax.set_ylabel('y_range [km]')
-        plt.text(1.0, 1.05, 'azimuth '+str(thisDatetime), transform=caax.transAxes, va='bottom',ha='right')
+        plt.text(1.0, 1.05, 'azimuth '+str(thisDatetime)+"step"+str(self.ini), transform=caax.transAxes, va='bottom',ha='right')
+        #import time
+        #time.sleep(0.5)

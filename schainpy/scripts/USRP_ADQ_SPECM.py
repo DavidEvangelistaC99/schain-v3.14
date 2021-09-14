@@ -24,10 +24,17 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #######################################################################
 #path = '/media/data/data/vientos/57.2063km/echoes/NCO_Woodman'
 #path = '/DATA_RM/TEST_INTEGRACION'
-path = '/DATA_RM/TEST_ONLINE'
-path_pp = '/DATA_RM/TEST_HDF5'
+#path = '/DATA_RM/TEST_ONLINE'
+#path_pp = '/DATA_RM/TEST_HDF5'
 
-figpath = '/home/soporte/Pictures/TEST_INTEGRACION_IMG'
+#figpath = '/home/soporte/Pictures/TEST_INTEGRACION_IMG'
+path = '/DATA_RM/TEST_INTEGRACION/ADQ_OFFLINE/'
+path_pp = '/DATA_RM/TEST_HDF5_SPEC'
+
+
+
+
+
 #remotefolder = "/home/wmaster/graficos"
 #######################################################################
 ################# RANGO DE PLOTEO######################################
@@ -56,7 +63,7 @@ readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             endTime='23:59:59',
                                             delay=0,
                                             #set=0,
-                                            online=1,
+                                            online=0,
                                             walk=1,
                                             ippKm = 60)
 
@@ -68,15 +75,22 @@ opObj11 = readUnitConfObj.addOperation(name='printInfo')
 
 procUnitConfObjA = controllerObj.addProcUnit(datatype='VoltageProc', inputId=readUnitConfObj.getId())
 
+procUnitConfObjB = controllerObj.addProcUnit(datatype='SpectraProc', inputId=procUnitConfObjA.getId())
+procUnitConfObjB.addParameter(name='nFFTPoints', value=250, format='int')
+procUnitConfObjB.addParameter(name='nProfiles' , value=250, format='int')
+
+
+
 #
 # codigo64='1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,0,1,1,1,0,1,1,0,1,0,0,0,1,1,1,0,1,1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,0,0,0,0,1,0,0,1,0,1,1,1,0,0,0,1,0,'+\
 #              '1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,0,1,1,1,0,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,0,1,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,0,1,0,0,0,1,1,1,0,1'
 
 #opObj11 = procUnitConfObjA.addOperation(name='setRadarFrequency')
 #opObj11.addParameter(name='frequency', value='70312500')
-opObj11 = procUnitConfObjA.addOperation(name='PulsePair', optype='other')
-opObj11.addParameter(name='n', value='625', format='int')#10
-opObj11.addParameter(name='removeDC', value=1, format='int')
+#opObj11 = procUnitConfObjA.addOperation(name='PulsePair', optype='other')
+#opObj11.addParameter(name='n', value='625', format='int')#10
+#opObj11.addParameter(name='removeDC', value=1, format='int')
+
 # Ploteo TEST
 '''
 opObj11 = procUnitConfObjA.addOperation(name='PulsepairPowerPlot', optype='other')
@@ -115,12 +129,18 @@ opObj11 = procUnitConfObjA.addOperation(name='PulsepairSpecwidthPlot', optype='o
 ########## OPERACIONES ParametersProc########################
 #######################################################################
 
-procUnitConfObjB= controllerObj.addProcUnit(datatype='ParametersProc',inputId=procUnitConfObjA.getId())
-opObj10 = procUnitConfObjB.addOperation(name='HDFWriter')
+procUnitConfObjC= controllerObj.addProcUnit(datatype='ParametersProc',inputId=procUnitConfObjB.getId())
+
+procUnitConfObjC.addOperation(name='SpectralMoments')
+
+
+opObj10 = procUnitConfObjC.addOperation(name='HDFWriter')
 opObj10.addParameter(name='path',value=path_pp)
 #opObj10.addParameter(name='mode',value=0)
 opObj10.addParameter(name='blocksPerFile',value='100',format='int')
-opObj10.addParameter(name='metadataList',value='utctimeInit,timeZone,paramInterval,profileIndex,channelList,heightList,flagDataAsBlock',format='list')
-opObj10.addParameter(name='dataList',value='dataPP_POW,dataPP_DOP,utctime',format='list')#,format='list'
+#opObj10.addParameter(name='metadataList',value='utctimeInit,heightList,nIncohInt,nCohInt,nProfiles,channelList',format='list')#profileIndex
+opObj10.addParameter(name='metadataList',value='utctimeInit,heightList,nIncohInt,nCohInt,nProfiles,channelList',format='list')#profileIndex
+
+opObj10.addParameter(name='dataList',value='data_pow,data_dop,utctime',format='list')#,format='list'
 
 controllerObj.start()

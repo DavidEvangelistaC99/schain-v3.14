@@ -10,19 +10,24 @@ Este script de prueba.
 - Operacion SpectralMomentsPlot
 
 '''
-path       = '/home/soporte/Downloads/RAWDATA_PP'
-path='/DATA_RM/TEST_HDF5/d2021203'
+#path       = '/home/soporte/Downloads/RAWDATA_PP'
+#path       = '/DATA_RM/TEST_HDF5/d2021203'
+
+
+path='/DATA_RM/TEST_HDF5/d2021231'
 figpath    = '/home/soporte/Downloads/IMAGE'
 desc       = "Simulator Test"
 desc_data  = {
             'Data': {
-                'dataPP_POW': 'Data/dataPP_POW/channel00',
+                'dataPP_POW': ['Data/dataPP_POW/channel00','Data/dataPP_POW/channel01'],
+                'dataPP_DOP': ['Data/dataPP_DOP/channel00','Data/dataPP_DOP/channel01'],
                 'utctime':'Data/utctime'
             },
             'Metadata': {
                 'heightList' :'Metadata/heightList',
                 'flagDataAsBlock':'Metadata/flagDataAsBlock',
-                'profileIndex':'Metadata/profileIndex'
+                'channelList' :'Metadata/channelList',
+                'profileIndex' :'Metadata/profileIndex'
             }
         }
 
@@ -46,6 +51,6 @@ procUnitConfObjA = controllerObj.addProcUnit(datatype='ParametersProc',inputId=r
 
 #opObj11 = procUnitConfObjA.addOperation(name='PulsepairPowerPlot', optype='other')#PulsepairPowerPlot
 opObj11 = procUnitConfObjA.addOperation(name='PulsepairSignalPlot', optype='other')
-
+opObj11 = procUnitConfObjA.addOperation(name='PulsepairVelocityPlot', optype='other')
 
 controllerObj.start()

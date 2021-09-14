@@ -34,7 +34,7 @@ procUnitConfObjA = controllerObj.addProcUnit(datatype='VoltageProc', inputId=rea
 #opObj10.addParameter(name='channelList', value=[0,1])
 #opObj10.addParameter(name='channelList', value='0',format='intlist')
 
-opObj11 = procUnitConfObjA.addOperation(name='PulsePairVoltage', optype='other')
+opObj11 = procUnitConfObjA.addOperation(name='PulsePair', optype='other')
 opObj11.addParameter(name='n', value='32', format='int')
 opObj11.addParameter(name='removeDC', value=1, format='int')
 '''

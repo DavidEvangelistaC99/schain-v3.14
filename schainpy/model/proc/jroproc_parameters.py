@@ -104,7 +104,7 @@ class ParametersProc(ProcessingUnit):
     def run(self):
 
 
-
+        #print("HOLA MUNDO SOY YO")
         #----------------------    Voltage Data    ---------------------------
 
         if self.dataIn.type == "Voltage":
@@ -140,7 +140,7 @@ class ParametersProc(ProcessingUnit):
         #----------------------    Spectra Data    ---------------------------
 
         if self.dataIn.type == "Spectra":
-
+            #print("que paso en spectra")
             self.dataOut.data_pre = [self.dataIn.data_spc, self.dataIn.data_cspc]
             self.dataOut.data_spc = self.dataIn.data_spc
             self.dataOut.data_cspc = self.dataIn.data_cspc
@@ -202,9 +202,10 @@ class ParametersProc(ProcessingUnit):
             return True
 
         self.__updateObjFromInput()
+
         self.dataOut.utctimeInit = self.dataIn.utctime
         self.dataOut.paramInterval = self.dataIn.timeInterval
-
+        #print("soy spectra ",self.dataOut.utctimeInit)
         return
 
 
@@ -3996,6 +3997,7 @@ class PedestalInformation(Operation):
     angulo_adq   = None
     nro_file     = None
     nro_key_p    = None
+    tmp          = None
 
 
     def __init__(self):
@@ -4045,6 +4047,14 @@ class PedestalInformation(Operation):
         fp.close()
         return epoc
 
+    def gettimeutcadqfromDirFilename(self,path,file):
+        dir_file= path+"/"+file
+        fp      = h5py.File(dir_file,'r')
+        epoc    = fp['Metadata'].get('utctimeInit')[()]
+        #epoc    = fp['Data'].get('utc')[()]
+        fp.close()
+        return epoc
+
     def getDatavaluefromDirFilename(self,path,file,value):
         dir_file= path+"/"+file
         fp      = h5py.File(dir_file,'r')
@@ -4058,8 +4068,13 @@ class PedestalInformation(Operation):
 
     def getNROFile(self,utc_adq,utc_ped_list):
         c=0
+        print("insidegetNROFile")
+        print(utc_adq)
+        print(len(utc_ped_list))
         for i in range(len(utc_ped_list)):
             if utc_adq>utc_ped_list[i]:
+                #print("mayor")
+                #print("utc_ped_list",utc_ped_list[i])
                 c +=1
 
         return c-1,utc_ped_list[c-1],utc_ped_list[c]
@@ -4076,14 +4091,15 @@ class PedestalInformation(Operation):
             utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[i]))
 
         #utc_ped_list= utc_ped_list
-        utc_adq     = self.gettimeutcfromDirFilename(path=self.path_adq,file=self.list_adq[0])
+        utc_adq     = self.gettimeutcadqfromDirFilename(path=self.path_adq,file=self.list_adq[0])
+        print("dios existe donde esta")
         #print("utc_ped_list",utc_ped_list)
         print("utc_adq",utc_adq)
-        nro_file,utc_ped = self.getNROFile(utc_adq=utc_adq, utc_ped_list= utc_ped_list)
+        nro_file,utc_ped,utc_ped_1ss = self.getNROFile(utc_adq=utc_adq, utc_ped_list= utc_ped_list)
 
         print("nro_file",nro_file,"utc_ped",utc_ped)
         print("nro_file",i)
-        nro_key_p    = int((utc_adq-utc_ped)/self.t_Interval_p)
+        nro_key_p    = int((utc_adq-utc_ped)/self.t_Interval_p)-1 # ojito al -1 estimado alex
         print("nro_key_p",nro_key_p)
 
         ff_pedestal  = self.list_pedestal[nro_file]
@@ -4108,7 +4124,7 @@ class PedestalInformation(Operation):
         nro_file,utc_ped,utc_ped_1 = self.getNROFile(utc_adq=utc_adq, utc_ped_list= utc_ped_list)
         print("nro_file",nro_file,"utc_ped",utc_ped,"utc_ped_1",utc_ped_1)
         print("name_PEDESTAL",self.list_pedestal[nro_file])
-        nro_key_p    = int((utc_adq-utc_ped)/self.t_Interval_p)
+        nro_key_p    = int((utc_adq-utc_ped)/self.t_Interval_p)-1
         print("nro_key_p",nro_key_p)
         ff_pedestal  = self.list_pedestal[nro_file]
         #angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azimuth")
@@ -4206,6 +4222,8 @@ class PedestalInformation(Operation):
         self.online       = online
         self.angulo_adq   = numpy.zeros(self.blocksPerfile)
         self.__profIndex  = 0
+        self.tmp          = 0
+        self.c_ped        = 0
         print(self.path_ped)
         print(self.path_adq)
         self.list_pedestal = self.getfirstFilefromPath(path=self.path_ped,meta="PE",ext=".hdf5")
@@ -4229,26 +4247,39 @@ class PedestalInformation(Operation):
 
 
     def setNextFileoffline(self):
-        tmp =0
+        ##tmp=0
         for j in range(self.blocksPerfile):
-            #print("NUMERO DEL BLOQUE:",j)
-            iterador = self.nro_key_p +self.f_a_p*(j-tmp)
-            #print("iterador",iterador)
+            ###print("NUMERO DEL BLOQUE---->",j)
+            ###print("nro_key_p",self.nro_key_p)
+
+            #iterador = self.nro_key_p +self.f_a_p*(j-tmp)
+            iterador   = self.nro_key_p +self.f_a_p*self.c_ped
+            self.c_ped = self.c_ped +1
+
+            ###print("iterador------------->",iterador)
             if iterador < self.n_Muestras_p:
                     self.nro_file = self.nro_file
             else:
                 self.nro_file = self.nro_file+1
-                dif      = self.blocksPerfile-(self.nro_key_p+self.f_a_p*(j-tmp-1))
-                tmp      = j
+                dif        = self.blocksPerfile-(self.nro_key_p+self.f_a_p*(self.c_ped-2))
+                self.c_ped = 1
+                ##tmp      = j
+                ##print("tmp else",tmp)
                 self.nro_key_p= self.f_a_p-dif
                 iterador = self.nro_key_p
-            #print("nro_file",self.nro_file)
+                ###print("iterador else",iterador)
+            #self.c_ped = self.c_ped +1
+
+            ###print("nro_file",self.nro_file)
+            #print("tmp",tmp)
             try:
                 ff_pedestal  = self.list_pedestal[self.nro_file]
             except:
                 return numpy.ones(self.blocksPerfile)*numpy.nan
 
-            angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azimuth")
+            #angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azimuth")
+            angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azi_pos")
+
             self.angulo_adq[j]= angulo[iterador]
 
         return self.angulo_adq
@@ -4268,7 +4299,7 @@ class PedestalInformation(Operation):
                 tmp      = j
                 self.nro_key_p= self.f_a_p-dif
                 iterador = self.nro_key_p
-            print("nro_file---------------- :",self.nro_file)
+            #print("nro_file---------------- :",self.nro_file)
             try:
                 # update list_pedestal
                 self.list_pedestal = self.getfirstFilefromPath(path=self.path_ped,meta="PE",ext=".hdf5")
@@ -4299,8 +4330,8 @@ class PedestalInformation(Operation):
                 print("there is no pedestal file")
                 angulo       =  numpy.ones(self.n_Muestras_p)*numpy.nan
             self.angulo_adq[j]= angulo[iterador]
-        print("Angulo",self.angulo_adq)
-        print("Angulo",len(self.angulo_adq))
+        ####print("Angulo",self.angulo_adq)
+        ####print("Angulo",len(self.angulo_adq))
         #self.nro_key_p=iterador + self.f_a_p
         #if self.nro_key_p<  self.n_Muestras_p:
         #    self.nro_file = self.nro_file
@@ -4321,6 +4352,8 @@ class PedestalInformation(Operation):
         if self.__profIndex==0:
             angulo_adq       = self.setNextFileP(dataOut)
             dataOut.azimuth  = angulo_adq
+            ##print("####################################################################")
+            ##print("angulos",dataOut.azimuth,len(dataOut.azimuth))
             self.__dataReady = True
         self.__profIndex += 1
         if self.__profIndex== blocksPerfile:
@@ -4457,9 +4490,12 @@ class Block360(Operation):
 
         if self.__dataReady:
             dataOut.data_360         = data_360 # S
-            #print("DATAREADY---------------------------------------------")
-            print("data_360",dataOut.data_360.shape)
+            ##print("---------------------------------------------------------------------------------")
+            ##print("---------------------------DATAREADY---------------------------------------------")
+            ##print("---------------------------------------------------------------------------------")
+            ##print("data_360",dataOut.data_360.shape)
             dataOut.data_azi         = data_p
+            ##print("azi:    ",dataOut.data_azi)
             #print("jroproc_parameters",data_p[0],data_p[-1])#,data_360.shape,avgdatatime)
             dataOut.utctime         = avgdatatime
             dataOut.flagNoData      = False
