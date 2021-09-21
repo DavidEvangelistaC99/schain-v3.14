@@ -4,6 +4,7 @@ must be used in plotting and writing operations to allow to run as an
 external process.
 '''
 
+import os
 import inspect
 import zmq
 import time
@@ -13,6 +14,7 @@ from threading import Thread
 from multiprocessing import Process, Queue
 from schainpy.utils import log
 
+QUEUE_SIZE = int(os.environ.get('QUEUE_MAX_SIZE', '10'))
 
 class ProcessingUnit(object):
     '''
@@ -74,12 +76,13 @@ class ProcessingUnit(object):
             self.dataOut.error = True
         
         for op, optype, opkwargs in self.operations:
+            aux = self.dataOut.copy()
             if optype == 'other' and not self.dataOut.flagNoData:
                 self.dataOut = op.run(self.dataOut, **opkwargs)
             elif optype == 'external' and not self.dataOut.flagNoData:
-                op.queue.put(self.dataOut)
+                op.queue.put(aux)
             elif optype == 'external' and self.dataOut.error:                        
-                op.queue.put(self.dataOut)
+                op.queue.put(aux)
 
         return 'Error' if self.dataOut.error else self.dataOut.isReady()
 
@@ -175,7 +178,7 @@ def MPDecorator(BaseClass):
             
             self.start_time = time.time()
             self.err_queue = args[3]
-            self.queue = Queue(maxsize=1)
+            self.queue = Queue(maxsize=QUEUE_SIZE)
             self.myrun = BaseClass.run
 
         def run(self):
