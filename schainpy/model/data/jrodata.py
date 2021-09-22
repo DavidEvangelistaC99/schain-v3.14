@@ -76,6 +76,8 @@ def hildebrand_sekhon(data, navg):
     """
 
     sortdata = numpy.sort(data, axis=None)
+    #print(numpy.shape(data))
+    #exit()
     '''
     lenOfData = len(sortdata)
     nums_min = lenOfData*0.2
@@ -273,13 +275,13 @@ class JROData(GenericData):
         '''
         '''
         return self.radarControllerHeaderObj.ippSeconds
-    
+
     @ippSeconds.setter
     def ippSeconds(self, ippSeconds):
         '''
         '''
         self.radarControllerHeaderObj.ippSeconds = ippSeconds
-    
+
     @property
     def code(self):
         '''
@@ -370,7 +372,7 @@ class Voltage(JROData):
         self.flagShiftFFT = False
         self.flagDataAsBlock = False  # Asumo que la data es leida perfil a perfil
         self.profileIndex = 0
-        self.metadata_list = ['type', 'heightList', 'timeZone', 'nProfiles', 'channelList', 'nCohInt', 
+        self.metadata_list = ['type', 'heightList', 'timeZone', 'nProfiles', 'channelList', 'nCohInt',
             'code', 'nCode', 'nBaud', 'ippSeconds', 'ipp']
 
     def getNoisebyHildebrand(self, channel=None):
@@ -428,6 +430,103 @@ class Voltage(JROData):
     noise = property(getNoise, "I'm the 'nHeights' property.")
 
 
+class CrossProds(JROData):
+
+    # data es un numpy array de 2 dmensiones (canales, alturas)
+    data = None
+
+    def __init__(self):
+        '''
+        Constructor
+        '''
+
+        self.useLocalTime = True
+        '''
+        self.radarControllerHeaderObj = RadarControllerHeader()
+        self.systemHeaderObj = SystemHeader()
+        self.type = "Voltage"
+        self.data = None
+#         self.dtype = None
+#        self.nChannels = 0
+#        self.nHeights = 0
+        self.nProfiles = None
+        self.heightList = None
+        self.channelList = None
+#        self.channelIndexList = None
+        self.flagNoData = True
+        self.flagDiscontinuousBlock = False
+        self.utctime = None
+        self.timeZone = None
+        self.dstFlag = None
+        self.errorCount = None
+        self.nCohInt = None
+        self.blocksize = None
+        self.flagDecodeData = False  # asumo q la data no esta decodificada
+        self.flagDeflipData = False  # asumo q la data no esta sin flip
+        self.flagShiftFFT = False
+        self.flagDataAsBlock = False  # Asumo que la data es leida perfil a perfil
+        self.profileIndex = 0
+
+
+    def getNoisebyHildebrand(self, channel=None):
+
+
+        if channel != None:
+            data = self.data[channel]
+            nChannels = 1
+        else:
+            data = self.data
+            nChannels = self.nChannels
+
+        noise = numpy.zeros(nChannels)
+        power = data * numpy.conjugate(data)
+
+        for thisChannel in range(nChannels):
+            if nChannels == 1:
+                daux = power[:].real
+            else:
+                daux = power[thisChannel, :].real
+            noise[thisChannel] = hildebrand_sekhon(daux, self.nCohInt)
+
+        return noise
+
+    def getNoise(self, type=1, channel=None):
+
+        if type == 1:
+            noise = self.getNoisebyHildebrand(channel)
+
+        return noise
+
+    def getPower(self, channel=None):
+
+        if channel != None:
+            data = self.data[channel]
+        else:
+            data = self.data
+
+        power = data * numpy.conjugate(data)
+        powerdB = 10 * numpy.log10(power.real)
+        powerdB = numpy.squeeze(powerdB)
+
+        return powerdB
+
+    def getTimeInterval(self):
+
+        timeInterval = self.ippSeconds * self.nCohInt
+
+        return timeInterval
+
+    noise = property(getNoise, "I'm the 'nHeights' property.")
+    timeInterval = property(getTimeInterval, "I'm the 'timeInterval' property")
+    '''
+    def getTimeInterval(self):
+
+        timeInterval = self.ippSeconds * self.nCohInt
+
+        return timeInterval
+
+
+
 class Spectra(JROData):
 
     def __init__(self):
@@ -461,7 +560,7 @@ class Spectra(JROData):
         self.ippFactor = 1
         self.beacon_heiIndexList = []
         self.noise_estimation = None
-        self.metadata_list = ['type', 'heightList', 'timeZone', 'pairsList', 'channelList', 'nCohInt', 
+        self.metadata_list = ['type', 'heightList', 'timeZone', 'pairsList', 'channelList', 'nCohInt',
             'code', 'nCode', 'nBaud', 'ippSeconds', 'ipp','nIncohInt', 'nFFTPoints', 'nProfiles']
 
     def getNoisebyHildebrand(self, xmin_index=None, xmax_index=None, ymin_index=None, ymax_index=None):
@@ -611,7 +710,7 @@ class Spectra(JROData):
         print("This property should not be initialized")
 
         return
-    
+
     noise = property(getNoise, setValue, "I'm the 'nHeights' property.")
 
 
@@ -708,7 +807,7 @@ class Fits(JROData):
         return self.ipp_sec
 
     noise = property(getNoise, "I'm the 'nHeights' property.")
-    
+
 
 class Correlation(JROData):
 
@@ -888,6 +987,7 @@ class Parameters(Spectra):
             return self.timeInterval1
         else:
             return self.paramInterval
+
 
     def setValue(self, value):
 

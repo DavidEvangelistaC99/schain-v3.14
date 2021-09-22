@@ -319,6 +319,12 @@ class SpectralFilters(Operation):
         dataOut.data_pre[0] = self.spc
         return dataOut
 
+
+from scipy.optimize import fmin
+import itertools
+from scipy.optimize import curve_fit
+
+
 class GaussianFit(Operation):
 
     '''
@@ -378,18 +384,17 @@ class GaussianFit(Operation):
             v1 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][2,:,1]] * self.Num_Bin))
             s0 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][3,:,0]] * self.Num_Bin))
             s1 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][3,:,1]] * self.Num_Bin))
-            if method == 'genealized':
+            if method == 'generalized':
                 p0 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][4,:,0]] * self.Num_Bin))
                 p1 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][4,:,1]] * self.Num_Bin))
             elif method == 'squared':
                 p0 = 2.
-                p1 = 2. 
+                p1 = 2.
             gau0[iCh] = A0*numpy.exp(-0.5*numpy.abs((x_mtr-v0)/s0)**p0)+N0
             gau1[iCh] = A1*numpy.exp(-0.5*numpy.abs((x_mtr-v1)/s1)**p1)+N1
         dataOut.GaussFit0 = gau0
         dataOut.GaussFit1 = gau1
-
-        print('Leaving ',method ,' double Gaussian fit')
+        
         return dataOut
 
     def FitGau(self, X):
@@ -493,7 +498,7 @@ class GaussianFit(Operation):
             if powerwidth <= 1:
                 # print('powerwidth <= 1')
                 continue
-        
+
             # print ('stop 6')
             firstpeak = powerlo + powerwidth/10.# first gaussian energy location
             secondpeak = powerhi - powerwidth/10. #second gaussian energy location
@@ -531,7 +536,6 @@ class GaussianFit(Operation):
                     noise=lsq1[0][4]
                     #return (numpy.array([shift0,width0,Amplitude0,p0]),
                     #        numpy.array([shift1,width1,Amplitude1,p1]),noise,snrdB,chiSq1,6.,sigmas1,[None,]*9,choice)
-            
             # print ('stop 9')
             '''    two Gaussians    '''
             #shift0=numpy.mod(firstpeak+minx,64); shift1=numpy.mod(secondpeak+minx,64)
@@ -628,7 +632,7 @@ class GaussianFit(Operation):
             if Amplitude1<0.05:
                 shift1,width1,Amplitude1,p1 = 4*[numpy.NaN]
 
-            # print ('stop 16 ') 
+            # print ('stop 16 ')
             # SPC_ch1[:,ht] = noise + Amplitude0*numpy.exp(-0.5*(abs(x-shift0)/width0)**p0)
             # SPC_ch2[:,ht] = noise + Amplitude1*numpy.exp(-0.5*(abs(x-shift1)/width1)**p1)
             # SPCparam = (SPC_ch1,SPC_ch2)
@@ -644,8 +648,6 @@ class GaussianFit(Operation):
             DGauFitParam[4,ht,0] = p0
             DGauFitParam[4,ht,1] = p1
 
-        # print (DGauFitParam.shape)
-        # print ('Leaving FitGau')
         return DGauFitParam
         # return SPCparam
         # return GauSPC
@@ -662,7 +664,7 @@ class GaussianFit(Operation):
         model0 = amplitude0*numpy.exp(-0.5*abs((x-shift0)/width0)**power0)
         model0u = amplitude0*numpy.exp(-0.5*abs((x - shift0 - self.Num_Bin)/width0)**power0)
         model0d = amplitude0*numpy.exp(-0.5*abs((x - shift0 + self.Num_Bin)/width0)**power0)
-        
+
         model1 = amplitude1*numpy.exp(-0.5*abs((x - shift1)/width1)**power1)
         model1u = amplitude1*numpy.exp(-0.5*abs((x - shift1 - self.Num_Bin)/width1)**power1)
         model1d = amplitude1*numpy.exp(-0.5*abs((x - shift1 + self.Num_Bin)/width1)**power1)
@@ -676,6 +678,206 @@ class GaussianFit(Operation):
         return num_intg*sum((numpy.log(y_data)-numpy.log(self.y_model2(x,state)))**2)#/(64-9.)
 
 
+class Oblique_Gauss_Fit(Operation):
+
+    def __init__(self):
+        Operation.__init__(self)
+
+    def Gauss_fit(self,spc,x,nGauss):
+
+
+        def gaussian(x, a, b, c, d):
+            val = a * numpy.exp(-(x - b)**2 / (2*c**2)) + d
+            return val
+
+        if nGauss == 'first':
+            spc_1_aux = numpy.copy(spc[:numpy.argmax(spc)+1])
+            spc_2_aux = numpy.flip(spc_1_aux)
+            spc_3_aux = numpy.concatenate((spc_1_aux,spc_2_aux[1:]))
+
+            len_dif = len(x)-len(spc_3_aux)
+
+            spc_zeros = numpy.ones(len_dif)*spc_1_aux[0]
+
+            spc_new = numpy.concatenate((spc_3_aux,spc_zeros))
+
+            y = spc_new
+
+        elif nGauss == 'second':
+            y = spc
+
+
+        # estimate starting values from the data
+        a = y.max()
+        b = x[numpy.argmax(y)]
+        if nGauss == 'first':
+            c = 1.#b#b#numpy.std(spc)
+        elif nGauss == 'second':
+            c = b
+        else:
+            print("ERROR")
+
+        d = numpy.mean(y[-100:])
+
+        # define a least squares function to optimize
+        def minfunc(params):
+            return sum((y-gaussian(x,params[0],params[1],params[2],params[3]))**2)
+
+        # fit
+        popt = fmin(minfunc,[a,b,c,d],disp=False)
+        #popt,fopt,niter,funcalls = fmin(minfunc,[a,b,c,d])
+
+
+        return gaussian(x, popt[0], popt[1], popt[2], popt[3]), popt[0], popt[1], popt[2], popt[3]
+
+
+    def Gauss_fit_2(self,spc,x,nGauss):
+
+
+        def gaussian(x, a, b, c, d):
+            val = a * numpy.exp(-(x - b)**2 / (2*c**2)) + d
+            return val
+
+        if nGauss == 'first':
+            spc_1_aux = numpy.copy(spc[:numpy.argmax(spc)+1])
+            spc_2_aux = numpy.flip(spc_1_aux)
+            spc_3_aux = numpy.concatenate((spc_1_aux,spc_2_aux[1:]))
+
+            len_dif = len(x)-len(spc_3_aux)
+
+            spc_zeros = numpy.ones(len_dif)*spc_1_aux[0]
+
+            spc_new = numpy.concatenate((spc_3_aux,spc_zeros))
+
+            y = spc_new
+
+        elif nGauss == 'second':
+            y = spc
+
+
+        # estimate starting values from the data
+        a = y.max()
+        b = x[numpy.argmax(y)]
+        if nGauss == 'first':
+            c = 1.#b#b#numpy.std(spc)
+        elif nGauss == 'second':
+            c = b
+        else:
+            print("ERROR")
+
+        d = numpy.mean(y[-100:])
+
+        # define a least squares function to optimize
+        popt,pcov = curve_fit(gaussian,x,y,p0=[a,b,c,d])
+        #popt,fopt,niter,funcalls = fmin(minfunc,[a,b,c,d])
+
+
+        #return gaussian(x, popt[0], popt[1], popt[2], popt[3]), popt[0], popt[1], popt[2], popt[3]
+        return gaussian(x, popt[0], popt[1], popt[2], popt[3]),popt[0], popt[1], popt[2], popt[3]
+
+    def Double_Gauss_fit(self,spc,x,A1,B1,C1,A2,B2,C2,D):
+
+        def double_gaussian(x, a1, b1, c1, a2, b2, c2, d):
+            val = a1 * numpy.exp(-(x - b1)**2 / (2*c1**2)) + a2 * numpy.exp(-(x - b2)**2 / (2*c2**2)) + d
+            return val
+
+
+        y = spc
+
+        # estimate starting values from the data
+        a1 = A1
+        b1 = B1
+        c1 = C1#numpy.std(spc)
+
+        a2 = A2#y.max()
+        b2 = B2#x[numpy.argmax(y)]
+        c2 = C2#numpy.std(spc)
+        d = D
+
+        # define a least squares function to optimize
+        def minfunc(params):
+            return sum((y-double_gaussian(x,params[0],params[1],params[2],params[3],params[4],params[5],params[6]))**2)
+
+        # fit
+        popt = fmin(minfunc,[a1,b1,c1,a2,b2,c2,d],disp=False)
+
+        return double_gaussian(x, popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6]), popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6]
+
+    def Double_Gauss_fit_2(self,spc,x,A1,B1,C1,A2,B2,C2,D):
+
+        def double_gaussian(x, a1, b1, c1, a2, b2, c2, d):
+            val = a1 * numpy.exp(-(x - b1)**2 / (2*c1**2)) + a2 * numpy.exp(-(x - b2)**2 / (2*c2**2)) + d
+            return val
+
+
+        y = spc
+
+        # estimate starting values from the data
+        a1 = A1
+        b1 = B1
+        c1 = C1#numpy.std(spc)
+
+        a2 = A2#y.max()
+        b2 = B2#x[numpy.argmax(y)]
+        c2 = C2#numpy.std(spc)
+        d = D
+
+        # fit
+
+        popt,pcov = curve_fit(double_gaussian,x,y,p0=[a1,b1,c1,a2,b2,c2,d])
+
+        error = numpy.sqrt(numpy.diag(pcov))
+
+        return popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6], error[0], error[1], error[2], error[3], error[4], error[5], error[6]
+
+    def run(self, dataOut):
+
+        pwcode = 1
+
+        if dataOut.flagDecodeData:
+            pwcode = numpy.sum(dataOut.code[0]**2)
+        #normFactor = min(self.nFFTPoints,self.nProfiles)*self.nIncohInt*self.nCohInt*pwcode*self.windowOfFilter
+        normFactor = dataOut.nProfiles * dataOut.nIncohInt * dataOut.nCohInt * pwcode * dataOut.windowOfFilter
+        factor = normFactor
+        z = dataOut.data_spc / factor
+        z = numpy.where(numpy.isfinite(z), z, numpy.NAN)
+        dataOut.power = numpy.average(z, axis=1)
+        dataOut.powerdB = 10 * numpy.log10(dataOut.power)
+
+
+        x = dataOut.getVelRange(0)
+        
+        dataOut.Oblique_params = numpy.ones((1,7,dataOut.nHeights))*numpy.NAN
+        dataOut.Oblique_param_errors = numpy.ones((1,7,dataOut.nHeights))*numpy.NAN
+
+        dataOut.VelRange = x
+
+
+        l1=range(22,36)
+        l2=range(58,99)
+
+        for hei in itertools.chain(l1, l2):
+
+            try:
+                spc = dataOut.data_spc[0,:,hei]
+
+                spc_fit, A1, B1, C1, D1 = self.Gauss_fit_2(spc,x,'first')
+
+                spc_diff = spc - spc_fit
+                spc_diff[spc_diff < 0] = 0
+
+                spc_fit_diff, A2, B2, C2, D2 = self.Gauss_fit_2(spc_diff,x,'second')
+
+                D = (D1+D2)
+
+                dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_param_errors[0,0,hei],dataOut.Oblique_param_errors[0,1,hei],dataOut.Oblique_param_errors[0,2,hei],dataOut.Oblique_param_errors[0,3,hei],dataOut.Oblique_param_errors[0,4,hei],dataOut.Oblique_param_errors[0,5,hei],dataOut.Oblique_param_errors[0,6,hei] = self.Double_Gauss_fit_2(spc,x,A1,B1,C1,A2,B2,C2,D)
+                #spc_double_fit,dataOut.Oblique_params = self.Double_Gauss_fit(spc,x,A1,B1,C1,A2,B2,C2,D)
+            
+            except:
+                ###dataOut.Oblique_params[0,:,hei] = dataOut.Oblique_params[0,:,hei]*numpy.NAN
+                pass
+            
+        return dataOut
 
 class PrecipitationProc(Operation):
 
@@ -3884,3 +4086,55 @@ class SMOperations():
 #         error[indInvalid1] = 13
 #
 #         return heights, error
+
+
+
+class IGRFModel(Operation):
+    """Operation to calculate Geomagnetic parameters.
+
+    Parameters:
+    -----------
+    None
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='IGRFModel', optype='other')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+
+        self.aux=1
+
+    def run(self,dataOut):
+
+        try:
+            from schainpy.model.proc import mkfact_short_2020
+        except:
+            log.warning('You should install "mkfact_short_2020" module to process IGRF Model')
+
+        if self.aux==1:
+
+            #dataOut.TimeBlockSeconds_First_Time=time.mktime(time.strptime(dataOut.TimeBlockDate))
+            #### we do not use dataOut.datatime.ctime() because it's the time of the second (next) block
+            dataOut.TimeBlockSeconds_First_Time=dataOut.TimeBlockSeconds
+            dataOut.bd_time=time.gmtime(dataOut.TimeBlockSeconds_First_Time)
+            dataOut.year=dataOut.bd_time.tm_year+(dataOut.bd_time.tm_yday-1)/364.0
+            dataOut.ut=dataOut.bd_time.tm_hour+dataOut.bd_time.tm_min/60.0+dataOut.bd_time.tm_sec/3600.0
+
+            self.aux=0
+
+            dataOut.h=numpy.arange(0.0,15.0*dataOut.MAXNRANGENDT,15.0,dtype='float32')
+            dataOut.bfm=numpy.zeros(dataOut.MAXNRANGENDT,dtype='float32')
+            dataOut.bfm=numpy.array(dataOut.bfm,order='F')
+            dataOut.thb=numpy.zeros(dataOut.MAXNRANGENDT,dtype='float32')
+            dataOut.thb=numpy.array(dataOut.thb,order='F')
+            dataOut.bki=numpy.zeros(dataOut.MAXNRANGENDT,dtype='float32')
+            dataOut.bki=numpy.array(dataOut.bki,order='F')
+
+            mkfact_short_2020.mkfact(dataOut.year,dataOut.h,dataOut.bfm,dataOut.thb,dataOut.bki,dataOut.MAXNRANGENDT)
+
+        return dataOut

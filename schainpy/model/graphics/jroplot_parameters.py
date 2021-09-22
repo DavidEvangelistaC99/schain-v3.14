@@ -46,11 +46,23 @@ class DobleGaussianPlot(SpectraPlot):
     # colormap = 'jet'
     # plot_type = 'pcolor'
 
+
 class DoubleGaussianSpectraCutPlot(SpectraCutPlot):
     '''
     Plot SpectraCut with Double Gaussian Fit
     '''
     CODE = 'cut_gaussian_fit'
+
+
+class SpectralFitObliquePlot(SpectraPlot):
+    '''
+    Plot for Spectral Oblique
+    '''
+    CODE = 'spc_moments'
+    colormap = 'jet'
+    plot_type = 'pcolor'
+
+
 
 class SnrPlot(RTIPlot):
     '''
@@ -179,7 +191,7 @@ class GenericRTIPlot(Plot):
         self.nrows = self.data.shape('param')[0]
         self.nplots = self.nrows
         self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.08, 'right':0.95, 'top': 0.95})
-        
+
         if not self.xlabel:
             self.xlabel = 'Time'
 
@@ -367,4 +379,3 @@ class PolarMapPlot(Plot):
         self.save_labels = ['{}-{}'.format(lbl, label) for lbl in self.labels]
         self.titles = ['{} {}'.format(
             self.data.parameters[x], title) for x in self.channels]
-
