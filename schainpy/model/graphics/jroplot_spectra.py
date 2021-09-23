@@ -48,18 +48,13 @@ class SpectraPlot(Plot):
         
         if self.CODE == 'spc_moments':
             data['moments'] = dataOut.moments
-            # data['spc'] = 10*numpy.log10(dataOut.data_pre[0]/dataOut.normFactor)
         if self.CODE == 'gaussian_fit':
-            # data['moments'] = dataOut.moments
             data['gaussfit'] = dataOut.DGauFitParams
-            # data['spc'] = 10*numpy.log10(dataOut.data_pre[0]/dataOut.normFactor)
 
         return data, meta 
     
     def plot(self):
 
-        #print(self.xaxis)
-        #exit(1)
         if self.xaxis == "frequency":
             x = self.data.xrange[0]
             self.xlabel = "Frequency (kHz)"
@@ -90,7 +85,6 @@ class SpectraPlot(Plot):
             if self.CODE == 'spc_moments':
                 mean = data['moments'][n, 1]
             if self.CODE == 'gaussian_fit': 
-                # mean = data['moments'][n, 1]
                 gau0 = data['gaussfit'][n][2,:,0]
                 gau1 = data['gaussfit'][n][2,:,1]
             if ax.firsttime:
@@ -98,7 +92,6 @@ class SpectraPlot(Plot):
                 self.xmin = self.xmin if self.xmin else -self.xmax
                 self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
                 self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
-                #print(numpy.shape(x))
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -132,7 +125,7 @@ class SpectraObliquePlot(Plot):
     Plot for Spectra data
     '''
 
-    CODE = 'spc'
+    CODE = 'spc_oblique'
     colormap = 'jet'
     plot_type = 'pcolor'
 
@@ -150,10 +143,25 @@ class SpectraObliquePlot(Plot):
         self.plots_adjust.update({'wspace': 0.8, 'hspace':0.2, 'left': 0.2, 'right': 0.9, 'bottom': 0.18})
         self.ylabel = 'Range [km]'
 
+    def update(self, dataOut):
+        
+        data = {}
+        meta = {}
+        spc = 10*numpy.log10(dataOut.data_spc/dataOut.normFactor)
+        data['spc'] = spc
+        data['rti'] = dataOut.getPower()
+        data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
+        meta['xrange'] = (dataOut.getFreqRange(1)/1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
+        
+        data['shift1'] = dataOut.Oblique_params[0][1]
+        data['shift2'] = dataOut.Oblique_params[0][4]
+        data['shift1_error'] = dataOut.Oblique_param_errors[0][1]
+        data['shift2_error'] = dataOut.Oblique_param_errors[0][4]
+        
+        return data, meta 
+
     def plot(self):
 
-        #print(self.xaxis)
-        #exit(1)
         if self.xaxis == "frequency":
             x = self.data.xrange[0]
             self.xlabel = "Frequency (kHz)"
@@ -164,35 +172,23 @@ class SpectraObliquePlot(Plot):
             x = self.data.xrange[2]
             self.xlabel = "Velocity (m/s)"
 
-        if self.CODE == 'spc_moments':
-            x = self.data.xrange[2]
-            self.xlabel = "Velocity (m/s)"
-
         self.titles = []
-        #self.xlabel = "Velocidad (m/s)"
-        #self.ylabel = 'Rango (km)'
 
-
-        y = self.data.heights
+        y = self.data.yrange
         self.y = y
         z = self.data['spc']
 
-        self.CODE2 = 'spc_oblique'
-
-
         for n, ax in enumerate(self.axes):
             noise = self.data['noise'][n][-1]
-            if self.CODE == 'spc_moments':
-                mean = self.data['moments'][n, :, 1, :][-1]
-            if self.CODE2 == 'spc_oblique':
-                shift1 = self.data.shift1
-                shift2 = self.data.shift2
+            shift1 = self.data['shift1']
+            shift2 = self.data['shift2']
+            err1 = self.data['shift1_error']
+            err2 = self.data['shift2_error']
             if ax.firsttime:
                 self.xmax = self.xmax if self.xmax else numpy.nanmax(x)
                 self.xmin = self.xmin if self.xmin else -self.xmax
                 self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
                 self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
-                #print(numpy.shape(x))
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -204,15 +200,9 @@ class SpectraObliquePlot(Plot):
                         self.data['rti'][n][-1], y)[0]
                     ax.plt_noise = self.pf_axes[n].plot(numpy.repeat(noise, len(y)), y,
                                                         color="k", linestyle="dashed", lw=1)[0]
-                if self.CODE == 'spc_moments':
-                    ax.plt_mean = ax.plot(mean, y, color='k')[0]
-
-                if self.CODE2 == 'spc_oblique':
-                    #ax.plt_shift1 = ax.plot(shift1, y, color='k', marker='x', linestyle='None', markersize=0.5)[0]
-                    #ax.plt_shift2 = ax.plot(shift2, y, color='m', marker='x', linestyle='None', markersize=0.5)[0]
-                    self.ploterr1 = ax.errorbar(shift1, y, xerr=self.data.shift1_error,fmt='k^',elinewidth=0.2,marker='x',linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
-                    self.ploterr2 = ax.errorbar(shift2, y, xerr=self.data.shift2_error,fmt='m^',elinewidth=0.2,marker='x',linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
-
+                
+                self.ploterr1 = ax.errorbar(shift1, y, xerr=err1, fmt='k^', elinewidth=0.2, marker='x', linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
+                self.ploterr2 = ax.errorbar(shift2, y, xerr=err2, fmt='m^',elinewidth=0.2,marker='x',linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
             else:
                 self.ploterr1.remove()
                 self.ploterr2.remove()
@@ -220,17 +210,11 @@ class SpectraObliquePlot(Plot):
                 if self.showprofile:
                     ax.plt_profile.set_data(self.data['rti'][n][-1], y)
                     ax.plt_noise.set_data(numpy.repeat(noise, len(y)), y)
-                if self.CODE == 'spc_moments':
-                    ax.plt_mean.set_data(mean, y)
-                if self.CODE2 == 'spc_oblique':
-                    #ax.plt_shift1.set_data(shift1, y)
-                    #ax.plt_shift2.set_data(shift2, y)
-                    #ax.clf()
-                    self.ploterr1 = ax.errorbar(shift1, y, xerr=self.data.shift1_error,fmt='k^',elinewidth=0.2,marker='x',linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
-                    self.ploterr2 = ax.errorbar(shift2, y, xerr=self.data.shift2_error,fmt='m^',elinewidth=0.2,marker='x',linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
+                    self.ploterr1 = ax.errorbar(shift1, y, xerr=err1, fmt='k^',elinewidth=0.2,marker='x',linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
+                    self.ploterr2 = ax.errorbar(shift2, y, xerr=err2, fmt='m^',elinewidth=0.2,marker='x',linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
 
             self.titles.append('CH {}: {:3.2f}dB'.format(n, noise))
-            #self.titles.append('{}'.format('Velocidad Doppler'))
+
 
 class CrossSpectraPlot(Plot):
 
@@ -733,8 +717,6 @@ class SpectrogramPlot(Plot):
         self.ncols = 1
         self.nrows = len(self.data.channels)
         self.nplots = len(self.data.channels)
-        #print(self.dataOut.heightList)
-        #self.ylabel = 'Range [km]'
         self.xlabel = 'Time'
         self.cb_label = 'dB'
         self.plots_adjust.update({'hspace':1.2, 'left': 0.1, 'bottom': 0.12, 'right':0.95})
@@ -742,18 +724,11 @@ class SpectrogramPlot(Plot):
             self.CODE.upper(), x, self.data.heightList[self.data.hei], self.data.heightList[self.data.hei],self.data.heightList[self.data.hei]+(self.data.DH*self.data.nProfiles)) for x in range(self.nrows)]
 
     def plot(self):
+
         self.x = self.data.times
-        #self.y = self.data.heights
         self.z = self.data[self.CODE]
         self.y = self.data.xrange[0]
-        #import time
-        #print(time.ctime(self.x))
-
-        '''
-        print(numpy.shape(self.x))
-        print(numpy.shape(self.y))
-        print(numpy.shape(self.z))
-        '''
+        
         self.ylabel = "Frequency (kHz)"
 
         self.z = numpy.ma.masked_invalid(self.z)

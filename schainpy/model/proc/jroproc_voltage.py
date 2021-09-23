@@ -1,12 +1,21 @@
+
+import os
 import sys
-import numpy,math
+import numpy, math
 from scipy import interpolate
+from scipy.optimize import nnls
 from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecorator
 from schainpy.model.data.jrodata import Voltage,hildebrand_sekhon
 from schainpy.utils import log
 from time import time, mktime, strptime, gmtime, ctime
-import os
 
+try:
+    from schainpy.model.proc import fitacf_guess
+    from schainpy.model.proc import fitacf_fit_short
+    from schainpy.model.proc import fitacf_acf2
+    from schainpy.model.proc import full_profile_profile
+except:
+    log.warning('Missing Faraday fortran libs')
 
 class VoltageProc(ProcessingUnit):
 
@@ -1979,8 +1988,6 @@ class suppress_stdout_stderr(object):
             os.close(fd)
 
 
-from schainpy.model.proc import fitacf_guess
-from schainpy.model.proc import fitacf_fit_short
 class DPTemperaturesEstimation(Operation):
     """Operation to estimate temperatures for Double Pulse data.
 
@@ -2184,7 +2191,6 @@ class NeTeTiRecal(NormalizeDPPower,DPTemperaturesEstimation):
         return dataOut
 
 
-from schainpy.model.proc import fitacf_acf2
 class DenCorrection(Operation):
 
     def __init__(self, **kwargs):
@@ -5366,8 +5372,6 @@ class SumFlipsHP(SumFlips):
         return dataOut
 
 
-from schainpy.model.proc import full_profile_profile
-from scipy.optimize import nnls
 class LongPulseAnalysis(Operation):
     """Operation to estimate ACFs, temperatures, total electron density and Hydrogen/Helium fractions from the Long Pulse data.
 

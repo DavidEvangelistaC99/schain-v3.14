@@ -1,5 +1,7 @@
 
 import os
+import time
+import math
 import datetime
 import numpy
 from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecorator  #YONG
@@ -13,26 +15,17 @@ from schainpy.model.graphics.jroplot_base import Plot, plt
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
-
-import time
-import math
-
-
 from matplotlib.ticker import MultipleLocator
-
 
 
 class RTIDPPlot(RTIPlot):
 
-    '''
-       Plot for RTI Double Pulse Experiment
+    '''Plot for RTI Double Pulse Experiment
     '''
 
     CODE = 'RTIDP'
     colormap = 'jro'
     plot_name = 'RTI'
-
-    #cb_label = 'Ne Electron Density (1/cm3)'
 
     def setup(self):
         self.xaxis = 'time'
@@ -49,30 +42,25 @@ class RTIDPPlot(RTIPlot):
 
         self.cb_label = 'Intensity (dB)'
 
-
-        #self.cb_label = cb_label
-
         self.titles = ['{} Channel {}'.format(
             self.plot_name.upper(), '0x1'),'{} Channel {}'.format(
                 self.plot_name.upper(), '0'),'{} Channel {}'.format(
                     self.plot_name.upper(), '1')]
 
+    def update(self, dataOut):
+
+        data = {}
+        meta = {}
+        data[self.CODE] = dataOut.data_for_RTI_DP
+        data['NRANGE'] = dataOut.NDP 
+
+        return data, meta
 
     def plot(self):
 
-        self.data.normalize_heights()
         self.x = self.data.times
-        self.y = self.data.heights[0:self.data.NDP]
-
-        if self.showSNR:
-            self.z = numpy.concatenate(
-                (self.data[self.CODE], self.data['snr'])
-            )
-        else:
-
-            self.z = self.data[self.CODE]
-            #print(numpy.max(self.z[0,0:]))
-
+        self.y = self.data.yrange[0: self.data['NRANGE']]
+        self.z = self.data[self.CODE]
         self.z = numpy.ma.masked_invalid(self.z)
 
         if self.decimation is None:
@@ -82,26 +70,21 @@ class RTIDPPlot(RTIPlot):
 
         for n, ax in enumerate(self.axes):
 
-
             self.zmax = self.zmax if self.zmax is not None else numpy.max(
                 self.z[1][0,12:40])
             self.zmin = self.zmin if self.zmin is not None else numpy.min(
                 self.z[1][0,12:40])
-
-
 
             if ax.firsttime:
 
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
 
-
                 ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
                                        vmin=self.zmin,
                                        vmax=self.zmax,
                                        cmap=self.cmaps[n]
                                        )
-                #plt.tight_layout()
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
@@ -111,7 +94,6 @@ class RTIDPPlot(RTIPlot):
                                        vmax=self.zmax,
                                        cmap=self.cmaps[n]
                                        )
-                #plt.tight_layout()
 
 
 class RTILPPlot(RTIPlot):
@@ -123,8 +105,6 @@ class RTILPPlot(RTIPlot):
     CODE = 'RTILP'
     colormap = 'jro'
     plot_name = 'RTI LP'
-
-    #cb_label = 'Ne Electron Density (1/cm3)'
 
     def setup(self):
         self.xaxis = 'time'
@@ -139,10 +119,6 @@ class RTILPPlot(RTIPlot):
         self.xlabel = 'Time (LT)'
 
         self.cb_label = 'Intensity (dB)'
-
-
-
-        #self.cb_label = cb_label
 
         self.titles = ['{} Channel {}'.format(
             self.plot_name.upper(), '0'),'{} Channel {}'.format(
@@ -174,7 +150,6 @@ class RTILPPlot(RTIPlot):
             x, y, z = self.fill_gaps(*self.decimate())
 
         for n, ax in enumerate(self.axes):
-
 
             self.zmax = self.zmax if self.zmax is not None else numpy.max(
                 self.z[1][0,12:40])
@@ -917,35 +892,36 @@ class CrossProductsPlot(Plot):
     plot_name = 'Cross Products'
     plot_type = 'scatterbuffer'
 
-
     def setup(self):
 
         self.ncols = 3
         self.nrows = 1
         self.nplots = 3
         self.ylabel = 'Range [km]'
-
         self.width = 3.5*self.nplots
         self.height = 5.5
         self.colorbar = False
         self.titles = []
 
+    def update(self, dataOut):
+
+        data = {}
+        meta = {}
+
+        data['crossprod'] = dataOut.crossprods
+        data['NDP'] = dataOut.NDP
+
+        return data, meta
+
     def plot(self):
 
         self.x = self.data['crossprod'][:,-1,:,:,:,:]
-
-
-
-
-        self.y = self.data.heights[0:self.data.NDP]
-
-
+        self.y = self.data.heights[0:self.data['NDP']]
 
         for n, ax in enumerate(self.axes):
 
             self.xmin=numpy.min(numpy.concatenate((self.x[n][0,20:30,0,0],self.x[n][1,20:30,0,0],self.x[n][2,20:30,0,0],self.x[n][3,20:30,0,0])))
             self.xmax=numpy.max(numpy.concatenate((self.x[n][0,20:30,0,0],self.x[n][1,20:30,0,0],self.x[n][2,20:30,0,0],self.x[n][3,20:30,0,0])))
-
 
             if ax.firsttime:
 
@@ -969,7 +945,6 @@ class CrossProductsPlot(Plot):
                     label4='kaxby'
                     self.xlimits.append((self.xmin,self.xmax))
 
-
                 ax.plotline1 = ax.plot(self.x[n][0,:,0,0], self.y, color='r',linewidth=2.0, label=label1)
                 ax.plotline2 = ax.plot(self.x[n][1,:,0,0], self.y, color='k',linewidth=2.0, label=label2)
                 ax.plotline3 = ax.plot(self.x[n][2,:,0,0], self.y, color='b',linewidth=2.0, label=label3)
@@ -977,8 +952,6 @@ class CrossProductsPlot(Plot):
                 ax.legend(loc='upper right')
                 ax.set_xlim(self.xmin, self.xmax)
                 self.titles.append('{}'.format(self.plot_name.upper()))
-                #plt.tight_layout()
-
 
             else:
 
@@ -989,14 +962,11 @@ class CrossProductsPlot(Plot):
 
                 ax.set_xlim(self.xmin, self.xmax)
 
-
                 ax.plotline1[0].set_data(self.x[n][0,:,0,0],self.y)
                 ax.plotline2[0].set_data(self.x[n][1,:,0,0],self.y)
                 ax.plotline3[0].set_data(self.x[n][2,:,0,0],self.y)
                 ax.plotline4[0].set_data(self.x[n][3,:,0,0],self.y)
                 self.titles.append('{}'.format(self.plot_name.upper()))
-                #plt.tight_layout()
-
 
 
 class CrossProductsLPPlot(Plot):
