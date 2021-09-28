@@ -49,7 +49,7 @@ class PXParametersProc(ProcessingUnit):
         self.dataOut.data_param = numpy.array([self.dataOut.data[var] for var in self.dataOut.parameters])
         self.dataOut.data_param[self.dataOut.data_param == self.dataOut.missing] = numpy.nan
 
-        if mode.upper()=='E':    
+        if mode.upper() == 'E':    
             self.dataOut.heightList = self.dataOut.data['Azimuth']
         else:
             self.dataOut.heightList = self.dataOut.data['Elevation']

@@ -81,7 +81,7 @@ class VoltageReader(JRODataReader, ProcessingUnit):
         self.radarControllerHeaderObj = RadarControllerHeader()
         self.processingHeaderObj = ProcessingHeader()
         self.lastUTTime = 0
-        self.profileIndex = 2**32 - 1        
+        self.profileIndex = 2 ** 32 - 1        
         self.dataOut = Voltage()
         self.selBlocksize = None
         self.selBlocktime = None
@@ -251,7 +251,7 @@ class VoltageReader(JRODataReader, ProcessingUnit):
 
         self.firstHeaderSize = self.basicHeaderObj.size
 
-        datatype = int(numpy.log2((self.processingHeaderObj.processFlags &
+        datatype = int(numpy.log2((self.processingHeaderObj.processFlags & 
                                    PROCFLAG.DATATYPE_MASK)) - numpy.log2(PROCFLAG.DATATYPE_CHAR))
         if datatype == 0:
             datatype_str = numpy.dtype([('real', '<i1'), ('imag', '<i1')])
@@ -269,7 +269,7 @@ class VoltageReader(JRODataReader, ProcessingUnit):
             raise ValueError('Data type was not defined')
 
         self.dtype = datatype_str
-        #self.ippSeconds = 2 * 1000 * self.radarControllerHeaderObj.ipp / self.c
+        # self.ippSeconds = 2 * 1000 * self.radarControllerHeaderObj.ipp / self.c
         self.fileSizeByHeader = self.processingHeaderObj.dataBlocksPerFile * self.processingHeaderObj.blockSize + \
             self.firstHeaderSize + self.basicHeaderSize * \
             (self.processingHeaderObj.dataBlocksPerFile - 1)
@@ -448,7 +448,7 @@ class VoltageReader(JRODataReader, ProcessingUnit):
                     blockIndex = self.selBlocksize - datasize
                     datablock1 = self.datablock[:, :blockIndex, :]
 
-                    buffer[:, datasize:datasize +
+                    buffer[:, datasize:datasize + 
                            datablock1.shape[1], :] = datablock1
                     datasize += datablock1.shape[1]
 
@@ -480,7 +480,7 @@ class VoltageWriter(JRODataWriter, Operation):
 
     shapeBuffer = None
 
-    def __init__(self):#, **kwargs):
+    def __init__(self):  # , **kwargs):
         """
         Inicializador de la clase VoltageWriter para la escritura de datos de espectros.
 
@@ -489,7 +489,7 @@ class VoltageWriter(JRODataWriter, Operation):
 
         Return: None
         """
-        Operation.__init__(self)#, **kwargs)
+        Operation.__init__(self)  # , **kwargs)
 
         self.nTotalBlocks = 0
 
@@ -624,7 +624,7 @@ class VoltageWriter(JRODataWriter, Operation):
 
         dtype_width = self.getDtypeWidth()
 
-        blocksize = int(self.dataOut.nHeights * self.dataOut.nChannels *
+        blocksize = int(self.dataOut.nHeights * self.dataOut.nChannels * 
                         self.profilesPerBlock * dtype_width * 2)
 
         return blocksize

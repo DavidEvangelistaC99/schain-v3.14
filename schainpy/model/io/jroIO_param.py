@@ -105,7 +105,7 @@ class HDFReader(Reader, ProcessingUnit):
 
             for nTries in range(self.nTries):
                 fullpath = self.searchFilesOnLine(self.path, self.startDate,
-                    self.endDate, self.expLabel, self.ext, self.walk, 
+                    self.endDate, self.expLabel, self.ext, self.walk,
                     self.filefmt, self.folderfmt)
                 try:
                     fullpath = next(fullpath)
@@ -117,7 +117,7 @@ class HDFReader(Reader, ProcessingUnit):
 
                 log.warning(
                     'Waiting {} sec for a valid file in {}: try {} ...'.format(
-                        self.delay, self.path, nTries + 1), 
+                        self.delay, self.path, nTries + 1),
                     self.name)
                 time.sleep(self.delay)
 
@@ -131,7 +131,7 @@ class HDFReader(Reader, ProcessingUnit):
             self.set = int(filename[8:11]) - 1                
         else:
             log.log("Searching files in {}".format(self.path), self.name)
-            self.filenameList = self.searchFilesOffLine(self.path, self.startDate, 
+            self.filenameList = self.searchFilesOffLine(self.path, self.startDate,
                 self.endDate, self.expLabel, self.ext, self.walk, self.filefmt, self.folderfmt)
         
         self.setNextFile()
@@ -346,11 +346,11 @@ class HDFWriter(Operation):
     setFile = None
     fp = None
     firsttime = True
-    #Configurations
+    # Configurations
     blocksPerFile = None
     blockIndex = None
     dataOut = None
-    #Data Arrays
+    # Data Arrays
     dataList = None
     metadataList = None
     currentDay = None
@@ -411,11 +411,11 @@ class HDFWriter(Operation):
         
         timeDiff = currentTime - self.lastTime
 
-        #Si el dia es diferente o si la diferencia entre un dato y otro supera la hora
+        # Si el dia es diferente o si la diferencia entre un dato y otro supera la hora
         if dataDay != self.currentDay:
             self.currentDay = dataDay
             return True
-        elif timeDiff > 3*60*60:
+        elif timeDiff > 3 * 60 * 60:
             self.lastTime = currentTime
             return True
         else:
@@ -427,7 +427,7 @@ class HDFWriter(Operation):
 
         self.dataOut = dataOut
         if not(self.isConfig):
-            self.setup(path=path, blocksPerFile=blocksPerFile, 
+            self.setup(path=path, blocksPerFile=blocksPerFile,
                        metadataList=metadataList, dataList=dataList,
                        setType=setType, description=description)
 
@@ -444,27 +444,27 @@ class HDFWriter(Operation):
         setFile = self.setFile
 
         timeTuple = time.localtime(self.dataOut.utctime)
-        subfolder = 'd%4.4d%3.3d' % (timeTuple.tm_year,timeTuple.tm_yday)
+        subfolder = 'd%4.4d%3.3d' % (timeTuple.tm_year, timeTuple.tm_yday)
         fullpath = os.path.join(path, subfolder)
 
         if os.path.exists(fullpath):
             filesList = os.listdir(fullpath)
             filesList = [k for k in filesList if k.startswith(self.optchar)]
-            if len( filesList ) > 0:
+            if len(filesList) > 0:
                 filesList = sorted(filesList, key=str.lower)
                 filen = filesList[-1]
                 # el filename debera tener el siguiente formato
                 # 0 1234 567 89A BCDE (hex)
                 # x YYYY DDD SSS .ext
                 if isNumber(filen[8:11]):
-                    setFile = int(filen[8:11]) #inicializo mi contador de seteo al seteo del ultimo file
+                    setFile = int(filen[8:11])  # inicializo mi contador de seteo al seteo del ultimo file
                 else:
                     setFile = -1
             else:
-                setFile = -1 #inicializo mi contador de seteo
+                setFile = -1  # inicializo mi contador de seteo
         else:
             os.makedirs(fullpath)
-            setFile = -1 #inicializo mi contador de seteo
+            setFile = -1  # inicializo mi contador de seteo
 
         if self.setType is None:
             setFile += 1
@@ -472,22 +472,22 @@ class HDFWriter(Operation):
                                            timeTuple.tm_year,
                                            timeTuple.tm_yday,
                                            setFile,
-                                           ext )
+                                           ext)
         else:
-            setFile = timeTuple.tm_hour*60+timeTuple.tm_min
+            setFile = timeTuple.tm_hour * 60 + timeTuple.tm_min
             file = '%s%4.4d%3.3d%04d%s' % (self.optchar,
                                            timeTuple.tm_year,
                                            timeTuple.tm_yday,
                                            setFile,
-                                           ext )
+                                           ext)
 
-        self.filename = os.path.join( path, subfolder, file )
+        self.filename = os.path.join(path, subfolder, file)
 
-        #Setting HDF5 File
+        # Setting HDF5 File
         self.fp = h5py.File(self.filename, 'w')
-        #write metadata
+        # write metadata
         self.writeMetadata(self.fp)
-        #Write data
+        # Write data
         self.writeData(self.fp)
 
     def getLabel(self, name, x=None):
@@ -563,9 +563,9 @@ class HDFWriter(Operation):
         for dsInfo in self.dsList:
             if dsInfo['nDim'] == 0:
                 ds = grp.create_dataset(
-                    self.getLabel(dsInfo['variable']), 
-                    (self.blocksPerFile, ),
-                    chunks=True, 
+                    self.getLabel(dsInfo['variable']),
+                    (self.blocksPerFile,),
+                    chunks=True,
                     dtype=numpy.float64)
                 dtsets.append(ds)
                 data.append((dsInfo['variable'], -1))
@@ -577,8 +577,8 @@ class HDFWriter(Operation):
                     sgrp = grp
                 for i in range(dsInfo['dsNumber']):
                     ds = sgrp.create_dataset(
-                        self.getLabel(dsInfo['variable'], i), 
-                        (self.blocksPerFile, ) + dsInfo['shape'][1:],
+                        self.getLabel(dsInfo['variable'], i),
+                        (self.blocksPerFile,) + dsInfo['shape'][1:],
                         chunks=True,
                         dtype=dsInfo['dtype'])
                     dtsets.append(ds)

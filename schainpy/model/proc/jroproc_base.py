@@ -198,6 +198,6 @@ def MPDecorator(BaseClass):
         def close(self):
 
             BaseClass.close(self)
-            log.success('Done...(Time:{:4.2f} secs)'.format(time.time()-self.start_time), self.name)
+            log.success('Done...(Time:{:4.2f} secs)'.format(time.time() - self.start_time), self.name)
 
     return MPClass

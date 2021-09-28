@@ -516,7 +516,7 @@ class RadarControllerHeader(Header):
                     for j in range(len(code_selected) - 1, -1, -1):
                         if code_selected[j] == 1:
                             tempx[i] = tempx[i] + \
-                                2**(len(code_selected) - 1 - j)
+                                2 ** (len(code_selected) - 1 - j)
                     start = start + 32
                     end = end + 32
 

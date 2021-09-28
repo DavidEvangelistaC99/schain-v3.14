@@ -77,20 +77,20 @@ class AMISRReader(ProcessingUnit):
         
         self.__waitForNewFile = 20
         self.__filename_online = None 
-        #Is really necessary create the output object in the initializer
+        # Is really necessary create the output object in the initializer
         self.dataOut = Voltage()
         
-    def setup(self,path=None,
-                    startDate=None, 
-                    endDate=None, 
-                    startTime=None, 
+    def setup(self, path=None,
+                    startDate=None,
+                    endDate=None,
+                    startTime=None,
                     endTime=None,
                     walk=True,
                     timezone='ut',
                     all=0,
-                    code = None,
-                    nCode = 0,
-                    nBaud = 0,
+                    code=None,
+                    nCode=0,
+                    nBaud=0,
                     online=False):
     
         self.timezone = timezone
@@ -103,15 +103,15 @@ class AMISRReader(ProcessingUnit):
         
         
         
-        #self.findFiles()
+        # self.findFiles()
         if not(online):
-            #Busqueda de archivos offline
+            # Busqueda de archivos offline
             self.searchFilesOffLine(path, startDate, endDate, startTime, endTime, walk)
         else:
-            self.searchFilesOnLine(path, startDate, endDate, startTime,endTime,walk)
+            self.searchFilesOnLine(path, startDate, endDate, startTime, endTime, walk)
         
         if not(self.filenameList):
-            print("There is no files into the folder: %s"%(path))
+            print("There is no files into the folder: %s" % (path))
                 
             sys.exit(-1)
             
@@ -127,43 +127,43 @@ class AMISRReader(ProcessingUnit):
         pass
     
     
-    def readAMISRHeader(self,fp):
+    def readAMISRHeader(self, fp):
         header = 'Raw11/Data/RadacHeader'
-        self.beamCodeByPulse = fp.get(header+'/BeamCode') # LIST OF BEAMS PER PROFILE, TO BE USED ON REARRANGE
-        self.beamCode = fp.get('Raw11/Data/Beamcodes') # NUMBER OF CHANNELS AND IDENTIFY POSITION TO CREATE A FILE WITH THAT INFO
-        #self.code = fp.get(header+'/Code') # NOT USE FOR THIS
-        self.frameCount = fp.get(header+'/FrameCount')# NOT USE FOR THIS
-        self.modeGroup = fp.get(header+'/ModeGroup')# NOT USE FOR THIS
-        self.nsamplesPulse = fp.get(header+'/NSamplesPulse')# TO GET NSA OR USING DATA FOR THAT
-        self.pulseCount = fp.get(header+'/PulseCount')# NOT USE FOR THIS
-        self.radacTime = fp.get(header+'/RadacTime')# 1st TIME ON FILE ANDE CALCULATE THE REST WITH IPP*nindexprofile
-        self.timeCount = fp.get(header+'/TimeCount')# NOT USE FOR THIS
-        self.timeStatus = fp.get(header+'/TimeStatus')# NOT USE FOR THIS
+        self.beamCodeByPulse = fp.get(header + '/BeamCode')  # LIST OF BEAMS PER PROFILE, TO BE USED ON REARRANGE
+        self.beamCode = fp.get('Raw11/Data/Beamcodes')  # NUMBER OF CHANNELS AND IDENTIFY POSITION TO CREATE A FILE WITH THAT INFO
+        # self.code = fp.get(header+'/Code') # NOT USE FOR THIS
+        self.frameCount = fp.get(header + '/FrameCount')  # NOT USE FOR THIS
+        self.modeGroup = fp.get(header + '/ModeGroup')  # NOT USE FOR THIS
+        self.nsamplesPulse = fp.get(header + '/NSamplesPulse')  # TO GET NSA OR USING DATA FOR THAT
+        self.pulseCount = fp.get(header + '/PulseCount')  # NOT USE FOR THIS
+        self.radacTime = fp.get(header + '/RadacTime')  # 1st TIME ON FILE ANDE CALCULATE THE REST WITH IPP*nindexprofile
+        self.timeCount = fp.get(header + '/TimeCount')  # NOT USE FOR THIS
+        self.timeStatus = fp.get(header + '/TimeStatus')  # NOT USE FOR THIS
         self.rangeFromFile = fp.get('Raw11/Data/Samples/Range')
-        self.frequency =  fp.get('Rx/Frequency')
+        self.frequency = fp.get('Rx/Frequency')
         txAus = fp.get('Raw11/Data/Pulsewidth')
          
         
-        self.nblocks = self.pulseCount.shape[0] #nblocks
+        self.nblocks = self.pulseCount.shape[0]  # nblocks
        
-        self.nprofiles = self.pulseCount.shape[1] #nprofile
-        self.nsa = self.nsamplesPulse[0,0] #ngates
+        self.nprofiles = self.pulseCount.shape[1]  # nprofile
+        self.nsa = self.nsamplesPulse[0, 0]  # ngates
         self.nchannels = self.beamCode.shape[1]
-        self.ippSeconds = (self.radacTime[0][1] -self.radacTime[0][0]) #Ipp in seconds
-        #self.__waitForNewFile = self.nblocks  # wait depending on the number of blocks since each block is 1 sec
-        self.__waitForNewFile = self.nblocks * self.nprofiles * self.ippSeconds # wait until new file is created
+        self.ippSeconds = (self.radacTime[0][1] - self.radacTime[0][0])  # Ipp in seconds
+        # self.__waitForNewFile = self.nblocks  # wait depending on the number of blocks since each block is 1 sec
+        self.__waitForNewFile = self.nblocks * self.nprofiles * self.ippSeconds  # wait until new file is created
         
-        #filling radar controller header parameters
-        self.__ippKm = self.ippSeconds *.15*1e6 # in km
-        self.__txA = (txAus.value)*.15 #(ipp[us]*.15km/1us) in km
+        # filling radar controller header parameters
+        self.__ippKm = self.ippSeconds * .15 * 1e6  # in km
+        self.__txA = (txAus.value) * .15  # (ipp[us]*.15km/1us) in km
         self.__txB = 0
-        nWindows=1
+        nWindows = 1
         self.__nSamples = self.nsa 
-        self.__firstHeight = self.rangeFromFile[0][0]/1000 #in km
-        self.__deltaHeight = (self.rangeFromFile[0][1] - self.rangeFromFile[0][0])/1000 
+        self.__firstHeight = self.rangeFromFile[0][0] / 1000  # in km
+        self.__deltaHeight = (self.rangeFromFile[0][1] - self.rangeFromFile[0][0]) / 1000 
         
-        #for now until understand why the code saved is different (code included even though code not in tuf file)
-        #self.__codeType = 0
+        # for now until understand why the code saved is different (code included even though code not in tuf file)
+        # self.__codeType = 0
        # self.__nCode = None
        # self.__nBaud = None
         self.__code = self.code
@@ -172,11 +172,11 @@ class AMISRReader(ProcessingUnit):
             self.__codeType = 1
         self.__nCode = self.nCode
         self.__nBaud = self.nBaud
-        #self.__code = 0
+        # self.__code = 0
         
-        #filling system header parameters
+        # filling system header parameters
         self.__nSamples = self.nsa
-        self.newProfiles = self.nprofiles/self.nchannels 
+        self.newProfiles = self.nprofiles / self.nchannels 
         self.__channelList = list(range(self.nchannels))
         
         self.__frequency = self.frequency[0][0]
@@ -187,7 +187,7 @@ class AMISRReader(ProcessingUnit):
     
         pass      
        
-    def __setParameters(self,path='', startDate='',endDate='',startTime='', endTime='', walk=''):
+    def __setParameters(self, path='', startDate='', endDate='', startTime='', endTime='', walk=''):
         self.path = path
         self.startDate = startDate
         self.endDate = endDate
@@ -200,7 +200,7 @@ class AMISRReader(ProcessingUnit):
             self.status = 1
         else:
             self.status = 0
-            print('Path:%s does not exists'%self.path)
+            print('Path:%s does not exists' % self.path)
             
         return
     
@@ -210,27 +210,27 @@ class AMISRReader(ProcessingUnit):
             year = int(amisr_dirname_format[0:4])
             month = int(amisr_dirname_format[4:6])
             dom = int(amisr_dirname_format[6:8])
-            thisDate = datetime.date(year,month,dom)
+            thisDate = datetime.date(year, month, dom)
             
-            if (thisDate>=self.startDate and thisDate <= self.endDate):
+            if (thisDate >= self.startDate and thisDate <= self.endDate):
                 return amisr_dirname_format
         except:
             return None
     
     
-    def __findDataForDates(self,online=False):
+    def __findDataForDates(self, online=False):
         
         if not(self.status):
             return None
         
         pat = '\d+.\d+'
-        dirnameList = [re.search(pat,x) for x in os.listdir(self.path)]
-        dirnameList = [x for x in dirnameList if x!=None]
+        dirnameList = [re.search(pat, x) for x in os.listdir(self.path)]
+        dirnameList = [x for x in dirnameList if x != None]
         dirnameList = [x.string for x in dirnameList]
         if not(online):
             dirnameList = [self.__selDates(x) for x in dirnameList]
-            dirnameList = [x for x in dirnameList if x!=None]
-        if len(dirnameList)>0:
+            dirnameList = [x for x in dirnameList if x != None]
+        if len(dirnameList) > 0:
             self.status = 1
             self.dirnameList = dirnameList
             self.dirnameList.sort()
@@ -239,38 +239,38 @@ class AMISRReader(ProcessingUnit):
             return None
     
     def __getTimeFromData(self):
-        startDateTime_Reader = datetime.datetime.combine(self.startDate,self.startTime)
-        endDateTime_Reader = datetime.datetime.combine(self.endDate,self.endTime)
+        startDateTime_Reader = datetime.datetime.combine(self.startDate, self.startTime)
+        endDateTime_Reader = datetime.datetime.combine(self.endDate, self.endTime)
 
-        print('Filtering Files from %s to %s'%(startDateTime_Reader, endDateTime_Reader))
+        print('Filtering Files from %s to %s' % (startDateTime_Reader, endDateTime_Reader))
         print('........................................')
         filter_filenameList = []
         self.filenameList.sort()
-        #for i in range(len(self.filenameList)-1):
+        # for i in range(len(self.filenameList)-1):
         for i in range(len(self.filenameList)):
             filename = self.filenameList[i]
-            fp = h5py.File(filename,'r')
+            fp = h5py.File(filename, 'r')
             time_str = fp.get('Time/RadacTimeString')
             
             startDateTimeStr_File = time_str[0][0].split('.')[0]
             junk = time.strptime(startDateTimeStr_File, '%Y-%m-%d %H:%M:%S')
-            startDateTime_File = datetime.datetime(junk.tm_year,junk.tm_mon,junk.tm_mday,junk.tm_hour, junk.tm_min, junk.tm_sec)
+            startDateTime_File = datetime.datetime(junk.tm_year, junk.tm_mon, junk.tm_mday, junk.tm_hour, junk.tm_min, junk.tm_sec)
             
             endDateTimeStr_File = time_str[-1][-1].split('.')[0]
             junk = time.strptime(endDateTimeStr_File, '%Y-%m-%d %H:%M:%S')
-            endDateTime_File = datetime.datetime(junk.tm_year,junk.tm_mon,junk.tm_mday,junk.tm_hour, junk.tm_min, junk.tm_sec)
+            endDateTime_File = datetime.datetime(junk.tm_year, junk.tm_mon, junk.tm_mday, junk.tm_hour, junk.tm_min, junk.tm_sec)
             
             fp.close()
             
             if self.timezone == 'lt':
-                startDateTime_File = startDateTime_File - datetime.timedelta(minutes = 300)
-                endDateTime_File = endDateTime_File - datetime.timedelta(minutes = 300)
+                startDateTime_File = startDateTime_File - datetime.timedelta(minutes=300)
+                endDateTime_File = endDateTime_File - datetime.timedelta(minutes=300)
 
-            if (endDateTime_File>=startDateTime_Reader and endDateTime_File<endDateTime_Reader):
-                #self.filenameList.remove(filename)
+            if (endDateTime_File >= startDateTime_Reader and endDateTime_File < endDateTime_Reader):
+                # self.filenameList.remove(filename)
                 filter_filenameList.append(filename)
             
-            if (endDateTime_File>=endDateTime_Reader):
+            if (endDateTime_File >= endDateTime_Reader):
                 break
             
         
@@ -279,7 +279,7 @@ class AMISRReader(ProcessingUnit):
         return 1
     
     def __filterByGlob1(self, dirName):
-        filter_files = glob.glob1(dirName, '*.*%s'%self.extension_file)
+        filter_files = glob.glob1(dirName, '*.*%s' % self.extension_file)
         filter_files.sort()
         filterDict = {}
         filterDict.setdefault(dirName)
@@ -295,21 +295,21 @@ class AMISRReader(ProcessingUnit):
     
     
     def __selectDataForTimes(self, online=False):
-        #aun no esta implementado el filtro for tiempo
+        # aun no esta implementado el filtro for tiempo
         if not(self.status):
             return None
         
-        dirList = [os.path.join(self.path,x) for x in self.dirnameList]
+        dirList = [os.path.join(self.path, x) for x in self.dirnameList]
         
         fileListInKeys = [self.__filterByGlob1(x) for x in dirList]
         
         self.__getFilenameList(fileListInKeys, dirList)
         if not(online):
-            #filtro por tiempo
+            # filtro por tiempo
             if not(self.all):
                 self.__getTimeFromData()
 
-            if len(self.filenameList)>0:
+            if len(self.filenameList) > 0:
                 self.status = 1
                 self.filenameList.sort()
             else:
@@ -317,7 +317,7 @@ class AMISRReader(ProcessingUnit):
                 return None
             
         else:
-            #get the last file - 1
+            # get the last file - 1
             self.filenameList = [self.filenameList[-2]]
         
         new_dirnameList = []
@@ -329,14 +329,14 @@ class AMISRReader(ProcessingUnit):
         self.dirnameList = new_dirnameList
         return 1
     
-    def searchFilesOnLine(self, path, startDate, endDate, startTime=datetime.time(0,0,0),
-                            endTime=datetime.time(23,59,59),walk=True):
+    def searchFilesOnLine(self, path, startDate, endDate, startTime=datetime.time(0, 0, 0),
+                            endTime=datetime.time(23, 59, 59), walk=True):
         
-        if endDate ==None:
+        if endDate == None:
          startDate = datetime.datetime.utcnow().date()
          endDate = datetime.datetime.utcnow().date()
         
-        self.__setParameters(path=path, startDate=startDate, endDate=endDate,startTime = startTime,endTime=endTime, walk=walk)
+        self.__setParameters(path=path, startDate=startDate, endDate=endDate, startTime=startTime, endTime=endTime, walk=walk)
         
         self.__checkPath()
         
@@ -353,8 +353,8 @@ class AMISRReader(ProcessingUnit):
                             path,
                             startDate,
                             endDate,
-                            startTime=datetime.time(0,0,0),
-                            endTime=datetime.time(23,59,59),
+                            startTime=datetime.time(0, 0, 0),
+                            endTime=datetime.time(23, 59, 59),
                             walk=True):
         
         self.__setParameters(path, startDate, endDate, startTime, endTime, walk)
@@ -366,7 +366,7 @@ class AMISRReader(ProcessingUnit):
         self.__selectDataForTimes()
         
         for i in range(len(self.filenameList)):
-            print("%s" %(self.filenameList[i]))
+            print("%s" % (self.filenameList[i]))
         
         return 
         
@@ -382,7 +382,7 @@ class AMISRReader(ProcessingUnit):
 
             filename = self.filenameList[idFile]
 
-            amisrFilePointer = h5py.File(filename,'r')
+            amisrFilePointer = h5py.File(filename, 'r')
             
             break
 
@@ -392,7 +392,7 @@ class AMISRReader(ProcessingUnit):
 
         self.amisrFilePointer = amisrFilePointer
 
-        print("Setting the file: %s"%self.filename)
+        print("Setting the file: %s" % self.filename)
 
         return 1
     
@@ -404,7 +404,7 @@ class AMISRReader(ProcessingUnit):
             filename = self.filenameList[0]
             wait = 0
             while self.__filename_online == filename:
-                print('waiting %d seconds to get a new file...'%(self.__waitForNewFile))
+                print('waiting %d seconds to get a new file...' % (self.__waitForNewFile))
                 if wait == 5:
                     return 0
                 sleep(self.__waitForNewFile)
@@ -414,40 +414,40 @@ class AMISRReader(ProcessingUnit):
         
         self.__filename_online = filename
         
-        self.amisrFilePointer = h5py.File(filename,'r')
+        self.amisrFilePointer = h5py.File(filename, 'r')
         self.flagIsNewFile = 1
         self.filename = filename
-        print("Setting the file: %s"%self.filename)
+        print("Setting the file: %s" % self.filename)
         return 1
     
     
     def readData(self):
         buffer = self.amisrFilePointer.get('Raw11/Data/Samples/Data')
-        re = buffer[:,:,:,0]
-        im = buffer[:,:,:,1]
-        dataset = re + im*1j
+        re = buffer[:, :, :, 0]
+        im = buffer[:, :, :, 1]
+        dataset = re + im * 1j
         self.radacTime = self.amisrFilePointer.get('Raw11/Data/RadacHeader/RadacTime')
-        timeset = self.radacTime[:,0]
-        return dataset,timeset
+        timeset = self.radacTime[:, 0]
+        return dataset, timeset
     
     def reshapeData(self):
-    #self.beamCodeByPulse, self.beamCode, self.nblocks, self.nprofiles, self.nsa, 
-        channels = self.beamCodeByPulse[0,:]
+    # self.beamCodeByPulse, self.beamCode, self.nblocks, self.nprofiles, self.nsa, 
+        channels = self.beamCodeByPulse[0, :]
         nchan = self.nchannels
-        #self.newProfiles = self.nprofiles/nchan #must be defined on filljroheader
+        # self.newProfiles = self.nprofiles/nchan #must be defined on filljroheader
         nblocks = self.nblocks
         nsamples = self.nsa
     
-        #Dimensions : nChannels, nProfiles, nSamples
+        # Dimensions : nChannels, nProfiles, nSamples
         new_block = numpy.empty((nblocks, nchan, self.newProfiles, nsamples), dtype="complex64")
         ############################################
     
         for thisChannel in range(nchan):
-            new_block[:,thisChannel,:,:] = self.dataset[:,numpy.where(channels==self.beamCode[0][thisChannel])[0],:]
+            new_block[:, thisChannel, :, :] = self.dataset[:, numpy.where(channels == self.beamCode[0][thisChannel])[0], :]
 
         
-        new_block = numpy.transpose(new_block, (1,0,2,3))
-        new_block = numpy.reshape(new_block, (nchan,-1, nsamples))
+        new_block = numpy.transpose(new_block, (1, 0, 2, 3))
+        new_block = numpy.reshape(new_block, (nchan, -1, nsamples))
         
         return new_block 
     
@@ -457,7 +457,7 @@ class AMISRReader(ProcessingUnit):
         
     def fillJROHeader(self):
         
-        #fill radar controller header
+        # fill radar controller header
         self.dataOut.radarControllerHeaderObj = RadarControllerHeader(ippKm=self.__ippKm,
                                                                       txA=self.__txA,
                                                                       txB=0,
@@ -467,12 +467,12 @@ class AMISRReader(ProcessingUnit):
                                                                       deltaHeight=self.__deltaHeight,
                                                                       codeType=self.__codeType,
                                                                       nCode=self.__nCode, nBaud=self.__nBaud,
-                                                                      code = self.__code,
+                                                                      code=self.__code,
                                                                       fClock=1)
     
         
         
-        #fill system header
+        # fill system header
         self.dataOut.systemHeaderObj = SystemHeader(nSamples=self.__nSamples,
                                                     nProfiles=self.newProfiles,
                                                     nChannels=len(self.__channelList),
@@ -483,17 +483,17 @@ class AMISRReader(ProcessingUnit):
         
         self.dataOut.data = None
         
-        self.dataOut.dtype = numpy.dtype([('real','<i8'),('imag','<i8')])
+        self.dataOut.dtype = numpy.dtype([('real', '<i8'), ('imag', '<i8')])
         
 #        self.dataOut.nChannels = 0
         
 #        self.dataOut.nHeights = 0
         
-        self.dataOut.nProfiles = self.newProfiles*self.nblocks
+        self.dataOut.nProfiles = self.newProfiles * self.nblocks
         
-        #self.dataOut.heightList = self.__firstHeigth + numpy.arange(self.__nSamples, dtype = numpy.float)*self.__deltaHeigth
-        ranges = numpy.reshape(self.rangeFromFile.value,(-1))
-        self.dataOut.heightList =  ranges/1000.0 #km
+        # self.dataOut.heightList = self.__firstHeigth + numpy.arange(self.__nSamples, dtype = numpy.float)*self.__deltaHeigth
+        ranges = numpy.reshape(self.rangeFromFile.value, (-1))
+        self.dataOut.heightList = ranges / 1000.0  # km
         
         
         self.dataOut.channelList = self.__channelList
@@ -504,16 +504,16 @@ class AMISRReader(ProcessingUnit):
         
         self.dataOut.flagNoData = True
         
-        #Set to TRUE if the data is discontinuous 
+        # Set to TRUE if the data is discontinuous 
         self.dataOut.flagDiscontinuousBlock = False
         
         self.dataOut.utctime = None
          
-        #self.dataOut.timeZone = -5 #self.__timezone/60  #timezone like jroheader, difference in minutes between UTC and localtime
+        # self.dataOut.timeZone = -5 #self.__timezone/60  #timezone like jroheader, difference in minutes between UTC and localtime
         if self.timezone == 'lt':
-            self.dataOut.timeZone = time.timezone / 60. #get the timezone in minutes
+            self.dataOut.timeZone = time.timezone / 60.  # get the timezone in minutes
         else: 
-            self.dataOut.timeZone = 0 #by default time is UTC
+            self.dataOut.timeZone = 0  # by default time is UTC
 
         self.dataOut.dstFlag = 0
         
@@ -521,23 +521,23 @@ class AMISRReader(ProcessingUnit):
         
         self.dataOut.nCohInt = 1
         
-        self.dataOut.flagDecodeData = False #asumo que la data esta decodificada
+        self.dataOut.flagDecodeData = False  # asumo que la data esta decodificada
     
-        self.dataOut.flagDeflipData = False #asumo que la data esta sin flip
+        self.dataOut.flagDeflipData = False  # asumo que la data esta sin flip
         
         self.dataOut.flagShiftFFT = False
         
         self.dataOut.ippSeconds = self.ippSeconds
         
-        #Time interval between profiles 
-        #self.dataOut.timeInterval = self.dataOut.ippSeconds * self.dataOut.nCohInt
+        # Time interval between profiles 
+        # self.dataOut.timeInterval = self.dataOut.ippSeconds * self.dataOut.nCohInt
         
         self.dataOut.frequency = self.__frequency
         
         self.dataOut.realtime = self.online
         pass
     
-    def readNextFile(self,online=False):
+    def readNextFile(self, online=False):
         
         if not(online):
             newFile = self.__setNextFileOffline()
@@ -547,25 +547,25 @@ class AMISRReader(ProcessingUnit):
         if not(newFile):
             return 0
         
-        #if self.__firstFile:
+        # if self.__firstFile:
         self.readAMISRHeader(self.amisrFilePointer)
         self.createBuffers()
         self.fillJROHeader()
-        #self.__firstFile = False
+        # self.__firstFile = False
             
         
         
-        self.dataset,self.timeset = self.readData()
+        self.dataset, self.timeset = self.readData()
         
-        if self.endDate!=None:
-         endDateTime_Reader = datetime.datetime.combine(self.endDate,self.endTime)
+        if self.endDate != None:
+         endDateTime_Reader = datetime.datetime.combine(self.endDate, self.endTime)
          time_str = self.amisrFilePointer.get('Time/RadacTimeString')
          startDateTimeStr_File = time_str[0][0].split('.')[0]
          junk = time.strptime(startDateTimeStr_File, '%Y-%m-%d %H:%M:%S')
-         startDateTime_File = datetime.datetime(junk.tm_year,junk.tm_mon,junk.tm_mday,junk.tm_hour, junk.tm_min, junk.tm_sec)
+         startDateTime_File = datetime.datetime(junk.tm_year, junk.tm_mon, junk.tm_mday, junk.tm_hour, junk.tm_min, junk.tm_sec)
          if self.timezone == 'lt':
-          startDateTime_File = startDateTime_File - datetime.timedelta(minutes = 300)
-         if (startDateTime_File>endDateTime_Reader):
+          startDateTime_File = startDateTime_File - datetime.timedelta(minutes=300)
+         if (startDateTime_File > endDateTime_Reader):
              return 0
         
         self.jrodataset = self.reshapeData()
@@ -576,7 +576,7 @@ class AMISRReader(ProcessingUnit):
     
     
     def __hasNotDataInBuffer(self):
-        if self.profileIndex >= (self.newProfiles*self.nblocks):
+        if self.profileIndex >= (self.newProfiles * self.nblocks):
             return 1
         return 0
             
@@ -592,20 +592,20 @@ class AMISRReader(ProcessingUnit):
                 return 0
 
         
-        if self.dataset is None: # setear esta condicion cuando no hayan datos por leers
+        if self.dataset is None:  # setear esta condicion cuando no hayan datos por leers
             self.dataOut.flagNoData = True 
             return 0
         
-        #self.dataOut.data = numpy.reshape(self.jrodataset[self.profileIndex,:],(1,-1))
+        # self.dataOut.data = numpy.reshape(self.jrodataset[self.profileIndex,:],(1,-1))
         
-        self.dataOut.data = self.jrodataset[:,self.profileIndex,:]
+        self.dataOut.data = self.jrodataset[:, self.profileIndex, :]
         
-        #self.dataOut.utctime = self.jrotimeset[self.profileIndex]
-        #verificar basic header de jro data y ver si es compatible con este valor
-        #self.dataOut.utctime = self.timeset + (self.profileIndex * self.ippSeconds * self.nchannels)
+        # self.dataOut.utctime = self.jrotimeset[self.profileIndex]
+        # verificar basic header de jro data y ver si es compatible con este valor
+        # self.dataOut.utctime = self.timeset + (self.profileIndex * self.ippSeconds * self.nchannels)
         indexprof = numpy.mod(self.profileIndex, self.newProfiles)
-        indexblock = self.profileIndex/self.newProfiles
-        #print indexblock, indexprof
+        indexblock = self.profileIndex / self.newProfiles
+        # print indexblock, indexprof
         self.dataOut.utctime = self.timeset[indexblock] + (indexprof * self.ippSeconds * self.nchannels)
         self.dataOut.profileIndex = self.profileIndex
         self.dataOut.flagNoData = False

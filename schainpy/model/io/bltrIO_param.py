@@ -104,7 +104,7 @@ class BLTRParamReader(Reader, ProcessingUnit):
         self.isConfig = False
         self.filename = None
         self.status_value = 0
-        self.datatime = datetime.datetime(1900,1,1)
+        self.datatime = datetime.datetime(1900, 1, 1)
         self.filefmt = "*********%Y%m%d******"
 
     def setup(self, **kwargs):
@@ -119,7 +119,7 @@ class BLTRParamReader(Reader, ProcessingUnit):
 
             for nTries in range(self.nTries):
                 fullpath = self.searchFilesOnLine(self.path, self.startDate,
-                    self.endDate, self.expLabel, self.ext, self.walk, 
+                    self.endDate, self.expLabel, self.ext, self.walk,
                     self.filefmt, self.folderfmt)
                 try:
                     fullpath = next(fullpath)
@@ -138,7 +138,7 @@ class BLTRParamReader(Reader, ProcessingUnit):
 
                 log.warning(
                     'Waiting {} sec for a valid file in {}: try {} ...'.format(
-                        self.delay, self.path, nTries + 1), 
+                        self.delay, self.path, nTries + 1),
                     self.name)
                 time.sleep(self.delay)
 
@@ -148,7 +148,7 @@ class BLTRParamReader(Reader, ProcessingUnit):
             self.readFirstHeader()
         else:
             log.log("Searching files in {}".format(self.path), self.name)
-            self.filenameList = self.searchFilesOffLine(self.path, self.startDate, 
+            self.filenameList = self.searchFilesOffLine(self.path, self.startDate,
                 self.endDate, self.expLabel, self.ext, self.walk, self.filefmt, self.folderfmt)
             self.setNextFile()
 
@@ -258,7 +258,7 @@ class BLTRParamReader(Reader, ProcessingUnit):
         self.rx_gains = self.header_rec['rx_gains']        
         self.time = self.header_rec['time'][0]               
         dt = datetime.datetime.utcfromtimestamp(self.time)
-        if dt.date()>self.datatime.date():
+        if dt.date() > self.datatime.date():
             self.flagDiscontinuousBlock = 1
         self.datatime = dt
         

@@ -59,7 +59,7 @@ class PXReader(JRODataReader, ProcessingUnit):
         self.endDate = endDate
         self.startTime = startTime
         self.endTime = endTime
-        self.datatime = datetime.datetime(1900,1,1)
+        self.datatime = datetime.datetime(1900, 1, 1)
         self.walk = walk
         self.nTries = kwargs.get('nTries', 10)
         self.online = kwargs.get('online', False)
