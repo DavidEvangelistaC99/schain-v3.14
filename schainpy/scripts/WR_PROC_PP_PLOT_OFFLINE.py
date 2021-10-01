@@ -10,14 +10,21 @@ from schainpy.controller import Project
 #path='/DATA_RM/TEST_HDF5/d2021231'
 #path='/DATA_RM/TEST_HDF5/ADQ_OFFLINE/d2021231'
 path='/DATA_RM/TEST_HDF5/d2021231'
-
+#path='/DATA_RM/TEST_14_HDF5/d2021257'
+## TEST ULTIMA PRUEBA 22 DE SEPTIEMBRE
+path = '/DATA_RM/TEST_HDF5_PP_22/d2021265'
 path_adq=path
 #path_ped='/DATA_RM/TEST_PEDESTAL/P2021200'
 #path_ped='/DATA_RM/TEST_PEDESTAL/P2021214'
 #path_ped='/DATA_RM/TEST_PEDESTAL/P2021230'
 #path_ped='/DATA_RM/TEST_PEDESTAL/P20210819'
 #path_ped='/DATA_RM/TEST_PEDESTAL/P20210819-154315'
-path_ped='/DATA_RM/TEST_PEDESTAL/PEDESTAL_OFFLINE/P20210819-161524'
+#path_ped='/DATA_RM/TEST_PEDESTAL/P20210914-162434'
+#path_ped='/DATA_RM/TEST_PEDESTAL/PEDESTAL_OFFLINE/P20210819-161524'
+#pruebas con perdida de datos
+#path_ped='/DATA_RM/TEST_PEDESTAL/PEDESTAL_OFFLINE/P20210819-161524_TEST'
+## TEST ULTIMA PRUEBA 22 DE SEPTIEMBRE
+path_ped='/DATA_RM/TEST_PEDESTAL/P20210922-122731'
 
 
 figpath = '/home/soporte/Pictures'
@@ -40,6 +47,10 @@ readUnitConfObj = controllerObj.addReadUnit(datatype='HDFReader',
                                             nTries=6)#1
 
 procUnitConfObjA = controllerObj.addProcUnit(datatype='ParametersProc',inputId=readUnitConfObj.getId())
+V=2
+blocksPerfile=100
+print("Velocidad del Pedestal",V)
+f_a_p= int(blocksPerfile/V)
 
 opObj11 = procUnitConfObjA.addOperation(name='PedestalInformation')
 opObj11.addParameter(name='path_ped', value=path_ped)
@@ -47,7 +58,7 @@ opObj11.addParameter(name='path_adq', value=path_adq)
 opObj11.addParameter(name='t_Interval_p', value='0.01', format='float')
 opObj11.addParameter(name='n_Muestras_p', value='100', format='float')
 opObj11.addParameter(name='blocksPerfile', value='100', format='int')
-opObj11.addParameter(name='f_a_p', value='10', format='int')
+opObj11.addParameter(name='f_a_p', value=f_a_p, format='int')
 opObj11.addParameter(name='online', value='0', format='int')# habilitar el enable aqui tambien
 
 
@@ -56,8 +67,8 @@ opObj11.addParameter(name='n', value='10', format='int')
 # este bloque funciona bien con divisores de 360 no olvidar 0 10 20 30 40 60 90 120 180
 
 opObj11= procUnitConfObjA.addOperation(name='WeatherPlot',optype='other')
-opObj11.addParameter(name='save', value=figpath)
-opObj11.addParameter(name='save_period', value=1)
+#opObj11.addParameter(name='save', value=figpath)
+#opObj11.addParameter(name='save_period', value=1)
 
 controllerObj.start()
 #online 1 utc_adq 1617490240.48

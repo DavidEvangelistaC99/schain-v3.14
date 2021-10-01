@@ -25,8 +25,28 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #path = '/media/data/data/vientos/57.2063km/echoes/NCO_Woodman'
 #path = '/DATA_RM/TEST_INTEGRACION'
 #path = '/DATA_RM/TEST_ONLINE'
-path = '/DATA_RM/TEST_INTEGRACION/ADQ_OFFLINE/'
-path_pp = '/DATA_RM/TEST_HDF5'
+#path = '/DATA_RM/TEST_INTEGRACION/ADQ_OFFLINE/'
+# ULTIMO TEST 22 DE SEPTIEMBRE
+path = '/DATA_RM/USRP_22'
+#path_pp = '/DATA_RM/TEST_HDF5'
+# UTIMO TEST 22 DE SEPTIEMBRE
+path_pp = '/DATA_RM/TEST_HDF5_PP_22'
+######################################################
+##### OJO TENER EN CUENTA EL n= para el Pulse Pair ###
+######################################################
+######## BUSCAMOS EL numero de IPP equivalente 1°#####
+######## Sea V la velocidad del Pedestal en °/seg#####
+######## 1° sera Recorrido en un tiempo de  1/V ######
+######## IPP del Radar 400 useg --> 60 Km ############
+######## n   = 1/(V*IPP) , NUMERO DE IPP #############
+######## n   = 1/(V*IPP) #############################
+V=2
+IPP=400*1e-6
+n= 1/(V*IPP)
+print("n numero de Perfiles a procesar con Pulse Pair: ", n)
+
+
+
 
 figpath = '/home/soporte/Pictures/TEST_INTEGRACION_IMG'
 #remotefolder = "/home/wmaster/graficos"
@@ -76,7 +96,7 @@ procUnitConfObjA = controllerObj.addProcUnit(datatype='VoltageProc', inputId=rea
 #opObj11 = procUnitConfObjA.addOperation(name='setRadarFrequency')
 #opObj11.addParameter(name='frequency', value='70312500')
 opObj11 = procUnitConfObjA.addOperation(name='PulsePair', optype='other')
-opObj11.addParameter(name='n', value='16', format='int')#10 VOY A USAR 250 DADO  QUE LA VELOCIDAD ES 10 GRADOS
+opObj11.addParameter(name='n', value=int(n), format='int')#10 VOY A USAR 250 DADO  QUE LA VELOCIDAD ES 10 GRADOS
 opObj11.addParameter(name='removeDC', value=1, format='int')
 # Ploteo TEST
 '''

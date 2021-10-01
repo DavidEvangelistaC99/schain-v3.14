@@ -28,11 +28,16 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #path_pp = '/DATA_RM/TEST_HDF5'
 
 #figpath = '/home/soporte/Pictures/TEST_INTEGRACION_IMG'
-path = '/DATA_RM/TEST_INTEGRACION/ADQ_OFFLINE/'
-path_pp = '/DATA_RM/TEST_HDF5_SPEC'
+###path = '/DATA_RM/TEST_INTEGRACION/ADQ_OFFLINE/'
+###path_pp = '/DATA_RM/TEST_HDF5_SPEC'
 
-
-
+#path = '/DATA_RM/USRP_22'
+path = '/DATA_RM/23/6v'
+#path_pp = '/DATA_RM/TEST_HDF5'
+# UTIMO TEST 22 DE SEPTIEMBRE
+#path_pp = '/DATA_RM/TEST_HDF5_SPEC_22'
+#path_pp = '/DATA_RM/TEST_HDF5_SPEC_3v'
+path_pp = '/DATA_RM/TEST_HDF5_SPEC_23/6v'
 
 
 #remotefolder = "/home/wmaster/graficos"
@@ -73,11 +78,17 @@ opObj11 = readUnitConfObj.addOperation(name='printInfo')
 ################ OPERACIONES DOMINIO DEL TIEMPO########################
 #######################################################################
 
+
+V=6
+IPP=400*1e-6
+n= int(1/(V*IPP))
+print("n numero de Perfiles a procesar con nFFTPoints ", n)
+
 procUnitConfObjA = controllerObj.addProcUnit(datatype='VoltageProc', inputId=readUnitConfObj.getId())
 
 procUnitConfObjB = controllerObj.addProcUnit(datatype='SpectraProc', inputId=procUnitConfObjA.getId())
-procUnitConfObjB.addParameter(name='nFFTPoints', value=250, format='int')
-procUnitConfObjB.addParameter(name='nProfiles' , value=250, format='int')
+procUnitConfObjB.addParameter(name='nFFTPoints', value=n, format='int')
+procUnitConfObjB.addParameter(name='nProfiles' , value=n, format='int')
 
 
 

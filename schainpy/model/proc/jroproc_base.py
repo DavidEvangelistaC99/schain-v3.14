@@ -27,11 +27,11 @@ class ProcessingUnit(object):
         self.dataOut = None
         self.isConfig = False
         self.operations = []
-    
+
     def setInput(self, unit):
 
         self.dataIn = unit.dataOut
-    
+
     def getAllowedArgs(self):
         if hasattr(self, '__attrs__'):
             return self.__attrs__
@@ -41,7 +41,7 @@ class ProcessingUnit(object):
     def addOperation(self, conf, operation):
         '''
         '''
-        
+
         self.operations.append((operation, conf.type, conf.getKwargs()))
 
     def getOperationObj(self, objId):
@@ -64,7 +64,7 @@ class ProcessingUnit(object):
                 self.dataOut.error = self.dataIn.error
                 self.dataOut.flagNoData = True
         except:
-            err = traceback.format_exc()                    
+            err = traceback.format_exc()
             if 'SchainWarning' in err:
                 log.warning(err.split('SchainWarning:')[-1].split('\n')[0].strip(), self.name)
             elif 'SchainError' in err:
@@ -72,14 +72,17 @@ class ProcessingUnit(object):
             else:
                 log.error(err, self.name)
             self.dataOut.error = True
-        
+        ##### correcion de la declaracion Out
         for op, optype, opkwargs in self.operations:
+            aux = self.dataOut.copy()
             if optype == 'other' and not self.dataOut.flagNoData:
                 self.dataOut = op.run(self.dataOut, **opkwargs)
             elif optype == 'external' and not self.dataOut.flagNoData:
-                op.queue.put(self.dataOut)
-            elif optype == 'external' and self.dataOut.error:                        
-                op.queue.put(self.dataOut)
+                #op.queue.put(self.dataOut)
+                op.queue.put(aux)
+            elif optype == 'external' and self.dataOut.error:
+                #op.queue.put(self.dataOut)
+                op.queue.put(aux)
 
         return 'Error' if self.dataOut.error else self.dataOut.isReady()
 
@@ -100,7 +103,7 @@ class Operation(object):
 
     '''
     '''
-    
+
     proc_type = 'operation'
 
     def __init__(self):
@@ -149,12 +152,12 @@ class Operation(object):
 
         return
 
-   
+
 def MPDecorator(BaseClass):
     """
     Multiprocessing class decorator
 
-    This function add multiprocessing features to a BaseClass.  
+    This function add multiprocessing features to a BaseClass.
     """
 
     class MPClass(BaseClass, Process):
@@ -169,17 +172,17 @@ def MPDecorator(BaseClass):
             self.op_type = 'external'
             self.name = BaseClass.__name__
             self.__doc__ = BaseClass.__doc__
-            
+
             if 'plot' in self.name.lower() and not self.name.endswith('_'):
                 self.name = '{}{}'.format(self.CODE.upper(), 'Plot')
-            
+
             self.start_time = time.time()
             self.err_queue = args[3]
             self.queue = Queue(maxsize=1)
             self.myrun = BaseClass.run
 
         def run(self):
-            
+
             while True:
 
                 dataOut = self.queue.get()
@@ -188,7 +191,7 @@ def MPDecorator(BaseClass):
                     try:
                         BaseClass.run(self, dataOut, **self.kwargs)
                     except:
-                        err = traceback.format_exc()  
+                        err = traceback.format_exc()
                         log.error(err, self.name)
                 else:
                     break

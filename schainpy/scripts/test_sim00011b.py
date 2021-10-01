@@ -18,15 +18,18 @@ dBmin = '1'
 dBmax = '65'
 xmin = '0'
 xmax ='24'
-tmmin = 16.2
-tmmax = 16.25
+#tmmin = 16.2
+#tmmax = 16.25
+tmmin =15
+tmmax =15.5
 ymin = '0'
 ymax = '600'
 #######################################################################
 #######################################################################
 #######################################################################
-path       = '/DATA_RM/TEST_HDF5_SPEC'
-figpath    = '/home/soporte/Downloads/IMAGE'
+#path       = '/DATA_RM/TEST_HDF5_SPEC'
+path       = '/DATA_RM/TEST_HDF5_SPEC_23/6v/'
+figpath    = '/home/soporte/Downloads/23/6v'
 desc       = "Simulator Test"
 desc_data  =  {
                 'Data': {

@@ -4079,8 +4079,16 @@ class PedestalInformation(Operation):
 
         return c-1,utc_ped_list[c-1],utc_ped_list[c]
 
+    def verificarNROFILE(self,dataOut,utc_ped,f_a_p,n_Muestras_p):
+         var =int(f_a_p/n_Muestras_p)
+         flag=0
+         for i in range(var):
+             if dataOut.utctime+i==utc_ped:
+                 flag==1
+                 break
+         return flag
 
-    def setup_offline(self,list_pedestal,list_adq):
+    def setup_offline(self,dataOut,list_pedestal,list_adq):
         print("SETUP OFFLINE")
         print(self.path_ped)
         print(self.path_adq)
@@ -4095,7 +4103,11 @@ class PedestalInformation(Operation):
         print("dios existe donde esta")
         #print("utc_ped_list",utc_ped_list)
         print("utc_adq",utc_adq)
-        nro_file,utc_ped,utc_ped_1ss = self.getNROFile(utc_adq=utc_adq, utc_ped_list= utc_ped_list)
+        # utc_adq_dataOut
+        utc_adq_dataOut =dataOut.utctime
+        print("Offline-utc_adq_dataout",utc_adq_dataOut)
+
+        nro_file,utc_ped,utc_ped_1 = self.getNROFile(utc_adq=utc_adq, utc_ped_list= utc_ped_list)
 
         print("nro_file",nro_file,"utc_ped",utc_ped)
         print("nro_file",i)
@@ -4135,82 +4147,6 @@ class PedestalInformation(Operation):
         self.nro_file  = nro_file
         self.nro_key_p = nro_key_p
 
-
-        '''
-        print("############################")
-        utc_adq = dataOut.utctime
-        print("ONLINE",dataOut.utctime)
-        print("utc_adq"     , utc_adq)
-        utc_pedestal= self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[0])
-        print("utc_pedestal", utc_pedestal)
-        flag_i  = 0
-        flag    = 0
-        ready   = 0
-        if len(self.list_pedestal)!=0:
-            enable_p=1
-        if (enable_p!=0):
-            while(flag_i==0):
-                if utc_adq>utc_pedestal:
-                    nro_file = int((utc_adq - utc_pedestal)/(self.t_Interval_p*self.n_Muestras_p))
-                    print("nro_file--------------------",nro_file)
-                    print(len(self.list_pedestal))
-                    if nro_file> len(self.list_pedestal):
-                        nro_file = len(self.list_pedestal)-1
-                    ff_pedestal  = self.list_pedestal[nro_file]
-                    print(ff_pedestal)
-                    utc_pedestal = self.gettimeutcfromDirFilename(path=self.path_ped,file=ff_pedestal)
-                    while(flag==0):
-                        print("adq",utc_adq)
-                        print("ped",utc_pedestal)
-                        print("nro_file",nro_file)
-                        if utc_adq >utc_pedestal:
-                            print("DENTRO DEL IF-SETUP")
-                            ff_pedestal  = self.list_pedestal[nro_file]
-                            if 0<(utc_adq - utc_pedestal)<(self.t_Interval_p*self.n_Muestras_p):
-                                nro_file= nro_file
-                                ff_pedestal  = self.list_pedestal[nro_file]
-                                ready = 1
-                            if (utc_adq-utc_pedestal)>(self.t_Interval_p*self.n_Muestras_p):
-                                nro_tmp= int((utc_adq-utc_pedestal)/(self.n_Muestras_p))
-                                nro_file= nro_file+1*nro_tmp#chsssssssssssssssssssasssddasdas/     equear esta condicion
-                                if nro_tmp==0:
-                                    nro_file= nro_file +1
-                                ff_pedestal  = self.list_pedestal[nro_file]
-                                print("",ff_pedestal)
-                                utc_pedestal = self.gettimeutcfromDirFilename(path=self.path_ped,file=ff_pedestal)
-                        else:
-                            print("DENTRO DEL ELSE-SETUP")
-                            nro_tmp= int((utc_pedestal-utc_adq)/(self.n_Muestras_p))
-                            if utc_pedestal>utc_adq and nro_tmp==0:
-                                nro_tmp= int((utc_pedestal-utc_adq))
-                            print("nro_tmp",nro_tmp)
-                            if nro_file>nro_tmp:
-                                nro_file = nro_file-1*nro_tmp
-                            else:
-                                nro_file =nro_file -1
-
-                            ff_pedestal  = self.list_pedestal[nro_file]
-                            utc_pedestal = self.gettimeutcfromDirFilename(path=self.path_ped,file=ff_pedestal)
-
-                        if ready:
-                            angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azimuth")
-                            nro_key_p    = int((utc_adq-utc_pedestal)/self.t_Interval_p)
-                            print("nro_file                      :",nro_file)
-                            print("name_file                     :",ff_pedestal)
-                            print("utc_pedestal_file             :",utc_pedestal)
-                            print("nro_key_p                     :",nro_key_p)
-                            print("utc_pedestal_init             :",utc_pedestal+nro_key_p*self.t_Interval_p)
-                            print("angulo_array                  :",angulo[nro_key_p])
-                            flag=1
-                            flag_i=1
-        else:
-            print("La lista de archivos de pedestal o adq esta vacia")
-            nro_file=None
-            nro_key_p=None
-        self.nro_file  = nro_file
-        self.nro_key_p = nro_key_p
-        '''
-
     def setup(self,dataOut,path_ped,path_adq,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online):
         self.__dataReady      = False
         self.path_ped     = path_ped
@@ -4235,18 +4171,18 @@ class PedestalInformation(Operation):
             print("Enable Online")
             self.setup_online(dataOut)
         else:
-            self.setup_offline(list_pedestal=self.list_pedestal,list_adq=self.list_adq)
+            self.setup_offline(dataOut,list_pedestal=self.list_pedestal,list_adq=self.list_adq)
 
     def setNextFileP(self,dataOut):
         if self.online:
             data_pedestal = self.setNextFileonline()
         else:
-            data_pedestal = self.setNextFileoffline()
+            data_pedestal = self.setNextFileoffline(dataOut)
 
         return data_pedestal
 
 
-    def setNextFileoffline(self):
+    def setNextFileoffline(self,dataOut):
         ##tmp=0
         for j in range(self.blocksPerfile):
             ###print("NUMERO DEL BLOQUE---->",j)
@@ -4261,6 +4197,13 @@ class PedestalInformation(Operation):
                     self.nro_file = self.nro_file
             else:
                 self.nro_file = self.nro_file+1
+                print("PRUEBA-------------")
+                utc_ped_setnext=self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[self.nro_file])
+                utc_adq_setnext=dataOut.utctime
+                print("utc_pedestal",utc_ped_setnext)
+                print("utc_adq",utc_adq_setnext)
+
+
                 dif        = self.blocksPerfile-(self.nro_key_p+self.f_a_p*(self.c_ped-2))
                 self.c_ped = 1
                 ##tmp      = j
@@ -4274,7 +4217,9 @@ class PedestalInformation(Operation):
             #print("tmp",tmp)
             try:
                 ff_pedestal  = self.list_pedestal[self.nro_file]
+                print("ff_pedestal",ff_pedestal)
             except:
+                print("############# EXCEPCION ######################")
                 return numpy.ones(self.blocksPerfile)*numpy.nan
 
             #angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azimuth")
@@ -4343,6 +4288,7 @@ class PedestalInformation(Operation):
 
     def run(self, dataOut,path_ped,path_adq,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online):
         if not self.isConfig:
+            print("######################SETUP#########################################")
             self.setup( dataOut, path_ped,path_adq,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online)
             self.isConfig   = True
 
@@ -4352,10 +4298,12 @@ class PedestalInformation(Operation):
         if self.__profIndex==0:
             angulo_adq       = self.setNextFileP(dataOut)
             dataOut.azimuth  = angulo_adq
+            print("TIEMPO:",dataOut.utctime)
             ##print("####################################################################")
             ##print("angulos",dataOut.azimuth,len(dataOut.azimuth))
             self.__dataReady = True
         self.__profIndex += 1
+        print("TIEMPO_bucle:",dataOut.utctime)
         if self.__profIndex== blocksPerfile:
             self.__profIndex = 0
         if self.__dataReady:

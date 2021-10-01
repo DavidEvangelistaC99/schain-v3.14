@@ -400,119 +400,229 @@ class WeatherPlot(Plot):
         data = {}
         meta = {}
         data['weather'] = 10*numpy.log10(dataOut.data_360[0]/(250**2))
-        print(data['weather'])
         data['azi']     = dataOut.data_azi
-        print("UPDATE",data['azi'])
+
         return data, meta
 
-    def const_ploteo(self,data_weather,data_azi,step,res):
-        #print("data_weather",data_weather)
-        print("data_azi",data_azi)
-        print("step",step)
-        if self.ini==0:
-            #------- AZIMUTH
-            n     = (360/res)-len(data_azi)
-            start = data_azi[-1] + res
-            end   = data_azi[0]  - res
-            if start>end:
-                end        = end + 360
-            azi_vacia = numpy.linspace(start,end,int(n))
-            azi_vacia = numpy.where(azi_vacia>360,azi_vacia-360,azi_vacia)
-            data_azi  = numpy.hstack((data_azi,azi_vacia))
-            # RADAR
-            val_mean         = numpy.mean(data_weather[:,0])
-            data_weather_cmp = numpy.ones([(360-data_weather.shape[0]),data_weather.shape[1]])*val_mean
-            data_weather     = numpy.vstack((data_weather,data_weather_cmp))
-        else:
-            # azimuth
-            flag=0
-            start_azi = self.res_azi[0]
-            start = data_azi[0]
-            end   = data_azi[-1]
-            print("start",start)
-            print("end",end)
-            if start< start_azi:
-                start = start +360
-            if end <start_azi:
-                end  = end +360
-
-            print("start",start)
-            print("end",end)
-            #### AQUI SERA LA MAGIA
-            pos_ini = int((start-start_azi)/res)
-            len_azi = len(data_azi)
-            if (360-pos_ini)<len_azi:
-                if pos_ini+1==360:
-                    pos_ini=0
-                else:
-                    flag=1
-                    dif= 360-pos_ini
-                    comp= len_azi-dif
-
-            print(pos_ini)
-            print(len_azi)
-            print("shape",self.res_azi.shape)
-            if flag==0:
-                # AZIMUTH
-                self.res_azi[pos_ini:pos_ini+len_azi] = data_azi
-                # RADAR
-                self.res_weather[pos_ini:pos_ini+len_azi,:] = data_weather
-            else:
-                # AZIMUTH
-                self.res_azi[pos_ini:pos_ini+dif] = data_azi[0:dif]
-                self.res_azi[0:comp]              = data_azi[dif:]
-                # RADAR
-                self.res_weather[pos_ini:pos_ini+dif,:] = data_weather[0:dif,:]
-                self.res_weather[0:comp,:]              = data_weather[dif:,:]
-                flag=0
-            data_azi                                    = self.res_azi
-            data_weather                                = self.res_weather
-
-        return data_weather,data_azi
-
     def plot(self):
-        print("--------------------------------------",self.ini,"-----------------------------------")
-        #numpy.set_printoptions(suppress=True)
-        #print(self.data.times)
         thisDatetime = datetime.datetime.utcfromtimestamp(self.data.times[-1])
-        data         = self.data[-1]
-        # ALTURA altura_tmp_h
-        altura_h     = (data['weather'].shape[1])/10.0
-        stoprange = float(altura_h*1.5)#stoprange = float(33*1.5) por ahora 400
+        print("--------------------------------------",self.ini,"-----------------------------------")
+        print("time",self.data.times[-1])
+        data   = self.data[-1]
+        #print("debug_0", data)
+        tmp_h     = (data['weather'].shape[1])/10.0
+        #print("debug_1",tmp_h)
+        stoprange = float(tmp_h*1.5)#stoprange = float(33*1.5) por ahora 400
         rangestep = float(0.15)
         r      = numpy.arange(0, stoprange, rangestep)
         self.y = 2*r
-        # RADAR
-        #data_weather = data['weather']
-        # PEDESTAL
-        #data_azi  = data['azi']
-        res     = 1
-        # STEP
-        step    = (360/(res*data['weather'].shape[0]))
-        #print("shape wr_data", wr_data.shape)
-        #print("shape wr_azi",wr_azi.shape)
-        #print("step",step)
-        print("Time---->",self.data.times[-1],thisDatetime)
-        #print("alturas", len(self.y))
-        self.res_weather, self.res_azi = self.const_ploteo(data_weather=data['weather'],data_azi=data['azi'],step=step,res=res)
-        #numpy.set_printoptions(suppress=True)
-        #print("resultado",self.res_azi)
-        ##########################################################
-        #################    PLOTEO           ###################
-        ##########################################################
+        print("---------------")
+        tmp_v  = data['weather']
+        #print("tmp_v",tmp_v.shape)
+        tmp_z  = data['azi']
+        print("tmp_z-------------->",tmp_z)
+        ##if self.ini==0:
+        ##    tmp_z= [0,1,2,3,4,5,6,7,8,9]
 
+        #print("tmp_z",tmp_z.shape)
+        res             = 1
+        step   = (360/(res*tmp_v.shape[0]))
+        #print("step",step)
+        mode   = 1
+        if mode==0:
+            #print("self.ini",self.ini)
+            val             = numpy.mean(tmp_v[:,0])
+            self.len_azi    = len(tmp_z)
+            ones            = numpy.ones([(360-tmp_v.shape[0]),tmp_v.shape[1]])*val
+            self.buffer_ini = numpy.vstack((tmp_v,ones))
+
+            n      = ((360/res)-len(tmp_z))
+            start  = tmp_z[-1]+res
+            end    = tmp_z[0]-res
+            if start>end:
+                end = end+360
+            azi_zeros           = numpy.linspace(start,end,int(n))
+            azi_zeros           = numpy.where(azi_zeros>360,azi_zeros-360,azi_zeros)
+            self.buffer_ini_azi = numpy.hstack((tmp_z,azi_zeros))
+            self.ini            = self.ini+1
+
+        if mode==1:
+            #print("################")
+            #print("################")
+            #print("mode",self.ini)
+            #print("self.ini",self.ini)
+            if self.ini==0:
+                res             = 1
+                step            = (360/(res*tmp_v.shape[0]))
+                val             = numpy.mean(tmp_v[:,0])
+                self.len_azi    = len(tmp_z)
+                self.buf_tmp    = tmp_v
+                ones            = numpy.ones([(360-tmp_v.shape[0]),tmp_v.shape[1]])*val
+                self.buffer_ini = numpy.vstack((tmp_v,ones))
+
+                n      = ((360/res)-len(tmp_z))
+                start  = tmp_z[-1]+res
+                end    = tmp_z[0]-res
+                if start>end:
+                    end =end+360
+                azi_zeros           = numpy.linspace(start,end,int(n))
+                azi_zeros           = numpy.where(azi_zeros>360,azi_zeros-360,azi_zeros)
+                self.buf_azi        = tmp_z
+                self.buffer_ini_azi = numpy.hstack((tmp_z,azi_zeros))
+                self.ini            = self.ini+1
+            elif 0<self.ini<step:
+                '''
+                if self.ini>31:
+                    start= tmp_z[0]
+                    end  =tmp_z[-1]
+                    print("start","end",start,end)
+                if self.ini==32:
+                    tmp_v=tmp_v+20
+                if self.ini==33:
+                    tmp_v=tmp_v+10
+                if self.ini==34:
+                    tmp_v=tmp_v+20
+                if self.ini==35:
+                    tmp_v=tmp_v+20
+                '''
+                self.buf_tmp= numpy.vstack((self.buf_tmp,tmp_v))
+                print("ERROR_INMINENTE",self.buf_tmp.shape)
+                if self.buf_tmp.shape[0]==360:
+                    print("entre aqui en 360 grados")
+                    self.buffer_ini=self.buf_tmp
+                else:
+                    # nuevo#########
+                    self.buffer_ini[0:self.buf_tmp.shape[0],:]=self.buf_tmp
+                    ################
+                    #val=30.0
+                    #ones            = numpy.ones([(360-self.buf_tmp.shape[0]),self.buf_tmp.shape[1]])*val
+                    #self.buffer_ini = numpy.vstack((self.buf_tmp,ones))
+
+                self.buf_azi    = numpy.hstack((self.buf_azi,tmp_z))
+                n      = ((360/res)-len(self.buf_azi))
+                print("n----->",n)
+                if n==0:
+                    self.buffer_ini_azi = self.buf_azi
+                else:
+                    start  = self.buf_azi[-1]+res
+                    end    = self.buf_azi[0]-res
+                    print("start",start)
+                    print("end",end)
+                    if start>end:
+                        end =end+360
+                    azi_zeros           = numpy.linspace(start,end,int(n))
+                    azi_zeros           = numpy.where(azi_zeros>360,azi_zeros-360,azi_zeros)
+                    print("self.buf_azi",self.buf_azi[0])
+                    print("tmp_Z 0 ",tmp_z[0])
+                    print("tmp_Z -1",tmp_z[-1])
+                    if tmp_z[0]<self.buf_azi[0] <tmp_z[-1]:
+                        print("activando indicador")
+                        self.indicador=1
+                    if self.indicador==1:
+                        azi_zeros           = numpy.ones(360-len(self.buf_azi))*(tmp_z[-1]+res)
+                        ###start  = tmp_z[-1]+res
+                        ###end    = tmp_z[0]-res
+                        ###if start>end:
+                        ###    end =end+360
+                        ###azi_zeros           = numpy.linspace(start,end,int(n))
+                        ###azi_zeros           = numpy.where(azi_zeros>360,azi_zeros-360,azi_zeros)
+                        #print("azi_zeros",azi_zeros)
+
+                        ######self.buffer_ini_azi = numpy.hstack((self.buf_azi,azi_zeros))
+                        #self.buffer_ini[0:tmv.shape[0],:]=tmp_v
+                        ##self.indicador=0
+
+                    #    self.indicador = True
+                    #if self.indicador==True:
+                    #    azi_zeros           = numpy.ones(360-len(self.buf_azi))*(tmp_z[-1]+res)
+
+                    #self.buf_azi        = tmp_z
+                    self.buffer_ini_azi = numpy.hstack((self.buf_azi,azi_zeros))
+
+                if self.ini==step-1:
+                    start= tmp_z[0]
+                    end  = tmp_z[-1]
+                    #print("start","end",start,end)
+                    ###print(self.buffer_ini_azi[:80])
+                self.ini            = self.ini+1
+
+            else:
+                step   = (360/(res*tmp_v.shape[0]))
+                # aqui estaba realizando el debug de simulacion
+                # tmp_v=tmp_v +5 en cada step sumaba 5
+                # y el mismo valor despues de la primera vuelta
+                #tmp_v=tmp_v+5+(self.ini-step)*1### aqui yo habia sumado 5 por las puras
+
+                start= tmp_z[0]
+                end  = tmp_z[-1]
+                #print("start","end",start,end)
+                ###print(self.buffer_ini_azi[:120])
+
+                if step>=2:
+                    if self.flag<step-1:
+                        limit_i=self.buf_azi[len(tmp_z)*(self.flag+1)]
+                        limit_s=self.buf_azi[len(tmp_z)*(self.flag+2)-1]
+                        print("flag",self.flag,limit_i,limit_s)
+                        if limit_i< tmp_z[-1]< limit_s:
+                            index_i=int(numpy.where(tmp_z<=self.buf_azi[len(tmp_z)*(self.flag+1)])[0][-1])
+                            tmp_r    =int(numpy.where(self.buf_azi[(self.flag+1)*len(tmp_z):(self.flag+2)*len(tmp_z)]>=tmp_z[-1])[0][0])
+                            print("tmp_r",tmp_r)
+                            index_f=(self.flag+1)*len(tmp_z)+tmp_r
+
+                            if len(tmp_z[index_i:])>len(self.buf_azi[len(tmp_z)*(self.flag+1):index_f]):
+                                final = len(self.buf_azi[len(tmp_z)*(self.flag+1):index_f])
+                            else:
+                                final= len(tmp_z[index_i:])
+                            self.buf_azi[len(tmp_z)*(self.flag+1):index_f]=tmp_z[index_i:index_i+final]
+                            self.buf_tmp[len(tmp_z)*(self.flag+1):index_f,:]=tmp_v[index_i:index_i+final,:]
+                        if limit_i<tmp_z[0]<limit_s:
+                            index_f =int(numpy.where(self.buf_azi>=tmp_z[-1])[0][0])
+                            n_p =index_f-len(tmp_z)*(self.flag+1)
+                            if n_p>0:
+                                self.buf_azi[len(tmp_z)*(self.flag+1):index_f]=tmp_z[-1]*numpy.ones(n_p)
+                                self.buf_tmp[len(tmp_z)*(self.flag+1):index_f,:]=tmp_v[-1,:]*numpy.ones([n_p,tmp_v.shape[1]])
+
+                '''
+                        if self.buf_azi[len(tmp_z)]<tmp_z[-1]<self.buf_azi[2*len(tmp_z)-1]:
+                            index_i= int(numpy.where(tmp_z  <=  self.buf_azi[len(tmp_z)])[0][-1])
+                            index_f= int(numpy.where(self.buf_azi>=tmp_z[-1])[0][0])
+                            #print("index",index_i,index_f)
+                            if len(tmp_z[index_i:])>len(self.buf_azi[len(tmp_z):index_f]):
+                                final = len(self.buf_azi[len(tmp_z):index_f])
+                            else:
+                                final = len(tmp_z[index_i:])
+                            self.buf_azi[len(tmp_z):index_f]=tmp_z[index_i:index_i+final]
+                            self.buf_tmp[len(tmp_z):index_f,:]=tmp_v[index_i:index_i+final,:]
+                '''
+                self.buf_tmp[len(tmp_z)*(self.flag):len(tmp_z)*(self.flag+1),:]=tmp_v
+                self.buf_azi[len(tmp_z)*(self.flag):len(tmp_z)*(self.flag+1)] = tmp_z
+                self.buffer_ini=self.buf_tmp
+                self.buffer_ini_azi = self.buf_azi
+                ##print("--------salida------------")
+                start= tmp_z[0]
+                end  = tmp_z[-1]
+                ##print("start","end",start,end)
+                ##print(self.buffer_ini_azi[:120])
+                self.ini= self.ini+1
+                self.flag = self.flag +1
+                if self.flag==step:
+                    self.flag=0
+        numpy.set_printoptions(suppress=True)
+        print("buffer_ini_azi")
+        print(self.buffer_ini_azi[:20])
+        print(self.buffer_ini_azi[-40:])
         for i,ax in enumerate(self.axes):
             if ax.firsttime:
                 plt.clf()
-                cgax, pm = wrl.vis.plot_ppi(self.res_weather,r=r,az=self.res_azi,fig=self.figures[0], proj='cg', vmin=1, vmax=60)
+                cgax, pm = wrl.vis.plot_ppi(self.buffer_ini,r=r,az=self.buffer_ini_azi,fig=self.figures[0], proj='cg', vmin=1, vmax=60)
             else:
                 plt.clf()
-                cgax, pm = wrl.vis.plot_ppi(self.res_weather,r=r,az=self.res_azi,fig=self.figures[0], proj='cg', vmin=1, vmax=60)
+                cgax, pm = wrl.vis.plot_ppi(self.buffer_ini,r=r,az=self.buffer_ini_azi,fig=self.figures[0], proj='cg', vmin=1, vmax=60)
         caax = cgax.parasites[0]
         paax = cgax.parasites[1]
         cbar = plt.gcf().colorbar(pm, pad=0.075)
         caax.set_xlabel('x_range [km]')
         caax.set_ylabel('y_range [km]')
         plt.text(1.0, 1.05, 'azimuth '+str(thisDatetime)+"step"+str(self.ini), transform=caax.transAxes, va='bottom',ha='right')
-
-        self.ini= self.ini+1
+        #import time
+        #time.sleep(0.5)
