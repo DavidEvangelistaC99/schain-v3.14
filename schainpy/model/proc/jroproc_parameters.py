@@ -198,10 +198,12 @@ class ParametersProc(ProcessingUnit):
         if self.dataIn.type == "Parameters":
             self.dataOut.copy(self.dataIn)
             self.dataOut.flagNoData = False
+            #print("yo si entre")
 
             return True
 
         self.__updateObjFromInput()
+        #print("yo si entre2")
 
         self.dataOut.utctimeInit = self.dataIn.utctime
         self.dataOut.paramInterval = self.dataIn.timeInterval
@@ -4088,30 +4090,34 @@ class PedestalInformation(Operation):
                  break
          return flag
 
-    def setup_offline(self,dataOut,list_pedestal,list_adq):
+    #def setup_offline(self,dataOut,list_pedestal,list_adq):
+    def setup_offline(self,dataOut,list_pedestal):
+
         print("SETUP OFFLINE")
         print(self.path_ped)
-        print(self.path_adq)
+        #print(self.path_adq)
         print(len(self.list_pedestal))
-        print(len(self.list_adq))
+        #print(len(self.list_adq))
         utc_ped_list=[]
         for i in range(len(self.list_pedestal)):
+            print(i)
             utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[i]))
 
         #utc_ped_list= utc_ped_list
-        utc_adq     = self.gettimeutcadqfromDirFilename(path=self.path_adq,file=self.list_adq[0])
+        ###utc_adq     = self.gettimeutcadqfromDirFilename(path=self.path_adq,file=self.list_adq[0])
         print("dios existe donde esta")
+
         #print("utc_ped_list",utc_ped_list)
-        print("utc_adq",utc_adq)
+        ###print("utc_adq",utc_adq)
         # utc_adq_dataOut
         utc_adq_dataOut =dataOut.utctime
         print("Offline-utc_adq_dataout",utc_adq_dataOut)
 
-        nro_file,utc_ped,utc_ped_1 = self.getNROFile(utc_adq=utc_adq, utc_ped_list= utc_ped_list)
+        nro_file,utc_ped,utc_ped_1 = self.getNROFile(utc_adq=utc_adq_dataOut, utc_ped_list= utc_ped_list)
 
         print("nro_file",nro_file,"utc_ped",utc_ped)
         print("nro_file",i)
-        nro_key_p    = int((utc_adq-utc_ped)/self.t_Interval_p)-1 # ojito al -1 estimado alex
+        nro_key_p    = int((utc_adq_dataOut-utc_ped)/self.t_Interval_p)-1 # ojito al -1 estimado alex
         print("nro_key_p",nro_key_p)
 
         ff_pedestal  = self.list_pedestal[nro_file]
@@ -4147,10 +4153,12 @@ class PedestalInformation(Operation):
         self.nro_file  = nro_file
         self.nro_key_p = nro_key_p
 
-    def setup(self,dataOut,path_ped,path_adq,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online):
+        #def setup(self,dataOut,path_ped,path_adq,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online):
+    def setup(self,dataOut,path_ped,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online):
+        print("SETUP PEDESTAL")
         self.__dataReady      = False
         self.path_ped     = path_ped
-        self.path_adq     = path_adq
+        #self.path_adq     = path_adq
         self.t_Interval_p = t_Interval_p
         self.n_Muestras_p = n_Muestras_p
         self.blocksPerfile= blocksPerfile
@@ -4161,17 +4169,19 @@ class PedestalInformation(Operation):
         self.tmp          = 0
         self.c_ped        = 0
         print(self.path_ped)
-        print(self.path_adq)
+        #print(self.path_adq)
         self.list_pedestal = self.getfirstFilefromPath(path=self.path_ped,meta="PE",ext=".hdf5")
         print("LIST NEW", self.list_pedestal[:20])
-        self.list_adq      = self.getfirstFilefromPath(path=self.path_adq,meta="D",ext=".hdf5")
+        #self.list_adq      = self.getfirstFilefromPath(path=self.path_adq,meta="D",ext=".hdf5")
         print("*************Longitud list pedestal****************",len(self.list_pedestal))
 
         if self.online:
             print("Enable Online")
             self.setup_online(dataOut)
         else:
-            self.setup_offline(dataOut,list_pedestal=self.list_pedestal,list_adq=self.list_adq)
+            #self.setup_offline(dataOut,list_pedestal=self.list_pedestal,list_adq=self.list_adq)
+            self.setup_offline(dataOut,list_pedestal=self.list_pedestal)
+
 
     def setNextFileP(self,dataOut):
         if self.online:
@@ -4192,7 +4202,7 @@ class PedestalInformation(Operation):
             iterador   = self.nro_key_p +self.f_a_p*self.c_ped
             self.c_ped = self.c_ped +1
 
-            ###print("iterador------------->",iterador)
+            print("iterador------------->",iterador)
             if iterador < self.n_Muestras_p:
                     self.nro_file = self.nro_file
             else:
@@ -4203,17 +4213,19 @@ class PedestalInformation(Operation):
                 print("utc_pedestal",utc_ped_setnext)
                 print("utc_adq",utc_adq_setnext)
 
+                print("self.c_ped",self.c_ped)
+                #dif        = self.blocksPerfile-(self.nro_key_p+self.f_a_p*(self.c_ped-2))
+                dif        = self.n_Muestras_p-(self.nro_key_p+self.f_a_p*(self.c_ped-2))
 
-                dif        = self.blocksPerfile-(self.nro_key_p+self.f_a_p*(self.c_ped-2))
                 self.c_ped = 1
                 ##tmp      = j
                 ##print("tmp else",tmp)
                 self.nro_key_p= self.f_a_p-dif
                 iterador = self.nro_key_p
-                ###print("iterador else",iterador)
+                print("iterador else",iterador)
             #self.c_ped = self.c_ped +1
 
-            ###print("nro_file",self.nro_file)
+            print("nro_file",self.nro_file)
             #print("tmp",tmp)
             try:
                 ff_pedestal  = self.list_pedestal[self.nro_file]
@@ -4286,24 +4298,28 @@ class PedestalInformation(Operation):
         return self.angulo_adq
 
 
-    def run(self, dataOut,path_ped,path_adq,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online):
+    #def run(self, dataOut,path_ped,path_adq,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online):
+    def run(self, dataOut,path_ped,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online):
+
         if not self.isConfig:
             print("######################SETUP#########################################")
-            self.setup( dataOut, path_ped,path_adq,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online)
+            #self.setup( dataOut, path_ped,path_adq,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online)
+            self.setup( dataOut, path_ped,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online)
             self.isConfig   = True
 
         dataOut.flagNoData                         = True
-        #print("profIndex",self.__profIndex)
+        print("profIndex",self.__profIndex)
 
         if self.__profIndex==0:
             angulo_adq       = self.setNextFileP(dataOut)
             dataOut.azimuth  = angulo_adq
             print("TIEMPO:",dataOut.utctime)
             ##print("####################################################################")
-            ##print("angulos",dataOut.azimuth,len(dataOut.azimuth))
+            print("angulos",dataOut.azimuth,len(dataOut.azimuth))
             self.__dataReady = True
         self.__profIndex += 1
         print("TIEMPO_bucle:",dataOut.utctime)
+        print("profIndex",self.__profIndex)
         if self.__profIndex== blocksPerfile:
             self.__profIndex = 0
         if self.__dataReady:
@@ -4325,11 +4341,12 @@ class Block360(Operation):
     __nch          = 0
     __nHeis        = 0
     index          = 0
+    mode           = 0
 
     def __init__(self,**kwargs):
         Operation.__init__(self,**kwargs)
 
-    def setup(self, dataOut, n = None):
+    def setup(self, dataOut, n = None, mode = None):
         '''
         n= Numero de PRF's de entrada
         '''
@@ -4346,23 +4363,31 @@ class Block360(Operation):
         if n == None:
             raise ValueError("n should be specified.")
 
+        if mode == None:
+            raise ValueError("mode should be specified.")
+
         if n != None:
             if n<1:
                 print("n should be greater than 2")
                 raise ValueError("n should be greater than 2")
 
         self.n       = n
+        self.mode    = mode
+        print("self.mode",self.mode)
         #print("nHeights")
         self.__buffer = numpy.zeros(( dataOut.nChannels,n, dataOut.nHeights))
         self.__buffer2= numpy.zeros(n)
 
-    def putData(self,data):
+    def putData(self,data,mode):
         '''
         Add a profile to he __buffer and increase in one the __profiel Index
         '''
         #print("line 4049",data.dataPP_POW.shape,data.dataPP_POW[:10])
         #print("line 4049",data.azimuth.shape,data.azimuth)
-        self.__buffer[:,self.__profIndex,:]= data.dataPP_POW
+        if self.mode==0:
+            self.__buffer[:,self.__profIndex,:]= data.dataPP_POW
+        if self.mode==1:
+            self.__buffer[:,self.__profIndex,:]= data.data_pow
         #print("me casi",self.index,data.azimuth[self.index])
         #print(self.__profIndex, self.index , data.azimuth[self.index] )
         #print("magic",data.profileIndex)
@@ -4400,7 +4425,7 @@ class Block360(Operation):
         data_360           =  None
         data_p             = None
         #print("dataOu",dataOut.dataPP_POW)
-        self.putData(data=dataOut)
+        self.putData(data=dataOut,mode = self.mode)
         #print("profIndex",self.__profIndex)
         if self.__profIndex  == self.n:
             data_360,n,data_p  = self.pushData(data=dataOut)
@@ -4424,10 +4449,10 @@ class Block360(Operation):
         #print(data_360.shape,avgdatatime,data_p.shape)
         return data_360,avgdatatime,data_p
 
-    def run(self, dataOut,n = None,**kwargs):
-
+    def run(self, dataOut,n = None,mode=None,**kwargs):
+        print("BLOCK 360 HERE WE GO MOMENTOS")
         if not self.isConfig:
-            self.setup(dataOut = dataOut, n    = n , **kwargs)
+            self.setup(dataOut = dataOut, n    = n ,mode= mode ,**kwargs)
             self.index = 0
             #print("comova",self.isConfig)
             self.isConfig   = True

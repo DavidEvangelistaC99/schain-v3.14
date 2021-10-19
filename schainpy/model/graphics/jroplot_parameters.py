@@ -399,8 +399,9 @@ class WeatherPlot(Plot):
 
         data = {}
         meta = {}
-        data['weather'] = 10*numpy.log10(dataOut.data_360[0]/(250**2))
-        print(data['weather'])
+        print("aprox",dataOut.data_360[0])
+        data['weather'] = 10*numpy.log10(dataOut.data_360[0]/(250.0))
+        #print(data['weather'])
         data['azi']     = dataOut.data_azi
         print("UPDATE",data['azi'])
         return data, meta
@@ -507,7 +508,7 @@ class WeatherPlot(Plot):
                 cgax, pm = wrl.vis.plot_ppi(self.res_weather,r=r,az=self.res_azi,fig=self.figures[0], proj='cg', vmin=1, vmax=60)
             else:
                 plt.clf()
-                cgax, pm = wrl.vis.plot_ppi(self.res_weather,r=r,az=self.res_azi,fig=self.figures[0], proj='cg', vmin=1, vmax=60)
+                cgax, pm = wrl.vis.plot_ppi(self.res_weather,r=r,az=self.res_azi,fig=self.figures[0], proj='cg', vmin=0, vmax=60)
         caax = cgax.parasites[0]
         paax = cgax.parasites[1]
         cbar = plt.gcf().colorbar(pm, pad=0.075)
