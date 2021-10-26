@@ -430,103 +430,6 @@ class Voltage(JROData):
     noise = property(getNoise, "I'm the 'nHeights' property.")
 
 
-class CrossProds(JROData):
-
-    # data es un numpy array de 2 dmensiones (canales, alturas)
-    data = None
-
-    def __init__(self):
-        '''
-        Constructor
-        '''
-
-        self.useLocalTime = True
-        '''
-        self.radarControllerHeaderObj = RadarControllerHeader()
-        self.systemHeaderObj = SystemHeader()
-        self.type = "Voltage"
-        self.data = None
-#         self.dtype = None
-#        self.nChannels = 0
-#        self.nHeights = 0
-        self.nProfiles = None
-        self.heightList = None
-        self.channelList = None
-#        self.channelIndexList = None
-        self.flagNoData = True
-        self.flagDiscontinuousBlock = False
-        self.utctime = None
-        self.timeZone = None
-        self.dstFlag = None
-        self.errorCount = None
-        self.nCohInt = None
-        self.blocksize = None
-        self.flagDecodeData = False  # asumo q la data no esta decodificada
-        self.flagDeflipData = False  # asumo q la data no esta sin flip
-        self.flagShiftFFT = False
-        self.flagDataAsBlock = False  # Asumo que la data es leida perfil a perfil
-        self.profileIndex = 0
-
-
-    def getNoisebyHildebrand(self, channel=None):
-
-
-        if channel != None:
-            data = self.data[channel]
-            nChannels = 1
-        else:
-            data = self.data
-            nChannels = self.nChannels
-
-        noise = numpy.zeros(nChannels)
-        power = data * numpy.conjugate(data)
-
-        for thisChannel in range(nChannels):
-            if nChannels == 1:
-                daux = power[:].real
-            else:
-                daux = power[thisChannel, :].real
-            noise[thisChannel] = hildebrand_sekhon(daux, self.nCohInt)
-
-        return noise
-
-    def getNoise(self, type=1, channel=None):
-
-        if type == 1:
-            noise = self.getNoisebyHildebrand(channel)
-
-        return noise
-
-    def getPower(self, channel=None):
-
-        if channel != None:
-            data = self.data[channel]
-        else:
-            data = self.data
-
-        power = data * numpy.conjugate(data)
-        powerdB = 10 * numpy.log10(power.real)
-        powerdB = numpy.squeeze(powerdB)
-
-        return powerdB
-
-    def getTimeInterval(self):
-
-        timeInterval = self.ippSeconds * self.nCohInt
-
-        return timeInterval
-
-    noise = property(getNoise, "I'm the 'nHeights' property.")
-    timeInterval = property(getTimeInterval, "I'm the 'timeInterval' property")
-    '''
-    def getTimeInterval(self):
-
-        timeInterval = self.ippSeconds * self.nCohInt
-
-        return timeInterval
-
-
-
 class Spectra(JROData):
 
     def __init__(self):
@@ -1066,7 +969,7 @@ class PlotterData(object):
         '''
 
         self.data[tm] = data
-        
+
         for key, value in meta.items():
             setattr(self, key, value)
 
@@ -1112,7 +1015,7 @@ class PlotterData(object):
             meta['xrange'] = self.roundFloats(self.xrange[2][::dx].tolist())
         else:
             data = self.roundFloats(self.data[tm][self.key].tolist())
-        
+
         ret = {
             'plot': plot_name,
             'code': self.exp_code,

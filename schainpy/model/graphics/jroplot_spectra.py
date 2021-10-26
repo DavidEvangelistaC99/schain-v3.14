@@ -45,14 +45,14 @@ class SpectraPlot(Plot):
         data['rti'] = dataOut.getPower()
         data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
         meta['xrange'] = (dataOut.getFreqRange(1)/1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
-        
+
         if self.CODE == 'spc_moments':
             data['moments'] = dataOut.moments
         if self.CODE == 'gaussian_fit':
             data['gaussfit'] = dataOut.DGauFitParams
 
-        return data, meta 
-    
+        return data, meta
+
     def plot(self):
 
         if self.xaxis == "frequency":
@@ -84,7 +84,7 @@ class SpectraPlot(Plot):
             noise = data['noise'][n]
             if self.CODE == 'spc_moments':
                 mean = data['moments'][n, 1]
-            if self.CODE == 'gaussian_fit': 
+            if self.CODE == 'gaussian_fit':
                 gau0 = data['gaussfit'][n][2,:,0]
                 gau1 = data['gaussfit'][n][2,:,1]
             if ax.firsttime:
@@ -144,7 +144,7 @@ class SpectraObliquePlot(Plot):
         self.ylabel = 'Range [km]'
 
     def update(self, dataOut):
-        
+
         data = {}
         meta = {}
         spc = 10*numpy.log10(dataOut.data_spc/dataOut.normFactor)
@@ -152,13 +152,13 @@ class SpectraObliquePlot(Plot):
         data['rti'] = dataOut.getPower()
         data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
         meta['xrange'] = (dataOut.getFreqRange(1)/1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
-        
+
         data['shift1'] = dataOut.Oblique_params[0][1]
         data['shift2'] = dataOut.Oblique_params[0][4]
         data['shift1_error'] = dataOut.Oblique_param_errors[0][1]
         data['shift2_error'] = dataOut.Oblique_param_errors[0][4]
-        
-        return data, meta 
+
+        return data, meta
 
     def plot(self):
 
@@ -200,7 +200,7 @@ class SpectraObliquePlot(Plot):
                         self.data['rti'][n][-1], y)[0]
                     ax.plt_noise = self.pf_axes[n].plot(numpy.repeat(noise, len(y)), y,
                                                         color="k", linestyle="dashed", lw=1)[0]
-                
+
                 self.ploterr1 = ax.errorbar(shift1, y, xerr=err1, fmt='k^', elinewidth=0.2, marker='x', linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
                 self.ploterr2 = ax.errorbar(shift2, y, xerr=err2, fmt='m^',elinewidth=0.2,marker='x',linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
             else:
@@ -258,8 +258,8 @@ class CrossSpectraPlot(Plot):
 
         data['cspc'] = numpy.array(tmp)
 
-        return data, meta 
-    
+        return data, meta
+
     def plot(self):
 
         if self.xaxis == "frequency":
@@ -295,7 +295,7 @@ class CrossSpectraPlot(Plot):
                 ax.plt.set_array(coh.T.ravel())
             self.titles.append(
                 'Coherence Ch{} * Ch{}'.format(pair[0], pair[1]))
-                                   
+
             ax = self.axes[2 * n + 1]
             if ax.firsttime:
                 ax.plt = ax.pcolormesh(x, y, phase.T,
@@ -723,12 +723,36 @@ class SpectrogramPlot(Plot):
         self.titles = ['{} Channel {} \n H = {} km ({} - {})'.format(
             self.CODE.upper(), x, self.data.heightList[self.data.hei], self.data.heightList[self.data.hei],self.data.heightList[self.data.hei]+(self.data.DH*self.data.nProfiles)) for x in range(self.nrows)]
 
+    def update(self, dataOut):
+        data = {}
+        meta = {}
+
+        maxHei = 1350
+        indb = numpy.where(dataOut.heightList <= maxHei)
+        hei = indb[0][-1]
+
+        factor = dataOut.nIncohInt
+        z = dataOut.data_spc[:,:,hei] / factor
+        z = numpy.where(numpy.isfinite(z), z, numpy.NAN)
+        #buffer = 10 * numpy.log10(z)
+
+        self.hei = hei
+        self.heightList = dataOut.heightList
+        self.DH = (dataOut.heightList[1] - dataOut.heightList[0])/dataOut.step
+        self.nProfiles = dataOut.nProfiles
+
+        data['Spectrogram_Profile'] = 10 * numpy.log10(z)
+
+        meta['yrange'] = dataOut.heightList[0:dataOut.NSHTS]
+
+        return data, meta
+
     def plot(self):
 
         self.x = self.data.times
         self.z = self.data[self.CODE]
         self.y = self.data.xrange[0]
-        
+
         self.ylabel = "Frequency (kHz)"
 
         self.z = numpy.ma.masked_invalid(self.z)
@@ -898,7 +922,7 @@ class PowerProfilePlot(Plot):
         self.y = y
 
         x = self.data[-1][self.CODE]
-        
+
         if self.xmin is None: self.xmin = numpy.nanmin(x)*0.9
         if self.xmax is None: self.xmax = numpy.nanmax(x)*1.1
 
@@ -950,7 +974,7 @@ class SpectraCutPlot(Plot):
         else:
             x = self.data.xrange[2][:-1]
             self.xlabel = "Velocity (m/s)"
-        
+
         if self.CODE == 'cut_gaussian_fit':
             x = self.data.xrange[2][:-1]
             self.xlabel = "Velocity (m/s)"
@@ -967,7 +991,7 @@ class SpectraCutPlot(Plot):
             index = numpy.arange(0, len(y), int((len(y))/9))
 
         for n, ax in enumerate(self.axes):
-            if self.CODE == 'cut_gaussian_fit': 
+            if self.CODE == 'cut_gaussian_fit':
                 gau0 = data['gauss_fit0']
                 gau1 = data['gauss_fit1']
             if ax.firsttime:
@@ -979,10 +1003,10 @@ class SpectraCutPlot(Plot):
                 if self.CODE == 'cut_gaussian_fit':
                     ax.plt_gau0 = ax.plot(x, gau0[n, :, index].T, lw=1, linestyle='-.')
                     for i, line in enumerate(ax.plt_gau0):
-                        line.set_color(ax.plt[i].get_color())    
+                        line.set_color(ax.plt[i].get_color())
                     ax.plt_gau1 = ax.plot(x, gau1[n, :, index].T, lw=1, linestyle='--')
                     for i, line in enumerate(ax.plt_gau1):
-                        line.set_color(ax.plt[i].get_color())  
+                        line.set_color(ax.plt[i].get_color())
                 labels = ['Range = {:2.1f}km'.format(y[i]) for i in index]
                 self.figures[0].legend(ax.plt, labels, loc='center right')
             else:

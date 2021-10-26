@@ -256,7 +256,7 @@ class Plot(Operation):
         self.__throttle_plot = apply_throttle(self.throttle)
         code = self.attr_data if self.attr_data else self.CODE
         self.data = PlotterData(self.CODE, self.exp_code, self.localtime)
-        
+
         if self.server:
             if not self.server.startswith('tcp://'):
                 self.server = 'tcp://{}'.format(self.server)
@@ -427,7 +427,7 @@ class Plot(Operation):
                 ax.firsttime = False
                 if self.grid:
                     ax.grid(True)
-            if not self.polar:
+            if not self.polar:                
                 ax.set_title('{} {} {}'.format(
                     self.titles[n],
                     self.getDateTime(self.data.max_time).strftime(
@@ -493,11 +493,11 @@ class Plot(Operation):
             'interval': dataOut.timeInterval,
             'channels': dataOut.channelList
         }
-        
+
         data, meta = self.update(dataOut)
         metadata.update(meta)
         self.data.update(data, timestamp, metadata)
-    
+
     def save_figure(self, n):
         '''
         '''
@@ -513,7 +513,7 @@ class Plot(Operation):
             figname = os.path.join(
                 self.save,
                 self.save_code,
-                '{}_{}.png'.format(                
+                '{}_{}.png'.format(
                     self.save_code,
                     self.getDateTime(self.data.max_time).strftime(
                         '%Y%m%d_%H%M%S'
@@ -546,14 +546,14 @@ class Plot(Operation):
 
         if self.exp_code == None:
             log.warning('Missing `exp_code` skipping sending to server...')
-        
+
         last_time = self.data.max_time
         interval = last_time - self.sender_time
         if interval < self.sender_period:
             return
 
         self.sender_time = last_time
-        
+
         attrs = ['titles', 'zmin', 'zmax', 'tag', 'ymin', 'ymax']
         for attr in attrs:
             value = getattr(self, attr)
@@ -570,7 +570,7 @@ class Plot(Operation):
         self.data.meta['interval'] = int(interval)
 
         self.sender_queue.append(last_time)
-        
+
         while True:
             try:
                 tm = self.sender_queue.popleft()
@@ -624,19 +624,19 @@ class Plot(Operation):
         '''
         Must be defined in the child class, update self.data with new data
         '''
-        
+
         data = {
             self.CODE: getattr(dataOut, 'data_{}'.format(self.CODE))
         }
         meta = {}
 
         return data, meta
-    
+
     def run(self, dataOut, **kwargs):
         '''
         Main plotting routine
         '''
-        
+
         if self.isConfig is False:
             self.__setup(**kwargs)
 
@@ -655,7 +655,7 @@ class Plot(Operation):
                 self.poll.register(self.socket, zmq.POLLIN)
 
         tm = getattr(dataOut, self.attr_time)
-        
+
         if self.data and 'time' in self.xaxis and (tm - self.tmin) >= self.xrange*60*60:
             self.save_time = tm
             self.__plot()
