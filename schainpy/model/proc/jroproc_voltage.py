@@ -1478,6 +1478,7 @@ class PulsePair(Operation):
         if self.__dataReady:
             dataOut.nCohInt        *= self.n
             dataOut.dataPP_POW      = data_intensity # S
+            print("help",data_power)
             dataOut.dataPP_POWER    = data_power     # P
             dataOut.dataPP_DOP      = data_velocity
             dataOut.dataPP_SNR      = data_snrPP

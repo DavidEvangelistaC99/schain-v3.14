@@ -32,12 +32,14 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 ###path_pp = '/DATA_RM/TEST_HDF5_SPEC'
 
 #path = '/DATA_RM/USRP_22'
-path = '/DATA_RM/23/6v'
+###path = '/DATA_RM/23/6v'
+path = '/DATA_RM/TEST_19OCTUBRE/10MHZ'
 #path_pp = '/DATA_RM/TEST_HDF5'
+path_pp = '/DATA_RM/TEST_HDF5_19OCT' 
 # UTIMO TEST 22 DE SEPTIEMBRE
 #path_pp = '/DATA_RM/TEST_HDF5_SPEC_22'
 #path_pp = '/DATA_RM/TEST_HDF5_SPEC_3v'
-path_pp = '/DATA_RM/TEST_HDF5_SPEC_23/6v'
+###path_pp = '/DATA_RM/TEST_HDF5_SPEC_23/6v'
 
 
 #remotefolder = "/home/wmaster/graficos"
@@ -79,7 +81,7 @@ opObj11 = readUnitConfObj.addOperation(name='printInfo')
 #######################################################################
 
 
-V=6
+V=10
 IPP=400*1e-6
 n= int(1/(V*IPP))
 print("n numero de Perfiles a procesar con nFFTPoints ", n)

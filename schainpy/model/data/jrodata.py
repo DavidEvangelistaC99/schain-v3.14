@@ -575,7 +575,6 @@ class Spectra(JROData):
         z = self.data_spc / factor
         z = numpy.where(numpy.isfinite(z), z, numpy.NAN)
         avg = numpy.average(z, axis=1)
-
         return 10 * numpy.log10(avg)
 
     def getCoherence(self, pairsList=None, phase=False):

@@ -95,11 +95,9 @@ class PowerPlot(RTIPlot):
     colormap = 'jet'
 
     def update(self, dataOut):
-
         data = {
             'pow': 10*numpy.log10(dataOut.data_pow/dataOut.normFactor)
         }
-
         return data, {}
 
 class SpectralWidthPlot(RTIPlot):
@@ -204,9 +202,7 @@ class GenericRTIPlot(Plot):
         self.x = self.data.times
         self.y = self.data.yrange
         self.z = self.data['param']
-
         self.z = 10*numpy.log10(self.z)
-
         self.z = numpy.ma.masked_invalid(self.z)
 
         if self.decimation is None:
@@ -399,17 +395,11 @@ class WeatherPlot(Plot):
 
         data = {}
         meta = {}
-        print("aprox",dataOut.data_360[0])
         data['weather'] = 10*numpy.log10(dataOut.data_360[0]/(250.0))
-        #print(data['weather'])
         data['azi']     = dataOut.data_azi
-        print("UPDATE",data['azi'])
         return data, meta
 
     def const_ploteo(self,data_weather,data_azi,step,res):
-        #print("data_weather",data_weather)
-        print("data_azi",data_azi)
-        print("step",step)
         if self.ini==0:
             #------- AZIMUTH
             n     = (360/res)-len(data_azi)

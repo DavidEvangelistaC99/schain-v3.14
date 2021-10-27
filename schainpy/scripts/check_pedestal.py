@@ -6,7 +6,13 @@ import os,numpy,h5py
 import sys,time
 import matplotlib.pyplot as plt
 ####################################################
-path_ped = '/DATA_RM/TEST_PEDESTAL/P20211012-082745'
+#################################################################
+# LA FECHA 21-10-20 CORRESPONDE A LAS PRUEBAS DEL DIA MIERCOLES
+# 1:15:51 pm hasta 3:49:32 pm
+#################################################################
+
+#path_ped = '/DATA_RM/TEST_PEDESTAL/P20211012-082745'
+path_ped = '/DATA_RM/TEST_PEDESTAL/P20211020-131248'
 # Metodo para verificar numero
 def isNumber(str):
     try:
@@ -34,6 +40,7 @@ t=  0
 time_        = numpy.zeros([m])
 # creacion de
 for i in range(m):
+    print("order:",i)
     tmp_azi_pos = getDatavaluefromDirFilename(path=path_ped,file=LIST[i],value="azi_pos")
     tmp_ele_pos = getDatavaluefromDirFilename(path=path_ped,file=LIST[i],value="ele_pos")
     tmp_azi_vel = getDatavaluefromDirFilename(path=path_ped,file=LIST[i],value="azi_vel")

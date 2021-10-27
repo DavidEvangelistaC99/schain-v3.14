@@ -28,7 +28,8 @@ ymax = '600'
 #######################################################################
 #######################################################################
 #path       = '/DATA_RM/TEST_HDF5_SPEC'
-path       = '/DATA_RM/TEST_HDF5_SPEC_23/6v/'
+#path       = '/DATA_RM/TEST_HDF5_SPEC_23/6v/'
+path       = '/DATA_RM/TEST_HDF5_19OCT'
 figpath    = '/home/soporte/Downloads/23/6v'
 desc       = "Simulator Test"
 desc_data  =  {

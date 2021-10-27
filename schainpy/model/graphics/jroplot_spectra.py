@@ -226,7 +226,6 @@ class RTIPlot(Plot):
     def setup(self):
         self.xaxis = 'time'
         self.ncols = 1
-        print("ch",self.data.channels)
         self.nrows = len(self.data.channels)
         self.nplots = len(self.data.channels)
         self.ylabel = 'Range [km]'
@@ -267,7 +266,6 @@ class RTIPlot(Plot):
                                        cmap=plt.get_cmap(self.colormap)
                                        )
                 if self.showprofile:
-                    print("test-------------------------------------1")
                     ax.plot_profile = self.pf_axes[n].plot(
                         data['rti'][n], self.y)[0]
                     ax.plot_noise = self.pf_axes[n].plot(numpy.repeat(data['noise'][n], len(self.y)), self.y,

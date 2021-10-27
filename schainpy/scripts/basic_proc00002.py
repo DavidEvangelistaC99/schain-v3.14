@@ -25,15 +25,16 @@ print("SETUP- RADAR METEOROLOGICO")
 V       = 10
 mode    = 1
 #path    = '/DATA_RM/23/6v'
-####path    = '/DATA_RM/TEST_INTEGRACION_2M'
-#path    = '/DATA_RM/TEST_19OCTUBRE/10MHZ'
+#path    = '/DATA_RM/TEST_INTEGRACION_2M'
 path    = '/DATA_RM/WR_20_OCT'
-#### path_ped='/DATA_RM/TEST_PEDESTAL/P20211012-082745'
-#### path_ped='/DATA_RM/TEST_PEDESTAL/P20211019-192244'
+
+#path_ped='/DATA_RM/TEST_PEDESTAL/P20211012-082745'
+path_ped='/DATA_RM/TEST_PEDESTAL/P20211020-131248'
+
 figpath_pp  = "/home/soporte/Pictures/TEST_PP"
-figpath_spec = "/home/soporte/Pictures/TEST_MOM"
-plot        = 1
-integration = 0
+figpath_mom = "/home/soporte/Pictures/TEST_MOM"
+plot        = 0
+integration = 1
 save        = 0
 if save == 1:
     if mode==0:
@@ -73,11 +74,11 @@ time.sleep(15)
 #######################################################################
 ################# RANGO DE PLOTEO######################################
 dBmin = '1'
-dBmax = '65'
-xmin = '13.2'
-xmax = '13.5'
+dBmax = '85'
+xmin = '15'
+xmax = '15.25'
 ymin = '0'
-ymax = '60'
+ymax = '600'
 #######################################################################
 ########################FECHA##########################################
 str = datetime.date.today()
@@ -119,7 +120,7 @@ if mode ==0:
     procUnitConfObjB= controllerObj.addProcUnit(datatype='ParametersProc',inputId=procUnitConfObjA.getId())
     if plot==1:
         opObj11 = procUnitConfObjB.addOperation(name='GenericRTIPlot',optype='external')
-        opObj11.addParameter(name='attr_data', value='dataPP_POWER')
+        opObj11.addParameter(name='attr_data', value='dataPP_POW')
         opObj11.addParameter(name='colormap', value='jet')
         opObj11.addParameter(name='xmin', value=xmin)
         opObj11.addParameter(name='xmax', value=xmax)
@@ -127,7 +128,7 @@ if mode ==0:
         opObj11.addParameter(name='zmax', value=dBmax)
         opObj11.addParameter(name='save', value=figpath_pp)
         opObj11.addParameter(name='showprofile', value=0)
-        opObj11.addParameter(name='save_period', value=10)
+        opObj11.addParameter(name='save_period', value=50)
 
     ####################### METODO ESCRITURA #######################################################################
     if save==1:
@@ -136,7 +137,7 @@ if mode ==0:
         #opObj10.addParameter(name='mode',value=0)
         opObj10.addParameter(name='blocksPerFile',value='100',format='int')
         opObj10.addParameter(name='metadataList',value='utctimeInit,timeZone,paramInterval,profileIndex,channelList,heightList,flagDataAsBlock',format='list')
-        opObj10.addParameter(name='dataList',value='dataPP_POWER,dataPP_DOP,utctime',format='list')#,format='list'
+        opObj10.addParameter(name='dataList',value='dataPP_POW,dataPP_DOP,utctime',format='list')#,format='list'
     if integration==1:
         V=10
         blocksPerfile=360
@@ -178,9 +179,9 @@ else:
         opObj11.addParameter(name='xmax', value=xmax)
         opObj11.addParameter(name='zmin', value=dBmin)
         opObj11.addParameter(name='zmax', value=dBmax)
-        opObj11.addParameter(name='save', value=figpath_spec)
+        opObj11.addParameter(name='save', value=figpath_mom)
         opObj11.addParameter(name='showprofile', value=0)
-        opObj11.addParameter(name='save_period', value=10)
+        opObj11.addParameter(name='save_period', value=100)
 
     if save==1:
         opObj10 = procUnitConfObjC.addOperation(name='HDFWriter')
@@ -208,7 +209,7 @@ else:
        opObj11.addParameter(name='online', value='0', format='int')
 
        opObj11 = procUnitConfObjC.addOperation(name='Block360')
-       opObj11.addParameter(name='n', value='10', format='int')
+       opObj11.addParameter(name='n', value='30', format='int')
        opObj11.addParameter(name='mode', value=mode, format='int')
 
        # este bloque funciona bien con divisores de 360 no olvidar 0 10 20 30 40 60 90 120 180
