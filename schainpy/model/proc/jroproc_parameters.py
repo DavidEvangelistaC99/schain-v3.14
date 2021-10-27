@@ -4306,18 +4306,18 @@ class PedestalInformation(Operation):
             self.isConfig   = True
 
         dataOut.flagNoData                         = True
-        print("profIndex",self.__profIndex)
+        ###print("profIndex",self.__profIndex)
 
         if self.__profIndex==0:
             angulo_adq       = self.setNextFileP(dataOut)
             dataOut.azimuth  = angulo_adq
-            print("TIEMPO:",dataOut.utctime)
+            ######print("TIEMPO:",dataOut.utctime)
             ##print("####################################################################")
-            print("angulos",dataOut.azimuth,len(dataOut.azimuth))
+            ######print("angulos",dataOut.azimuth,len(dataOut.azimuth))
             self.__dataReady = True
         self.__profIndex += 1
-        print("TIEMPO_bucle:",dataOut.utctime)
-        print("profIndex",self.__profIndex)
+        ####print("TIEMPO_bucle:",dataOut.utctime)
+        ####print("profIndex",self.__profIndex)
         if self.__profIndex== blocksPerfile:
             self.__profIndex = 0
         if self.__dataReady:
@@ -4448,7 +4448,7 @@ class Block360(Operation):
         return data_360,avgdatatime,data_p
 
     def run(self, dataOut,n = None,mode=None,**kwargs):
-        print("BLOCK 360 HERE WE GO MOMENTOS")
+        ####print("BLOCK 360 HERE WE GO MOMENTOS")
         if not self.isConfig:
             self.setup(dataOut = dataOut, n    = n ,mode= mode ,**kwargs)
             self.index = 0

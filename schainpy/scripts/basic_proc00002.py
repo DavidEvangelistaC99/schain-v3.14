@@ -23,7 +23,7 @@ from schainpy.controller import Project
 ######## VELOCIDAD DEL PEDESTAL ######################
 print("SETUP- RADAR METEOROLOGICO")
 V       = 10
-mode    = 1
+mode    = 0
 #path    = '/DATA_RM/23/6v'
 #path    = '/DATA_RM/TEST_INTEGRACION_2M'
 path    = '/DATA_RM/WR_20_OCT'

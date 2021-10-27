@@ -401,7 +401,7 @@ class WeatherPlot(Plot):
         if hasattr(dataOut, 'nFFTPoints'):
             factor = dataOut.normFactor
 
-        print("factor",factor)
+        ####print("factor",factor)
         data['weather'] = 10*numpy.log10(dataOut.data_360[0]/(factor))
         print("weather",data['weather'])
         data['azi']     = dataOut.data_azi
