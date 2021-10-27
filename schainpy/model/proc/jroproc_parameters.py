@@ -1286,7 +1286,6 @@ class SpectralMoments(Operation):
         vec_snr = numpy.zeros(oldspec.shape[1])
 
         # oldspec = numpy.ma.masked_invalid(oldspec)
-
         for ind in range(oldspec.shape[1]):
 
             spec = oldspec[:,ind]
@@ -1325,7 +1324,7 @@ class SpectralMoments(Operation):
                 ss1 = m
 
             valid = numpy.arange(int(m + bb0 - ss1 + 1)) + ss1
-
+            #valid = numpy.arange(1,oldspec.shape[0])# valid perfil completo igual pulsepair
             signal_power = ((spec2[valid] - n0) * fwindow[valid]).mean()    # D. Scipión added with correct definition
             total_power = (spec2[valid] * fwindow[valid]).mean()            # D. Scipión added with correct definition
             power = ((spec2[valid] - n0) * fwindow[valid]).sum()
@@ -4099,7 +4098,7 @@ class PedestalInformation(Operation):
         #print(len(self.list_adq))
         utc_ped_list=[]
         for i in range(len(self.list_pedestal)):
-            print(i)
+            #print(i)# OJO IDENTIFICADOR DE SINCRONISMO
             utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[i]))
 
         #utc_ped_list= utc_ped_list
@@ -4384,7 +4383,7 @@ class Block360(Operation):
         #print("line 4049",data.dataPP_POW.shape,data.dataPP_POW[:10])
         #print("line 4049",data.azimuth.shape,data.azimuth)
         if self.mode==0:
-            self.__buffer[:,self.__profIndex,:]= data.dataPP_POW
+            self.__buffer[:,self.__profIndex,:]= data.dataPP_POWER# PRIMER MOMENTO
         if self.mode==1:
             self.__buffer[:,self.__profIndex,:]= data.data_pow
         #print("me casi",self.index,data.azimuth[self.index])

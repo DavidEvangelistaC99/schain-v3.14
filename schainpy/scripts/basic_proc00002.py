@@ -69,7 +69,7 @@ if save ==1:
 
 print("* Integracion de datos :",integration)
 
-time.sleep(15)
+time.sleep(5)
 #remotefolder = "/home/wmaster/graficos"
 #######################################################################
 ################# RANGO DE PLOTEO######################################
@@ -209,7 +209,7 @@ else:
        opObj11.addParameter(name='online', value='0', format='int')
 
        opObj11 = procUnitConfObjC.addOperation(name='Block360')
-       opObj11.addParameter(name='n', value='30', format='int')
+       opObj11.addParameter(name='n', value='10', format='int')
        opObj11.addParameter(name='mode', value=mode, format='int')
 
        # este bloque funciona bien con divisores de 360 no olvidar 0 10 20 30 40 60 90 120 180

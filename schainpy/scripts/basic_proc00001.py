@@ -29,11 +29,11 @@ mode    = 1
 #path    = '/DATA_RM/TEST_19OCTUBRE/10MHZ'
 path    = '/DATA_RM/WR_20_OCT'
 #### path_ped='/DATA_RM/TEST_PEDESTAL/P20211012-082745'
-#### path_ped='/DATA_RM/TEST_PEDESTAL/P20211019-192244'
+####path_ped='/DATA_RM/TEST_PEDESTAL/P20211019-192244'
 figpath_pp  = "/home/soporte/Pictures/TEST_PP"
 figpath_spec = "/home/soporte/Pictures/TEST_MOM"
-plot        = 1
-integration = 0
+plot        = 0
+integration = 1
 save        = 0
 if save == 1:
     if mode==0:
