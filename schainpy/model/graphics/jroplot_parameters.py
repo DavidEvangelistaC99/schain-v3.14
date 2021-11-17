@@ -12,13 +12,13 @@ EARTH_RADIUS = 6.3710e3
 def ll2xy(lat1, lon1, lat2, lon2):
 
     p = 0.017453292519943295
-    a = 0.5 - numpy.cos((lat2 - lat1) * p)/2 + numpy.cos(lat1 * p) * \
+    a = 0.5 - numpy.cos((lat2 - lat1) * p) / 2 + numpy.cos(lat1 * p) * \
         numpy.cos(lat2 * p) * (1 - numpy.cos((lon2 - lon1) * p)) / 2
     r = 12742 * numpy.arcsin(numpy.sqrt(a))
-    theta = numpy.arctan2(numpy.sin((lon2-lon1)*p)*numpy.cos(lat2*p), numpy.cos(lat1*p)
-                          * numpy.sin(lat2*p)-numpy.sin(lat1*p)*numpy.cos(lat2*p)*numpy.cos((lon2-lon1)*p))
-    theta = -theta + numpy.pi/2
-    return r*numpy.cos(theta), r*numpy.sin(theta)
+    theta = numpy.arctan2(numpy.sin((lon2 - lon1) * p) * numpy.cos(lat2 * p), numpy.cos(lat1 * p)
+                          * numpy.sin(lat2 * p) - numpy.sin(lat1 * p) * numpy.cos(lat2 * p) * numpy.cos((lon2 - lon1) * p))
+    theta = -theta + numpy.pi / 2
+    return r * numpy.cos(theta), r * numpy.sin(theta)
 
 
 def km2deg(km):
@@ -26,7 +26,7 @@ def km2deg(km):
     Convert distance in km to degrees
     '''
 
-    return numpy.rad2deg(km/EARTH_RADIUS)
+    return numpy.rad2deg(km / EARTH_RADIUS)
 
 
 
@@ -75,7 +75,7 @@ class SnrPlot(RTIPlot):
     def update(self, dataOut):
 
         data = {
-            'snr': 10*numpy.log10(dataOut.data_snr)    
+            'snr': 10 * numpy.log10(dataOut.data_snr)    
         }
 
         return data, {}
@@ -91,7 +91,7 @@ class DopplerPlot(RTIPlot):
     def update(self, dataOut):
 
         data = {
-            'dop': 10*numpy.log10(dataOut.data_dop)    
+            'dop': 10 * numpy.log10(dataOut.data_dop)    
         }
 
         return data, {}
@@ -107,7 +107,7 @@ class PowerPlot(RTIPlot):
     def update(self, dataOut):
 
         data = {
-            'pow': 10*numpy.log10(dataOut.data_pow/dataOut.normFactor)    
+            'pow': 10 * numpy.log10(dataOut.data_pow / dataOut.normFactor)    
         }
 
         return data, {}
@@ -294,22 +294,22 @@ class PolarMapPlot(Plot):
             zeniths = numpy.linspace(
                 0, self.data.meta['max_range'], data.shape[1])
             if self.mode == 'E':
-                azimuths = -numpy.radians(self.data.yrange)+numpy.pi/2
+                azimuths = -numpy.radians(self.data.yrange) + numpy.pi / 2
                 r, theta = numpy.meshgrid(zeniths, azimuths)
-                x, y = r*numpy.cos(theta)*numpy.cos(numpy.radians(self.data.meta['elevation'])), r*numpy.sin(
-                    theta)*numpy.cos(numpy.radians(self.data.meta['elevation']))
+                x, y = r * numpy.cos(theta) * numpy.cos(numpy.radians(self.data.meta['elevation'])), r * numpy.sin(
+                    theta) * numpy.cos(numpy.radians(self.data.meta['elevation']))
                 x = km2deg(x) + self.lon
                 y = km2deg(y) + self.lat
             else:
                 azimuths = numpy.radians(self.data.yrange)
                 r, theta = numpy.meshgrid(zeniths, azimuths)
-                x, y = r*numpy.cos(theta), r*numpy.sin(theta)
+                x, y = r * numpy.cos(theta), r * numpy.sin(theta)
             self.y = zeniths
 
             if ax.firsttime:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                ax.plt = ax.pcolormesh(  # r, theta, numpy.ma.array(data, mask=numpy.isnan(data)),
+                ax.plt = ax.pcolormesh(# r, theta, numpy.ma.array(data, mask=numpy.isnan(data)),
                     x, y, numpy.ma.array(data, mask=numpy.isnan(data)),
                     vmin=self.zmin,
                     vmax=self.zmax,
@@ -318,7 +318,7 @@ class PolarMapPlot(Plot):
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
                 ax.collections.remove(ax.collections[0])
-                ax.plt = ax.pcolormesh(  # r, theta, numpy.ma.array(data, mask=numpy.isnan(data)),
+                ax.plt = ax.pcolormesh(# r, theta, numpy.ma.array(data, mask=numpy.isnan(data)),
                     x, y, numpy.ma.array(data, mask=numpy.isnan(data)),
                     vmin=self.zmin,
                     vmax=self.zmax,
@@ -364,8 +364,8 @@ class PolarMapPlot(Plot):
                 ax.add_artist(plt.Circle((self.lon, self.lat),
                                          km2deg(r), color='0.6', fill=False, lw=0.2))
                 ax.text(
-                    self.lon + (km2deg(r))*numpy.cos(60*numpy.pi/180),
-                    self.lat + (km2deg(r))*numpy.sin(60*numpy.pi/180),
+                    self.lon + (km2deg(r)) * numpy.cos(60 * numpy.pi / 180),
+                    self.lat + (km2deg(r)) * numpy.sin(60 * numpy.pi / 180),
                     '{}km'.format(r),
                     ha='center', va='bottom', size='8', color='0.6', weight='heavy')
 

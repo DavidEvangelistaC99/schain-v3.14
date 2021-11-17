@@ -248,7 +248,7 @@ class JROData(GenericData):
 
     def getFmaxTimeResponse(self):
 
-        period = (10**-6) * self.getDeltaH() / (0.15)
+        period = (10 ** -6) * self.getDeltaH() / (0.15)
 
         PRF = 1. / (period * self.nCohInt)
 
@@ -340,10 +340,10 @@ class JROData(GenericData):
 
 class Voltage(JROData):
 
-    dataPP_POW   = None
-    dataPP_DOP   = None
+    dataPP_POW = None
+    dataPP_DOP = None
     dataPP_WIDTH = None
-    dataPP_SNR   = None
+    dataPP_SNR = None
 
     def __init__(self):
         '''
@@ -561,7 +561,7 @@ class Spectra(JROData):
         self.beacon_heiIndexList = []
         self.noise_estimation = None
         self.metadata_list = ['type', 'heightList', 'timeZone', 'pairsList', 'channelList', 'nCohInt',
-            'code', 'nCode', 'nBaud', 'ippSeconds', 'ipp','nIncohInt', 'nFFTPoints', 'nProfiles']
+            'code', 'nCode', 'nBaud', 'ippSeconds', 'ipp', 'nIncohInt', 'nFFTPoints', 'nProfiles']
 
     def getNoisebyHildebrand(self, xmin_index=None, xmax_index=None, ymin_index=None, ymax_index=None):
         """
@@ -600,14 +600,14 @@ class Spectra(JROData):
     def getAcfRange(self, extrapoints=0):
 
         deltafreq = 10. / (self.getFmax() / (self.nFFTPoints * self.ippFactor))
-        freqrange = deltafreq * (numpy.arange(self.nFFTPoints + extrapoints) -self.nFFTPoints / 2.) - deltafreq / 2
+        freqrange = deltafreq * (numpy.arange(self.nFFTPoints + extrapoints) - self.nFFTPoints / 2.) - deltafreq / 2
 
         return freqrange
 
     def getFreqRange(self, extrapoints=0):
 
         deltafreq = self.getFmax() / (self.nFFTPoints * self.ippFactor)
-        freqrange = deltafreq * (numpy.arange(self.nFFTPoints + extrapoints) -self.nFFTPoints / 2.) - deltafreq / 2
+        freqrange = deltafreq * (numpy.arange(self.nFFTPoints + extrapoints) - self.nFFTPoints / 2.) - deltafreq / 2
 
         return freqrange
 
@@ -617,7 +617,7 @@ class Spectra(JROData):
         velrange = deltav * (numpy.arange(self.nFFTPoints + extrapoints) - self.nFFTPoints / 2.)
 
         if self.nmodes:
-            return velrange/self.nmodes
+            return velrange / self.nmodes
         else:
             return velrange
 
@@ -637,8 +637,8 @@ class Spectra(JROData):
         pwcode = 1
 
         if self.flagDecodeData:
-            pwcode = numpy.sum(self.code[0]**2)
-        #normFactor = min(self.nFFTPoints,self.nProfiles)*self.nIncohInt*self.nCohInt*pwcode*self.windowOfFilter
+            pwcode = numpy.sum(self.code[0] ** 2)
+        # normFactor = min(self.nFFTPoints,self.nProfiles)*self.nIncohInt*self.nCohInt*pwcode*self.windowOfFilter
         normFactor = self.nProfiles * self.nIncohInt * self.nCohInt * pwcode * self.windowOfFilter
 
         return normFactor
@@ -664,7 +664,7 @@ class Spectra(JROData):
 
         timeInterval = self.ippSeconds * self.nCohInt * self.nIncohInt * self.nProfiles * self.ippFactor
         if self.nmodes:
-            return self.nmodes*timeInterval
+            return self.nmodes * timeInterval
         else:
             return timeInterval
 
@@ -736,7 +736,7 @@ class SpectraHeis(Spectra):
     def normFactor(self):
         pwcode = 1
         if self.flagDecodeData:
-            pwcode = numpy.sum(self.code[0]**2)
+            pwcode = numpy.sum(self.code[0] ** 2)
 
         normFactor = self.nIncohInt * self.nCohInt * pwcode
 
@@ -867,7 +867,7 @@ class Correlation(JROData):
             xx = numpy.zeros([4, 4])
 
             for fil in range(4):
-                xx[fil, :] = vel[fil]**numpy.asarray(list(range(4)))
+                xx[fil, :] = vel[fil] ** numpy.asarray(list(range(4)))
 
             xx_inv = numpy.linalg.inv(xx)
             xx_aux = xx_inv[0, :]
@@ -1100,13 +1100,13 @@ class PlotterData(object):
 
         meta = {}
         meta['xrange'] = []
-        dy = int(len(self.yrange)/self.MAXNUMY) + 1
+        dy = int(len(self.yrange) / self.MAXNUMY) + 1
         tmp = self.data[tm][self.key]
         shape = tmp.shape
         if len(shape) == 2:
             data = self.roundFloats(self.data[tm][self.key][::, ::dy].tolist())
         elif len(shape) == 3:
-            dx = int(self.data[tm][self.key].shape[1]/self.MAXNUMX) + 1
+            dx = int(self.data[tm][self.key].shape[1] / self.MAXNUMX) + 1
             data = self.roundFloats(
                 self.data[tm][self.key][::, ::dx, ::dy].tolist())
             meta['xrange'] = self.roundFloats(self.xrange[2][::dx].tolist())

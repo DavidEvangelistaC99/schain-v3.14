@@ -6,36 +6,36 @@ import os, sys
 import datetime
 import time
 
-#path = os.path.dirname(os.getcwd())
-#path = os.path.dirname(path)
-#sys.path.insert(0, path)
+# path = os.path.dirname(os.getcwd())
+# path = os.path.dirname(path)
+# sys.path.insert(0, path)
 
 from schainpy.controller import Project
 
 desc = "USRP_test"
 filename = "USRP_processing.xml"
 controllerObj = Project()
-controllerObj.setup(id = '191', name='Test_USRP', description=desc)
+controllerObj.setup(id='191', name='Test_USRP', description=desc)
 
 ############## USED TO PLOT IQ VOLTAGE, POWER AND SPECTRA #############
 
 #######################################################################
 ######PATH DE LECTURA, ESCRITURA, GRAFICOS Y ENVIO WEB#################
 #######################################################################
-#path = '/media/data/data/vientos/57.2063km/echoes/NCO_Woodman'
+# path = '/media/data/data/vientos/57.2063km/echoes/NCO_Woodman'
 
 
-path = '/home/soporte/data_hdf5' #### with clock   35.16 db noise
+path = '/home/soporte/data_hdf5'  #### with clock   35.16 db noise
 
 figpath = '/home/soporte/data_hdf5_imag'
-#remotefolder = "/home/wmaster/graficos"
+# remotefolder = "/home/wmaster/graficos"
 #######################################################################
 ################# RANGO DE PLOTEO######################################
 #######################################################################
 dBmin = '30'
 dBmax = '60'
 xmin = '0'
-xmax ='24'
+xmax = '24'
 ymin = '0'
 ymax = '600'
 #######################################################################
@@ -50,15 +50,15 @@ yesterday = str2.strftime("%Y/%m/%d")
 #######################################################################
 readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path,
-                                            startDate="2019/01/01",#today,
-                                            endDate="2109/12/30",#today,
+                                            startDate="2019/01/01",  # today,
+                                            endDate="2109/12/30",  # today,
                                             startTime='00:00:00',
                                             endTime='23:59:59',
                                             delay=0,
-                                            #set=0,
+                                            # set=0,
                                             online=0,
                                             walk=1,
-                                            ippKm = 1000)
+                                            ippKm=1000)
 
 opObj11 = readUnitConfObj.addOperation(name='printInfo')
 opObj11 = readUnitConfObj.addOperation(name='printNumberOfBlock')
@@ -71,31 +71,31 @@ procUnitConfObjA = controllerObj.addProcUnit(datatype='VoltageProc', inputId=rea
 # codigo64='1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,0,1,1,1,0,1,1,0,1,0,0,0,1,1,1,0,1,1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,0,0,0,0,1,0,0,1,0,1,1,1,0,0,0,1,0,'+\
 #              '1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,0,1,1,1,0,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,0,1,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,0,1,0,0,0,1,1,1,0,1'
 
-#opObj11 = procUnitConfObjA.addOperation(name='setRadarFrequency')
-#opObj11.addParameter(name='frequency', value='30e6', format='float')
+# opObj11 = procUnitConfObjA.addOperation(name='setRadarFrequency')
+# opObj11.addParameter(name='frequency', value='30e6', format='float')
 
-#opObj10 = procUnitConfObjA.addOperation(name='Scope', optype='external')
-#opObj10.addParameter(name='id', value='10', format='int')
-##opObj10.addParameter(name='xmin', value='0', format='int')
-##opObj10.addParameter(name='xmax', value='50', format='int')
-#opObj10.addParameter(name='type', value='iq')
-#opObj10.addParameter(name='ymin', value='-5000', format='int')
-##opObj10.addParameter(name='ymax', value='8500', format='int')
+# opObj10 = procUnitConfObjA.addOperation(name='Scope', optype='external')
+# opObj10.addParameter(name='id', value='10', format='int')
+# #opObj10.addParameter(name='xmin', value='0', format='int')
+# #opObj10.addParameter(name='xmax', value='50', format='int')
+# opObj10.addParameter(name='type', value='iq')
+# opObj10.addParameter(name='ymin', value='-5000', format='int')
+# #opObj10.addParameter(name='ymax', value='8500', format='int')
 
-#opObj10 = procUnitConfObjA.addOperation(name='setH0')
-#opObj10.addParameter(name='h0', value='-5000', format='float')
+# opObj10 = procUnitConfObjA.addOperation(name='setH0')
+# opObj10.addParameter(name='h0', value='-5000', format='float')
 
-#opObj11 =  procUnitConfObjA.addOperation(name='filterByHeights')
-#opObj11.addParameter(name='window', value='1', format='int')
+# opObj11 =  procUnitConfObjA.addOperation(name='filterByHeights')
+# opObj11.addParameter(name='window', value='1', format='int')
 
-#codigo='1,1,-1,1,1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,1,1,1,-1,-1,-1'
-#opObj11 = procUnitConfObjSousy.addOperation(name='Decoder', optype='other')
-#opObj11.addParameter(name='code', value=codigo, format='floatlist')
-#opObj11.addParameter(name='nCode', value='1', format='int')
-#opObj11.addParameter(name='nBaud', value='28', format='int')
+# codigo='1,1,-1,1,1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,1,1,1,-1,-1,-1'
+# opObj11 = procUnitConfObjSousy.addOperation(name='Decoder', optype='other')
+# opObj11.addParameter(name='code', value=codigo, format='floatlist')
+# opObj11.addParameter(name='nCode', value='1', format='int')
+# opObj11.addParameter(name='nBaud', value='28', format='int')
 
-#opObj11 = procUnitConfObjA.addOperation(name='CohInt', optype='other')
-#opObj11.addParameter(name='n', value='100', format='int')
+# opObj11 = procUnitConfObjA.addOperation(name='CohInt', optype='other')
+# opObj11.addParameter(name='n', value='100', format='int')
 
 #######################################################################
 ########## OPERACIONES DOMINIO DE LA FRECUENCIA########################
@@ -103,41 +103,41 @@ procUnitConfObjA = controllerObj.addProcUnit(datatype='VoltageProc', inputId=rea
 procUnitConfObjSousySpectra = controllerObj.addProcUnit(datatype='SpectraProc', inputId=procUnitConfObjA.getId())
 procUnitConfObjSousySpectra.addParameter(name='nFFTPoints', value='100', format='int')
 procUnitConfObjSousySpectra.addParameter(name='nProfiles', value='100', format='int')
-#procUnitConfObjSousySpectra.addParameter(name='pairsList', value='(0,0),(1,1),(0,1)', format='pairsList')
+# procUnitConfObjSousySpectra.addParameter(name='pairsList', value='(0,0),(1,1),(0,1)', format='pairsList')
 
-#opObj13 = procUnitConfObjSousySpectra.addOperation(name='removeDC')
-#opObj13.addParameter(name='mode', value='2', format='int')
+# opObj13 = procUnitConfObjSousySpectra.addOperation(name='removeDC')
+# opObj13.addParameter(name='mode', value='2', format='int')
 
-#opObj11 = procUnitConfObjSousySpectra.addOperation(name='IncohInt', optype='other')
-#opObj11.addParameter(name='n', value='60', format='float')
+# opObj11 = procUnitConfObjSousySpectra.addOperation(name='IncohInt', optype='other')
+# opObj11.addParameter(name='n', value='60', format='float')
 #######################################################################
 ########## PLOTEO DOMINIO DE LA FRECUENCIA#############################
 #######################################################################
-#SpectraPlot
+# SpectraPlot
 
 opObj11 = procUnitConfObjSousySpectra.addOperation(name='SpectraPlot', optype='external')
 opObj11.addParameter(name='id', value='1', format='int')
 opObj11.addParameter(name='wintitle', value='Spectra', format='str')
-#opObj11.addParameter(name='xmin', value=-0.01, format='float')
-#opObj11.addParameter(name='xmax', value=0.01, format='float')
-#opObj11.addParameter(name='zmin', value=dBmin, format='int')
-#opObj11.addParameter(name='zmax', value=dBmax, format='int')
-#opObj11.addParameter(name='ymin', value=ymin, format='int')
-#opObj11.addParameter(name='ymax', value=ymax, format='int')
+# opObj11.addParameter(name='xmin', value=-0.01, format='float')
+# opObj11.addParameter(name='xmax', value=0.01, format='float')
+# opObj11.addParameter(name='zmin', value=dBmin, format='int')
+# opObj11.addParameter(name='zmax', value=dBmax, format='int')
+# opObj11.addParameter(name='ymin', value=ymin, format='int')
+# opObj11.addParameter(name='ymax', value=ymax, format='int')
 opObj11.addParameter(name='showprofile', value='1', format='int')
 opObj11.addParameter(name='save', value=figpath, format='str')
 opObj11.addParameter(name='save_period', value=10, format='int')
 
 
-#RTIPLOT
+# RTIPLOT
 
 opObj11 = procUnitConfObjSousySpectra.addOperation(name='RTIPlot', optype='external')
 opObj11.addParameter(name='id', value='2', format='int')
 opObj11.addParameter(name='wintitle', value='RTIPlot', format='str')
-#opObj11.addParameter(name='zmin', value=dBmin, format='int')
-#opObj11.addParameter(name='zmax', value=dBmax, format='int')
-#opObj11.addParameter(name='ymin', value=ymin, format='int')
-#opObj11.addParameter(name='ymax', value=ymax, format='int')
+# opObj11.addParameter(name='zmin', value=dBmin, format='int')
+# opObj11.addParameter(name='zmax', value=dBmax, format='int')
+# opObj11.addParameter(name='ymin', value=ymin, format='int')
+# opObj11.addParameter(name='ymax', value=ymax, format='int')
 opObj11.addParameter(name='xmin', value=0, format='int')
 opObj11.addParameter(name='xmax', value=23, format='int')
 
@@ -171,9 +171,9 @@ opObj11.addParameter(name='save_period', value=10, format='int')
 #######################################################################
 ############### UNIDAD DE ESCRITURA ###################################
 #######################################################################
-#opObj11 = procUnitConfObjSousySpectra.addOperation(name='SpectraWriter', optype='other')
-#opObj11.addParameter(name='path', value=wr_path)
-#opObj11.addParameter(name='blocksPerFile', value='50', format='int')
+# opObj11 = procUnitConfObjSousySpectra.addOperation(name='SpectraWriter', optype='other')
+# opObj11.addParameter(name='path', value=wr_path)
+# opObj11.addParameter(name='blocksPerFile', value='50', format='int')
 print ("Escribiendo el archivo XML")
 print ("Leyendo el archivo XML")
 

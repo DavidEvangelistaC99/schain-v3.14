@@ -24,14 +24,14 @@ class PrintInfoAMISR(Operation):
     def run(self, dataOut):
         
         if not self.__isPrinted:
-            print('Number of Records by File: %d'%dataOut.nRecords)
-            print('Number of Pulses: %d'%dataOut.nProfiles)
-            print('Number of Pulses by Frame: %d'%dataOut.npulseByFrame)
-            print('Number of Samples by Pulse: %d'%len(dataOut.heightList))
-            print('Ipp Seconds: %f'%dataOut.ippSeconds)
-            print('Number of Beams: %d'%dataOut.nBeams)
+            print('Number of Records by File: %d' % dataOut.nRecords)
+            print('Number of Pulses: %d' % dataOut.nProfiles)
+            print('Number of Pulses by Frame: %d' % dataOut.npulseByFrame)
+            print('Number of Samples by Pulse: %d' % len(dataOut.heightList))
+            print('Ipp Seconds: %f' % dataOut.ippSeconds)
+            print('Number of Beams: %d' % dataOut.nBeams)
             print('BeamCodes:')
-            beamStrList = ['Beam %d -> Code=%d, azimuth=%2.2f,  zenith=%2.2f, gain=%2.2f'%(k,v[0],v[1],v[2],v[3]) for k,v in list(dataOut.beamCodeDict.items())]
+            beamStrList = ['Beam %d -> Code=%d, azimuth=%2.2f,  zenith=%2.2f, gain=%2.2f' % (k, v[0], v[1], v[2], v[3]) for k, v in list(dataOut.beamCodeDict.items())]
             for b in beamStrList:
                 print(b)
             self.__isPrinted = True
@@ -119,7 +119,7 @@ class ProfileToChannels(Operation):
         if not(self.__isConfig):
             nchannels = len(list(dataOut.beamRangeDict.keys()))
             nsamples = dataOut.nHeights
-            self.buffer = numpy.zeros((nchannels, nsamples), dtype = 'complex128')
+            self.buffer = numpy.zeros((nchannels, nsamples), dtype='complex128')
             dataOut.beam.codeList = [dataOut.beamCodeDict[x][0] for x in range(nchannels)]
             dataOut.beam.azimuthList = [dataOut.beamCodeDict[x][1] for x in range(nchannels)]
             dataOut.beam.zenithList = [dataOut.beamCodeDict[x][2] for x in range(nchannels)]
@@ -127,7 +127,7 @@ class ProfileToChannels(Operation):
         
         for i in range(self.buffer.shape[0]):
             if dataOut.profileIndex in dataOut.beamRangeDict[i]:
-                self.buffer[i,:] = dataOut.data
+                self.buffer[i, :] = dataOut.data
                 break
         
         

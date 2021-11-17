@@ -40,12 +40,11 @@ class SpectraPlot(Plot):
 
         data = {}
         meta = {}
-        spc = 10*numpy.log10(dataOut.data_spc/dataOut.normFactor)
+        spc = 10 * numpy.log10(dataOut.data_spc / dataOut.normFactor)
         data['spc'] = spc
         data['rti'] = dataOut.getPower()
-        data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
-        meta['xrange'] = (dataOut.getFreqRange(1)/1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
-        
+        data['noise'] = 10 * numpy.log10(dataOut.getNoise() / dataOut.normFactor)
+        meta['xrange'] = (dataOut.getFreqRange(1) / 1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
         if self.CODE == 'spc_moments':
             data['moments'] = dataOut.moments
         if self.CODE == 'gaussian_fit':
@@ -77,11 +76,9 @@ class SpectraPlot(Plot):
         data = self.data[-1]
         z = data['spc']
 
-        self.CODE2 = 'spc_oblique'
-
-
         for n, ax in enumerate(self.axes):
             noise = data['noise'][n]
+
             if self.CODE == 'spc_moments':
                 mean = data['moments'][n, 1]
             if self.CODE == 'gaussian_fit': 
@@ -244,7 +241,7 @@ class CrossSpectraPlot(Plot):
 
         spc = dataOut.data_spc
         cspc = dataOut.data_cspc
-        meta['xrange'] = (dataOut.getFreqRange(1)/1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
+        meta['xrange'] = (dataOut.getFreqRange(1) / 1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
         meta['pairs'] = dataOut.pairsList
 
         tmp = []
@@ -282,8 +279,8 @@ class CrossSpectraPlot(Plot):
 
         for n in range(len(self.data.pairs)):
             pair = self.data.pairs[n]
-            coh = cspc[n*2]
-            phase = cspc[n*2+1]
+            coh = cspc[n * 2]
+            phase = cspc[n * 2 + 1]
             ax = self.axes[2 * n]
             if ax.firsttime:
                 ax.plt = ax.pcolormesh(x, y, coh.T,
@@ -660,7 +657,7 @@ class RTIPlot(Plot):
         data = {}
         meta = {}
         data['rti'] = dataOut.getPower()
-        data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
+        data['noise'] = 10 * numpy.log10(dataOut.getNoise() / dataOut.normFactor)
 
         return data, meta
 
@@ -780,7 +777,7 @@ class CoherencePlot(RTIPlot):
         self.nplots = len(self.data.pairs)
         self.ylabel = 'Range [km]'
         self.xlabel = 'Time'
-        self.plots_adjust.update({'hspace':0.6, 'left': 0.1, 'bottom': 0.1,'right':0.95})
+        self.plots_adjust.update({'hspace':0.6, 'left': 0.1, 'bottom': 0.1, 'right':0.95})
         if self.CODE == 'coh':
             self.cb_label = ''
             self.titles = [
@@ -839,7 +836,7 @@ class NoisePlot(Plot):
 
         data = {}
         meta = {}
-        data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor).reshape(dataOut.nChannels, 1)
+        data['noise'] = 10 * numpy.log10(dataOut.getNoise() / dataOut.normFactor).reshape(dataOut.nChannels, 1)
         meta['yrange'] = numpy.array([])
 
         return data, meta
@@ -899,9 +896,9 @@ class PowerProfilePlot(Plot):
 
         x = self.data[-1][self.CODE]
         
-        if self.xmin is None: self.xmin = numpy.nanmin(x)*0.9
-        if self.xmax is None: self.xmax = numpy.nanmax(x)*1.1
-
+        if self.xmin is None: self.xmin = numpy.nanmin(x) * 0.9
+        if self.xmax is None: self.xmax = numpy.nanmax(x) * 1.1
+        
         if self.axes[0].firsttime:
             for ch in self.data.channels:
                 self.axes[0].plot(x[ch], y, lw=1, label='Ch{}'.format(ch))
@@ -932,12 +929,12 @@ class SpectraCutPlot(Plot):
 
         data = {}
         meta = {}
-        spc = 10*numpy.log10(dataOut.data_pre[0]/dataOut.normFactor)
+        spc = 10 * numpy.log10(dataOut.data_pre[0] / dataOut.normFactor)
         data['spc'] = spc
-        meta['xrange'] = (dataOut.getFreqRange(1)/1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
+        meta['xrange'] = (dataOut.getFreqRange(1) / 1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
         if self.CODE == 'cut_gaussian_fit':
-            data['gauss_fit0'] = 10*numpy.log10(dataOut.GaussFit0/dataOut.normFactor)
-            data['gauss_fit1'] = 10*numpy.log10(dataOut.GaussFit1/dataOut.normFactor)
+            data['gauss_fit0'] = 10 * numpy.log10(dataOut.GaussFit0 / dataOut.normFactor)
+            data['gauss_fit1'] = 10 * numpy.log10(dataOut.GaussFit1 / dataOut.normFactor)
         return data, meta
 
     def plot(self):
@@ -964,7 +961,7 @@ class SpectraCutPlot(Plot):
         if self.height_index:
             index = numpy.array(self.height_index)
         else:
-            index = numpy.arange(0, len(y), int((len(y))/9))
+            index = numpy.arange(0, len(y), int((len(y)) / 9))
 
         for n, ax in enumerate(self.axes):
             if self.CODE == 'cut_gaussian_fit': 
@@ -1006,7 +1003,7 @@ class BeaconPhase(Plot):
 
     def __init__(self):
         Plot.__init__(self)
-        self.timerange = 24*60*60
+        self.timerange = 24 * 60 * 60
         self.isConfig = False
         self.__nsubplots = 1
         self.counter_imagwr = 0
@@ -1047,25 +1044,25 @@ class BeaconPhase(Plot):
         colspan = 6
         self.__nsubplots = 2
 
-        self.createFigure(id = id,
-                          wintitle = wintitle,
-                          widthplot = self.WIDTH+self.WIDTHPROF,
-                          heightplot = self.HEIGHT+self.HEIGHTPROF,
+        self.createFigure(id=id,
+                          wintitle=wintitle,
+                          widthplot=self.WIDTH + self.WIDTHPROF,
+                          heightplot=self.HEIGHT + self.HEIGHTPROF,
                           show=show)
 
         nrow, ncol = self.getSubplots()
 
-        self.addAxes(nrow, ncol*ncolspan, 0, 0, colspan, 1)
+        self.addAxes(nrow, ncol * ncolspan, 0, 0, colspan, 1)
 
     def save_phase(self, filename_phase):
-        f = open(filename_phase,'w+')
+        f = open(filename_phase, 'w+')
         f.write('\n\n')
         f.write('JICAMARCA RADIO OBSERVATORY - Beacon Phase \n')
-        f.write('DD MM YYYY  HH MM SS   pair(2,0) pair(2,1) pair(2,3) pair(2,4)\n\n' )
+        f.write('DD MM YYYY  HH MM SS   pair(2,0) pair(2,1) pair(2,3) pair(2,4)\n\n')
         f.close()
 
     def save_data(self, filename_phase, data, data_datetime):
-        f=open(filename_phase,'a')
+        f = open(filename_phase, 'a')
         timetuple_data = data_datetime.timetuple()
         day = str(timetuple_data.tm_mday)
         month = str(timetuple_data.tm_mon)
@@ -1073,7 +1070,7 @@ class BeaconPhase(Plot):
         hour = str(timetuple_data.tm_hour)
         minute = str(timetuple_data.tm_min)
         second = str(timetuple_data.tm_sec)
-        f.write(day+' '+month+' '+year+'  '+hour+' '+minute+' '+second+'   '+str(data[0])+'   '+str(data[1])+'   '+str(data[2])+'   '+str(data[3])+'\n')
+        f.write(day + ' ' + month + ' ' + year + '  ' + hour + ' ' + minute + ' ' + second + '   ' + str(data[0]) + '   ' + str(data[1]) + '   ' + str(data[2]) + '   ' + str(data[3]) + '\n')
         f.close()
 
     def plot(self):
@@ -1098,7 +1095,7 @@ class BeaconPhase(Plot):
             pairsIndexList = []
             for pair in pairsList:
                 if pair not in dataOut.pairsList:
-                    raise ValueError("Pair %s is not in dataOut.pairsList" %(pair))
+                    raise ValueError("Pair %s is not in dataOut.pairsList" % (pair))
                 pairsIndexList.append(dataOut.pairsList.index(pair))
 
         if pairsIndexList == []:
@@ -1119,28 +1116,28 @@ class BeaconPhase(Plot):
                 hmin_index = hmin_list[0]
 
             if hmax_list.any():
-                hmax_index = hmax_list[-1]+1
+                hmax_index = hmax_list[-1] + 1
 
         x = dataOut.getTimeRange()
 
         thisDatetime = dataOut.datatime
 
-        title = wintitle + " Signal Phase" # : %s" %(thisDatetime.strftime("%d-%b-%Y"))
+        title = wintitle + " Signal Phase"  # : %s" %(thisDatetime.strftime("%d-%b-%Y"))
         xlabel = "Local Time"
         ylabel = "Phase (degrees)"
 
         update_figfile = False
 
         nplots = len(pairsIndexList)
-        #phase = numpy.zeros((len(pairsIndexList),len(dataOut.beacon_heiIndexList)))
+        # phase = numpy.zeros((len(pairsIndexList),len(dataOut.beacon_heiIndexList)))
         phase_beacon = numpy.zeros(len(pairsIndexList))
         for i in range(nplots):
             pair = dataOut.pairsList[pairsIndexList[i]]
             ccf = numpy.average(dataOut.data_cspc[pairsIndexList[i], :, hmin_index:hmax_index], axis=0)
             powa = numpy.average(dataOut.data_spc[pair[0], :, hmin_index:hmax_index], axis=0)
             powb = numpy.average(dataOut.data_spc[pair[1], :, hmin_index:hmax_index], axis=0)
-            avgcoherenceComplex = ccf/numpy.sqrt(powa*powb)
-            phase = numpy.arctan2(avgcoherenceComplex.imag, avgcoherenceComplex.real)*180/numpy.pi
+            avgcoherenceComplex = ccf / numpy.sqrt(powa * powb)
+            phase = numpy.arctan2(avgcoherenceComplex.imag, avgcoherenceComplex.real) * 180 / numpy.pi
 
             if dataOut.beacon_heiIndexList:
                 phase_beacon[i] = numpy.average(phase[dataOut.beacon_heiIndexList])
@@ -1178,31 +1175,31 @@ class BeaconPhase(Plot):
 
             update_figfile = True
 
-            #open file beacon phase
-            path = '%s%03d' %(self.PREFIX, self.id)
-            beacon_file = os.path.join(path,'%s.txt'%self.name)
-            self.filename_phase = os.path.join(figpath,beacon_file)
-            #self.save_phase(self.filename_phase)
+            # open file beacon phase
+            path = '%s%03d' % (self.PREFIX, self.id)
+            beacon_file = os.path.join(path, '%s.txt' % self.name)
+            self.filename_phase = os.path.join(figpath, beacon_file)
+            # self.save_phase(self.filename_phase)
 
 
-        #store data beacon phase
-        #self.save_data(self.filename_phase, phase_beacon, thisDatetime)
+        # store data beacon phase
+        # self.save_data(self.filename_phase, phase_beacon, thisDatetime)
 
         self.setWinTitle(title)
 
 
-        title = "Phase Plot %s" %(thisDatetime.strftime("%Y/%m/%d %H:%M:%S"))
+        title = "Phase Plot %s" % (thisDatetime.strftime("%Y/%m/%d %H:%M:%S"))
 
-        legendlabels = ["Pair (%d,%d)"%(pair[0], pair[1]) for pair in dataOut.pairsList]
+        legendlabels = ["Pair (%d,%d)" % (pair[0], pair[1]) for pair in dataOut.pairsList]
 
         axes = self.axesList[0]
 
         self.xdata = numpy.hstack((self.xdata, x[0:1]))
 
-        if len(self.ydata)==0:
-            self.ydata = phase_beacon.reshape(-1,1)
+        if len(self.ydata) == 0:
+            self.ydata = phase_beacon.reshape(-1, 1)
         else:
-            self.ydata = numpy.hstack((self.ydata, phase_beacon.reshape(-1,1)))
+            self.ydata = numpy.hstack((self.ydata, phase_beacon.reshape(-1, 1)))
 
 
         axes.pmultilineyaxis(x=self.xdata, y=self.ydata,

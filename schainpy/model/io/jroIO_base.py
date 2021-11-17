@@ -196,7 +196,7 @@ def isFileInTimeRange(filename, startDate, endDate, startTime, endTime):
 
     # If endTime < startTime then endTime belongs to the next day
 
-    #<<<<<<<<<<<o                            o>>>>>>>>>>>
+    # <<<<<<<<<<<o                            o>>>>>>>>>>>
     #-----------o----------------------------o-----------
     #        endTime                    startTime
 
@@ -422,8 +422,8 @@ def parse_format(s, fmt):
 
     for i in range(fmt.count('%')):
         x = fmt.index('%')
-        d = DT_DIRECTIVES[fmt[x:x+2]]
-        fmt = fmt.replace(fmt[x:x+2], s[x:x+d])
+        d = DT_DIRECTIVES[fmt[x:x + 2]]
+        fmt = fmt.replace(fmt[x:x + 2], s[x:x + d])
     return fmt
 
 class Reader(object):
@@ -656,7 +656,7 @@ class Reader(object):
         nextFile = True
         nextDay = False
 
-        for nFiles in range(self.nFiles+1):
+        for nFiles in range(self.nFiles + 1):            
             for nTries in range(self.nTries):
                 fullfilename, filename = self.checkForRealPath(nextFile, nextDay)
                 if fullfilename is not None:
@@ -699,7 +699,7 @@ class Reader(object):
 
         try:
             filename = next(self.filenameList)
-            self.fileIndex +=1
+            self.fileIndex += 1
         except StopIteration:
             self.flagNoMoreFiles = 1
             return 0
@@ -838,7 +838,7 @@ class JRODataReader(Reader):
             if prefixDir != None:
                 # formo el nombre del directorio xYYYYDDD (x=d o x=D)
                 if foldercounter == 0:
-                    thispath = os.path.join(self.path, "%s%04d%03d" %
+                    thispath = os.path.join(self.path, "%s%04d%03d" % 
                                             (prefixDir, self.year, self.doy))
                 else:
                     thispath = os.path.join(self.path, "%s%04d%03d_%02d" % (
@@ -971,7 +971,7 @@ class JRODataReader(Reader):
         self.processingHeaderObj.read(self.fp)
         self.firstHeaderSize = self.basicHeaderObj.size
 
-        datatype = int(numpy.log2((self.processingHeaderObj.processFlags &
+        datatype = int(numpy.log2((self.processingHeaderObj.processFlags & 
                                    PROCFLAG.DATATYPE_MASK)) - numpy.log2(PROCFLAG.DATATYPE_CHAR))
         if datatype == 0:
             datatype_str = numpy.dtype([('real', '<i1'), ('imag', '<i1')])
@@ -989,7 +989,7 @@ class JRODataReader(Reader):
             raise ValueError('Data type was not defined')
 
         self.dtype = datatype_str
-        #self.ippSeconds = 2 * 1000 * self.radarControllerHeaderObj.ipp / self.c
+        # self.ippSeconds = 2 * 1000 * self.radarControllerHeaderObj.ipp / self.c
         self.fileSizeByHeader = self.processingHeaderObj.dataBlocksPerFile * self.processingHeaderObj.blockSize + \
             self.firstHeaderSize + self.basicHeaderSize * \
             (self.processingHeaderObj.dataBlocksPerFile - 1)
@@ -1025,8 +1025,8 @@ class JRODataReader(Reader):
             flag = False
         if not self.online:
             dt1 = basicHeaderObj.datatime
-            pos = self.fileSize-processingHeaderObj.blockSize-24
-            if pos<0:
+            pos = self.fileSize - processingHeaderObj.blockSize - 24
+            if pos < 0:
                 flag = False
                 log.error('Invalid size for file: {}'.format(self.filename), self.name)
             else:
@@ -1598,7 +1598,7 @@ class printInfo(Operation):
         Operation.__init__(self)
         self.__printInfo = True
 
-    def run(self, dataOut, headers = ['systemHeaderObj', 'radarControllerHeaderObj', 'processingHeaderObj']):
+    def run(self, dataOut, headers=['systemHeaderObj', 'radarControllerHeaderObj', 'processingHeaderObj']):
         if self.__printInfo == False:
             return
 

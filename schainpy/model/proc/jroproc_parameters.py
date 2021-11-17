@@ -16,14 +16,13 @@ from scipy.optimize import fmin_l_bfgs_b #optimize with bounds on state papamete
 from .jroproc_base import ProcessingUnit, Operation, MPDecorator
 from schainpy.model.data.jrodata import Parameters, hildebrand_sekhon
 from scipy import asarray as ar,exp
-from scipy.optimize import curve_fit
+from scipy.optimize import fmin, curve_fit
 from schainpy.utils import log
 import warnings
 from numpy import NaN
 from scipy.optimize.optimize import OptimizeWarning
 warnings.filterwarnings('ignore')
 
-import matplotlib.pyplot as plt
 
 SPEED_OF_LIGHT = 299792458
 
@@ -45,7 +44,7 @@ def _unpickle_method(func_name, obj, cls):
             break
     return func.__get__(obj, cls)
 
-
+# @MPDecorator
 class ParametersProc(ProcessingUnit):
 
     METHODS = {}
@@ -54,7 +53,6 @@ class ParametersProc(ProcessingUnit):
     def __init__(self):
         ProcessingUnit.__init__(self)
 
-#         self.objectDict = {}
         self.buffer = None
         self.firstdatatime = None
         self.profIndex = 0
@@ -75,29 +73,27 @@ class ParametersProc(ProcessingUnit):
         self.dataOut.channelList = self.dataIn.channelList
         self.dataOut.heightList = self.dataIn.heightList
         self.dataOut.dtype = numpy.dtype([('real','<f4'),('imag','<f4')])
-#         self.dataOut.nHeights = self.dataIn.nHeights
-#         self.dataOut.nChannels = self.dataIn.nChannels
+        # self.dataOut.nHeights = self.dataIn.nHeights
+        # self.dataOut.nChannels = self.dataIn.nChannels
         # self.dataOut.nBaud = self.dataIn.nBaud
         # self.dataOut.nCode = self.dataIn.nCode
         # self.dataOut.code = self.dataIn.code
-#        self.dataOut.nProfiles = self.dataOut.nFFTPoints
+        # self.dataOut.nProfiles = self.dataOut.nFFTPoints
         self.dataOut.flagDiscontinuousBlock = self.dataIn.flagDiscontinuousBlock
-#         self.dataOut.utctime = self.firstdatatime
+        # self.dataOut.utctime = self.firstdatatime
         self.dataOut.utctime = self.dataIn.utctime
         self.dataOut.flagDecodeData = self.dataIn.flagDecodeData #asumo q la data esta decodificada
         self.dataOut.flagDeflipData = self.dataIn.flagDeflipData #asumo q la data esta sin flip
         self.dataOut.nCohInt = self.dataIn.nCohInt
-#        self.dataOut.nIncohInt = 1
-#        self.dataOut.ippSeconds = self.dataIn.ippSeconds
-#        self.dataOut.windowOfFilter = self.dataIn.windowOfFilter
+        # self.dataOut.nIncohInt = 1
+        # self.dataOut.ippSeconds = self.dataIn.ippSeconds
+        # self.dataOut.windowOfFilter = self.dataIn.windowOfFilter
         self.dataOut.timeInterval1 = self.dataIn.timeInterval
         self.dataOut.heightList = self.dataIn.heightList
         self.dataOut.frequency = self.dataIn.frequency
-        # self.dataOut.noise = self.dataIn.noise
+        #self.dataOut.noise = self.dataIn.noise
 
     def run(self):
-
-
 
         #----------------------    Voltage Data    ---------------------------
 
@@ -222,7 +218,6 @@ class RemoveWideGC(Operation):
         self.ir = 0
     
     def run(self, dataOut, ClutterWidth=2.5):
-        # print ('Entering RemoveWideGC ... ')
 
         self.spc = dataOut.data_pre[0].copy()
         self.spc_out = dataOut.data_pre[0].copy()
@@ -279,7 +274,7 @@ class RemoveWideGC(Operation):
                 self.spc_out[ich,gcindex,ir] = numpy.interp(VelRange[gcindex],VelRange[interpindex],self.spc[ich,interpindex,ir])
 
         dataOut.data_pre[0] = self.spc_out
-        #print ('Leaving RemoveWideGC ... ')
+
         return dataOut
 
 class SpectralFilters(Operation):
@@ -319,10 +314,6 @@ class SpectralFilters(Operation):
         dataOut.data_pre[0] = self.spc
         return dataOut
 
-
-from scipy.optimize import fmin
-import itertools
-from scipy.optimize import curve_fit
 
 
 class GaussianFit(Operation):
@@ -394,7 +385,8 @@ class GaussianFit(Operation):
             gau1[iCh] = A1*numpy.exp(-0.5*numpy.abs((x_mtr-v1)/s1)**p1)+N1
         dataOut.GaussFit0 = gau0
         dataOut.GaussFit1 = gau1
-        
+
+        print('Leaving ',method ,' double Gaussian fit')
         return dataOut
 
     def FitGau(self, X):
@@ -632,7 +624,7 @@ class GaussianFit(Operation):
             if Amplitude1<0.05:
                 shift1,width1,Amplitude1,p1 = 4*[numpy.NaN]
 
-            # print ('stop 16 ')
+            # print ('stop 16 ') 
             # SPC_ch1[:,ht] = noise + Amplitude0*numpy.exp(-0.5*(abs(x-shift0)/width0)**p0)
             # SPC_ch2[:,ht] = noise + Amplitude1*numpy.exp(-0.5*(abs(x-shift1)/width1)**p1)
             # SPCparam = (SPC_ch1,SPC_ch2)
@@ -649,8 +641,6 @@ class GaussianFit(Operation):
             DGauFitParam[4,ht,1] = p1
 
         return DGauFitParam
-        # return SPCparam
-        # return GauSPC
 
     def y_model1(self,x,state):
         shift0, width0, amplitude0, power0, noise = state
@@ -676,7 +666,6 @@ class GaussianFit(Operation):
 
     def misfit2(self,state,y_data,x,num_intg):
         return num_intg*sum((numpy.log(y_data)-numpy.log(self.y_model2(x,state)))**2)#/(64-9.)
-
 
 class Oblique_Gauss_Fit(Operation):
 
@@ -1048,7 +1037,6 @@ class PrecipitationProc(Operation):
 #         RadarConstant =  Numerator / Denominator
 #
 #         return RadarConstant
-
 
 
 class FullSpectralAnalysis(Operation):
@@ -1527,37 +1515,7 @@ class SpectralMoments(Operation):
 
         return numpy.vstack((vec_snr, vec_power, vec_fd, vec_w))
 
-    #------------------    Get SA Parameters    --------------------------
-
-    def GetSAParameters(self):
-        #SA en frecuencia
-        pairslist = self.dataOut.groupList
-        num_pairs = len(pairslist)
-
-        vel = self.dataOut.abscissaList
-        spectra = self.dataOut.data_pre
-        cspectra = self.dataIn.data_cspc
-        delta_v = vel[1] - vel[0]
-
-        #Calculating the power spectrum
-        spc_pow = numpy.sum(spectra, 3)*delta_v
-        #Normalizing Spectra
-        norm_spectra = spectra/spc_pow
-        #Calculating the norm_spectra at peak
-        max_spectra = numpy.max(norm_spectra, 3)
-
-        #Normalizing Cross Spectra
-        norm_cspectra = numpy.zeros(cspectra.shape)
-
-        for i in range(num_chan):
-            norm_cspectra[i,:,:] = cspectra[i,:,:]/numpy.sqrt(spc_pow[pairslist[i][0],:]*spc_pow[pairslist[i][1],:])
-
-        max_cspectra = numpy.max(norm_cspectra,2)
-        max_cspectra_index = numpy.argmax(norm_cspectra, 2)
-
-        for i in range(num_pairs):
-            cspc_par[i,:,:] = __calculateMoments(norm_cspectra)
-    #-------------------    Get Lags    ----------------------------------
+    
 
 class SALags(Operation):
     '''
@@ -1657,6 +1615,12 @@ class SALags(Operation):
 
         return phase
 
+def fit_func( x, a0, a1, a2): #, a3, a4, a5):
+    z = (x - a1) / a2
+    y = a0 * numpy.exp(-z**2 / a2)  #+ a3 + a4 * x + a5 * x**2
+    return y
+
+
 class SpectralFitting(Operation):
     '''
         Function GetMoments()
@@ -1665,35 +1629,739 @@ class SpectralFitting(Operation):
         Output:
         Variables modified:
     '''
+    def __calculateMoments(self,oldspec, oldfreq, n0, nicoh = None, graph = None, smooth = None, type1 = None, fwindow = None, snrth = None, dc = None, aliasing = None, oldfd = None, wwauto = None):
+        
+        if (nicoh is None): nicoh = 1
+        if (graph is None): graph = 0    
+        if (smooth is None): smooth = 0
+        elif (self.smooth < 3): smooth = 0
 
+        if (type1 is None): type1 = 0
+        if (fwindow is None): fwindow = numpy.zeros(oldfreq.size) + 1
+        if (snrth is None): snrth = -3
+        if (dc is None): dc = 0
+        if (aliasing is None): aliasing = 0
+        if (oldfd is None): oldfd = 0
+        if (wwauto is None): wwauto = 0
+         
+        if (n0 < 1.e-20):   n0 = 1.e-20
+        
+        freq = oldfreq
+        vec_power = numpy.zeros(oldspec.shape[1])
+        vec_fd = numpy.zeros(oldspec.shape[1])
+        vec_w = numpy.zeros(oldspec.shape[1])
+        vec_snr = numpy.zeros(oldspec.shape[1])
+        
+        oldspec = numpy.ma.masked_invalid(oldspec)
+
+        for ind in range(oldspec.shape[1]):
+                        
+            spec = oldspec[:,ind]
+            aux = spec*fwindow
+            max_spec = aux.max()
+            m = list(aux).index(max_spec)
+                       
+            #Smooth    
+            if (smooth == 0):   spec2 = spec
+            else:   spec2 = scipy.ndimage.filters.uniform_filter1d(spec,size=smooth)
+    
+            #    Calculo de Momentos
+            bb = spec2[list(range(m,spec2.size))]
+            bb = (bb<n0).nonzero()
+            bb = bb[0]
+            
+            ss = spec2[list(range(0,m + 1))]
+            ss = (ss<n0).nonzero()
+            ss = ss[0]
+            
+            if (bb.size == 0):
+                bb0 = spec.size - 1 - m
+            else:   
+                bb0 = bb[0] - 1
+                if (bb0 < 0):
+                    bb0 = 0
+                    
+            if (ss.size == 0):   ss1 = 1
+            else: ss1 = max(ss) + 1
+            
+            if (ss1 > m):   ss1 = m
+            
+            valid = numpy.asarray(list(range(int(m + bb0 - ss1 + 1)))) + ss1               
+            power = ((spec2[valid] - n0)*fwindow[valid]).sum()
+            fd = ((spec2[valid]- n0)*freq[valid]*fwindow[valid]).sum()/power
+            w = math.sqrt(((spec2[valid] - n0)*fwindow[valid]*(freq[valid]- fd)**2).sum()/power)
+            snr = (spec2.mean()-n0)/n0               
+            
+            if (snr < 1.e-20) :  
+                snr = 1.e-20
+            
+            vec_power[ind] = power
+            vec_fd[ind] = fd
+            vec_w[ind] = w
+            vec_snr[ind] = snr
+        
+        moments = numpy.vstack((vec_snr, vec_power, vec_fd, vec_w))
+        return moments    
+
+      #def __DiffCoherent(self,snrth, spectra, cspectra, nProf, heights,nChan, nHei, nPairs, channels, noise, crosspairs):
+    def __DiffCoherent(self, spectra, cspectra, dataOut, noise, snrth, coh_th, hei_th):
+        
+        import matplotlib.pyplot as plt
+        nProf = dataOut.nProfiles
+        heights = dataOut.heightList
+        nHei = len(heights)
+        channels = dataOut.channelList
+        nChan = len(channels)
+        crosspairs = dataOut.groupList
+        nPairs = len(crosspairs)
+        #Separar espectros incoherentes de coherentes snr > 20 dB'
+        snr_th = 10**(snrth/10.0)
+        my_incoh_spectra = numpy.zeros([nChan, nProf,nHei], dtype='float')
+        my_incoh_cspectra = numpy.zeros([nPairs,nProf, nHei], dtype='complex')
+        my_incoh_aver = numpy.zeros([nChan, nHei])
+        my_coh_aver = numpy.zeros([nChan, nHei])
+
+        coh_spectra = numpy.zeros([nChan, nProf, nHei], dtype='float')
+        coh_cspectra = numpy.zeros([nPairs, nProf, nHei], dtype='complex')
+        coh_aver = numpy.zeros([nChan, nHei])
+ 
+        incoh_spectra = numpy.zeros([nChan, nProf, nHei], dtype='float')
+        incoh_cspectra = numpy.zeros([nPairs, nProf, nHei], dtype='complex')
+        incoh_aver = numpy.zeros([nChan, nHei])
+        power = numpy.sum(spectra, axis=1)
+        
+        if coh_th == None : coh_th = numpy.array([0.75,0.65,0.15]) # 0.65
+        if hei_th == None : hei_th = numpy.array([60,300,650])
+        for ic in range(2):
+            pair = crosspairs[ic]
+            #si el SNR es mayor que el SNR threshold los datos se toman coherentes
+            s_n0 = power[pair[0],:]/noise[pair[0]]
+            s_n1 = power[pair[1],:]/noise[pair[1]]
+            
+            valid1 =(s_n0>=snr_th).nonzero()
+            valid2 = (s_n1>=snr_th).nonzero()
+            #valid = valid2 + valid1 #numpy.concatenate((valid1,valid2), axis=None)
+            valid1 =  numpy.array(valid1[0])
+            valid2 =  numpy.array(valid2[0])
+            valid = valid1
+            for iv in range(len(valid2)):
+                #for ivv in range(len(valid1)) :
+                indv = numpy.array((valid1 == valid2[iv]).nonzero())
+                if len(indv[0]) == 0 :
+                   valid =  numpy.concatenate((valid,valid2[iv]), axis=None)
+            if len(valid)>0:
+                my_coh_aver[pair[0],valid]=1	    
+                my_coh_aver[pair[1],valid]=1
+            # si la coherencia es mayor a la coherencia threshold los datos se toman
+            #print my_coh_aver[0,:]
+            coh = numpy.squeeze(numpy.nansum(cspectra[ic,:,:], axis=0)/numpy.sqrt(numpy.nansum(spectra[pair[0],:,:], axis=0)*numpy.nansum(spectra[pair[1],:,:], axis=0)))
+            #print('coh',numpy.absolute(coh))
+            for ih in range(len(hei_th)):
+                hvalid = (heights>hei_th[ih]).nonzero()
+                hvalid = hvalid[0]
+                if len(hvalid)>0:
+                    valid = (numpy.absolute(coh[hvalid])>coh_th[ih]).nonzero()
+                    valid = valid[0]
+                    #print('hvalid:',hvalid)
+                    #print('valid', valid)
+                    if len(valid)>0:
+                        my_coh_aver[pair[0],hvalid[valid]] =1
+                        my_coh_aver[pair[1],hvalid[valid]] =1
+        
+            coh_echoes = (my_coh_aver[pair[0],:] == 1).nonzero()
+            incoh_echoes = (my_coh_aver[pair[0],:] != 1).nonzero()
+            incoh_echoes = incoh_echoes[0]
+            if len(incoh_echoes) > 0:
+                my_incoh_spectra[pair[0],:,incoh_echoes] = spectra[pair[0],:,incoh_echoes]
+                my_incoh_spectra[pair[1],:,incoh_echoes] = spectra[pair[1],:,incoh_echoes]
+                my_incoh_cspectra[ic,:,incoh_echoes] = cspectra[ic,:,incoh_echoes]
+                my_incoh_aver[pair[0],incoh_echoes] = 1
+                my_incoh_aver[pair[1],incoh_echoes] = 1
+
+        
+        for ic in range(2):
+            pair = crosspairs[ic]
+
+            valid1 =(my_coh_aver[pair[0],:]==1 ).nonzero()
+            valid2 = (my_coh_aver[pair[1],:]==1).nonzero()
+            valid1 = numpy.array(valid1[0])
+            valid2 = numpy.array(valid2[0])
+            valid = valid1
+            #print valid1 , valid2
+            for iv in range(len(valid2)):
+                #for ivv in range(len(valid1)) :
+                indv = numpy.array((valid1 == valid2[iv]).nonzero())
+                if len(indv[0]) == 0 :
+                   valid =  numpy.concatenate((valid,valid2[iv]), axis=None)
+            #print valid
+            #valid = numpy.concatenate((valid1,valid2), axis=None)
+            valid1 =(my_coh_aver[pair[0],:] !=1 ).nonzero()
+            valid2 = (my_coh_aver[pair[1],:] !=1).nonzero()
+            valid1 = numpy.array(valid1[0])
+            valid2 = numpy.array(valid2[0])
+            incoh_echoes = valid1
+            #print valid1, valid2
+            #incoh_echoes= numpy.concatenate((valid1,valid2), axis=None)
+            for iv in range(len(valid2)):
+                #for ivv in range(len(valid1)) :
+                indv = numpy.array((valid1 == valid2[iv]).nonzero())
+                if len(indv[0]) == 0 :
+                   incoh_echoes = numpy.concatenate(( incoh_echoes,valid2[iv]), axis=None)
+            #print incoh_echoes
+            if len(valid)>0:
+                #print pair
+                coh_spectra[pair[0],:,valid] = spectra[pair[0],:,valid]
+                coh_spectra[pair[1],:,valid] = spectra[pair[1],:,valid]
+                coh_cspectra[ic,:,valid] = cspectra[ic,:,valid]
+                coh_aver[pair[0],valid]=1
+                coh_aver[pair[1],valid]=1
+            if len(incoh_echoes)>0:
+                incoh_spectra[pair[0],:,incoh_echoes] = spectra[pair[0],:,incoh_echoes]
+                incoh_spectra[pair[1],:,incoh_echoes] = spectra[pair[1],:,incoh_echoes]
+                incoh_cspectra[ic,:,incoh_echoes] = cspectra[ic,:,incoh_echoes]
+                incoh_aver[pair[0],incoh_echoes]=1
+                incoh_aver[pair[1],incoh_echoes]=1
+                #plt.imshow(spectra[0,:,:],vmin=20000000)
+                #plt.show()
+        #my_incoh_aver = my_incoh_aver+1
+	    
+        #spec = my_incoh_spectra.copy()
+        #cspec = my_incoh_cspectra.copy()
+        #print('######################', spec)
+        #print(self.numpy)
+        #return spec, cspec,coh_aver
+        return  my_incoh_spectra ,my_incoh_cspectra,my_incoh_aver,my_coh_aver, incoh_spectra, coh_spectra, incoh_cspectra, coh_cspectra, incoh_aver, coh_aver
+    
+    def __CleanCoherent(self,snrth, spectra, cspectra, coh_aver,dataOut, noise,clean_coh_echoes,index):
+
+        import matplotlib.pyplot as plt
+        nProf = dataOut.nProfiles
+        heights = dataOut.heightList
+        nHei = len(heights)
+        channels = dataOut.channelList
+        nChan = len(channels)
+        crosspairs = dataOut.groupList
+        nPairs = len(crosspairs)
+        
+        #data = dataOut.data_pre[0]
+        absc = dataOut.abscissaList[:-1]
+        #noise = dataOut.noise
+        #nChannel = data.shape[0]
+        data_param = numpy.zeros((nChan, 4, spectra.shape[2]))
+             
+        
+        #plt.plot(absc)
+        #plt.show()
+        clean_coh_spectra = spectra.copy()
+        clean_coh_cspectra = cspectra.copy()
+        clean_coh_aver = coh_aver.copy()
+
+        spwd_th=[10,6]  #spwd_th[0] --> For satellites ; spwd_th[1] --> For special events like SUN.
+        coh_th = 0.75
+
+        rtime0 = [6,18] # periodo sin ESF
+        rtime1 = [10.5,13.5] # periodo con alta coherencia y alto ancho espectral (esperado): SOL.
+
+        time = index*5./60
+        if clean_coh_echoes == 1 :
+           for ind in range(nChan):
+              data_param[ind,:,:] = self.__calculateMoments( spectra[ind,:,:] , absc , noise[ind] )
+        #print data_param[:,3]
+           spwd = data_param[:,3]
+            #print spwd.shape
+        #  SPECB_JULIA,header=anal_header,jspectra=spectra,vel=velocities,hei=heights, num_aver=1, mode_fit=0,smoothing=smoothing,jvelr=velr,jspwd=spwd,jsnr=snr,jnoise=noise,jstdvnoise=stdvnoise
+           #spwd1=[ 1.65607,      1.43416,     0.500373,     0.208361,     0.000000,      26.7767,      22.5936,      26.7530,      20.6962,      29.1098,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,      28.0300,      27.0511,      27.8810,      26.3126,      27.8445,      24.6181,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000]
+           #spwd=numpy.array([spwd1,spwd1,spwd1,spwd1])
+           #print spwd.shape, heights.shape,coh_aver.shape
+      # para obtener spwd
+           for ic in range(nPairs):
+              pair = crosspairs[ic]
+              coh = numpy.squeeze(numpy.sum(cspectra[ic,:,:], axis=1)/numpy.sqrt(numpy.sum(spectra[pair[0],:,:], axis=1)*numpy.sum(spectra[pair[1],:,:], axis=1)))
+              for ih in range(nHei) :
+        # Considering heights higher than 200km in order to avoid removing phenomena like EEJ.
+                 if heights[ih] >= 200 and coh_aver[pair[0],ih] == 1 and coh_aver[pair[1],ih] == 1 :
+          # Checking coherence
+                    if (numpy.abs(coh[ih]) <= coh_th) or (time >= rtime0[0] and time <= rtime0[1]) :
+            # Checking spectral widths
+                       if (spwd[pair[0],ih] > spwd_th[0]) or (spwd[pair[1],ih] > spwd_th[0]) :
+              # satelite
+                          clean_coh_spectra[pair,ih,:] = 0.0
+                          clean_coh_cspectra[ic,ih,:] =  0.0
+                          clean_coh_aver[pair,ih] = 0
+                       else :
+                            if ((spwd[pair[0],ih] < spwd_th[1]) or (spwd[pair[1],ih] < spwd_th[1])) :
+                # Especial event like sun.
+                               clean_coh_spectra[pair,ih,:] = 0.0
+                               clean_coh_cspectra[ic,ih,:] =  0.0
+                               clean_coh_aver[pair,ih] = 0
+
+        return clean_coh_spectra, clean_coh_cspectra, clean_coh_aver
+
+    isConfig = False
+    __dataReady = False
+    bloques =  None
+    bloque0 = None
+
+    def __init__(self):
+        Operation.__init__(self)
+        self.i=0
+        self.isConfig = False
+        
+
+    def setup(self,nChan,nProf,nHei,nBlocks):
+        self.__dataReady = False
+        self.bloques = numpy.zeros([2, nProf, nHei,nBlocks], dtype= complex)
+        self.bloque0 = numpy.zeros([nChan, nProf, nHei, nBlocks])
+    
+       #def CleanRayleigh(self,dataOut,spectra,cspectra,out_spectra,out_cspectra,sat_spectra,sat_cspectra,crosspairs,heights, channels, nProf,nHei,nChan,nPairs,nIncohInt,nBlocks):
+    def CleanRayleigh(self,dataOut,spectra,cspectra,save_drifts):
+        #import matplotlib.pyplot as plt
+        #for k in range(149):
+
+         #   self.bloque0[:,:,:,k]   = spectra[:,:,0:nHei]
+         #   self.bloques[:,:,:,k]   = cspectra[:,:,0:nHei]
+        #if self.i==nBlocks:
+         #   self.i==0
+        rfunc = cspectra.copy() #self.bloques
+        n_funct = len(rfunc[0,:,0,0])
+        val_spc = spectra*0.0 #self.bloque0*0.0
+        val_cspc = cspectra*0.0 #self.bloques*0.0
+        in_sat_spectra = spectra.copy()  #self.bloque0
+        in_sat_cspectra = cspectra.copy()  #self.bloques            
+
+        #print( rfunc.shape)
+        min_hei = 200
+        nProf = dataOut.nProfiles
+        heights = dataOut.heightList
+        nHei = len(heights)
+        channels = dataOut.channelList
+        nChan = len(channels)
+        crosspairs = dataOut.groupList
+        nPairs = len(crosspairs)
+        hval=(heights >= min_hei).nonzero()
+        ih=hval[0]
+        #print numpy.absolute(rfunc[:,0,0,14])
+        for ih in range(hval[0][0],nHei):
+            for ifreq in range(nProf):
+                for ii in range(n_funct):
+                    
+                    func2clean = 10*numpy.log10(numpy.absolute(rfunc[:,ii,ifreq,ih]))
+                    #print numpy.amin(func2clean)
+                    val = (numpy.isfinite(func2clean)==True).nonzero()
+                    if len(val)>0:                   
+                       min_val = numpy.around(numpy.amin(func2clean)-2) #> (-40)
+                       if min_val <= -40 : min_val = -40
+                       max_val = numpy.around(numpy.amax(func2clean)+2) #< 200
+                       if max_val >= 200 : max_val = 200
+                       #print min_val, max_val
+                       step = 1
+                            #Getting bins and the histogram
+                       x_dist = min_val + numpy.arange(1 + ((max_val-(min_val))/step))*step
+                       y_dist,binstep = numpy.histogram(func2clean,bins=range(int(min_val),int(max_val+2),step))                                                
+                       mean = numpy.sum(x_dist * y_dist) / numpy.sum(y_dist)
+                       sigma = numpy.sqrt(numpy.sum(y_dist * (x_dist - mean)**2) / numpy.sum(y_dist))
+                       parg = [numpy.amax(y_dist),mean,sigma]
+                       try :
+                           gauss_fit, covariance = curve_fit(fit_func, x_dist, y_dist,p0=parg)
+                           mode = gauss_fit[1]
+                           stdv = gauss_fit[2] 
+                       except:
+                           mode = mean
+                           stdv = sigma 
+#                        if ih == 14 and ii == 0 and ifreq ==0 : 
+#                            print x_dist.shape, y_dist.shape
+#                            print x_dist, y_dist
+#                            print min_val, max_val, binstep
+#                            print func2clean
+#                            print mean,sigma
+#                            mean1,std = norm.fit(y_dist)
+#                            print mean1, std, gauss_fit
+#                            print fit_func(x_dist,gauss_fit[0],gauss_fit[1],gauss_fit[2])
+                       #  7.84616      53.9307      3.61863
+                       #stdv = 3.61863 # 2.99089
+                       #mode = 53.9307 #7.79008
+
+                       #Removing echoes greater than mode + 3*stdv
+                       factor_stdv = 2.5
+                       noval = (abs(func2clean - mode)>=(factor_stdv*stdv)).nonzero()
+                       
+                       if len(noval[0]) > 0:
+                            novall = ((func2clean - mode) >= (factor_stdv*stdv)).nonzero()
+                            cross_pairs = crosspairs[ii]
+                                #Getting coherent echoes which are removed.
+                            if len(novall[0]) > 0:
+                                    #val_spc[(0,1),novall[a],ih] = 1
+                                    #val_spc[,(2,3),novall[a],ih] = 1
+                                val_spc[novall[0],cross_pairs[0],ifreq,ih] = 1
+                                val_spc[novall[0],cross_pairs[1],ifreq,ih] = 1
+                                val_cspc[novall[0],ii,ifreq,ih] = 1
+                                #print("OUT NOVALL 1")
+                                #Removing coherent from ISR data
+#                             if ih == 17 and ii == 0 and ifreq ==0 : 
+#                                 print spectra[:,cross_pairs[0],ifreq,ih]
+                            spectra[noval,cross_pairs[0],ifreq,ih] = numpy.nan
+                            spectra[noval,cross_pairs[1],ifreq,ih] = numpy.nan
+                            cspectra[noval,ii,ifreq,ih] = numpy.nan
+#                             if ih == 17 and ii == 0 and ifreq ==0 : 
+#                                 print spectra[:,cross_pairs[0],ifreq,ih]
+#                                print noval, len(noval[0])
+#                                print novall, len(novall[0])
+#                                print factor_stdv*stdv
+#                                print func2clean-mode
+#                                print val_spc[:,cross_pairs[0],ifreq,ih]
+#                                print spectra[:,cross_pairs[0],ifreq,ih]
+                    #no sale es para savedrifts >2
+            '''                channels = channels 
+                            cross_pairs = cross_pairs
+                                #print("OUT NOVALL 2")
+
+                            vcross0 = (cross_pairs[0] == channels[ii]).nonzero()
+                            vcross1 = (cross_pairs[1] == channels[ii]).nonzero()
+                            vcross = numpy.concatenate((vcross0,vcross1),axis=None)
+                                #print('vcros =', vcross)
+                        
+                                #Getting coherent echoes which are removed.
+                            if len(novall) > 0:
+                                    #val_spc[novall,ii,ifreq,ih] = 1
+                                 val_spc[ii,ifreq,ih,novall] = 1
+                                 if len(vcross) > 0:
+                                    val_cspc[vcross,ifreq,ih,novall] = 1                                    
+
+                                #Removing coherent from ISR data.
+                            self.bloque0[ii,ifreq,ih,noval] = numpy.nan
+                            if len(vcross) > 0:
+                                self.bloques[vcross,ifreq,ih,noval] = numpy.nan    
+            '''
+            #Getting average of the spectra and cross-spectra from incoherent echoes.
+        out_spectra = numpy.zeros([nChan,nProf,nHei], dtype=float) #+numpy.nan
+        out_cspectra = numpy.zeros([nPairs,nProf,nHei], dtype=complex) #+numpy.nan
+        for ih in range(nHei):
+            for ifreq in range(nProf):
+                for ich in range(nChan):                    
+                    tmp = spectra[:,ich,ifreq,ih] 
+                    valid = (numpy.isfinite(tmp[:])==True).nonzero()
+#                     if ich == 0 and ifreq == 0 and ih == 17 :
+#                         print tmp
+#                         print valid
+#                         print len(valid[0])
+                    #print('TMP',tmp)              
+                    if len(valid[0]) >0 :
+                       out_spectra[ich,ifreq,ih] = numpy.nansum(tmp)/len(valid[0])
+                    #for icr in range(nPairs):
+                for icr in range(nPairs):
+                    tmp = numpy.squeeze(cspectra[:,icr,ifreq,ih])
+                    valid = (numpy.isfinite(tmp)==True).nonzero()
+                    if len(valid[0]) > 0:
+                        out_cspectra[icr,ifreq,ih] = numpy.nansum(tmp)/len(valid[0])
+       # print('##########################################################')
+            #Removing fake coherent echoes (at least 4 points around the point)
+            
+        val_spectra = numpy.sum(val_spc,0)
+        val_cspectra = numpy.sum(val_cspc,0)
+        
+        val_spectra = self.REM_ISOLATED_POINTS(val_spectra,4)
+        val_cspectra = self.REM_ISOLATED_POINTS(val_cspectra,4)
+        
+        for i in range(nChan):
+            for j in range(nProf):
+                for k in range(nHei):
+                    if numpy.isfinite(val_spectra[i,j,k]) and val_spectra[i,j,k] < 1 :
+                        val_spc[:,i,j,k] = 0.0
+        for i in range(nPairs):
+            for j in range(nProf):
+                for k in range(nHei):
+                    if numpy.isfinite(val_cspectra[i,j,k]) and val_cspectra[i,j,k] < 1 :
+                        val_cspc[:,i,j,k] = 0.0
+#         val_spc = numpy.reshape(val_spc, (len(spectra[:,0,0,0]),nProf*nHei*nChan))
+#         if numpy.isfinite(val_spectra)==str(True):
+#            noval = (val_spectra<1).nonzero()
+#            if len(noval) > 0:
+#                val_spc[:,noval] = 0.0
+#                val_spc = numpy.reshape(val_spc, (149,nChan,nProf,nHei))
+
+            #val_cspc = numpy.reshape(val_spc, (149,nChan*nHei*nProf))
+            #if numpy.isfinite(val_cspectra)==str(True):
+             #   noval = (val_cspectra<1).nonzero()
+              #  if len(noval) > 0:
+               #     val_cspc[:,noval] = 0.0
+                #    val_cspc = numpy.reshape(val_cspc, (149,nChan,nProf,nHei))
+
+        tmp_sat_spectra = spectra.copy()
+        tmp_sat_spectra = tmp_sat_spectra*numpy.nan
+        tmp_sat_cspectra = cspectra.copy()
+        tmp_sat_cspectra = tmp_sat_cspectra*numpy.nan
+        
+#         fig = plt.figure(figsize=(6,5))
+#         left, bottom, width, height = 0.1, 0.1, 0.8, 0.8
+#         ax = fig.add_axes([left, bottom, width, height]) 
+#         cp = ax.contour(10*numpy.log10(numpy.absolute(spectra[0,0,:,:])))
+#         ax.clabel(cp, inline=True,fontsize=10)
+#         plt.show()
+        
+        val = (val_spc > 0).nonzero()
+        if len(val[0]) > 0:              
+                tmp_sat_spectra[val] = in_sat_spectra[val]
+            
+        val = (val_cspc > 0).nonzero()
+        if len(val[0]) > 0:
+                tmp_sat_cspectra[val] = in_sat_cspectra[val]
+
+            #Getting average of the spectra and cross-spectra from incoherent echoes.
+        sat_spectra = numpy.zeros((nChan,nProf,nHei), dtype=float)
+        sat_cspectra = numpy.zeros((nPairs,nProf,nHei), dtype=complex)
+        for ih in range(nHei):
+            for ifreq in range(nProf):
+                for ich in range(nChan):
+                    tmp = numpy.squeeze(tmp_sat_spectra[:,ich,ifreq,ih])
+                    valid = (numpy.isfinite(tmp)).nonzero()                    
+                    if len(valid[0]) > 0:
+                        sat_spectra[ich,ifreq,ih] = numpy.nansum(tmp)/len(valid[0])
+
+                for icr in range(nPairs):
+                    tmp = numpy.squeeze(tmp_sat_cspectra[:,icr,ifreq,ih])
+                    valid = (numpy.isfinite(tmp)).nonzero()
+                    if len(valid[0]) > 0:
+                        sat_cspectra[icr,ifreq,ih] = numpy.nansum(tmp)/len(valid[0])
+            #self.__dataReady= True
+            #sat_spectra, sat_cspectra= sat_spectra, sat_cspectra          
+        #if not self.__dataReady:
+            #return None, None
+        return out_spectra, out_cspectra,sat_spectra,sat_cspectra
+    def REM_ISOLATED_POINTS(self,array,rth):
+#         import matplotlib.pyplot as plt
+        if rth == None : rth = 4
+ 
+        num_prof = len(array[0,:,0])
+        num_hei = len(array[0,0,:])
+        n2d = len(array[:,0,0])
+ 
+        for ii in range(n2d) :
+          #print ii,n2d
+          tmp = array[ii,:,:]
+          #print tmp.shape, array[ii,101,:],array[ii,102,:]
+         
+#           fig = plt.figure(figsize=(6,5))
+#           left, bottom, width, height = 0.1, 0.1, 0.8, 0.8
+#           ax = fig.add_axes([left, bottom, width, height]) 
+#           x = range(num_prof)
+#           y = range(num_hei)  
+#           cp = ax.contour(y,x,tmp)
+#           ax.clabel(cp, inline=True,fontsize=10)
+#           plt.show()
+          
+          #indxs = WHERE(FINITE(tmp) AND tmp GT 0,cindxs)
+          tmp = numpy.reshape(tmp,num_prof*num_hei)
+          indxs1 = (numpy.isfinite(tmp)==True).nonzero()
+          indxs2 = (tmp > 0).nonzero()
+          
+          indxs1 = (indxs1[0])
+          indxs2 = indxs2[0]
+          #indxs1 = numpy.array(indxs1[0])
+          #indxs2 = numpy.array(indxs2[0])
+          indxs = None
+          #print indxs1 , indxs2
+          for iv in range(len(indxs2)):
+                indv = numpy.array((indxs1 == indxs2[iv]).nonzero())
+                #print len(indxs2), indv
+                if len(indv[0]) > 0  :
+                   indxs =  numpy.concatenate((indxs,indxs2[iv]), axis=None)
+#           print indxs
+          indxs = indxs[1:]
+          #print indxs, len(indxs)
+          if len(indxs) < 4 :
+            array[ii,:,:] = 0.
+            return
+          
+          xpos = numpy.mod(indxs ,num_hei)
+          ypos = (indxs / num_hei)
+          sx = numpy.argsort(xpos) # Ordering respect to "x" (time)
+          #print sx
+          xpos = xpos[sx]
+          ypos = ypos[sx]
+  
+   # *********************************** Cleaning isolated points **********************************
+          ic = 0
+          while True : 
+            r = numpy.sqrt(list(numpy.power((xpos[ic]-xpos),2)+ numpy.power((ypos[ic]-ypos),2)))
+            #no_coh = WHERE(FINITE(r) AND (r LE rth),cno_coh)
+            #plt.plot(r)
+            #plt.show()
+            no_coh1 = (numpy.isfinite(r)==True).nonzero()
+            no_coh2 = (r <= rth).nonzero()
+            #print r, no_coh1, no_coh2
+            no_coh1 = numpy.array(no_coh1[0])
+            no_coh2 = numpy.array(no_coh2[0])
+            no_coh = None
+          #print valid1 , valid2
+            for iv in range(len(no_coh2)):
+                indv = numpy.array((no_coh1 == no_coh2[iv]).nonzero())
+                if len(indv[0]) > 0  :
+                   no_coh =  numpy.concatenate((no_coh,no_coh2[iv]), axis=None)
+            no_coh = no_coh[1:]
+            #print len(no_coh), no_coh
+            if len(no_coh) < 4 :
+               #print xpos[ic], ypos[ic], ic
+#                plt.plot(r)
+#                plt.show()
+               xpos[ic] = numpy.nan
+               ypos[ic] = numpy.nan
+            
+            ic = ic + 1      
+            if  (ic == len(indxs)) : 
+                break
+          #print( xpos, ypos)
+
+          indxs = (numpy.isfinite(list(xpos))==True).nonzero()
+          #print indxs[0] 
+          if len(indxs[0]) < 4 :
+             array[ii,:,:] = 0.
+             return
+    
+          xpos = xpos[indxs[0]]
+          ypos = ypos[indxs[0]]
+          for i in range(0,len(ypos)):
+    	      ypos[i]=int(ypos[i])
+          junk = tmp
+          tmp = junk*0.0
+          
+          tmp[list(xpos + (ypos*num_hei))] = junk[list(xpos + (ypos*num_hei))] 
+          array[ii,:,:] = numpy.reshape(tmp,(num_prof,num_hei))
+          
+          #print array.shape
+          #tmp = numpy.reshape(tmp,(num_prof,num_hei))
+          #print tmp.shape
+          
+#           fig = plt.figure(figsize=(6,5))
+#           left, bottom, width, height = 0.1, 0.1, 0.8, 0.8
+#           ax = fig.add_axes([left, bottom, width, height]) 
+#           x = range(num_prof)
+#           y = range(num_hei)      
+#           cp = ax.contour(y,x,array[ii,:,:])
+#           ax.clabel(cp, inline=True,fontsize=10)
+#           plt.show()
+        return array
+    def moments(self,doppler,yarray,npoints):
+        ytemp = yarray
+        #val = WHERE(ytemp GT 0,cval)    
+        #if cval == 0 : val = range(npoints-1)
+        val = (ytemp > 0).nonzero()
+        val = val[0]
+                #print('hvalid:',hvalid)
+                #print('valid', valid)
+        if len(val) == 0 : val = range(npoints-1) 
+        
+        ynew = 0.5*(ytemp[val[0]]+ytemp[val[len(val)-1]])
+        ytemp[len(ytemp):] = [ynew]
+
+        index = 0
+        index = numpy.argmax(ytemp)
+        ytemp = numpy.roll(ytemp,int(npoints/2)-1-index)
+        ytemp = ytemp[0:npoints-1]
+
+        fmom = numpy.sum(doppler*ytemp)/numpy.sum(ytemp)+(index-(npoints/2-1))*numpy.abs(doppler[1]-doppler[0])
+        smom = numpy.sum(doppler*doppler*ytemp)/numpy.sum(ytemp)
+        return [fmom,numpy.sqrt(smom)]
+    # **********************************************************************************************           
+    index = 0
+    fint = 0
+    buffer = 0
+    buffer2 = 0
+    buffer3 = 0
     def run(self, dataOut, getSNR = True, path=None, file=None, groupList=None):
-
-
+        nChannels = dataOut.nChannels
+        nHeights= dataOut.heightList.size
+        nProf = dataOut.nProfiles
+        tini=time.localtime(dataOut.utctime)
+        if (tini.tm_min % 5) == 0 and (tini.tm_sec < 5 and self.fint==0): 
+#            print tini.tm_min
+           self.index = 0
+           jspc = self.buffer
+           jcspc = self.buffer2
+           jnoise = self.buffer3
+           self.buffer = dataOut.data_spc
+           self.buffer2 = dataOut.data_cspc
+           self.buffer3 = dataOut.noise
+           self.fint = 1
+           if numpy.any(jspc) :
+               jspc= numpy.reshape(jspc,(int(len(jspc)/4),nChannels,nProf,nHeights))
+               jcspc= numpy.reshape(jcspc,(int(len(jcspc)/2),2,nProf,nHeights))
+               jnoise= numpy.reshape(jnoise,(int(len(jnoise)/4),nChannels))
+           else:
+               dataOut.flagNoData = True
+               return dataOut
+        else :
+           if (tini.tm_min % 5) == 0 : self.fint = 1
+           else : self.fint = 0
+           self.index += 1
+           if numpy.any(self.buffer):       
+              self.buffer = numpy.concatenate((self.buffer,dataOut.data_spc), axis=0)
+              self.buffer2 = numpy.concatenate((self.buffer2,dataOut.data_cspc), axis=0)
+              self.buffer3 = numpy.concatenate((self.buffer3,dataOut.noise), axis=0)
+           else:
+               self.buffer = dataOut.data_spc
+               self.buffer2 = dataOut.data_cspc
+               self.buffer3 = dataOut.noise
+           dataOut.flagNoData = True
+           return dataOut
         if path != None:
             sys.path.append(path)
-        self.dataOut.library = importlib.import_module(file)
+        self.library = importlib.import_module(file)
 
         #To be inserted as a parameter
         groupArray = numpy.array(groupList)
-#         groupArray = numpy.array([[0,1],[2,3]])
-        self.dataOut.groupList = groupArray
+        #groupArray = numpy.array([[0,1],[2,3]]) 
+        dataOut.groupList = groupArray
 
         nGroups = groupArray.shape[0]
-        nChannels = self.dataIn.nChannels
-        nHeights=self.dataIn.heightList.size
+        nChannels = dataOut.nChannels
+        nHeights = dataOut.heightList.size
 
         #Parameters Array
-        self.dataOut.data_param = None
+        dataOut.data_param = None
+        dataOut.data_paramC = None
 
         #Set constants
-        constants = self.dataOut.library.setConstants(self.dataIn)
-        self.dataOut.constants = constants
-        M = self.dataIn.normFactor
-        N = self.dataIn.nFFTPoints
-        ippSeconds = self.dataIn.ippSeconds
-        K = self.dataIn.nIncohInt
-        pairsArray = numpy.array(self.dataIn.pairsList)
+        constants = self.library.setConstants(dataOut)
+        dataOut.constants = constants
+        M = dataOut.normFactor
+        N = dataOut.nFFTPoints
+        ippSeconds = dataOut.ippSeconds
+        K = dataOut.nIncohInt
+        pairsArray = numpy.array(dataOut.pairsList)
 
+        snrth= 20
+        spectra = dataOut.data_spc
+        cspectra = dataOut.data_cspc
+        nProf = dataOut.nProfiles
+        heights = dataOut.heightList
+        nHei = len(heights)        
+        channels = dataOut.channelList
+        nChan = len(channels)
+        nIncohInt = dataOut.nIncohInt
+        crosspairs = dataOut.groupList
+        noise = dataOut.noise
+        jnoise = jnoise/N
+        noise = numpy.nansum(jnoise,axis=0)#/len(jnoise)
+        power = numpy.sum(spectra, axis=1)
+        nPairs = len(crosspairs)
+        absc = dataOut.abscissaList[:-1]
+
+        if not self.isConfig:
+            self.isConfig = True
+
+        index = tini.tm_hour*12+tini.tm_min/5
+        jspc = jspc/N/N
+        jcspc = jcspc/N/N
+        tmp_spectra,tmp_cspectra,sat_spectra,sat_cspectra = self.CleanRayleigh(dataOut,jspc,jcspc,2)
+        jspectra = tmp_spectra*len(jspc[:,0,0,0])
+        jcspectra = tmp_cspectra*len(jspc[:,0,0,0])
+        my_incoh_spectra ,my_incoh_cspectra,my_incoh_aver,my_coh_aver, incoh_spectra, coh_spectra, incoh_cspectra, coh_cspectra, incoh_aver, coh_aver = self.__DiffCoherent(jspectra, jcspectra, dataOut, noise, snrth, None, None)
+        clean_coh_spectra, clean_coh_cspectra, clean_coh_aver = self.__CleanCoherent(snrth, coh_spectra, coh_cspectra, coh_aver, dataOut, noise,1,index)                                        
+        dataOut.data_spc = incoh_spectra
+        dataOut.data_cspc = incoh_cspectra
+        
+        clean_num_aver = incoh_aver*len(jspc[:,0,0,0])
+        coh_num_aver = clean_coh_aver*len(jspc[:,0,0,0])
         #List of possible combinations
         listComb = itertools.combinations(numpy.arange(groupArray.shape[1]),2)
         indCross = numpy.zeros(len(list(listComb)), dtype = 'int')
@@ -1701,14 +2369,13 @@ class SpectralFitting(Operation):
         if getSNR:
             listChannels = groupArray.reshape((groupArray.size))
             listChannels.sort()
-            noise = self.dataIn.getNoise()
-            self.dataOut.data_snr = self.__getSNR(self.dataIn.data_spc[listChannels,:,:], noise[listChannels])
-
-        for i in range(nGroups):
+            dataOut.data_SNR = self.__getSNR(dataOut.data_spc[listChannels,:,:], noise[listChannels])
+        if dataOut.data_paramC is None:
+                    dataOut.data_paramC = numpy.zeros((nGroups*4, nHeights,2))*numpy.nan 
+        for i in range(nGroups): 
             coord = groupArray[i,:]
-
             #Input data array
-            data = self.dataIn.data_spc[coord,:,:]/(M*N)
+            data = dataOut.data_spc[coord,:,:]/(M*N)
             data = data.reshape((data.shape[0]*data.shape[1],data.shape[2]))
 
             #Cross Spectra data array for Covariance Matrixes
@@ -1717,69 +2384,180 @@ class SpectralFitting(Operation):
                 pairsSel = numpy.array([coord[x],coord[y]])
                 indCross[ind] = int(numpy.where(numpy.all(pairsArray == pairsSel, axis = 1))[0][0])
                 ind += 1
-            dataCross = self.dataIn.data_cspc[indCross,:,:]/(M*N)
-            dataCross = dataCross**2/K
+            dataCross = dataOut.data_cspc[indCross,:,:]/(M*N)
+            dataCross = dataCross**2
+            nhei = nHeights
+            poweri = numpy.sum(dataOut.data_spc[:,1:nProf-0,:],axis=1)/clean_num_aver[:,:]
+            if i == 0 : my_noises = numpy.zeros(4,dtype=float) #FLTARR(4)
+            n0i = numpy.nanmin(poweri[0+i*2,0:nhei-0])/(nProf-1)
+            n1i = numpy.nanmin(poweri[1+i*2,0:nhei-0])/(nProf-1)
+            n0 = n0i
+            n1=  n1i
+            my_noises[2*i+0] = n0
+            my_noises[2*i+1] = n1
+            snrth = -16.0
+            snrth = 10**(snrth/10.0)
 
             for h in range(nHeights):
-
-                #Input
                 d = data[:,h]
-
+                smooth = clean_num_aver[i+1,h] #dataOut.data_spc[:,1:nProf-0,:]
+                signalpn0 = (dataOut.data_spc[i*2,1:(nProf-0),h])/smooth
+                signalpn1 = (dataOut.data_spc[i*2+1,1:(nProf-0),h])/smooth
+                signal0 = signalpn0-n0
+                signal1 = signalpn1-n1
+                snr0 = numpy.sum(signal0/n0)/(nProf-1)
+                snr1 = numpy.sum(signal1/n1)/(nProf-1)
+                if snr0 > snrth and snr1 > snrth and clean_num_aver[i+1,h] > 0 :
                 #Covariance Matrix
-                D = numpy.diag(d**2/K)
-                ind = 0
-                for pairs in listComb:
+                    D = numpy.diag(d**2)
+                    ind = 0
+                    for pairs in listComb:
                     #Coordinates in Covariance Matrix
-                    x = pairs[0]
-                    y = pairs[1]
+                        x = pairs[0]    
+                        y = pairs[1]
                     #Channel Index
-                    S12 = dataCross[ind,:,h]
-                    D12 = numpy.diag(S12)
+                        S12 = dataCross[ind,:,h]
+                        D12 = numpy.diag(S12)
                     #Completing Covariance Matrix with Cross Spectras
-                    D[x*N:(x+1)*N,y*N:(y+1)*N] = D12
-                    D[y*N:(y+1)*N,x*N:(x+1)*N] = D12
-                    ind += 1
-                Dinv=numpy.linalg.inv(D)
-                L=numpy.linalg.cholesky(Dinv)
-                LT=L.T
+                        D[x*N:(x+1)*N,y*N:(y+1)*N] = D12
+                        D[y*N:(y+1)*N,x*N:(x+1)*N] = D12
+                        ind += 1
+                    diagD = numpy.zeros(256)
+                    if h == 17 : 
+                        for ii in range(256): diagD[ii] =  D[ii,ii]
+                    #Dinv=numpy.linalg.inv(D)
+                    #L=numpy.linalg.cholesky(Dinv)
+                    try:
+                       Dinv=numpy.linalg.inv(D)
+                       L=numpy.linalg.cholesky(Dinv)
+                    except:
+                       Dinv = D*numpy.nan
+                       L= D*numpy.nan
+                    LT=L.T
 
-                dp = numpy.dot(LT,d)
-
+                    dp = numpy.dot(LT,d)
+                
                 #Initial values
-                data_spc = self.dataIn.data_spc[coord,:,h]
+                    data_spc = dataOut.data_spc[coord,:,h]
 
-                if (h>0)and(error1[3]<5):
-                    p0 = self.dataOut.data_param[i,:,h-1]
-                else:
-                    p0 = numpy.array(self.dataOut.library.initialValuesFunction(data_spc, constants, i))
-
-                try:
+                    if (h>0)and(error1[3]<5):
+                        p0 = dataOut.data_param[i,:,h-1]
+                    else:
+                        p0 = numpy.array(self.library.initialValuesFunction(data_spc, constants))# sin el i(data_spc, constants, i)
+                    try:
                     #Least Squares
-                    minp,covp,infodict,mesg,ier = optimize.leastsq(self.__residFunction,p0,args=(dp,LT,constants),full_output=True)
-#                   minp,covp = optimize.leastsq(self.__residFunction,p0,args=(dp,LT,constants))
+                    #print (dp,LT,constants)
+                    #value =self.__residFunction(p0,dp,LT,constants)
+                    #print ("valueREADY",value.shape, type(value))
+                    #optimize.leastsq(value)
+                        minp,covp,infodict,mesg,ier = optimize.leastsq(self.__residFunction,p0,args=(dp,LT,constants),full_output=True)
+                    #minp,covp = optimize.leastsq(self.__residFunction,p0,args=(dp,LT,constants))
                     #Chi square error
-                    error0 = numpy.sum(infodict['fvec']**2)/(2*N)
+                    #print(minp,covp.infodict,mesg,ier)
+                    #print("REALIZA OPTIMIZ")
+                        error0 = numpy.sum(infodict['fvec']**2)/(2*N)
                     #Error with Jacobian
-                    error1 = self.dataOut.library.errorFunction(minp,constants,LT)
-                except:
+                        error1 = self.library.errorFunction(minp,constants,LT)
+#                         print self.__residFunction(p0,dp,LT, constants)  
+#                         print infodict['fvec']
+#                         print self.__residFunction(minp,dp,LT,constants)
+
+                    except:
+                        minp = p0*numpy.nan
+                        error0 = numpy.nan
+                        error1 = p0*numpy.nan
+                    #print ("EXCEPT 0000000000")
+#                     s_sq = (self.__residFunction(minp,dp,LT,constants)).sum()/(len(dp)-len(p0))
+#                     covp = covp*s_sq
+#                     #print("TRY___________________________________________1")
+#                     error = [] 
+#                     for ip in range(len(minp)):
+#                         try:
+#                             error.append(numpy.absolute(covp[ip][ip])**0.5)                    
+#                         except:
+#                             error.append( 0.00 )
+                else :
+                    data_spc = dataOut.data_spc[coord,:,h]
+                    p0 = numpy.array(self.library.initialValuesFunction(data_spc, constants))
                     minp = p0*numpy.nan
                     error0 = numpy.nan
-                    error1 = p0*numpy.nan
-
+                    error1 = p0*numpy.nan                                         
                 #Save
-                if self.dataOut.data_param is None:
-                    self.dataOut.data_param = numpy.zeros((nGroups, p0.size, nHeights))*numpy.nan
-                    self.dataOut.data_error = numpy.zeros((nGroups, p0.size + 1, nHeights))*numpy.nan
+                if dataOut.data_param is None:
+                    dataOut.data_param = numpy.zeros((nGroups, p0.size, nHeights))*numpy.nan
+                    dataOut.data_error = numpy.zeros((nGroups, p0.size + 1, nHeights))*numpy.nan
+                
+                dataOut.data_error[i,:,h] = numpy.hstack((error0,error1))
+                dataOut.data_param[i,:,h] = minp
 
-                self.dataOut.data_error[i,:,h] = numpy.hstack((error0,error1))
-                self.dataOut.data_param[i,:,h] = minp
-        return
+            for ht in range(nHeights-1) :
+                smooth = coh_num_aver[i+1,ht] #datc[0,ht,0,beam] 
+                dataOut.data_paramC[4*i,ht,1] = smooth
+                signalpn0 = (coh_spectra[i*2  ,1:(nProf-0),ht])/smooth #coh_spectra
+                signalpn1 = (coh_spectra[i*2+1,1:(nProf-0),ht])/smooth
+       
+                #val0 = WHERE(signalpn0 > 0,cval0)
+                val0 = (signalpn0 > 0).nonzero()
+                val0 = val0[0]
+                #print('hvalid:',hvalid)
+                #print('valid', valid)
+                if len(val0) == 0 : val0_npoints = nProf 
+                else : val0_npoints = len(val0) 
+                
+                #val1 = WHERE(signalpn1 > 0,cval1)
+                val1 = (signalpn1 > 0).nonzero()
+                val1 = val1[0]
+                if len(val1) == 0 : val1_npoints = nProf
+                else : val1_npoints = len(val1)
 
+                dataOut.data_paramC[0+4*i,ht,0] = numpy.sum((signalpn0/val0_npoints))/n0
+                dataOut.data_paramC[1+4*i,ht,0] = numpy.sum((signalpn1/val1_npoints))/n1
+        
+                signal0 = (signalpn0-n0) # > 0
+                vali = (signal0 < 0).nonzero()
+                vali = vali[0]
+                if len(vali) > 0 : signal0[vali] = 0
+                signal1 = (signalpn1-n1) #> 0
+                vali = (signal1 < 0).nonzero()
+                vali = vali[0]
+                if len(vali) > 0 : signal1[vali] = 0
+                snr0 = numpy.sum(signal0/n0)/(nProf-1)
+                snr1 = numpy.sum(signal1/n1)/(nProf-1)
+                doppler = absc[1:]
+                if snr0 >= snrth and snr1 >= snrth and smooth :
+                    signalpn0_n0 = signalpn0
+                    signalpn0_n0[val0] = signalpn0[val0] - n0
+                    mom0 = self.moments(doppler,signalpn0-n0,nProf)
+#                     sigtmp= numpy.transpose(numpy.tile(signalpn0, [4,1]))
+#                     momt= self.__calculateMoments( sigtmp, doppler , n0 )
+                    signalpn1_n1 = signalpn1
+                    signalpn1_n1[val1] = signalpn1[val1] - n1
+                    mom1 = self.moments(doppler,signalpn1_n1,nProf)
+                    dataOut.data_paramC[2+4*i,ht,0] = (mom0[0]+mom1[0])/2.
+                    dataOut.data_paramC[3+4*i,ht,0] = (mom0[1]+mom1[1])/2.
+#                     if graph == 1 :
+#                     window, 13
+#                     plot,doppler,signalpn0
+#                     oplot,doppler,signalpn1,linest=1
+#                     oplot,mom0(0)*doppler/doppler,signalpn0
+#                     oplot,mom1(0)*doppler/doppler,signalpn1
+#                     print,interval/12.,beam,45+ht*15,snr0,snr1,mom0(0),mom1(0),mom0(1),mom1(1)
+                    #ENDIF
+                #ENDIF
+            #ENDFOR End height
+
+        dataOut.data_spc = jspectra
+        if getSNR:
+            listChannels = groupArray.reshape((groupArray.size))
+            listChannels.sort()
+
+            dataOut.data_snr = self.__getSNR(dataOut.data_spc[listChannels,:,:], my_noises[listChannels])
+        return dataOut
+    
     def __residFunction(self, p, dp, LT, constants):
 
-        fm = self.dataOut.library.modelFunction(p, constants)
+        fm = self.library.modelFunction(p, constants)
         fmp=numpy.dot(LT,fm)
-
         return  dp-fmp
 
     def __getSNR(self, z, noise):
@@ -1789,7 +2567,7 @@ class SpectralFitting(Operation):
         SNR = SNR.T
         return SNR
 
-    def __chisq(p,chindex,hindex):
+    def __chisq(self, p, chindex, hindex):
         #similar to Resid but calculates CHI**2
         [LT,d,fm]=setupLTdfm(p,chindex,hindex)
         dp=numpy.dot(LT,d)
@@ -1842,7 +2620,6 @@ class WindProfiler(Operation):
 
     def __calculateMatA(self, dir_cosu, dir_cosv, dir_cosw, horOnly):
 
-#
         if horOnly:
             A = numpy.c_[dir_cosu,dir_cosv]
         else:
@@ -2539,13 +3316,23 @@ class EWDriftsEstimation(Operation):
         for i in rango:
             x = heiRang*math.cos(phi[i])
             y1 = velRadial[i,:]
-            f1 = interpolate.interp1d(x,y1,kind = 'cubic')
+            vali= (numpy.isfinite(y1)==True).nonzero()
+            y1=y1[vali]
+            x = x[vali]
+            f1 = interpolate.interp1d(x,y1,kind = 'cubic',bounds_error=False)
 
+            #heiRang1 = x*math.cos(phi[maxid])
             x1 = heiRang1
             y11 = f1(x1)
 
             y2 = SNR[i,:]
-            f2 = interpolate.interp1d(x,y2,kind = 'cubic')
+            #print 'snr ', y2
+            x = heiRang*math.cos(phi[i])
+            vali= (y2 != -1).nonzero()
+            y2 = y2[vali]
+            x = x[vali]
+            #print 'snr  ',y2
+            f2 = interpolate.interp1d(x,y2,kind = 'cubic',bounds_error=False)
             y21 = f2(x1)
 
             velRadial1[i,:] = y11
@@ -2553,35 +3340,171 @@ class EWDriftsEstimation(Operation):
 
         return heiRang1, velRadial1, SNR1
 
+          
+  
     def run(self, dataOut, zenith, zenithCorrection):
+
         heiRang = dataOut.heightList
         velRadial = dataOut.data_param[:,3,:]
+        velRadialm = dataOut.data_param[:,2:4,:]*-1
+
+        rbufc=dataOut.data_paramC[:,:,0]
+        ebufc=dataOut.data_paramC[:,:,1]
         SNR = dataOut.data_snr
+        velRerr = dataOut.data_error[:,4,:]
+        moments=numpy.vstack(([velRadialm[0,:]],[velRadialm[0,:]],[velRadialm[1,:]],[velRadialm[1,:]]))
+        dataOut.moments=moments
+        # Coherent
+        smooth_wC = ebufc[0,:]
+        p_w0C = rbufc[0,:]
+        p_w1C = rbufc[1,:]
+        w_wC = rbufc[2,:]*-1 #*radial_sign(radial EQ 1)
+        t_wC = rbufc[3,:]
+        my_nbeams = 2
 
         zenith = numpy.array(zenith)
         zenith -= zenithCorrection
         zenith *= numpy.pi/180
-
-        heiRang1, velRadial1, SNR1 = self.__correctValues(heiRang, numpy.abs(zenith), velRadial, SNR)
-
+        if  zenithCorrection != 0 :
+            heiRang1, velRadial1, SNR1 = self.__correctValues(heiRang, numpy.abs(zenith), velRadial, SNR)
+        else :
+            heiRang1 = heiRang
+            velRadial1 = velRadial
+            SNR1 = SNR
+            
         alp = zenith[0]
         bet = zenith[1]
 
         w_w = velRadial1[0,:]
         w_e = velRadial1[1,:]
+        w_w_err = velRerr[0,:]
+        w_e_err = velRerr[1,:]
 
-        w = (w_w*numpy.sin(bet) - w_e*numpy.sin(alp))/(numpy.cos(alp)*numpy.sin(bet) - numpy.cos(bet)*numpy.sin(alp))
-        u = (w_w*numpy.cos(bet) - w_e*numpy.cos(alp))/(numpy.sin(alp)*numpy.cos(bet) - numpy.sin(bet)*numpy.cos(alp))
+        val = (numpy.isfinite(w_w)==False).nonzero()
+        val = val[0]
+        bad = val
+        if len(bad) > 0 :
+            w_w[bad] = w_wC[bad]
+            w_w_err[bad]= numpy.nan
+        if my_nbeams == 2:
+            smooth_eC=ebufc[4,:]
+            p_e0C = rbufc[4,:]
+            p_e1C = rbufc[5,:]
+            w_eC = rbufc[6,:]*-1
+            t_eC = rbufc[7,:]
+            val = (numpy.isfinite(w_e)==False).nonzero()
+            val = val[0]
+            bad = val
+            if len(bad) > 0 :
+                w_e[bad] = w_eC[bad]
+                w_e_err[bad]= numpy.nan
+                
+        w = (w_w*numpy.sin(bet) - w_e*numpy.sin(alp))/(numpy.cos(alp)*numpy.sin(bet) - numpy.cos(bet)*numpy.sin(alp))   
+        u = (w_w*numpy.cos(bet) - w_e*numpy.cos(alp))/(numpy.sin(alp)*numpy.cos(bet) - numpy.sin(bet)*numpy.cos(alp))   
 
-        winds = numpy.vstack((u,w))
+        w_err = numpy.sqrt((w_w_err*numpy.sin(bet))**2.+(w_e_err*numpy.sin(alp))**2.)/ numpy.absolute(numpy.cos(alp)*numpy.sin(bet)-numpy.cos(bet)*numpy.sin(alp))
+        u_err = numpy.sqrt((w_w_err*numpy.cos(bet))**2.+(w_e_err*numpy.cos(alp))**2.)/ numpy.absolute(numpy.cos(alp)*numpy.sin(bet)-numpy.cos(bet)*numpy.sin(alp))
+        
+        winds = numpy.vstack((w,u))
 
         dataOut.heightList = heiRang1
         dataOut.data_output = winds
-        dataOut.data_snr = SNR1
 
+        snr1 = 10*numpy.log10(SNR1[0])
+        dataOut.data_snr1 = numpy.reshape(snr1,(1,snr1.shape[0]))
         dataOut.utctimeInit = dataOut.utctime
         dataOut.outputInterval = dataOut.timeInterval
-        return
+        
+        hei_aver0 = 218 
+        jrange = 450 #900 para HA drifts
+        deltah = 15.0 #dataOut.spacing(0)
+        h0 = 0.0 #dataOut.first_height(0)
+        heights = dataOut.heightList
+        nhei = len(heights)
+         
+        range1 = numpy.arange(nhei) * deltah + h0
+ 
+        #jhei = WHERE(range1 GE hei_aver0 , jcount)
+        jhei = (range1 >= hei_aver0).nonzero()
+        if len(jhei[0]) > 0 :
+            h0_index = jhei[0][0] # Initial height for getting averages 218km
+ 
+        mynhei = 7
+        nhei_avg = int(jrange/deltah)
+        h_avgs = int(nhei_avg/mynhei)
+        nhei_avg = h_avgs*(mynhei-1)+mynhei
+ 
+        navgs = numpy.zeros(mynhei,dtype='float')
+        delta_h = numpy.zeros(mynhei,dtype='float')
+        range_aver = numpy.zeros(mynhei,dtype='float')
+        for ih in range( mynhei-1 ):
+            range_aver[ih] = numpy.sum(range1[h0_index+h_avgs*ih:h0_index+h_avgs*(ih+1)-0])/h_avgs
+            navgs[ih] = h_avgs
+            delta_h[ih] = deltah*h_avgs
+         
+        range_aver[mynhei-1] = numpy.sum(range1[h0_index:h0_index+6*h_avgs-0])/(6*h_avgs)
+        navgs[mynhei-1] = 6*h_avgs
+        delta_h[mynhei-1] = deltah*6*h_avgs
+        
+        wA = w[h0_index:h0_index+nhei_avg-0]
+        wA_err = w_err[h0_index:h0_index+nhei_avg-0]
+
+        for i in range(5) :
+            vals = wA[i*h_avgs:(i+1)*h_avgs-0]
+            errs = wA_err[i*h_avgs:(i+1)*h_avgs-0]
+            avg = numpy.nansum(vals/errs**2.)/numpy.nansum(1./errs**2.)
+            sigma = numpy.sqrt(1./numpy.nansum(1./errs**2.))
+            wA[6*h_avgs+i] = avg
+            wA_err[6*h_avgs+i] = sigma
+         
+ 
+        vals = wA[0:6*h_avgs-0]
+        errs=wA_err[0:6*h_avgs-0]
+        avg = numpy.nansum(vals/errs**2.)/numpy.nansum(1./errs**2)
+        sigma = numpy.sqrt(1./numpy.nansum(1./errs**2.))
+        wA[nhei_avg-1] = avg
+        wA_err[nhei_avg-1] = sigma
+ 
+        wA = wA[6*h_avgs:nhei_avg-0]
+        wA_err=wA_err[6*h_avgs:nhei_avg-0]
+        if my_nbeams == 2 :
+
+            uA = u[h0_index:h0_index+nhei_avg]
+            uA_err=u_err[h0_index:h0_index+nhei_avg]
+
+            for i in range(5) :
+                vals = uA[i*h_avgs:(i+1)*h_avgs-0]
+                errs=uA_err[i*h_avgs:(i+1)*h_avgs-0]
+                avg = numpy.nansum(vals/errs**2.)/numpy.nansum(1./errs**2.)
+                sigma = numpy.sqrt(1./numpy.nansum(1./errs**2.))
+                uA[6*h_avgs+i] = avg
+                uA_err[6*h_avgs+i]=sigma
+
+            vals = uA[0:6*h_avgs-0]
+            errs = uA_err[0:6*h_avgs-0]
+            avg = numpy.nansum(vals/errs**2.)/numpy.nansum(1./errs**2.)
+            sigma = numpy.sqrt(1./numpy.nansum(1./errs**2.))
+            uA[nhei_avg-1] = avg
+            uA_err[nhei_avg-1] = sigma
+            uA = uA[6*h_avgs:nhei_avg-0]
+            uA_err = uA_err[6*h_avgs:nhei_avg-0]
+        
+        dataOut.drifts_avg = numpy.vstack((wA,uA))
+
+        tini=time.localtime(dataOut.utctime)
+        datefile= str(tini[0]).zfill(4)+str(tini[1]).zfill(2)+str(tini[2]).zfill(2)
+        nfile = '/home/pcondor/Database/ewdriftsschain2019/jro'+datefile+'drifts_sch3.txt'
+
+        f1 = open(nfile,'a')
+
+        datedriftavg=str(tini[0])+' '+str(tini[1])+' '+str(tini[2])+' '+str(tini[3])+' '+str(tini[4])
+        driftavgstr=str(dataOut.drifts_avg)
+
+        numpy.savetxt(f1,numpy.column_stack([tini[0],tini[1],tini[2],tini[3],tini[4]]),fmt='%4i')
+        numpy.savetxt(f1,dataOut.drifts_avg,fmt='%10.2f')
+        f1.close()
+
+        return dataOut
 
 #---------------    Non Specular Meteor    ----------------
 

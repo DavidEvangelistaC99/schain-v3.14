@@ -345,11 +345,11 @@ class HDFWriter(Operation):
     setFile = None
     fp = None
     firsttime = True
-    #Configurations
+    # Configurations
     blocksPerFile = None
     blockIndex = None
     dataOut = None
-    #Data Arrays
+    # Data Arrays
     dataList = None
     metadataList = None
     currentDay = None
@@ -410,11 +410,11 @@ class HDFWriter(Operation):
 
         timeDiff = currentTime - self.lastTime
 
-        #Si el dia es diferente o si la diferencia entre un dato y otro supera la hora
+        # Si el dia es diferente o si la diferencia entre un dato y otro supera la hora
         if dataDay != self.currentDay:
             self.currentDay = dataDay
             return True
-        elif timeDiff > 3*60*60:
+        elif timeDiff > 3 * 60 * 60:
             self.lastTime = currentTime
             return True
         else:
@@ -443,27 +443,27 @@ class HDFWriter(Operation):
         setFile = self.setFile
 
         timeTuple = time.localtime(self.dataOut.utctime)
-        subfolder = 'd%4.4d%3.3d' % (timeTuple.tm_year,timeTuple.tm_yday)
+        subfolder = 'd%4.4d%3.3d' % (timeTuple.tm_year, timeTuple.tm_yday)
         fullpath = os.path.join(path, subfolder)
 
         if os.path.exists(fullpath):
             filesList = os.listdir(fullpath)
             filesList = [k for k in filesList if k.startswith(self.optchar)]
-            if len( filesList ) > 0:
+            if len(filesList) > 0:
                 filesList = sorted(filesList, key=str.lower)
                 filen = filesList[-1]
                 # el filename debera tener el siguiente formato
                 # 0 1234 567 89A BCDE (hex)
                 # x YYYY DDD SSS .ext
                 if isNumber(filen[8:11]):
-                    setFile = int(filen[8:11]) #inicializo mi contador de seteo al seteo del ultimo file
+                    setFile = int(filen[8:11])  # inicializo mi contador de seteo al seteo del ultimo file
                 else:
                     setFile = -1
             else:
-                setFile = -1 #inicializo mi contador de seteo
+                setFile = -1  # inicializo mi contador de seteo
         else:
             os.makedirs(fullpath)
-            setFile = -1 #inicializo mi contador de seteo
+            setFile = -1  # inicializo mi contador de seteo
 
         if self.setType is None:
             setFile += 1
@@ -471,22 +471,22 @@ class HDFWriter(Operation):
                                            timeTuple.tm_year,
                                            timeTuple.tm_yday,
                                            setFile,
-                                           ext )
+                                           ext)
         else:
-            setFile = timeTuple.tm_hour*60+timeTuple.tm_min
+            setFile = timeTuple.tm_hour * 60 + timeTuple.tm_min
             file = '%s%4.4d%3.3d%04d%s' % (self.optchar,
                                            timeTuple.tm_year,
                                            timeTuple.tm_yday,
                                            setFile,
-                                           ext )
+                                           ext)
 
-        self.filename = os.path.join( path, subfolder, file )
+        self.filename = os.path.join(path, subfolder, file)
 
-        #Setting HDF5 File
+        # Setting HDF5 File
         self.fp = h5py.File(self.filename, 'w')
-        #write metadata
+        # write metadata
         self.writeMetadata(self.fp)
-        #Write data
+        # Write data
         self.writeData(self.fp)
 
     def getLabel(self, name, x=None):
@@ -563,7 +563,7 @@ class HDFWriter(Operation):
             if dsInfo['nDim'] == 0:
                 ds = grp.create_dataset(
                     self.getLabel(dsInfo['variable']),
-                    (self.blocksPerFile, ),
+                    (self.blocksPerFile,),
                     chunks=True,
                     dtype=numpy.float64)
                 dtsets.append(ds)
@@ -577,7 +577,7 @@ class HDFWriter(Operation):
                 for i in range(dsInfo['dsNumber']):
                     ds = sgrp.create_dataset(
                         self.getLabel(dsInfo['variable'], i),
-                        (self.blocksPerFile, ) + dsInfo['shape'][1:],
+                        (self.blocksPerFile,) + dsInfo['shape'][1:],
                         chunks=True,
                         dtype=dsInfo['dtype'])
                     dtsets.append(ds)
@@ -619,6 +619,253 @@ class HDFWriter(Operation):
 
         if self.fp:
             self.fp.flush()
+            self.fp.close()
+
+    def close(self):
+
+        self.closeFile()
+
+
+@MPDecorator
+class ASCIIWriter(Operation):
+    """Operation to write data in ascii files.
+
+    Parameters:
+    -----------
+    path : str
+        Path where files will be saved.
+    blocksPerFile : int
+        Number of blocks per file
+    metadataList : list
+        List of the dataOut attributes that will be saved as metadata
+    dataDict : dict
+        Dictionary with the varaibles to be saved
+    setType : bool
+        If True the name of the files corresponds to the timestamp of the data
+
+    Examples
+    --------
+
+    data = {
+        'data_output': ['z', 'w', 'v'],
+        'utctime': 'time',
+        'heightList': 'height'
+    }
+
+    writer = proc_unit.addOperation(name='ASCIIWriter')
+    writer.addParameter(name='path', value='/path/to/file')
+    writer.addParameter(name='blocksPerFile', value='32')
+    writer.addParameter(name='dataDict',value=json.dumps(data))
+
+    """
+
+    ext = ".txt"
+    optchar = "D"
+    filename = None
+    path = None
+    setFile = None
+    fp = None
+    firsttime = True
+    # Configurations
+    blocksPerFile = None
+    blockIndex = None
+    dataOut = None
+    # Data Arrays
+    dataDict = None
+    metadataList = None
+    currentDay = None
+    lastTime = None
+    localtime = True
+
+    def __init__(self):
+
+        Operation.__init__(self)
+        return
+
+    def setup(self, path=None, blocksPerFile=10, metadataList=None, dataDict=None, setType=None, localtime=True):
+        self.path = path
+        self.blocksPerFile = blocksPerFile
+        self.metadataList = metadataList
+        self.dataDict = dataDict
+        self.setType = setType
+        self.localtime = localtime
+
+        if self.metadataList is None:
+            self.metadataList = self.dataOut.metadata_list
+
+        dsList = []
+
+        for key, value in self.dataDict.items():
+            dsDict = {}
+            if hasattr(self.dataOut, key):
+                dataAux = getattr(self.dataOut, key)
+                dsDict['variable'] = key
+            else:
+                log.warning('Attribute {} not found in dataOut', self.name)
+                continue
+
+            if dataAux is None:
+                continue
+            elif isinstance(dataAux, (int, float, numpy.integer, numpy.float)):
+                dsDict['nDim'] = 0
+            else:
+                dsDict['nDim'] = len(dataAux.shape)
+                dsDict['shape'] = dataAux.shape
+                dsDict['dsNumber'] = dataAux.shape[0]
+                dsDict['dtype'] = dataAux.dtype
+
+            dsList.append(dsDict)
+        self.dsList = dsList
+        self.currentDay = self.dataOut.datatime.date()
+
+    def timeFlag(self):
+        currentTime = self.dataOut.utctime
+        if self.localtime:
+            timeTuple = time.localtime(currentTime)
+        else:
+            timeTuple = time.gmtime(currentTime)
+
+        dataDay = timeTuple.tm_yday
+
+        if self.lastTime is None:
+            self.lastTime = currentTime
+            self.currentDay = dataDay
+            return False
+
+        timeDiff = currentTime - self.lastTime
+
+        # Si el dia es diferente o si la diferencia entre un dato y otro supera la hora
+        if dataDay != self.currentDay:
+            self.currentDay = dataDay
+            return True
+        elif timeDiff > 3 * 60 * 60:
+            self.lastTime = currentTime
+            return True
+        else:
+            self.lastTime = currentTime
+            return False
+
+    def run(self, dataOut, path, blocksPerFile=10, metadataList=None,
+            dataDict={}, setType=None, localtime=True):
+
+        self.dataOut = dataOut
+        if not(self.isConfig):
+            self.setup(path=path, blocksPerFile=blocksPerFile,
+                       metadataList=metadataList, dataDict=dataDict,
+                       setType=setType, localtime=localtime)
+
+            self.isConfig = True
+            self.setNextFile()
+
+        self.putData()
+        return
+
+    def setNextFile(self):
+
+        ext = self.ext
+        path = self.path
+        setFile = self.setFile
+        if self.localtime:
+            timeTuple = time.localtime(self.dataOut.utctime)
+        else:
+            timeTuple = time.gmtime(self.dataOut.utctime)
+        subfolder = 'd%4.4d%3.3d' % (timeTuple.tm_year, timeTuple.tm_yday)
+        fullpath = os.path.join(path, subfolder)
+
+        if os.path.exists(fullpath):
+            filesList = os.listdir(fullpath)
+            filesList = [k for k in filesList if k.startswith(self.optchar)]
+            if len(filesList) > 0:
+                filesList = sorted(filesList, key=str.lower)
+                filen = filesList[-1]
+                # el filename debera tener el siguiente formato
+                # 0 1234 567 89A BCDE (hex)
+                # x YYYY DDD SSS .ext
+                if isNumber(filen[8:11]):
+                    setFile = int(filen[8:11])  # inicializo mi contador de seteo al seteo del ultimo file
+                else:
+                    setFile = -1
+            else:
+                setFile = -1  # inicializo mi contador de seteo
+        else:
+            os.makedirs(fullpath)
+            setFile = -1  # inicializo mi contador de seteo
+
+        if self.setType is None:
+            setFile += 1
+            file = '%s%4.4d%3.3d%03d%s' % (self.optchar,
+                                           timeTuple.tm_year,
+                                           timeTuple.tm_yday,
+                                           setFile,
+                                           ext)
+        else:
+            setFile = timeTuple.tm_hour * 60 + timeTuple.tm_min
+            file = '%s%4.4d%3.3d%04d%s' % (self.optchar,
+                                           timeTuple.tm_year,
+                                           timeTuple.tm_yday,
+                                           setFile,
+                                           ext)
+
+        self.filename = os.path.join(path, subfolder, file)
+
+        # Setting HDF5 File
+        self.fp = open(self.filename, 'w')
+        # write metadata
+        self.writeMetadata(self.fp)
+        # Write data
+        self.writeData(self.fp)
+
+    def writeMetadata(self, fp):
+
+        line = ''
+        for d in self.dsList:
+            par = self.dataDict[d['variable']]
+            if isinstance(par, (list,tuple)):
+                for p in par:
+                    line += '{:>16}'.format(p)
+            else:
+                line += '{:>16}'.format(par)
+
+        line += '\n'
+        fp.write(line)
+
+    def writeData(self, fp):
+
+        log.log('Creating file: {}'.format(self.filename), self.name)
+
+        self.firsttime = True
+        self.blockIndex = 0
+        return
+
+    def putData(self):
+
+        if (self.blockIndex == self.blocksPerFile) or self.timeFlag():
+            self.closeFile()
+            self.setNextFile()
+
+        line = ''
+        for j in range(len(self.dataOut.heightList)):
+            for ds in self.dsList:
+                par = self.dataDict[ds['variable']]
+                if ds['nDim'] == 2:
+                    for i in range(len(par)):
+                        line += '{:>16}'.format('%8.2f' % getattr(self.dataOut, ds['variable'])[i][j])
+                elif ds['nDim'] == 1:
+                    line += '{:>16}'.format('%8.2f' % getattr(self.dataOut, ds['variable'])[j])
+                else:
+                    line += '{:>16}'.format('%8.2f' % getattr(self.dataOut, ds['variable']))
+
+            line += '\n'
+        self.fp.write(line)
+
+        self.blockIndex += 1
+        log.log('Block No. {}/{}'.format(self.blockIndex, self.blocksPerFile), self.name)
+
+        return
+
+    def closeFile(self):
+
+        if self.fp:
             self.fp.close()
 
     def close(self):

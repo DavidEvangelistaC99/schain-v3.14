@@ -8,9 +8,9 @@ from schainpy.utils import log
 
 class SpectraHeisProc(ProcessingUnit):
 
-    def __init__(self):#, **kwargs):
+    def __init__(self):  # , **kwargs):
 
-        ProcessingUnit.__init__(self)#, **kwargs)
+        ProcessingUnit.__init__(self)  # , **kwargs)
 
 #        self.buffer = None
 #        self.firstdatatime = None
@@ -24,12 +24,12 @@ class SpectraHeisProc(ProcessingUnit):
         self.dataOut.errorCount = self.dataIn.errorCount
         self.dataOut.useLocalTime = self.dataIn.useLocalTime
 
-        self.dataOut.radarControllerHeaderObj = self.dataIn.radarControllerHeaderObj.copy()#
-        self.dataOut.systemHeaderObj = self.dataIn.systemHeaderObj.copy()#
+        self.dataOut.radarControllerHeaderObj = self.dataIn.radarControllerHeaderObj.copy()  #
+        self.dataOut.systemHeaderObj = self.dataIn.systemHeaderObj.copy()  #
         self.dataOut.channelList = self.dataIn.channelList
         self.dataOut.heightList = self.dataIn.heightList
 #        self.dataOut.dtype = self.dataIn.dtype
-        self.dataOut.dtype = numpy.dtype([('real','<f4'),('imag','<f4')])
+        self.dataOut.dtype = numpy.dtype([('real', '<f4'), ('imag', '<f4')])
 #        self.dataOut.nHeights = self.dataIn.nHeights
 #        self.dataOut.nChannels = self.dataIn.nChannels
         self.dataOut.nBaud = self.dataIn.nBaud
@@ -45,8 +45,8 @@ class SpectraHeisProc(ProcessingUnit):
         self.dataOut.flagDiscontinuousBlock = self.dataIn.flagDiscontinuousBlock
         self.dataOut.utctime = self.dataIn.utctime
 #        self.dataOut.utctime = self.firstdatatime
-        self.dataOut.flagDecodeData = self.dataIn.flagDecodeData #asumo q la data esta decodificada
-        self.dataOut.flagDeflipData = self.dataIn.flagDeflipData #asumo q la data esta sin flip
+        self.dataOut.flagDecodeData = self.dataIn.flagDecodeData  # asumo q la data esta decodificada
+        self.dataOut.flagDeflipData = self.dataIn.flagDeflipData  # asumo q la data esta sin flip
 #        self.dataOut.flagShiftFFT = self.dataIn.flagShiftFFT
         self.dataOut.nCohInt = self.dataIn.nCohInt
         self.dataOut.nIncohInt = 1
@@ -78,8 +78,8 @@ class SpectraHeisProc(ProcessingUnit):
     def __getFft(self):
 
         fft_volt = numpy.fft.fft(self.dataIn.data, axis=1)
-        fft_volt = numpy.fft.fftshift(fft_volt,axes=(1,))
-        spc = numpy.abs(fft_volt * numpy.conjugate(fft_volt))/(self.dataOut.nFFTPoints)
+        fft_volt = numpy.fft.fftshift(fft_volt, axes=(1,))
+        spc = numpy.abs(fft_volt * numpy.conjugate(fft_volt)) / (self.dataOut.nFFTPoints)
         self.dataOut.data_spc = spc
 
     def run(self):
@@ -102,7 +102,7 @@ class SpectraHeisProc(ProcessingUnit):
 
             return
 
-        raise ValueError("The type object %s is not valid"%(self.dataIn.type))
+        raise ValueError("The type object %s is not valid" % (self.dataIn.type))
 
 
     def selectChannels(self, channelList):
@@ -136,9 +136,9 @@ class SpectraHeisProc(ProcessingUnit):
 
         for channelIndex in channelIndexList:
             if channelIndex not in self.dataOut.channelIndexList:
-                raise ValueError("The value %d in channelIndexList is not valid" %channelIndex)
+                raise ValueError("The value %d in channelIndexList is not valid" % channelIndex)
 
-        data_spc = self.dataOut.data_spc[channelIndexList,:]
+        data_spc = self.dataOut.data_spc[channelIndexList, :]
 
         self.dataOut.data_spc = data_spc
         self.dataOut.channelList = [self.dataOut.channelList[i] for i in channelIndexList]
@@ -151,7 +151,7 @@ class IncohInt4SpectraHeis(Operation):
     isConfig = False
 
     __profIndex = 0
-    __withOverapping  = False
+    __withOverapping = False
 
     __byTime = False
     __initime = None
@@ -164,9 +164,9 @@ class IncohInt4SpectraHeis(Operation):
 
     n = None
 
-    def __init__(self):#, **kwargs):
+    def __init__(self):  # , **kwargs):
 
-        Operation.__init__(self)#, **kwargs)
+        Operation.__init__(self)  # , **kwargs)
 #         self.isConfig = False
 
     def setup(self, n=None, timeInterval=None, overlapping=False):
@@ -194,7 +194,7 @@ class IncohInt4SpectraHeis(Operation):
             self.n = n
             self.__byTime = False
         else:
-            self.__integrationtime = timeInterval #* 60. #if (type(timeInterval)!=integer) -> change this line
+            self.__integrationtime = timeInterval  # * 60. #if (type(timeInterval)!=integer) -> change this line
             self.n = 9999
             self.__byTime = True
 
@@ -219,25 +219,25 @@ class IncohInt4SpectraHeis(Operation):
             self.__profIndex += 1
             return
 
-        #Overlapping data
+        # Overlapping data
         nChannels, nHeis = data.shape
         data = numpy.reshape(data, (1, nChannels, nHeis))
 
-        #If the buffer is empty then it takes the data value
+        # If the buffer is empty then it takes the data value
         if self.__buffer is None:
             self.__buffer = data
             self.__profIndex += 1
             return
 
-        #If the buffer length is lower than n then stakcing the data value
+        # If the buffer length is lower than n then stakcing the data value
         if self.__profIndex < self.n:
             self.__buffer = numpy.vstack((self.__buffer, data))
             self.__profIndex += 1
             return
 
-        #If the buffer length is equal to n then replacing the last buffer value with the data value
+        # If the buffer length is equal to n then replacing the last buffer value with the data value
         self.__buffer = numpy.roll(self.__buffer, -1, axis=0)
-        self.__buffer[self.n-1] = data
+        self.__buffer[self.n - 1] = data
         self.__profIndex = self.n
         return
 
@@ -261,7 +261,7 @@ class IncohInt4SpectraHeis(Operation):
 
             return data, n
 
-        #Integration with Overlapping
+        # Integration with Overlapping
         data = numpy.sum(self.__buffer, axis=0)
         n = self.__profIndex
 
@@ -315,7 +315,7 @@ class IncohInt4SpectraHeis(Operation):
 
         avgdatatime = self.__initime
 
-        deltatime = datatime -self.__lastdatatime
+        deltatime = datatime - self.__lastdatatime
 
         if not self.__withOverapping:
             self.__initime = datatime

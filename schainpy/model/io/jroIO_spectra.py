@@ -53,7 +53,7 @@ class SpectraReader(JRODataReader, ProcessingUnit):
 
     """
 
-    def __init__(self):#, **kwargs):
+    def __init__(self):  # , **kwargs):
         """
         Inicializador de la clase SpectraReader para la lectura de datos de espectros.
 
@@ -121,12 +121,12 @@ class SpectraReader(JRODataReader, ProcessingUnit):
         self.nRdPairs = 0
         self.rdPairList = []
 
-        for i in range(0, self.processingHeaderObj.totalSpectra*2, 2):
-            if self.processingHeaderObj.spectraComb[i] == self.processingHeaderObj.spectraComb[i+1]:
-                self.nRdChannels = self.nRdChannels + 1 #par de canales iguales
+        for i in range(0, self.processingHeaderObj.totalSpectra * 2, 2):
+            if self.processingHeaderObj.spectraComb[i] == self.processingHeaderObj.spectraComb[i + 1]:
+                self.nRdChannels = self.nRdChannels + 1  # par de canales iguales
             else:
-                self.nRdPairs = self.nRdPairs + 1 #par de canales diferentes
-                self.rdPairList.append((self.processingHeaderObj.spectraComb[i], self.processingHeaderObj.spectraComb[i+1]))
+                self.nRdPairs = self.nRdPairs + 1  # par de canales diferentes
+                self.rdPairList.append((self.processingHeaderObj.spectraComb[i], self.processingHeaderObj.spectraComb[i + 1]))
 
         pts2read = self.processingHeaderObj.nHeights * self.processingHeaderObj.profilesPerBlock
 
@@ -165,38 +165,38 @@ class SpectraReader(JRODataReader, ProcessingUnit):
         
         fpointer = self.fp.tell()
 
-        spc = numpy.fromfile( self.fp, self.dtype[0], self.pts2read_SelfSpectra )
-        spc = spc.reshape( (self.nRdChannels, self.processingHeaderObj.nHeights, self.processingHeaderObj.profilesPerBlock) ) #transforma a un arreglo 3D
+        spc = numpy.fromfile(self.fp, self.dtype[0], self.pts2read_SelfSpectra)
+        spc = spc.reshape((self.nRdChannels, self.processingHeaderObj.nHeights, self.processingHeaderObj.profilesPerBlock))  # transforma a un arreglo 3D
 
         if self.processingHeaderObj.flag_cspc:
-            cspc = numpy.fromfile( self.fp, self.dtype, self.pts2read_CrossSpectra )
-            cspc = cspc.reshape( (self.nRdPairs, self.processingHeaderObj.nHeights, self.processingHeaderObj.profilesPerBlock) ) #transforma a un arreglo 3D
+            cspc = numpy.fromfile(self.fp, self.dtype, self.pts2read_CrossSpectra)
+            cspc = cspc.reshape((self.nRdPairs, self.processingHeaderObj.nHeights, self.processingHeaderObj.profilesPerBlock))  # transforma a un arreglo 3D
 
         if self.processingHeaderObj.flag_dc:
-            dc = numpy.fromfile( self.fp, self.dtype, self.pts2read_DCchannels ) #int(self.processingHeaderObj.nHeights*self.systemHeaderObj.nChannels) )
-            dc = dc.reshape( (self.systemHeaderObj.nChannels, self.processingHeaderObj.nHeights) ) #transforma a un arreglo 2D
+            dc = numpy.fromfile(self.fp, self.dtype, self.pts2read_DCchannels)  # int(self.processingHeaderObj.nHeights*self.systemHeaderObj.nChannels) )
+            dc = dc.reshape((self.systemHeaderObj.nChannels, self.processingHeaderObj.nHeights))  # transforma a un arreglo 2D
 
         if not self.processingHeaderObj.shif_fft:
-            #desplaza a la derecha en el eje 2 determinadas posiciones
-            shift = int(self.processingHeaderObj.profilesPerBlock/2)
-            spc = numpy.roll( spc, shift , axis=2 )
+            # desplaza a la derecha en el eje 2 determinadas posiciones
+            shift = int(self.processingHeaderObj.profilesPerBlock / 2)
+            spc = numpy.roll(spc, shift , axis=2)
 
             if self.processingHeaderObj.flag_cspc:
-                #desplaza a la derecha en el eje 2 determinadas posiciones
-                cspc = numpy.roll( cspc, shift, axis=2 )
+                # desplaza a la derecha en el eje 2 determinadas posiciones
+                cspc = numpy.roll(cspc, shift, axis=2)
 
-        #Dimensions : nChannels, nProfiles, nSamples
-        spc = numpy.transpose( spc, (0,2,1) )
+        # Dimensions : nChannels, nProfiles, nSamples
+        spc = numpy.transpose(spc, (0, 2, 1))
         self.data_spc = spc
 
         if self.processingHeaderObj.flag_cspc:
-            cspc = numpy.transpose( cspc, (0,2,1) )
-            self.data_cspc = cspc['real'] + cspc['imag']*1j
+            cspc = numpy.transpose(cspc, (0, 2, 1))
+            self.data_cspc = cspc['real'] + cspc['imag'] * 1j
         else:
             self.data_cspc = None
 
         if self.processingHeaderObj.flag_dc:
-            self.data_dc = dc['real'] + dc['imag']*1j
+            self.data_dc = dc['real'] + dc['imag'] * 1j
         else:
             self.data_dc = None
 
@@ -219,12 +219,12 @@ class SpectraReader(JRODataReader, ProcessingUnit):
         self.dataOut.nFFTPoints = self.processingHeaderObj.profilesPerBlock
         self.dataOut.nCohInt = self.processingHeaderObj.nCohInt
         self.dataOut.nIncohInt = self.processingHeaderObj.nIncohInt
-        xf = self.processingHeaderObj.firstHeight + self.processingHeaderObj.nHeights*self.processingHeaderObj.deltaHeight
+        xf = self.processingHeaderObj.firstHeight + self.processingHeaderObj.nHeights * self.processingHeaderObj.deltaHeight
         self.dataOut.heightList = numpy.arange(self.processingHeaderObj.firstHeight, xf, self.processingHeaderObj.deltaHeight)
         self.dataOut.channelList = list(range(self.systemHeaderObj.nChannels))
-        self.dataOut.flagShiftFFT = True    #Data is always shifted
-        self.dataOut.flagDecodeData = self.processingHeaderObj.flag_decode #asumo q la data no esta decodificada
-        self.dataOut.flagDeflipData = self.processingHeaderObj.flag_deflip #asumo q la data esta sin flip
+        self.dataOut.flagShiftFFT = True  # Data is always shifted
+        self.dataOut.flagDecodeData = self.processingHeaderObj.flag_decode  # asumo q la data no esta decodificada
+        self.dataOut.flagDeflipData = self.processingHeaderObj.flag_deflip  # asumo q la data esta sin flip
 
     def getData(self):
         """
@@ -253,11 +253,11 @@ class SpectraReader(JRODataReader, ProcessingUnit):
 
         if self.__hasNotDataInBuffer():
 
-            if not( self.readNextBlock() ):
+            if not(self.readNextBlock()):
                 self.dataOut.flagNoData = True
                 return 0
 
-        #data es un numpy array de 3 dmensiones (perfiles, alturas y canales)
+        # data es un numpy array de 3 dmensiones (perfiles, alturas y canales)
 
         if self.data_spc is None:
             self.dataOut.flagNoData = True
@@ -356,20 +356,20 @@ class SpectraWriter(JRODataWriter, Operation):
         Return: None
         """
 
-        spc = numpy.transpose( self.data_spc, (0,2,1) )
+        spc = numpy.transpose(self.data_spc, (0, 2, 1))
         if not self.processingHeaderObj.shif_fft:
-            spc = numpy.roll( spc, int(self.processingHeaderObj.profilesPerBlock/2), axis=2 ) #desplaza a la derecha en el eje 2 determinadas posiciones
+            spc = numpy.roll(spc, int(self.processingHeaderObj.profilesPerBlock / 2), axis=2)  # desplaza a la derecha en el eje 2 determinadas posiciones
         data = spc.reshape((-1))
         data = data.astype(self.dtype[0])
         data.tofile(self.fp)
 
         if self.data_cspc is not None:
             
-            cspc = numpy.transpose( self.data_cspc, (0,2,1) )
-            data = numpy.zeros( numpy.shape(cspc), self.dtype )
-            #print 'data.shape', self.shape_cspc_Buffer
+            cspc = numpy.transpose(self.data_cspc, (0, 2, 1))
+            data = numpy.zeros(numpy.shape(cspc), self.dtype)
+            # print 'data.shape', self.shape_cspc_Buffer
             if not self.processingHeaderObj.shif_fft:
-                cspc = numpy.roll( cspc, int(self.processingHeaderObj.profilesPerBlock/2), axis=2 ) #desplaza a la derecha en el eje 2 determinadas posiciones
+                cspc = numpy.roll(cspc, int(self.processingHeaderObj.profilesPerBlock / 2), axis=2)  # desplaza a la derecha en el eje 2 determinadas posiciones
             data['real'] = cspc.real
             data['imag'] = cspc.imag
             data = data.reshape((-1))
@@ -378,7 +378,7 @@ class SpectraWriter(JRODataWriter, Operation):
         if self.data_dc is not None:
             
             dc = self.data_dc
-            data = numpy.zeros( numpy.shape(dc), self.dtype )
+            data = numpy.zeros(numpy.shape(dc), self.dtype)
             data['real'] = dc.real
             data['imag'] = dc.imag
             data = data.reshape((-1))
@@ -453,15 +453,15 @@ class SpectraWriter(JRODataWriter, Operation):
         pts2write = self.dataOut.nHeights * self.dataOut.nFFTPoints
 
         pts2write_SelfSpectra = int(self.dataOut.nChannels * pts2write)
-        blocksize = (pts2write_SelfSpectra*dtype_width)
+        blocksize = (pts2write_SelfSpectra * dtype_width)
 
         if self.dataOut.data_cspc is not None:
             pts2write_CrossSpectra = int(self.dataOut.nPairs * pts2write)
-            blocksize += (pts2write_CrossSpectra*dtype_width*2)
+            blocksize += (pts2write_CrossSpectra * dtype_width * 2)
 
         if self.dataOut.data_dc is not None:
             pts2write_DCchannels = int(self.dataOut.nChannels * self.dataOut.nHeights)
-            blocksize += (pts2write_DCchannels*dtype_width*2)
+            blocksize += (pts2write_DCchannels * dtype_width * 2)
 
 #         blocksize = blocksize #* datatypeValue * 2 #CORREGIR ESTO
 
@@ -485,12 +485,12 @@ class SpectraWriter(JRODataWriter, Operation):
         self.systemHeaderObj.nChannels = self.dataOut.nChannels
         self.radarControllerHeaderObj = self.dataOut.radarControllerHeaderObj.copy()
 
-        self.processingHeaderObj.dtype = 1 # Spectra
+        self.processingHeaderObj.dtype = 1  # Spectra
         self.processingHeaderObj.blockSize = self.__getBlockSize()
         self.processingHeaderObj.profilesPerBlock = self.dataOut.nFFTPoints
         self.processingHeaderObj.dataBlocksPerFile = self.blocksPerFile
-        self.processingHeaderObj.nWindows = 1 #podria ser 1 o self.dataOut.processingHeaderObj.nWindows
-        self.processingHeaderObj.nCohInt = self.dataOut.nCohInt# Se requiere para determinar el valor de timeInterval
+        self.processingHeaderObj.nWindows = 1  # podria ser 1 o self.dataOut.processingHeaderObj.nWindows
+        self.processingHeaderObj.nCohInt = self.dataOut.nCohInt  # Se requiere para determinar el valor de timeInterval
         self.processingHeaderObj.nIncohInt = self.dataOut.nIncohInt
         self.processingHeaderObj.totalSpectra = self.dataOut.nPairs + self.dataOut.nChannels
         self.processingHeaderObj.shif_fft = self.dataOut.flagShiftFFT

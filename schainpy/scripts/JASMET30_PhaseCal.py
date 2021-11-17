@@ -8,24 +8,24 @@ sys.path.insert(0, path)
 from schainpy.controller import Project
 
 controllerObj = Project()
-controllerObj.setup(id = '004', name='script04', description="JASMET Phase Calibration")
+controllerObj.setup(id='004', name='script04', description="JASMET Phase Calibration")
 
 #--------------------------------------    Setup    -----------------------------------------
-#Verificar estas variables
+# Verificar estas variables
 
-#Path donde estan los archivos HDF5 de meteoros
-path = os.path.join(os.environ['HOME'],'Pictures/JASMET30_mp/201608/meteor')
+# Path donde estan los archivos HDF5 de meteoros
+path = os.path.join(os.environ['HOME'], 'Pictures/JASMET30_mp/201608/meteor')
 
-#Path para los graficos
-pathfig = os.path.join(os.environ['HOME'],'Pictures/JASMET30_mp/201608/graphics')
+# Path para los graficos
+pathfig = os.path.join(os.environ['HOME'], 'Pictures/JASMET30_mp/201608/graphics')
 
-#Path donde se almacenaran las fases calculadas
-pathfile = os.path.join(os.environ['HOME'],'Pictures/JASMET30_mp/201608/phase')
+# Path donde se almacenaran las fases calculadas
+pathfile = os.path.join(os.environ['HOME'], 'Pictures/JASMET30_mp/201608/phase')
 
-#Fechas para busqueda de archivos
+# Fechas para busqueda de archivos
 startDate = '2016/08/29'
 endDate = '2016/09/11'
-#Horas para busqueda de archivos
+# Horas para busqueda de archivos
 startTime = '00:00:00'
 endTime = '23:59:59'
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
@@ -61,8 +61,8 @@ opObj32.addParameter(name='figpath', value=pathfig, format='str')
 opObj33 = procUnitConfObj1.addOperation(name='ParamWriter', optype='other')
 opObj33.addParameter(name='path', value=pathfile)
 opObj33.addParameter(name='blocksPerFile', value='1000', format='int')
-opObj33.addParameter(name='metadataList',value='type,outputInterval,timeZone',format='list')
-opObj33.addParameter(name='dataList',value='data_output,utctime',format='list')
+opObj33.addParameter(name='metadataList', value='type,outputInterval,timeZone', format='list')
+opObj33.addParameter(name='dataList', value='data_output,utctime', format='list')
 # # opObj25.addParameter(name='mode',value='1,0,0',format='intlist')
 
 controllerObj.start()

@@ -161,7 +161,7 @@ def search(nextcommand):
         except Exception as e:
             log.error('Module `{}` does not exists'.format(nextcommand), '')
             allModules = getAll()
-            similar = [t[0] for t in process.extract(nextcommand, allModules, limit=12) if t[1]>80]
+            similar = [t[0] for t in process.extract(nextcommand, allModules, limit=12) if t[1] > 80]
             log.success('Possible modules are: {}'.format(', '.join(similar)), '')
 
 def runschain(nextcommand):

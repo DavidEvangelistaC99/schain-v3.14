@@ -52,13 +52,13 @@ EARTH_RADIUS = 6.3710e3
 def ll2xy(lat1, lon1, lat2, lon2):
 
     p = 0.017453292519943295
-    a = 0.5 - numpy.cos((lat2 - lat1) * p)/2 + numpy.cos(lat1 * p) * \
+    a = 0.5 - numpy.cos((lat2 - lat1) * p) / 2 + numpy.cos(lat1 * p) * \
         numpy.cos(lat2 * p) * (1 - numpy.cos((lon2 - lon1) * p)) / 2
     r = 12742 * numpy.arcsin(numpy.sqrt(a))
-    theta = numpy.arctan2(numpy.sin((lon2-lon1)*p)*numpy.cos(lat2*p), numpy.cos(lat1*p)
-                          * numpy.sin(lat2*p)-numpy.sin(lat1*p)*numpy.cos(lat2*p)*numpy.cos((lon2-lon1)*p))
-    theta = -theta + numpy.pi/2
-    return r*numpy.cos(theta), r*numpy.sin(theta)
+    theta = numpy.arctan2(numpy.sin((lon2 - lon1) * p) * numpy.cos(lat2 * p), numpy.cos(lat1 * p)
+                          * numpy.sin(lat2 * p) - numpy.sin(lat1 * p) * numpy.cos(lat2 * p) * numpy.cos((lon2 - lon1) * p))
+    theta = -theta + numpy.pi / 2
+    return r * numpy.cos(theta), r * numpy.sin(theta)
 
 
 def km2deg(km):
@@ -66,7 +66,7 @@ def km2deg(km):
     Convert distance in km to degrees
     '''
 
-    return numpy.rad2deg(km/EARTH_RADIUS)
+    return numpy.rad2deg(km / EARTH_RADIUS)
 
 
 def figpause(interval):
@@ -388,7 +388,7 @@ class Plot(Operation):
                     xmax = self.xmax
                 else:
                     xmin = self.tmin
-                    xmax = self.tmin + self.xrange*60*60
+                    xmax = self.tmin + self.xrange * 60 * 60
                     ax.xaxis.set_major_formatter(FuncFormatter(self.__fmtTime))
                     ax.xaxis.set_major_locator(LinearLocator(9))
                 ymin = self.ymin if self.ymin is not None else numpy.nanmin(self.y[numpy.isfinite(self.y)])
@@ -396,10 +396,10 @@ class Plot(Operation):
                 ax.set_facecolor(self.bgcolor)
                 if self.xscale:
                     ax.xaxis.set_major_formatter(FuncFormatter(
-                        lambda x, pos: '{0:g}'.format(x*self.xscale)))
+                        lambda x, pos: '{0:g}'.format(x * self.xscale)))
                 if self.yscale:
                     ax.yaxis.set_major_formatter(FuncFormatter(
-                        lambda x, pos: '{0:g}'.format(x*self.yscale)))
+                        lambda x, pos: '{0:g}'.format(x * self.yscale)))
                 if self.xlabel is not None:
                     ax.set_xlabel(self.xlabel)
                 if self.ylabel is not None:
@@ -450,7 +450,7 @@ class Plot(Operation):
         Reset axes for redraw plots
         '''
 
-        for ax in self.axes+self.pf_axes+self.cb_axes:
+        for ax in self.axes + self.pf_axes + self.cb_axes:
             ax.clear()
             ax.firsttime = True
             if hasattr(ax, 'cbar') and ax.cbar:
@@ -513,7 +513,7 @@ class Plot(Operation):
             figname = os.path.join(
                 self.save,
                 self.save_code,
-                '{}_{}.png'.format(                
+                '{}_{}.png'.format(
                     self.save_code,
                     self.getDateTime(self.data.max_time).strftime(
                         '%Y%m%d_%H%M%S'
@@ -656,10 +656,10 @@ class Plot(Operation):
 
         tm = getattr(dataOut, self.attr_time)
         
-        if self.data and 'time' in self.xaxis and (tm - self.tmin) >= self.xrange*60*60:
+        if self.data and 'time' in self.xaxis and (tm - self.tmin) >= self.xrange * 60 * 60:
             self.save_time = tm
             self.__plot()
-            self.tmin += self.xrange*60*60
+            self.tmin += self.xrange * 60 * 60
             self.data.setup()
             self.clear_figures()
 
@@ -672,10 +672,10 @@ class Plot(Operation):
                 dt = self.getDateTime(tm)
                 if self.xmin is None:
                     self.tmin = tm
-                    self.xmin = dt.hour
-                minutes = (self.xmin-int(self.xmin)) * 60
+                    self.xmin = dt.hour    
+                minutes = (self.xmin - int(self.xmin)) * 60
                 seconds = (minutes - int(minutes)) * 60
-                self.tmin = (dt.replace(hour=int(self.xmin), minute=int(minutes), second=int(seconds)) -
+                self.tmin = (dt.replace(hour=int(self.xmin), minute=int(minutes), second=int(seconds)) - 
                         datetime.datetime(1970, 1, 1)).total_seconds()
                 if self.localtime:
                     self.tmin += time.timezone
@@ -686,7 +686,7 @@ class Plot(Operation):
         if self.throttle == 0:
             self.__plot()
         else:
-            self.__throttle_plot(self.__plot)#, coerce=coerce)
+            self.__throttle_plot(self.__plot)  # , coerce=coerce)
 
     def close(self):
 

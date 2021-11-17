@@ -31,7 +31,7 @@ class SpectraProc(ProcessingUnit):
         self.dataOut = Spectra()
         self.id_min = None
         self.id_max = None
-        self.setupReq = False #Agregar a todas las unidades de proc
+        self.setupReq = False  # Agregar a todas las unidades de proc
 
     def __updateSpecFromVoltage(self):
 
@@ -122,12 +122,12 @@ class SpectraProc(ProcessingUnit):
         if self.dataIn.type == "Spectra":
             self.dataOut.copy(self.dataIn)
             if shift_fft:
-                #desplaza a la derecha en el eje 2 determinadas posiciones
-                shift = int(self.dataOut.nFFTPoints/2)
+                # desplaza a la derecha en el eje 2 determinadas posiciones
+                shift = int(self.dataOut.nFFTPoints / 2)
                 self.dataOut.data_spc = numpy.roll(self.dataOut.data_spc, shift , axis=1)
 
                 if self.dataOut.data_cspc is not None:
-                    #desplaza a la derecha en el eje 2 determinadas posiciones
+                    # desplaza a la derecha en el eje 2 determinadas posiciones
                     self.dataOut.data_cspc = numpy.roll(self.dataOut.data_cspc, shift, axis=1)
             if pairsList:
                 self.__selectPairs(pairsList)
@@ -215,7 +215,7 @@ class SpectraProc(ProcessingUnit):
 
         return
     
-    def selectFFTs(self, minFFT, maxFFT ):
+    def selectFFTs(self, minFFT, maxFFT):
         """
         Selecciona un bloque de datos en base a un grupo de valores de puntos FFTs segun el rango 
         minFFT<= FFT <= maxFFT
@@ -264,7 +264,7 @@ class SpectraProc(ProcessingUnit):
         heightList = self.dataOut.heightList[minIndex:maxIndex + 1]
 
         # determina indices
-        nheis = int(self.dataOut.radarControllerHeaderObj.txB /
+        nheis = int(self.dataOut.radarControllerHeaderObj.txB / 
                     (self.dataOut.heightList[1] - self.dataOut.heightList[0]))
         avg_dB = 10 * \
             numpy.log10(numpy.sum(data_spc[channelindex, :, :], axis=0))
@@ -274,16 +274,16 @@ class SpectraProc(ProcessingUnit):
             if val >= beacon_dB[0]:
                 beacon_heiIndexList.append(avg_dB.tolist().index(val))
 
-        #data_spc = data_spc[:,:,beacon_heiIndexList]
+        # data_spc = data_spc[:,:,beacon_heiIndexList]
         data_cspc = None
         if self.dataOut.data_cspc is not None:
             data_cspc = self.dataOut.data_cspc[:, :, minIndex:maxIndex + 1]
-            #data_cspc = data_cspc[:,:,beacon_heiIndexList]
+            # data_cspc = data_cspc[:,:,beacon_heiIndexList]
 
         data_dc = None
         if self.dataOut.data_dc is not None:
             data_dc = self.dataOut.data_dc[:, minIndex:maxIndex + 1]
-            #data_dc = data_dc[:,beacon_heiIndexList]
+            # data_dc = data_dc[:,beacon_heiIndexList]
 
         self.dataOut.data_spc = data_spc
         self.dataOut.data_cspc = data_cspc
@@ -302,24 +302,24 @@ class SpectraProc(ProcessingUnit):
             raise ValueError("Error selecting heights: Index range (%d,%d) is not valid" % (minIndex, maxIndex))
 
         if (maxIndex >= self.dataOut.nProfiles):
-            maxIndex = self.dataOut.nProfiles-1
+            maxIndex = self.dataOut.nProfiles - 1
 
-        #Spectra
-        data_spc = self.dataOut.data_spc[:,minIndex:maxIndex+1,:]
+        # Spectra
+        data_spc = self.dataOut.data_spc[:, minIndex:maxIndex + 1, :]
 
         data_cspc = None
         if self.dataOut.data_cspc is not None:
-            data_cspc = self.dataOut.data_cspc[:,minIndex:maxIndex+1,:]
+            data_cspc = self.dataOut.data_cspc[:, minIndex:maxIndex + 1, :]
 
         data_dc = None
         if self.dataOut.data_dc is not None:
-            data_dc = self.dataOut.data_dc[minIndex:maxIndex+1,:]
+            data_dc = self.dataOut.data_dc[minIndex:maxIndex + 1, :]
 
         self.dataOut.data_spc = data_spc
         self.dataOut.data_cspc = data_cspc
         self.dataOut.data_dc = data_dc
         
-        self.dataOut.ippSeconds = self.dataOut.ippSeconds*(self.dataOut.nFFTPoints / numpy.shape(data_cspc)[1])
+        self.dataOut.ippSeconds = self.dataOut.ippSeconds * (self.dataOut.nFFTPoints / numpy.shape(data_cspc)[1])
         self.dataOut.nFFTPoints = numpy.shape(data_cspc)[1]
         self.dataOut.profilesPerBlock = numpy.shape(data_cspc)[1]
 
@@ -452,7 +452,7 @@ class removeDC(Operation):
             xx = numpy.zeros([4, 4])
 
             for fil in range(4):
-                xx[fil, :] = vel[fil]**numpy.asarray(list(range(4)))
+                xx[fil, :] = vel[fil] ** numpy.asarray(list(range(4)))
 
             xx_inv = numpy.linalg.inv(xx)
             xx_aux = xx_inv[0, :]
@@ -488,22 +488,22 @@ class removeInterference(Operation):
         realCspc = numpy.abs(cspc)
         
         for i in range(cspc.shape[0]):
-            LinePower= numpy.sum(realCspc[i], axis=0)
-            Threshold = numpy.amax(LinePower)-numpy.sort(LinePower)[len(Heights)-int(len(Heights)*0.1)]
-            SelectedHeights = Heights[ numpy.where( LinePower < Threshold ) ]
-            InterferenceSum = numpy.sum( realCspc[i,:,SelectedHeights], axis=0 )
-            InterferenceThresholdMin = numpy.sort(InterferenceSum)[int(len(InterferenceSum)*0.98)]
-            InterferenceThresholdMax = numpy.sort(InterferenceSum)[int(len(InterferenceSum)*0.99)]
+            LinePower = numpy.sum(realCspc[i], axis=0)
+            Threshold = numpy.amax(LinePower) - numpy.sort(LinePower)[len(Heights) - int(len(Heights) * 0.1)]
+            SelectedHeights = Heights[ numpy.where(LinePower < Threshold) ]
+            InterferenceSum = numpy.sum(realCspc[i, :, SelectedHeights], axis=0)
+            InterferenceThresholdMin = numpy.sort(InterferenceSum)[int(len(InterferenceSum) * 0.98)]
+            InterferenceThresholdMax = numpy.sort(InterferenceSum)[int(len(InterferenceSum) * 0.99)]
             
             
-            InterferenceRange = numpy.where( ([InterferenceSum > InterferenceThresholdMin]))# , InterferenceSum < InterferenceThresholdMax]) )
-            #InterferenceRange = numpy.where( ([InterferenceRange < InterferenceThresholdMax]))
-            if len(InterferenceRange)<int(cspc.shape[1]*0.3):
-                cspc[i,InterferenceRange,:] = numpy.NaN
+            InterferenceRange = numpy.where(([InterferenceSum > InterferenceThresholdMin]))  # , InterferenceSum < InterferenceThresholdMax]) )
+            # InterferenceRange = numpy.where( ([InterferenceRange < InterferenceThresholdMax]))
+            if len(InterferenceRange) < int(cspc.shape[1] * 0.3):
+                cspc[i, InterferenceRange, :] = numpy.NaN
             
         self.dataOut.data_cspc = cspc
         
-    def removeInterference(self, interf = 2, hei_interf = None, nhei_interf = None, offhei_interf = None):
+    def removeInterference(self, interf=2, hei_interf=None, nhei_interf=None, offhei_interf=None):
 
         jspectra = self.dataOut.data_spc
         jcspectra = self.dataOut.data_cspc
@@ -557,7 +557,7 @@ class removeInterference(Operation):
                 #    tmp_noise = jnoise[ich] / num_prof
                 tmp_noise = jnoise[ich]
             junkspc_interf = junkspc_interf - tmp_noise
-            #junkspc_interf[:,comp_mask_prof] = 0
+            # junkspc_interf[:,comp_mask_prof] = 0
 
             jspc_interf = junkspc_interf.sum(axis=0) / nhei_interf
             jspc_interf = jspc_interf.transpose()
@@ -599,20 +599,20 @@ class removeInterference(Operation):
 
             if cinterfid > 0:
                 for ip in range(cinterfid * (interf == 2) - 1):
-                    ind = (jspectra[ich, interfid[ip], :] < tmp_noise *
+                    ind = (jspectra[ich, interfid[ip], :] < tmp_noise * 
                            (1 + 1 / numpy.sqrt(num_incoh))).nonzero()
                     cind = len(ind)
 
                     if (cind > 0):
                         jspectra[ich, interfid[ip], ind] = tmp_noise * \
-                            (1 + (numpy.random.uniform(cind) - 0.5) /
+                            (1 + (numpy.random.uniform(cind) - 0.5) / 
                              numpy.sqrt(num_incoh))
 
                 ind = numpy.array([-2, -1, 1, 2])
                 xx = numpy.zeros([4, 4])
 
                 for id1 in range(4):
-                    xx[:, id1] = ind[id1]**numpy.asarray(list(range(4)))
+                    xx[:, id1] = ind[id1] ** numpy.asarray(list(range(4)))
 
                 xx_inv = numpy.linalg.inv(xx)
                 xx = xx_inv[:, 0]
@@ -621,7 +621,7 @@ class removeInterference(Operation):
                 jspectra[ich, mask_prof[maxid], :] = numpy.dot(
                     yy.transpose(), xx)
 
-            indAux = (jspectra[ich, :, :] < tmp_noise *
+            indAux = (jspectra[ich, :, :] < tmp_noise * 
                       (1 - 1 / numpy.sqrt(num_incoh))).nonzero()
             jspectra[ich, indAux[0], indAux[1]] = tmp_noise * \
                 (1 - 1 / numpy.sqrt(num_incoh))
@@ -671,7 +671,7 @@ class removeInterference(Operation):
             xx = numpy.zeros([4, 4])
 
             for id1 in range(4):
-                xx[:, id1] = ind[id1]**numpy.asarray(list(range(4)))
+                xx[:, id1] = ind[id1] ** numpy.asarray(list(range(4)))
 
             xx_inv = numpy.linalg.inv(xx)
             xx = xx_inv[:, 0]
@@ -686,12 +686,12 @@ class removeInterference(Operation):
 
         return 1
 
-    def run(self, dataOut, interf = 2,hei_interf = None, nhei_interf = None, offhei_interf = None, mode=1):
+    def run(self, dataOut, interf=2, hei_interf=None, nhei_interf=None, offhei_interf=None, mode=1):
 
         self.dataOut = dataOut
 
         if mode == 1:
-            self.removeInterference(interf = 2,hei_interf = None, nhei_interf = None, offhei_interf = None)
+            self.removeInterference(interf=2, hei_interf=None, nhei_interf=None, offhei_interf=None)
         elif mode == 2:
             self.removeInterference2()
 
@@ -888,10 +888,10 @@ class dopplerFlip(Operation):
         freq_dc = int(num_profiles / 2)
         # Flip con for
         for j in range(num_profiles):
-            jspectra_tmp[num_profiles-j-1]= jspectra[j]
+            jspectra_tmp[num_profiles - j - 1] = jspectra[j]
         # Intercambio perfil de DC con perfil inmediato anterior
-        jspectra_tmp[freq_dc-1]= jspectra[freq_dc-1]
-        jspectra_tmp[freq_dc]= jspectra[freq_dc]
+        jspectra_tmp[freq_dc - 1] = jspectra[freq_dc - 1]
+        jspectra_tmp[freq_dc] = jspectra[freq_dc]
         # canal modificado es re-escrito en el arreglo de canales
         self.dataOut.data_spc[2] = jspectra_tmp
 

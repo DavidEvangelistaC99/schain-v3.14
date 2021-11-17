@@ -203,7 +203,7 @@ class ProcUnitConf(ConfBase):
 
     def removeOperation(self, id):
 
-        i = [1 if x.id==id else 0 for x in self.operations]
+        i = [1 if x.id == id else 0 for x in self.operations]
         self.operations.pop(i.index(1))
         
     def getOperation(self, id):
@@ -293,12 +293,12 @@ class ReadUnitConf(ProcUnitConf):
         if name == None:
             if 'Reader' in datatype:
                 name = datatype
-                datatype = name.replace('Reader','')
+                datatype = name.replace('Reader', '')
             else:
                 name = '{}Reader'.format(datatype)
         if datatype == None:
             if 'Reader' in name:
-                datatype = name.replace('Reader','')
+                datatype = name.replace('Reader', '')
             else:
                 datatype = name
                 name = '{}Reader'.format(name)
@@ -572,7 +572,7 @@ class Project(Process):
             if '#_start_#' in msg:
                 procs += 1
             elif '#_end_#' in msg:
-                procs -=1
+                procs -= 1
             else:
                 err_msg = msg
             
@@ -617,7 +617,7 @@ class Project(Process):
                 subtitle += '[End time = %s]\n' % readUnitConfObj.parameters['endTime']
 
             a = Alarm(
-                modes=self.alarm, 
+                modes=self.alarm,
                 email=self.email,
                 message=message,
                 subject=subject,
@@ -656,4 +656,4 @@ class Project(Process):
         self.runProcs()
         log.success('{} Done (Time: {:4.2f}s)'.format(
             self.name,
-            time.time()-self.start_time), '')
+            time.time() - self.start_time), '')

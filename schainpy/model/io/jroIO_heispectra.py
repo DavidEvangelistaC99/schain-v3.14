@@ -25,23 +25,23 @@ from schainpy.utils import log
 
 
 class PyFits(object):
-    name=None
-    format=None
-    array =None
-    data =None
-    thdulist=None
-    prihdr=None
-    hdu=None
+    name = None
+    format = None
+    array = None
+    data = None
+    thdulist = None
+    prihdr = None
+    hdu = None
 
     def __init__(self):
 
         pass
 
-    def setColF(self,name,format,array):
-        self.name=name
-        self.format=format
-        self.array=array
-        a1=numpy.array([self.array],dtype=numpy.float32)
+    def setColF(self, name, format, array):
+        self.name = name
+        self.format = format
+        self.array = array
+        a1 = numpy.array([self.array], dtype=numpy.float32)
         self.col1 = pyfits.Column(name=self.name, format=self.format, array=a1)
         return self.col1
 
@@ -54,35 +54,35 @@ class PyFits(object):
 #        return self.col2
 
 
-    def writeData(self,name,format,data):
-        self.name=name
-        self.format=format
-        self.data=data
-        a2=numpy.array([self.data],dtype=numpy.float32)
+    def writeData(self, name, format, data):
+        self.name = name
+        self.format = format
+        self.data = data
+        a2 = numpy.array([self.data], dtype=numpy.float32)
         self.col2 = pyfits.Column(name=self.name, format=self.format, array=a2)
         return self.col2
 
-    def cFImage(self,idblock,year,month,day,hour,minute,second):
-        self.hdu= pyfits.PrimaryHDU(idblock)
-        self.hdu.header.set("Year",year)
-        self.hdu.header.set("Month",month)
-        self.hdu.header.set("Day",day)
-        self.hdu.header.set("Hour",hour)
-        self.hdu.header.set("Minute",minute)
-        self.hdu.header.set("Second",second)
+    def cFImage(self, idblock, year, month, day, hour, minute, second):
+        self.hdu = pyfits.PrimaryHDU(idblock)
+        self.hdu.header.set("Year", year)
+        self.hdu.header.set("Month", month)
+        self.hdu.header.set("Day", day)
+        self.hdu.header.set("Hour", hour)
+        self.hdu.header.set("Minute", minute)
+        self.hdu.header.set("Second", second)
         return self.hdu
 
 
-    def Ctable(self,colList):
-        self.cols=pyfits.ColDefs(colList)
+    def Ctable(self, colList):
+        self.cols = pyfits.ColDefs(colList)
         self.tbhdu = pyfits.new_table(self.cols)
         return self.tbhdu
 
 
-    def CFile(self,hdu,tbhdu):
-        self.thdulist=pyfits.HDUList([hdu,tbhdu])
+    def CFile(self, hdu, tbhdu):
+        self.thdulist = pyfits.HDUList([hdu, tbhdu])
 
-    def wFile(self,filename):
+    def wFile(self, filename):
         if os.path.isfile(filename):
             os.remove(filename)
         self.thdulist.writeto(filename)
@@ -154,7 +154,7 @@ class FitsWriter(Operation):
         header_data.header['DATETIME'] = time.strftime("%b %d %Y %H:%M:%S", dataOut.datatime.timetuple())
         header_data.header['CHANNELLIST'] = str(dataOut.channelList)
         header_data.header['NCHANNELS'] = dataOut.nChannels
-        #header_data.header['HEIGHTS'] = dataOut.heightList
+        # header_data.header['HEIGHTS'] = dataOut.heightList
         header_data.header['NHEIGHTS'] = dataOut.nHeights
 
         header_data.header['IPPSECONDS'] = dataOut.ippSeconds
@@ -165,7 +165,7 @@ class FitsWriter(Operation):
 
         header_data.writeto(self.filename)
 
-        self.addExtension(dataOut.heightList,'HEIGHTLIST')
+        self.addExtension(dataOut.heightList, 'HEIGHTLIST')
 
 
     def setup(self, dataOut, path, dataBlocksPerFile=100, metadatafile=None):
@@ -182,7 +182,7 @@ class FitsWriter(Operation):
     def addExtension(self, data, tagname):
         self.open()
         extension = pyfits.ImageHDU(data=data, name=tagname)
-        #extension.header['TAG'] = tagname
+        # extension.header['TAG'] = tagname
         self.fitsObj.append(extension)
         self.write()
 
@@ -207,25 +207,25 @@ class FitsWriter(Operation):
         ext = self.ext
         path = self.path
 
-        timeTuple = time.localtime( self.dataOut.utctime)
-        subfolder = 'd%4.4d%3.3d' % (timeTuple.tm_year,timeTuple.tm_yday)
+        timeTuple = time.localtime(self.dataOut.utctime)
+        subfolder = 'd%4.4d%3.3d' % (timeTuple.tm_year, timeTuple.tm_yday)
 
-        fullpath = os.path.join( path, subfolder )
-        if not( os.path.exists(fullpath) ):
+        fullpath = os.path.join(path, subfolder)
+        if not(os.path.exists(fullpath)):
             os.mkdir(fullpath)
-            self.setFile = -1 #inicializo mi contador de seteo
+            self.setFile = -1  # inicializo mi contador de seteo
         else:
-            filesList = os.listdir( fullpath )
-            if len( filesList ) > 0:
-                filesList = sorted( filesList, key=str.lower )
+            filesList = os.listdir(fullpath)
+            if len(filesList) > 0:
+                filesList = sorted(filesList, key=str.lower)
                 filen = filesList[-1]
 
-                if isNumber( filen[8:11] ):
-                    self.setFile = int( filen[8:11] ) #inicializo mi contador de seteo al seteo del ultimo file
+                if isNumber(filen[8:11]):
+                    self.setFile = int(filen[8:11])  # inicializo mi contador de seteo al seteo del ultimo file
                 else:
                     self.setFile = -1
             else:
-                self.setFile = -1 #inicializo mi contador de seteo
+                self.setFile = -1  # inicializo mi contador de seteo
 
         setFile = self.setFile
         setFile += 1
@@ -234,16 +234,16 @@ class FitsWriter(Operation):
                                         timeTuple.tm_year,
                                         timeTuple.tm_yday,
                                         setFile,
-                                        ext )
+                                        ext)
 
-        filename = os.path.join( path, subfolder, thisFile )
+        filename = os.path.join(path, subfolder, thisFile)
 
         self.blockIndex = 0
         self.filename = filename
         self.setFile = setFile
         self.flagIsNewFile = 1
 
-        print('Writing the file: %s'%self.filename)
+        print('Writing the file: %s' % self.filename)
 
         self.setFitsHeader(self.dataOut, self.metadatafile)
 
@@ -262,13 +262,13 @@ class FitsWriter(Operation):
         if self.blockIndex < self.dataBlocksPerFile:
             return 1
 
-        if not( self.setNextFile() ):
+        if not(self.setNextFile()):
             return 0
 
         return 1
 
     def writeNextBlock(self):
-        if not( self.__setNewBlock() ):
+        if not(self.__setNewBlock()):
             return 0
         self.writeBlock()
         return 1
@@ -301,8 +301,8 @@ class FitsReader(ProcessingUnit):
     data = None
     data_header_dict = None
 
-    def __init__(self):#, **kwargs):
-        ProcessingUnit.__init__(self)#, **kwargs)
+    def __init__(self):  # , **kwargs):
+        ProcessingUnit.__init__(self)  # , **kwargs)
         self.isConfig = False
         self.ext = '.fits'
         self.setFile = 0
@@ -317,7 +317,7 @@ class FitsReader(ProcessingUnit):
         self.nReadBlocks = 0
         self.nTotalBlocks = 0
         self.dataOut = self.createObjByDefault()
-        self.maxTimeStep = 10# deberia ser definido por el usuario usando el metodo setup()
+        self.maxTimeStep = 10  # deberia ser definido por el usuario usando el metodo setup()
         self.blockIndex = 1
 
     def createObjByDefault(self):
@@ -328,14 +328,14 @@ class FitsReader(ProcessingUnit):
 
     def isFileinThisTime(self, filename, startTime, endTime, useLocalTime=False):
         try:
-            fitsObj = pyfits.open(filename,'readonly')
+            fitsObj = pyfits.open(filename, 'readonly')
         except:
-            print("File %s can't be opened" %(filename))
+            print("File %s can't be opened" % (filename))
             return None
 
         header = fitsObj[0].header
         struct_time = time.strptime(header['DATETIME'], "%b %d %Y %H:%M:%S")
-        utc = time.mktime(struct_time) - time.timezone #TIMEZONE debe ser un parametro del header FITS
+        utc = time.mktime(struct_time) - time.timezone  # TIMEZONE debe ser un parametro del header FITS
 
         ltc = utc
         if useLocalTime:
@@ -367,7 +367,7 @@ class FitsReader(ProcessingUnit):
 #                continue
 
             fileSize = os.path.getsize(filename)
-            fitsObj = pyfits.open(filename,'readonly')
+            fitsObj = pyfits.open(filename, 'readonly')
             break
 
         self.flagIsNewFile = 1
@@ -376,7 +376,7 @@ class FitsReader(ProcessingUnit):
         self.fileSize = fileSize
         self.fitsObj = fitsObj
         self.blockIndex = 0
-        print("Setting the file: %s"%self.filename)
+        print("Setting the file: %s" % self.filename)
 
         return 1
 
@@ -459,8 +459,8 @@ class FitsReader(ProcessingUnit):
                             path,
                             startDate,
                             endDate,
-                            startTime=datetime.time(0,0,0),
-                            endTime=datetime.time(23,59,59),
+                            startTime=datetime.time(0, 0, 0),
+                            endTime=datetime.time(23, 59, 59),
                             set=None,
                             expLabel='',
                             ext='.fits',
@@ -474,7 +474,7 @@ class FitsReader(ProcessingUnit):
         else:
             dirList = []
             for thisPath in os.listdir(path):
-                if not os.path.isdir(os.path.join(path,thisPath)):
+                if not os.path.isdir(os.path.join(path, thisPath)):
                     continue
                 if not isRadarFolder(thisPath):
                     continue
@@ -490,20 +490,20 @@ class FitsReader(ProcessingUnit):
                 year = thisDate.timetuple().tm_year
                 doy = thisDate.timetuple().tm_yday
 
-                matchlist = fnmatch.filter(dirList, '?' + '%4.4d%3.3d' % (year,doy) + '*')
+                matchlist = fnmatch.filter(dirList, '?' + '%4.4d%3.3d' % (year, doy) + '*')
                 if len(matchlist) == 0:
                     thisDate += datetime.timedelta(1)
                     continue
                 for match in matchlist:
-                    pathList.append(os.path.join(path,match,expLabel))
+                    pathList.append(os.path.join(path, match, expLabel))
 
                 thisDate += datetime.timedelta(1)
 
         if pathList == []:
-            print("Any folder was found for the date range: %s-%s" %(startDate, endDate))
+            print("Any folder was found for the date range: %s-%s" % (startDate, endDate))
             return None, None
 
-        print("%d folder(s) was(were) found for the date range: %s - %s" %(len(pathList), startDate, endDate))
+        print("%d folder(s) was(were) found for the date range: %s - %s" % (len(pathList), startDate, endDate))
 
         filenameList = []
         datetimeList = []
@@ -512,12 +512,12 @@ class FitsReader(ProcessingUnit):
 
             thisPath = pathList[i]
 
-            fileList = glob.glob1(thisPath, "*%s" %ext)
+            fileList = glob.glob1(thisPath, "*%s" % ext)
             fileList.sort()
 
             for thisFile in fileList:
 
-                filename = os.path.join(thisPath,thisFile)
+                filename = os.path.join(thisPath, thisFile)
                 thisDatetime = self.isFileinThisTime(filename, startTime, endTime)
 
                 if not(thisDatetime):
@@ -527,14 +527,14 @@ class FitsReader(ProcessingUnit):
                 datetimeList.append(thisDatetime)
 
         if not(filenameList):
-            print("Any file was found for the time range %s - %s" %(startTime, endTime))
+            print("Any file was found for the time range %s - %s" % (startTime, endTime))
             return None, None
 
-        print("%d file(s) was(were) found for the time range: %s - %s" %(len(filenameList), startTime, endTime))
+        print("%d file(s) was(were) found for the time range: %s - %s" % (len(filenameList), startTime, endTime))
         print()
 
         for i in range(len(filenameList)):
-            print("%s -> [%s]" %(filenameList[i], datetimeList[i].ctime()))
+            print("%s -> [%s]" % (filenameList[i], datetimeList[i].ctime()))
 
         self.filenameList = filenameList
         self.datetimeList = datetimeList
@@ -544,14 +544,14 @@ class FitsReader(ProcessingUnit):
     def setup(self, path=None,
                 startDate=None,
                 endDate=None,
-                startTime=datetime.time(0,0,0),
-                endTime=datetime.time(23,59,59),
+                startTime=datetime.time(0, 0, 0),
+                endTime=datetime.time(23, 59, 59),
                 set=0,
-                expLabel = "",
-                ext = None,
-                online = False,
-                delay = 60,
-                walk = True):
+                expLabel="",
+                ext=None,
+                online=False,
+                delay=60,
+                walk=True):
 
         if path == None:
             raise ValueError("The path is not valid")
@@ -567,9 +567,9 @@ class FitsReader(ProcessingUnit):
                                                                walk=walk)
 
             if not(pathList):
-                print("No *%s files into the folder %s \nfor the range: %s - %s"%(ext, path,
-                                                        datetime.datetime.combine(startDate,startTime).ctime(),
-                                                        datetime.datetime.combine(endDate,endTime).ctime()))
+                print("No *%s files into the folder %s \nfor the range: %s - %s" % (ext, path,
+                                                        datetime.datetime.combine(startDate, startTime).ctime(),
+                                                        datetime.datetime.combine(endDate, endTime).ctime()))
 
                 sys.exit(-1)
 
@@ -583,10 +583,10 @@ class FitsReader(ProcessingUnit):
         self.ext = ext
 
         if not(self.setNextFile()):
-            if (startDate!=None) and (endDate!=None):
-                print("No files in range: %s - %s" %(datetime.datetime.combine(startDate,startTime).ctime(), datetime.datetime.combine(endDate,endTime).ctime()))
+            if (startDate != None) and (endDate != None):
+                print("No files in range: %s - %s" % (datetime.datetime.combine(startDate, startTime).ctime(), datetime.datetime.combine(endDate, endTime).ctime()))
             elif startDate != None:
-                print("No files in range: %s" %(datetime.datetime.combine(startDate,startTime).ctime()))
+                print("No files in range: %s" % (datetime.datetime.combine(startDate, startTime).ctime()))
             else:
                 print("No files")
 
@@ -627,21 +627,21 @@ class FitsReader(ProcessingUnit):
 
         neededSize = self.processingHeaderObj.blockSize + self.basicHeaderSize
 
-        for nTries in range( self.nTries ):
+        for nTries in range(self.nTries):
 
             self.fp.close()
-            self.fp = open( self.filename, 'rb' )
-            self.fp.seek( currentPointer )
+            self.fp = open(self.filename, 'rb')
+            self.fp.seek(currentPointer)
 
-            self.fileSize = os.path.getsize( self.filename )
+            self.fileSize = os.path.getsize(self.filename)
             currentSize = self.fileSize - currentPointer
 
-            if ( currentSize >= neededSize ):
+            if (currentSize >= neededSize):
                 self.__rdBasicHeader()
                 return 1
 
-            print("\tWaiting %0.2f seconds for the next block, try %03d ..." % (self.delay, nTries+1))
-            sleep( self.delay )
+            print("\tWaiting %0.2f seconds for the next block, try %03d ..." % (self.delay, nTries + 1))
+            sleep(self.delay)
 
 
         return 0
@@ -737,11 +737,11 @@ class SpectraHeisWriter(Operation):
     doypath = None
     subfolder = None
 
-    def __init__(self):#, **kwargs):
-        Operation.__init__(self)#, **kwargs)
+    def __init__(self):  # , **kwargs):
+        Operation.__init__(self)  # , **kwargs)
         self.wrObj = PyFits()
 #        self.dataOut = dataOut
-        self.nTotalBlocks=0
+        self.nTotalBlocks = 0
 #        self.set = None
         self.setFile = None
         self.idblock = 0
@@ -764,7 +764,7 @@ class SpectraHeisWriter(Operation):
         False   :    no es un string numerico
         """
         try:
-            float( str )
+            float(str)
             return True
         except:
             return False
@@ -779,28 +779,28 @@ class SpectraHeisWriter(Operation):
         self.dataOut = dataOut
 
     def putData(self):
-        name= time.localtime( self.dataOut.utctime)
-        ext=".fits"
+        name = time.localtime(self.dataOut.utctime)
+        ext = ".fits"
 
         if self.doypath == None:
-           self.subfolder = 'F%4.4d%3.3d_%d' % (name.tm_year,name.tm_yday,time.mktime(datetime.datetime.now().timetuple()))
-           self.doypath = os.path.join( self.wrpath, self.subfolder )
+           self.subfolder = 'F%4.4d%3.3d_%d' % (name.tm_year, name.tm_yday, time.mktime(datetime.datetime.now().timetuple()))
+           self.doypath = os.path.join(self.wrpath, self.subfolder)
            os.mkdir(self.doypath)
 
         if self.setFile == None:
 #           self.set = self.dataOut.set
            self.setFile = 0
 #        if self.set != self.dataOut.set:
-##            self.set = self.dataOut.set
+# #            self.set = self.dataOut.set
 #            self.setFile = 0
 
-        #make the filename
-        thisFile = 'D%4.4d%3.3d_%3.3d%s' % (name.tm_year,name.tm_yday,self.setFile,ext)
+        # make the filename
+        thisFile = 'D%4.4d%3.3d_%3.3d%s' % (name.tm_year, name.tm_yday, self.setFile, ext)
 
-        filename = os.path.join(self.wrpath,self.subfolder, thisFile)
+        filename = os.path.join(self.wrpath, self.subfolder, thisFile)
 
-        idblock = numpy.array([self.idblock],dtype="int64")
-        header=self.wrObj.cFImage(idblock=idblock,
+        idblock = numpy.array([self.idblock], dtype="int64")
+        header = self.wrObj.cFImage(idblock=idblock,
                                 year=time.gmtime(self.dataOut.utctime).tm_year,
                                 month=time.gmtime(self.dataOut.utctime).tm_mon,
                                 day=time.gmtime(self.dataOut.utctime).tm_mday,
@@ -808,32 +808,32 @@ class SpectraHeisWriter(Operation):
                                 minute=time.gmtime(self.dataOut.utctime).tm_min,
                                 second=time.gmtime(self.dataOut.utctime).tm_sec)
 
-        c=3E8
+        c = 3E8
         deltaHeight = self.dataOut.heightList[1] - self.dataOut.heightList[0]
-        freq=numpy.arange(-1*self.dataOut.nHeights/2.,self.dataOut.nHeights/2.)*(c/(2*deltaHeight*1000))
+        freq = numpy.arange(-1 * self.dataOut.nHeights / 2., self.dataOut.nHeights / 2.) * (c / (2 * deltaHeight * 1000))
 
         colList = []
 
-        colFreq=self.wrObj.setColF(name="freq", format=str(self.dataOut.nFFTPoints)+'E', array=freq)
+        colFreq = self.wrObj.setColF(name="freq", format=str(self.dataOut.nFFTPoints) + 'E', array=freq)
 
         colList.append(colFreq)
 
-        nchannel=self.dataOut.nChannels
+        nchannel = self.dataOut.nChannels
 
         for i in range(nchannel):
-            col = self.wrObj.writeData(name="PCh"+str(i+1),
-                                         format=str(self.dataOut.nFFTPoints)+'E',
-                                          data=10*numpy.log10(self.dataOut.data_spc[i,:]))
+            col = self.wrObj.writeData(name="PCh" + str(i + 1),
+                                         format=str(self.dataOut.nFFTPoints) + 'E',
+                                          data=10 * numpy.log10(self.dataOut.data_spc[i, :]))
 
             colList.append(col)
 
-        data=self.wrObj.Ctable(colList=colList)
+        data = self.wrObj.Ctable(colList=colList)
 
-        self.wrObj.CFile(header,data)
+        self.wrObj.CFile(header, data)
 
         self.wrObj.wFile(filename)
 
-        #update the setFile
+        # update the setFile
         self.setFile += 1
         self.idblock += 1
 
