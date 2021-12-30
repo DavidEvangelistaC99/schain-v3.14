@@ -22,19 +22,38 @@ from schainpy.controller import Project
 ######## n   = 1/(V*IPP) #############################
 ######## VELOCIDAD DEL PEDESTAL ######################
 print("SETUP- RADAR METEOROLOGICO")
-V       = 10
+V       = 6
 mode    = 1
-#path    = '/DATA_RM/23/6v'
-####path    = '/DATA_RM/TEST_INTEGRACION_2M'
-#path    = '/DATA_RM/TEST_19OCTUBRE/10MHZ'
-path    = '/DATA_RM/WR_20_OCT'
+#--------------------------PATH -----------------------------
+# path    = '/DATA_RM/23/6v'
+# path    = '/DATA_RM/TEST_INTEGRACION_2M'
+# path    = '/DATA_RM/TEST_19OCTUBRE/10MHZ'
+# path    = '/DATA_RM/WR_20_OCT'
 #### path_ped='/DATA_RM/TEST_PEDESTAL/P20211012-082745'
 ####path_ped='/DATA_RM/TEST_PEDESTAL/P20211019-192244'
-figpath_pp  = "/home/soporte/Pictures/TEST_PP"
-figpath_spec = "/home/soporte/Pictures/TEST_MOM"
+#path  = '/DATA_RM/WR_POT_09_1'
+#path  = '/DATA_RM/WR_POT_09_2'
+#path ="/DATA_RM/10"
+#path ="/DATA_RM/11"
+#path ="/DATA_RM/DRONE/2MHZ_6V"
+path ="/DATA_RM/DRONE/2MHZ_10V_ELEVACION"
+path ="/DATA_RM/DRONE/2MHZ_6V_AZIMUTH"
+#-------------------------PATH-PLOTEO------------------------------------
+#figpath_pp  = "/home/soporte/Pictures/TEST_PP"
+#figpath_spec = "/home/soporte/Pictures/TEST_MOM_15"
+#figpath_spec = "/home/soporte/Pictures/11_"
+figpath_spec = "/home/soporte/Pictures/23NOV"
+figpath_spec = "/home/soporte/Pictures/23NOV_TEST_AZI"
+figpath_pp  = "/home/soporte/Pictures/TEST_POT"
+figpath_pp  = "/home/soporte/Pictures/TEST_POT_10_"
+
+
+#--------------------------OPCIONES-----------------------------------
 plot        = 0
-integration = 1
+integration = 0
 save        = 0
+plot_spec   = 1
+#-------------------------------------------------------------------------
 if save == 1:
     if mode==0:
         path_save = '/DATA_RM/TEST_HDF5_PP_23/6v'
@@ -68,16 +87,16 @@ if save ==1:
 
 print("* Integracion de datos :",integration)
 
-time.sleep(15)
+time.sleep(3)
 #remotefolder = "/home/wmaster/graficos"
 #######################################################################
 ################# RANGO DE PLOTEO######################################
-dBmin = '1'
-dBmax = '65'
-xmin = '13.2'
-xmax = '13.5'
-ymin = '0'
-ymax = '60'
+dBmin = '8'
+dBmax = '35'
+xmin = '12.1'#17.1,17.5
+xmax = '12.2'#17.2,17.8
+ymin = '0'#### PONER A 0
+ymax = '8'#### PONER A 8
 #######################################################################
 ########################FECHA##########################################
 str = datetime.date.today()
@@ -96,19 +115,35 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #######################################################################
 readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path,
-                                            startDate="2021/01/01",#today,
-                                            endDate="2021/12/30",#today,
-                                            startTime='00:00:00',
-                                            endTime='23:59:59',
+                                            startDate="2021/11/23",#today,
+                                            endDate="2021/12/23",#today,
+                                            startTime='15:00:00',#'17:39:25',
+                                            endTime='16:00:59',#23:59:59',
                                             delay=0,
                                             #set=0,
-                                            online=0,
+                                            online=1,
                                             walk=1,
                                             ippKm = 60)
 
 opObj11 = readUnitConfObj.addOperation(name='printInfo')
 
 procUnitConfObjA = controllerObj.addProcUnit(datatype='VoltageProc', inputId=readUnitConfObj.getId())
+
+opObj11 = procUnitConfObjA.addOperation(name='setH0')
+opObj11.addParameter(name='h0', value='-3.3', format='float')
+#-2.8 5MHZ
+#-3.3 2MHZ
+
+###opObj11 = procUnitConfObjA.addOperation(name='selectChannels')
+###opObj11.addParameter(name='channelList', value='[1]',format='intList')
+
+
+opObj11 = procUnitConfObjA.addOperation(name='selectHeights')
+opObj11.addParameter(name='minIndex', value='1', format='int')
+###opObj11.addParameter(name='maxIndex', value='10000', format='int')
+opObj11.addParameter(name='maxIndex', value='160', format='int')
+## 400 PARA 5MHZ 12KM 2000
+## 160 ṔARA 2MHZ 12KM 800
 
 if mode ==0:
     ####################### METODO PULSE PAIR ######################################################################
@@ -123,6 +158,8 @@ if mode ==0:
         opObj11.addParameter(name='colormap', value='jet')
         opObj11.addParameter(name='xmin', value=xmin)
         opObj11.addParameter(name='xmax', value=xmax)
+        #opObj11.addParameter(name='ymin', value=ymin)
+        #opObj11.addParameter(name='ymax', value=ymax)
         opObj11.addParameter(name='zmin', value=dBmin)
         opObj11.addParameter(name='zmax', value=dBmax)
         opObj11.addParameter(name='save', value=figpath_pp)
@@ -167,20 +204,49 @@ else:
     procUnitConfObjB = controllerObj.addProcUnit(datatype='SpectraProc', inputId=procUnitConfObjA.getId())
     procUnitConfObjB.addParameter(name='nFFTPoints', value=n, format='int')
     procUnitConfObjB.addParameter(name='nProfiles' , value=n, format='int')
+    if plot_spec==1:
+        '''
+        opObj11 = procUnitConfObjB.addOperation(name='SpectraPlot', optype='external')
+        #.addParameter(name='id', value='2', format='int')
+        opObj11.addParameter(name='wintitle', value='SpectraPlot', format='str')
+        opObj11.addParameter(name='channelList', value='1', format='intlist')
+        #opObj11.addParameter(name='xmin', value=xmin)
+        #opObj11.addParameter(name='xmax', value=xmax)
+        opObj11.addParameter(name='ymin', value=ymin)
+        opObj11.addParameter(name='ymax', value=ymax)
+        opObj11.addParameter(name='zmin', value=dBmin, format='int')
+        opObj11.addParameter(name='zmax', value=dBmax, format='int')
+        opObj11.addParameter(name='save', value=figpath_spec)
+        opObj11.addParameter(name='showprofile', value=0)
+        opObj11.addParameter(name='save_period', value=1)
+        '''
+        opObj11 = procUnitConfObjB.addOperation(name='RTIPlot', optype='external')
+        #.addParameter(name='id', value='2', format='int')
+        opObj11.addParameter(name='wintitle', value='RTIPlot', format='str')
+        opObj11.addParameter(name='channelList', value='1', format='intlist')
+        opObj11.addParameter(name='xmin', value=xmin)
+        opObj11.addParameter(name='xmax', value=xmax)
+        opObj11.addParameter(name='ymin', value=ymin)
+        opObj11.addParameter(name='ymax', value=ymax)
+        opObj11.addParameter(name='zmin', value=dBmin, format='int')
+        opObj11.addParameter(name='zmax', value=dBmax, format='int')
+        opObj11.addParameter(name='save', value=figpath_spec)
+        opObj11.addParameter(name='showprofile', value=0)
+        opObj11.addParameter(name='save_period', value=1)
 
     procUnitConfObjC = controllerObj.addProcUnit(datatype='ParametersProc',inputId=procUnitConfObjB.getId())
     procUnitConfObjC.addOperation(name='SpectralMoments')
     if plot==1:
-        dBmin = '1'
-        dBmax = '65'
         opObj11 = procUnitConfObjC.addOperation(name='PowerPlot',optype='external')
         opObj11.addParameter(name='xmin', value=xmin)
         opObj11.addParameter(name='xmax', value=xmax)
+        opObj11.addParameter(name='ymin', value=ymin)
+        opObj11.addParameter(name='ymax', value=ymax)
         opObj11.addParameter(name='zmin', value=dBmin)
         opObj11.addParameter(name='zmax', value=dBmax)
         opObj11.addParameter(name='save', value=figpath_spec)
         opObj11.addParameter(name='showprofile', value=0)
-        opObj11.addParameter(name='save_period', value=10)
+        opObj11.addParameter(name='save_period', value=1)
 
     if save==1:
         opObj10 = procUnitConfObjC.addOperation(name='HDFWriter')

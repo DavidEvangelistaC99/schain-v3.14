@@ -17,7 +17,7 @@ class HDFReader(Reader, ProcessingUnit):
 
     This unit reads HDF5 files created with `HDFWriter` operation contains
     by default two groups Data and Metadata all variables would be saved as `dataOut`
-    attributes. 
+    attributes.
     It is possible to read any HDF5 file by given the structure in the `description`
     parameter, also you can add extra values to metadata with the parameter `extras`.
 
@@ -37,10 +37,10 @@ class HDFReader(Reader, ProcessingUnit):
         Dictionary with the description of the HDF5 file
     extras : dict, optional
         Dictionary with extra metadata to be be added to `dataOut`
-    
+
     Examples
     --------
-    
+
     desc = {
         'Data': {
             'data_output': ['u', 'v', 'w'],
@@ -64,7 +64,7 @@ class HDFReader(Reader, ProcessingUnit):
     extras = {
         'timeZone': 300
     }
-    
+
     reader = project.addReadUnit(
         name='HDFReader',
         path='/path/to/files',
@@ -99,42 +99,42 @@ class HDFReader(Reader, ProcessingUnit):
 
         self.set_kwargs(**kwargs)
         if not self.ext.startswith('.'):
-            self.ext = '.{}'.format(self.ext)            
+            self.ext = '.{}'.format(self.ext)
 
         if self.online:
             log.log("Searching files in online mode...", self.name)
 
             for nTries in range(self.nTries):
                 fullpath = self.searchFilesOnLine(self.path, self.startDate,
-                    self.endDate, self.expLabel, self.ext, self.walk, 
+                    self.endDate, self.expLabel, self.ext, self.walk,
                     self.filefmt, self.folderfmt)
                 try:
                     fullpath = next(fullpath)
                 except:
                     fullpath = None
-                
+
                 if fullpath:
                     break
 
                 log.warning(
                     'Waiting {} sec for a valid file in {}: try {} ...'.format(
-                        self.delay, self.path, nTries + 1), 
+                        self.delay, self.path, nTries + 1),
                     self.name)
                 time.sleep(self.delay)
 
             if not(fullpath):
                 raise schainpy.admin.SchainError(
-                    'There isn\'t any valid file in {}'.format(self.path))                    
+                    'There isn\'t any valid file in {}'.format(self.path))
 
             pathname, filename = os.path.split(fullpath)
             self.year = int(filename[1:5])
             self.doy = int(filename[5:8])
-            self.set = int(filename[8:11]) - 1                
+            self.set = int(filename[8:11]) - 1
         else:
             log.log("Searching files in {}".format(self.path), self.name)
-            self.filenameList = self.searchFilesOffLine(self.path, self.startDate, 
+            self.filenameList = self.searchFilesOffLine(self.path, self.startDate,
                 self.endDate, self.expLabel, self.ext, self.walk, self.filefmt, self.folderfmt)
-        
+
         self.setNextFile()
 
         return
@@ -142,18 +142,18 @@ class HDFReader(Reader, ProcessingUnit):
     def readFirstHeader(self):
         '''Read metadata and data'''
 
-        self.__readMetadata()        
+        self.__readMetadata()
         self.__readData()
         self.__setBlockList()
-        
+
         if 'type' in self.meta:
             self.dataOut = eval(self.meta['type'])()
-        
+
         for attr in self.meta:
             setattr(self.dataOut, attr, self.meta[attr])
-        
+
         self.blockIndex = 0
-        
+
         return
 
     def __setBlockList(self):
@@ -211,7 +211,7 @@ class HDFReader(Reader, ProcessingUnit):
     def __readData(self):
 
         data = {}
-        
+
         if self.description:
             for key, value in self.description['Data'].items():
                 if isinstance(value, str):
@@ -239,7 +239,7 @@ class HDFReader(Reader, ProcessingUnit):
                     array = numpy.array(array)
                 else:
                     log.warning('Unknown type: {}'.format(name))
-                
+
                 if name in self.description:
                     key = self.description[name]
                 else:
@@ -248,7 +248,7 @@ class HDFReader(Reader, ProcessingUnit):
 
         self.data = data
         return
-    
+
     def getData(self):
 
         for attr in self.data:
@@ -287,8 +287,8 @@ class HDFWriter(Operation):
     The HDF5 file contains by default two groups Data and Metadata where
     you can save any `dataOut` attribute specified by `dataList` and `metadataList`
     parameters, data attributes are normaly time dependent where the metadata
-    are not. 
-    It is possible to customize the structure of the HDF5 file with the 
+    are not.
+    It is possible to customize the structure of the HDF5 file with the
     optional description parameter see the examples.
 
     Parameters:
@@ -305,10 +305,10 @@ class HDFWriter(Operation):
         If True the name of the files corresponds to the timestamp of the data
     description : dict, optional
         Dictionary with the desired description of the HDF5 file
-    
+
     Examples
     --------
-    
+
     desc = {
         'data_output': {'winds': ['z', 'w', 'v']},
         'utctime': 'timestamps',
@@ -328,7 +328,7 @@ class HDFWriter(Operation):
             'heightList': 'heights'
         }
     }
-    
+
     writer = proc_unit.addOperation(name='HDFWriter')
     writer.addParameter(name='path', value='/path/to/file')
     writer.addParameter(name='blocksPerFile', value='32')
@@ -354,11 +354,32 @@ class HDFWriter(Operation):
     metadataList = None
     currentDay = None
     lastTime = None
+    last_Azipos = None
+    last_Elepos = None
+    mode       = None
+
+
 
     def __init__(self):
-        
+
         Operation.__init__(self)
         return
+
+    def generalFlag(self):
+        print("GENERALFLAG")
+        if self.mode== "weather":
+            if self.last_Azipos == None:
+                tmp = self.dataOut.azimuth
+                print("ang azimuth writer",tmp)
+                self.last_Azipos = tmp
+                flag = False
+                return flag
+            print("ang_azimuth writer",self.dataOut.azimuth)
+            result = self.dataOut.azimuth - self.last_Azipos
+            self.last_Azipos = self.dataOut.azimuth
+            if result<0:
+                flag = True
+                return flag
 
     def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None):
         self.path = path
@@ -392,7 +413,7 @@ class HDFWriter(Operation):
                 dsDict['shape'] = dataAux.shape
                 dsDict['dsNumber'] = dataAux.shape[0]
                 dsDict['dtype'] = dataAux.dtype
-            
+
             dsList.append(dsDict)
 
         self.dsList = dsList
@@ -407,7 +428,7 @@ class HDFWriter(Operation):
             self.lastTime = currentTime
             self.currentDay = dataDay
             return False
-        
+
         timeDiff = currentTime - self.lastTime
 
         #Si el dia es diferente o si la diferencia entre un dato y otro supera la hora
@@ -422,11 +443,12 @@ class HDFWriter(Operation):
             return False
 
     def run(self, dataOut, path, blocksPerFile=10, metadataList=None,
-            dataList=[], setType=None, description={}):
+            dataList=[], setType=None, description={},mode= None):
 
         self.dataOut = dataOut
+        self.mode    = mode
         if not(self.isConfig):
-            self.setup(path=path, blocksPerFile=blocksPerFile, 
+            self.setup(path=path, blocksPerFile=blocksPerFile,
                        metadataList=metadataList, dataList=dataList,
                        setType=setType, description=description)
 
@@ -435,9 +457,9 @@ class HDFWriter(Operation):
 
         self.putData()
         return
-        
+
     def setNextFile(self):
-        
+
         ext = self.ext
         path = self.path
         setFile = self.setFile
@@ -522,7 +544,7 @@ class HDFWriter(Operation):
                 return 'pair{:02d}'.format(x)
             else:
                 return 'channel{:02d}'.format(x)
-    
+
     def writeMetadata(self, fp):
 
         if self.description:
@@ -547,7 +569,7 @@ class HDFWriter(Operation):
         return
 
     def writeData(self, fp):
-        
+
         if self.description:
             if 'Data' in self.description:
                 grp = fp.create_group('Data')
@@ -558,13 +580,13 @@ class HDFWriter(Operation):
 
         dtsets = []
         data = []
-        
+
         for dsInfo in self.dsList:
             if dsInfo['nDim'] == 0:
                 ds = grp.create_dataset(
-                    self.getLabel(dsInfo['variable']), 
+                    self.getLabel(dsInfo['variable']),
                     (self.blocksPerFile, ),
-                    chunks=True, 
+                    chunks=True,
                     dtype=numpy.float64)
                 dtsets.append(ds)
                 data.append((dsInfo['variable'], -1))
@@ -576,7 +598,7 @@ class HDFWriter(Operation):
                     sgrp = grp
                 for i in range(dsInfo['dsNumber']):
                     ds = sgrp.create_dataset(
-                        self.getLabel(dsInfo['variable'], i), 
+                        self.getLabel(dsInfo['variable'], i),
                         (self.blocksPerFile, ) + dsInfo['shape'][1:],
                         chunks=True,
                         dtype=dsInfo['dtype'])
@@ -585,7 +607,7 @@ class HDFWriter(Operation):
         fp.flush()
 
         log.log('Creating file: {}'.format(fp.filename), self.name)
-        
+
         self.ds = dtsets
         self.data = data
         self.firsttime = True
@@ -593,8 +615,8 @@ class HDFWriter(Operation):
         return
 
     def putData(self):
-
-        if (self.blockIndex == self.blocksPerFile) or self.timeFlag():
+        print("**************************PUT DATA***************************************************")
+        if (self.blockIndex == self.blocksPerFile) or self.timeFlag() or self.generalFlag():
             self.closeFile()
             self.setNextFile()
 

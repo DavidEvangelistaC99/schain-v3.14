@@ -349,7 +349,7 @@ class DigitalRFReader(ProcessingUnit):
         start_index, end_index = self.digitalReadObj.get_bounds(
             channelNameList[channelList[0]])
 
-        print("*****",start_index,end_index)
+        ##print("*****",start_index,end_index)
         if not startUTCSecond:
             startUTCSecond = start_index / self.__sample_rate
 

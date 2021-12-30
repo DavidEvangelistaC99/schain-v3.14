@@ -390,6 +390,8 @@ class WeatherPlot(Plot):
         self.plots_adjust.update({'wspace': 0.4, 'hspace':0.4, 'left': 0.1, 'right': 0.9, 'bottom': 0.08})
         self.flag    =0
         self.indicador= 0
+        self.last_data_azi = None
+        self.val_mean      = None
 
     def update(self, dataOut):
 
@@ -402,41 +404,115 @@ class WeatherPlot(Plot):
             factor = dataOut.normFactor
 
         ####print("factor",factor)
-        data['weather'] = 10*numpy.log10(dataOut.data_360[0]/(factor))
-        print("weather",data['weather'])
+        data['weather'] = 10*numpy.log10(dataOut.data_360[1]/(factor))
+        ####print("weather",data['weather'])
         data['azi']     = dataOut.data_azi
         return data, meta
+
+    def analizeDATA(self,data_azi):
+        list1 = []
+        list2 = []
+        dat   = data_azi
+        for i in reversed(range(1,len(dat))):
+            if dat[i]>dat[i-1]:
+                diff = int(dat[i])-int(dat[i-1])
+            else:
+                diff = 360+int(dat[i])-int(dat[i-1])
+            if diff > 1:
+                list1.append(i-1)
+                list2.append(diff-1)
+        return list1,list2
+
+    def fixDATANEW(self,data_azi,data_weather):
+        list1,list2 = self.analizeDATA(data_azi)
+        if len(list1)== 0:
+            return data_azi,data_weather
+        else:
+            resize = 0
+            for i in range(len(list2)):
+                resize=  resize + list2[i]
+            new_data_azi = numpy.resize(data_azi,resize)
+            new_data_weather= numpy.resize(date_weather,resize)
+
+            for i in range(len(list2)):
+                j=0
+                position=list1[i]+1
+                for j in range(list2[i]):
+                    new_data_azi[position+j]=new_data_azi[position+j-1]+1
+
+        return new_data_azi
+
+    def fixDATA(self,data_azi):
+        data=data_azi
+        for i in range(len(data)):
+            if numpy.isnan(data[i]):
+               data[i]=data[i-1]+1
+        return data
+
+    def replaceNAN(self,data_weather,data_azi,val):
+        print("----------------activeNEWFUNCTION")
+        data= data_azi
+        data_T= data_weather
+        print("data_azi",data_azi)
+        print("VAL:",val)
+        print("SHAPE",data_T.shape)
+        for i in range(len(data)):
+            if numpy.isnan(data[i]):
+               print("NAN")
+               data_T[i,:]=numpy.ones(data_T.shape[1])*val
+               #data_T[i,:]=numpy.ones(data_T.shape[1])*numpy.nan
+        return data_T
 
     def const_ploteo(self,data_weather,data_azi,step,res):
         if self.ini==0:
             #------- AZIMUTH
             n     = (360/res)-len(data_azi)
-            start = data_azi[-1] + res
-            end   = data_azi[0]  - res
+            ##### new
+            data_azi_old  = data_azi
+            data_azi_new  = self.fixDATA(data_azi)
+            #ata_azi_new   = self.fixDATANEW(data_azi)
+
+            start = data_azi_new[-1] + res
+            end   = data_azi_new[0]  - res
+            ##### new
+            self.last_data_azi = end
             if start>end:
                 end        = end + 360
             azi_vacia = numpy.linspace(start,end,int(n))
             azi_vacia = numpy.where(azi_vacia>360,azi_vacia-360,azi_vacia)
-            data_azi  = numpy.hstack((data_azi,azi_vacia))
+            data_azi  = numpy.hstack((data_azi_new,azi_vacia))
             # RADAR
-            val_mean         = numpy.mean(data_weather[:,0])
+            val_mean         = numpy.mean(data_weather[:,-1])
+            self.val_mean    = val_mean
             data_weather_cmp = numpy.ones([(360-data_weather.shape[0]),data_weather.shape[1]])*val_mean
+            data_weather     = self.replaceNAN(data_weather=data_weather,data_azi=data_azi_old,val=self.val_mean)
             data_weather     = numpy.vstack((data_weather,data_weather_cmp))
         else:
             # azimuth
             flag=0
             start_azi = self.res_azi[0]
+            #### new
+            data_azi_old = data_azi
+            ### weather ###
+            data_weather = self.replaceNAN(data_weather=data_weather,data_azi=data_azi_old,val=self.val_mean)
+
+            if numpy.isnan(data_azi[0]):
+                data_azi[0]=self.last_data_azi+1
+            data_azi = self.fixDATA(data_azi)
+            ####
+
             start = data_azi[0]
             end   = data_azi[-1]
-            print("start",start)
-            print("end",end)
+            self.last_data_azi= end
+            ####print("start",start)
+            ####print("end",end)
             if start< start_azi:
                 start = start +360
             if end <start_azi:
                 end  = end +360
 
-            print("start",start)
-            print("end",end)
+            ####print("start",start)
+            ####print("end",end)
             #### AQUI SERA LA MAGIA
             pos_ini = int((start-start_azi)/res)
             len_azi = len(data_azi)
@@ -448,9 +524,10 @@ class WeatherPlot(Plot):
                     dif= 360-pos_ini
                     comp= len_azi-dif
 
-            print(pos_ini)
-            print(len_azi)
-            print("shape",self.res_azi.shape)
+            #-----------------
+            ####print(pos_ini)
+            ####print(len_azi)
+            ####print("shape",self.res_azi.shape)
             if flag==0:
                 # AZIMUTH
                 self.res_azi[pos_ini:pos_ini+len_azi] = data_azi
@@ -470,17 +547,28 @@ class WeatherPlot(Plot):
         return data_weather,data_azi
 
     def plot(self):
-        print("--------------------------------------",self.ini,"-----------------------------------")
+        #print("--------------------------------------",self.ini,"-----------------------------------")
         #numpy.set_printoptions(suppress=True)
-        #print(self.data.times)
-        thisDatetime = datetime.datetime.utcfromtimestamp(self.data.times[-1])
+        ####print("times: ",self.data.times)
+        thisDatetime = datetime.datetime.utcfromtimestamp(self.data.times[-1]).strftime('%Y-%m-%d %H:%M:%S')
+        #print("times: ",thisDatetime)
         data         = self.data[-1]
-        # ALTURA altura_tmp_h
-        altura_h     = (data['weather'].shape[1])/10.0
-        stoprange = float(altura_h*1.5)#stoprange = float(33*1.5) por ahora 400
-        rangestep = float(0.15)
-        r      = numpy.arange(0, stoprange, rangestep)
+        ####ALTURA altura_tmp_h
+        ###print("Y RANGES",self.data.yrange,len(self.data.yrange))
+        ###altura_h     = (data['weather'].shape[1])/10.0
+        ###stoprange = float(altura_h*0.3)#stoprange = float(33*1.5) por ahora 400
+        ###rangestep = float(0.03)
+        ###r      = numpy.arange(0, stoprange, rangestep)
+        ###print("r",r,len(r))
+        #-----------------------------update----------------------
+        r=  self.data.yrange
+        delta_height = r[1]-r[0]
+        #print("1",r)
+        r_mask= numpy.where(r>=0)[0]
+        r = numpy.arange(len(r_mask))*delta_height
+        #print("2",r)
         self.y = 2*r
+        ######self.y = self.data.yrange
         # RADAR
         #data_weather = data['weather']
         # PEDESTAL
@@ -491,27 +579,27 @@ class WeatherPlot(Plot):
         #print("shape wr_data", wr_data.shape)
         #print("shape wr_azi",wr_azi.shape)
         #print("step",step)
-        print("Time---->",self.data.times[-1],thisDatetime)
-        #print("alturas", len(self.y))
-        self.res_weather, self.res_azi = self.const_ploteo(data_weather=data['weather'],data_azi=data['azi'],step=step,res=res)
+        ####print("Time---->",self.data.times[-1],thisDatetime)
+        #print("alturas", len(self.y))numpy.where(r>=0)
+        self.res_weather, self.res_azi = self.const_ploteo(data_weather=data['weather'][:,r_mask],data_azi=data['azi'],step=step,res=res)
         #numpy.set_printoptions(suppress=True)
         #print("resultado",self.res_azi)
-        ##########################################################
+        ###########################/DATA_RM/10_tmp/ch0###############################
         #################    PLOTEO           ###################
         ##########################################################
 
         for i,ax in enumerate(self.axes):
             if ax.firsttime:
                 plt.clf()
-                cgax, pm = wrl.vis.plot_ppi(self.res_weather,r=r,az=self.res_azi,fig=self.figures[0], proj='cg', vmin=1, vmax=60)
+                cgax, pm = wrl.vis.plot_ppi(self.res_weather,r=r,az=self.res_azi,fig=self.figures[0], proj='cg', vmin=8, vmax=35)
             else:
                 plt.clf()
-                cgax, pm = wrl.vis.plot_ppi(self.res_weather,r=r,az=self.res_azi,fig=self.figures[0], proj='cg', vmin=1, vmax=60)
+                cgax, pm = wrl.vis.plot_ppi(self.res_weather,r=r,az=self.res_azi,fig=self.figures[0], proj='cg', vmin=8, vmax=35)
         caax = cgax.parasites[0]
         paax = cgax.parasites[1]
         cbar = plt.gcf().colorbar(pm, pad=0.075)
         caax.set_xlabel('x_range [km]')
         caax.set_ylabel('y_range [km]')
-        plt.text(1.0, 1.05, 'azimuth '+str(thisDatetime)+"step"+str(self.ini), transform=caax.transAxes, va='bottom',ha='right')
+        plt.text(1.0, 1.05, 'azimuth '+str(thisDatetime)+"  step   "+str(self.ini), transform=caax.transAxes, va='bottom',ha='right')
 
         self.ini= self.ini+1
