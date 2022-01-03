@@ -530,8 +530,8 @@ class WeatherPlot(Plot):
         for i in range(len(data)):
             if numpy.isnan(data[i]):
                ####print("NAN")
-               data_T[i,:]=numpy.ones(data_T.shape[1])*val
-               #data_T[i,:]=numpy.ones(data_T.shape[1])*numpy.nan
+               #data_T[i,:]=numpy.ones(data_T.shape[1])*val
+               data_T[i,:]=numpy.ones(data_T.shape[1])*numpy.nan
         return data_T
 
     def const_ploteo(self,data_weather,data_azi,step,res):
