@@ -4018,9 +4018,9 @@ class PedestalInformation(Operation):
 
         nro_file,utc_ped,utc_ped_1  =self.getNROFile(utc_adq,utc_ped_list)
         #print("utc_adq",utc_adq)
-        print("utc_ped",utc_ped)
-        print("DIFF",utc_adq-utc_ped)
-        print("nro_file",nro_file)
+        ####print("utc_ped",utc_ped)
+        ####print("DIFF",utc_adq-utc_ped)
+        ####print("nro_file",nro_file)
         if nro_file < 0:
             #print("-----------------------------------------------------------------")
             #print("INSERTANDO ANGULO NAN")
@@ -4127,9 +4127,9 @@ class PedestalInformation(Operation):
     def setup_offline(self,dataOut,list_pedestal):
 
         print("SETUP OFFLINE")
-        print(self.path_ped)
+        ####print(self.path_ped)
         #print(self.path_adq)
-        print(len(self.list_pedestal))
+        ####print(len(self.list_pedestal))
         #print(len(self.list_adq))
         utc_ped_list=[]
         for i in range(len(self.list_pedestal)):
@@ -4138,27 +4138,27 @@ class PedestalInformation(Operation):
 
         #utc_ped_list= utc_ped_list
         ###utc_adq     = self.gettimeutcadqfromDirFilename(path=self.path_adq,file=self.list_adq[0])
-        print("dios existe donde esta")
+        ####print("dios existe donde esta")
 
-        print("utc_ped_list",utc_ped_list)
+        #####print("utc_ped_list",utc_ped_list)
         #print("utc_adq",utc_adq)
         # utc_adq_dataOut
         utc_adq_dataOut =dataOut.utctime
-        print("OFFLINE-UTC_ADQ_dataout",utc_adq_dataOut)
+        ####print("OFFLINE-UTC_ADQ_dataout",utc_adq_dataOut)
 
         nro_file,utc_ped,utc_ped_1 = self.getNROFile(utc_adq=utc_adq_dataOut, utc_ped_list= utc_ped_list)
 
-        print("nro_file",nro_file,"utc_ped",utc_ped)
-        print("nro_file",i)
+        ####print("nro_file",nro_file,"utc_ped",utc_ped)
+        ####print("nro_file",i)
         nro_key_p    = int((utc_adq_dataOut-utc_ped)/self.t_Interval_p)-1 # ojito al -1 estimado alex
-        print("nro_key_p",nro_key_p)
+        ####print("nro_key_p",nro_key_p)
 
         ff_pedestal  = self.list_
         pedestal[nro_file]
         #angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azimuth")
         angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azi_pos")
 
-        print("utc_pedestal_init             :",utc_ped+nro_key_p*self.t_Interval_p)
+        ####print("utc_pedestal_init             :",utc_ped+nro_key_p*self.t_Interval_p)
         if nro_key_p>0:
             print("angulo_array                  :",angulo[nro_key_p])
         self.nro_file  = nro_file
@@ -4166,25 +4166,25 @@ class PedestalInformation(Operation):
 
     def setup_online(self,dataOut):
         utc_adq =dataOut.utctime
-        print("Online-utc_adq",utc_adq)
-        print(len(self.list_pedestal))
+        ####print("Online-utc_adq",utc_adq)
+        ####print(len(self.list_pedestal))
         utc_ped_list=[]
         for i in range(len(self.list_pedestal)):
             utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[i]))
-        print(utc_ped_list[:20])
-        #print(utc_ped_list[488:498])
-        print("ultimo UTC-PEDESTAL",utc_ped_list[-1])
+        ####print(utc_ped_list[:20])
+        ####print(utc_ped_list[488:498])
+        ####print("ultimo UTC-PEDESTAL",utc_ped_list[-1])
         nro_file,utc_ped,utc_ped_1 = self.getNROFile(utc_adq=utc_adq, utc_ped_list= utc_ped_list)
-        print("nro_file",nro_file,"utc_ped",utc_ped,"utc_ped_1",utc_ped_1)
-        print("name_PEDESTAL",self.list_pedestal[nro_file])
+        ####print("nro_file",nro_file,"utc_ped",utc_ped,"utc_ped_1",utc_ped_1)
+        ####print("name_PEDESTAL",self.list_pedestal[nro_file])
         nro_key_p    = int((utc_adq-utc_ped)/self.t_Interval_p)-1
-        print("nro_key_p",nro_key_p)
+        ####print("nro_key_p",nro_key_p)
         ff_pedestal  = self.list_pedestal[nro_file]
         #angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azimuth")
         angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azi_pos")
 
-        print("utc_pedestal_init             :",utc_ped+nro_key_p*self.t_Interval_p)
-        print("angulo_array                  :",angulo[nro_key_p])
+        ####print("utc_pedestal_init             :",utc_ped+nro_key_p*self.t_Interval_p)
+        ####print("angulo_array                  :",angulo[nro_key_p])
         self.nro_file  = nro_file
         self.nro_key_p = nro_key_p
 
@@ -4207,7 +4207,7 @@ class PedestalInformation(Operation):
         print(self.path_ped)
         #print(self.path_adq)
         self.list_pedestal = self.getfirstFilefromPath(path=self.path_ped,meta="PE",ext=".hdf5")
-        print("LIST NEW", self.list_pedestal[:20])
+        ####print("LIST NEW", self.list_pedestal[:20])
         #self.list_adq      = self.getfirstFilefromPath(path=self.path_adq,meta="D",ext=".hdf5")
         print("*************Longitud list pedestal****************",len(self.list_pedestal))
         '''
@@ -4239,20 +4239,20 @@ class PedestalInformation(Operation):
         return diff_utc
 
     def setNextFileoffline(self,dataOut):
-        print("error")
-        print("no entiendo")
+        ####print("error")
+        ####print("no entiendo")
         flag_NOPedfile = False
         cont_NOPedFile = 0
         if self.nro_file<0:
-            print("adq empieza antes")
+            ####print("adq empieza antes")
             return numpy.ones(self.blocksPerfile)*numpy.nan
-        print("INICIO-----------------------------------------")
+        ####print("INICIO-----------------------------------------")
         sleep(3)
         for j in range(self.blocksPerfile):
-            print(j)
+            ####print(j)
             iterador          =  self.nro_key_p + self.f_a_p*self.c_ped
             self.c_ped        =  self.c_ped + 1
-            print("Iterador-->", iterador)
+            ####print("Iterador-->", iterador)
             if iterador       <  self.n_Muestras_p:
                 self.nro_file =  self.nro_file
             else:
@@ -4260,15 +4260,15 @@ class PedestalInformation(Operation):
                     ###########################
                     self.nro_file =  self.nro_file +1
                     ###########################
-                    print("nro_file",self.nro_file)
+                    ####print("nro_file",self.nro_file)
                     diff_utc = self.checkPedFile(path=self.path_ped,nro_file=self.nro_file)
-                    print("diff_utc",diff_utc)
+                    ####print("diff_utc",diff_utc)
                     if diff_utc==1:
                         utc_ped_setnext=self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[self.nro_file])
                         utc_adq_setnext=dataOut.utctime
-                        print("utc_pedestal",utc_ped_setnext)
-                        print("utc_adq",utc_adq_setnext)
-                        print("self.c_ped",self.c_ped)
+                        ####print("utc_pedestal",utc_ped_setnext)
+                        ####print("utc_adq",utc_adq_setnext)
+                        ####print("self.c_ped",self.c_ped)
                         #dif        = self.blocksPerfile-(self.nro_key_p+self.f_a_p*(self.c_ped-2))
                         dif        = self.n_Muestras_p-(self.nro_key_p+self.f_a_p*(self.c_ped-2))
                         self.c_ped = 1
@@ -4276,13 +4276,13 @@ class PedestalInformation(Operation):
                         ##print("tmp else",tmp)
                         self.nro_key_p= self.f_a_p-dif
                         iterador = self.nro_key_p
-                        print("iterador else",iterador)
+                        ####print("iterador else",iterador)
                     if diff_utc >1:
-                        print("FALTAN DATOS DEL PEDESTAL AMIGO WAIT")
-                        sleep(1)
+                        ####print("FALTAN DATOS DEL PEDESTAL AMIGO WAIT")
+                        ####sleep(1)
                         #aqui no hay DATA pero creo el nro_key_p "como si existiera" y reinicio el c_ped
-                        print("continua bro")
-                        print("self.c_ped",self.c_ped)
+                        ####print("continua bro")
+                        ####print("self.c_ped",self.c_ped)
                         dif        = self.n_Muestras_p-(self.nro_key_p+self.f_a_p*(self.c_ped-2))
                         self.c_ped     = 1
                         self.nro_key_p = self.f_a_p-dif
@@ -4400,10 +4400,10 @@ class PedestalInformation(Operation):
             #print("config TRUE")
 
         utc_adq       = dataOut.utctime
-        print("utc_adq---------------",utc_adq)
+        ####print("utc_adq---------------",utc_adq)
         list_pedestal = self.list_pedestal
         angulo = self.getAnguloProfile(utc_adq=utc_adq,list_pedestal=list_pedestal)
-        print("angulo**********",angulo)
+        ####print("angulo**********",angulo)
         dataOut.flagNoData      = False
         if numpy.isnan(angulo):
             dataOut.flagNoData = True

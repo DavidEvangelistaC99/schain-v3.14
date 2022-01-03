@@ -24,7 +24,7 @@ from schainpy.controller import Project
 print("SETUP- RADAR METEOROLOGICO")
 V       = 6
 V       = 10
-mode    = 1
+mode    = 0
 #--------------------------PATH -----------------------------
 # path    = '/DATA_RM/23/6v'
 # path    = '/DATA_RM/TEST_INTEGRACION_2M'
@@ -41,7 +41,7 @@ path ="/DATA_RM/10"
 #figpath_spec = "/home/soporte/Pictures/TEST_MOM"
 figpath_spec = "/home/soporte/Pictures/ppi"
 figpath_ppi  = "/home/soporte/Pictures/ppi_SPEC_10DIC"
-figpath_ppi_pp  = "/home/soporte/Pictures/ppi_2_10"
+figpath_ppi_pp  = "/home/soporte/Pictures/ppi_PP_10_DIC"
 figpath_pp  = "/home/soporte/Pictures/TEST_POT"
 figpath_pp  = "/home/soporte/Pictures/TEST_POT2"
 
@@ -57,7 +57,7 @@ figpath_mom = "/home/soporte/Pictures/TEST_MOM"
 #--------------------------OPCIONES-----------------------------------
 plot        = 0
 integration = 1
-save        = 1
+save        = 0
 if save == 1:
     if mode==0:
         path_save = '/DATA_RM/TEST_HDF5_PP_23/6v'
@@ -182,17 +182,17 @@ if mode ==0:
         opObj11.addParameter(name='n_Muestras_p', value='100', format='float')
         opObj11.addParameter(name='f_a_p', value=f_a_p, format='int')
         opObj11.addParameter(name='online', value='0', format='int')
-        '''
+
         opObj11 = procUnitConfObjB.addOperation(name='Block360')
         opObj11.addParameter(name='n', value='10', format='int')
         opObj11.addParameter(name='mode', value=mode, format='int')
-        '''
+
         # este bloque funciona bien con divisores de 360 no olvidar 0 10 20 30 40 60 90 120 180
-        '''
+
         opObj11= procUnitConfObjB.addOperation(name='WeatherPlot',optype='other')
         opObj11.addParameter(name='save', value=figpath_ppi_pp)
         opObj11.addParameter(name='save_period', value=1)
-        '''
+
     if save==1:
         opObj10 = procUnitConfObjB.addOperation(name='HDFWriter')
         opObj10.addParameter(name='path',value=path_save)
@@ -219,7 +219,7 @@ else:
         opObj11.addParameter(name='zmax', value=dBmax)
         opObj11.addParameter(name='save', value=figpath_mom)
         opObj11.addParameter(name='showprofile', value=0)
-        opObj11.addParameter(name='save_period', value=100)
+        opObj11.addParassmeter(name='save_period', value=100)
 
 
     if integration==1:
@@ -239,14 +239,13 @@ else:
        opObj11.addParameter(name='online', value='0', format='int')
 
        opObj11 = procUnitConfObjC.addOperation(name='Block360')
-       opObj11.addParameter(name='n', value='1', format='int')
+       opObj11.addParameter(name='n', value='20', format='int')
        opObj11.addParameter(name='mode', value=mode, format='int')
-       '''
+
        # este bloque funciona bien con divisores de 360 no olvidar 0 10 20 30 40 60 90 120 180
        opObj11= procUnitConfObjC.addOperation(name='WeatherPlot',optype='other')
        opObj11.addParameter(name='save', value=figpath_ppi)
        opObj11.addParameter(name='save_period', value=1)
-       '''
 
     if save==1:
        opObj10 = procUnitConfObjC.addOperation(name='HDFWriter')

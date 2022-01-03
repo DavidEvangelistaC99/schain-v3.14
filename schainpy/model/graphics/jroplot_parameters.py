@@ -409,6 +409,77 @@ class WeatherPlot(Plot):
         data['azi']     = dataOut.data_azi
         return data, meta
 
+    def get2List(self,angulos):
+        list1=[]
+        list2=[]
+        for i in reversed(range(len(angulos))):
+            diff_ = angulos[i]-angulos[i-1]
+            if diff_ >1.5:
+                list1.append(i-1)
+                list2.append(diff_)
+        return list(reversed(list1)),list(reversed(list2))
+
+    def fixData360(self,list_,ang_):
+        if list_[0]==-1:
+            vec = numpy.where(ang_<ang_[0])
+            ang_[vec] = ang_[vec]+360
+            return ang_
+        return ang_
+
+
+    def fixData360HL(self,angulos):
+        vec = numpy.where(angulos>=360)
+        angulos[vec]=angulos[vec]-360
+        return angulos
+
+    def search_pos(self,pos,list_):
+        for i in range(len(list_)):
+            if pos == list_[i]:
+                return True,i
+        i=None
+        return False,i
+
+    def fixDataComp(self,ang_,list1_,list2_):
+        size  = len(ang_)
+        size2 = 0
+        for i in range(len(list2_)):
+            size2=size2+list2_[i]-1
+        new_size= size+size2
+        ang_new = numpy.zeros(new_size)
+        ang_new2 = numpy.zeros(new_size)
+
+        tmp = 0
+        c   = 0
+        for i in range(len(ang_)):
+            ang_new[tmp +c] = ang_[i]
+            ang_new2[tmp+c] = ang_[i]
+            condition , value = self.search_pos(i,list1_)
+            if condition:
+                pos = tmp + c + 1
+                for k in range(list2_[value]-1):
+                    ang_new[pos+k]  = ang_new[pos+k-1]+1
+                    ang_new2[pos+k] = numpy.nan
+                tmp = pos +k
+                c   = 0
+            c=c+1
+        return ang_new,ang_new2
+
+
+    def globalCheckPED(self,angulos):
+        l1,l2 = self.get2List(angulos)
+        if len(l1)>0:
+            angulos2 = self.fixData360(list_=l1,ang_=angulos)
+            l1,l2 = self.get2List(angulos2)
+
+            ang1_,ang2_ = self.fixDataComp(ang_=angulos2,list1_=l1,list2_=l2)
+            ang1_ = self.fixData360HL(ang1_)
+            ang2_ = self.fixData360HL(ang2_)
+
+        else:
+            ang1_= angulos
+            ang2_= angulos
+        return ang1_,ang2_
+
     def analizeDATA(self,data_azi):
         list1 = []
         list2 = []
@@ -450,15 +521,15 @@ class WeatherPlot(Plot):
         return data
 
     def replaceNAN(self,data_weather,data_azi,val):
-        print("----------------activeNEWFUNCTION")
+        ####print("----------------activeNEWFUNCTION")
         data= data_azi
         data_T= data_weather
-        print("data_azi",data_azi)
-        print("VAL:",val)
-        print("SHAPE",data_T.shape)
+        ####print("data_azi",data_azi)
+        ####print("VAL:",val)
+        ####print("SHAPE",data_T.shape)
         for i in range(len(data)):
             if numpy.isnan(data[i]):
-               print("NAN")
+               ####print("NAN")
                data_T[i,:]=numpy.ones(data_T.shape[1])*val
                #data_T[i,:]=numpy.ones(data_T.shape[1])*numpy.nan
         return data_T
@@ -467,9 +538,11 @@ class WeatherPlot(Plot):
         if self.ini==0:
             #------- AZIMUTH
             n     = (360/res)-len(data_azi)
-            ##### new
-            data_azi_old  = data_azi
-            data_azi_new  = self.fixDATA(data_azi)
+            #--------------------- new -------------------------
+            ####data_azi_old  = data_azi
+            data_azi_new ,data_azi_old= self.globalCheckPED(data_azi)
+            #------------------------
+            ####data_azi_new  = self.fixDATA(data_azi)
             #ata_azi_new   = self.fixDATANEW(data_azi)
 
             start = data_azi_new[-1] + res
@@ -491,16 +564,17 @@ class WeatherPlot(Plot):
             # azimuth
             flag=0
             start_azi = self.res_azi[0]
-            #### new
-            data_azi_old = data_azi
-            ### weather ###
+            #-----------new------------
+            data_azi ,data_azi_old= self.globalCheckPED(data_azi)
             data_weather = self.replaceNAN(data_weather=data_weather,data_azi=data_azi_old,val=self.val_mean)
+            #--------------------------
+            ####data_azi_old = data_azi
+            ### weather ###
+            ####data_weather = self.replaceNAN(data_weather=data_weather,data_azi=data_azi_old,val=self.val_mean)
 
-            if numpy.isnan(data_azi[0]):
-                data_azi[0]=self.last_data_azi+1
-            data_azi = self.fixDATA(data_azi)
-            ####
-
+            ####if numpy.isnan(data_azi[0]):
+            ####    data_azi[0]=self.last_data_azi+1
+            ####data_azi = self.fixDATA(data_azi)
             start = data_azi[0]
             end   = data_azi[-1]
             self.last_data_azi= end
@@ -510,7 +584,6 @@ class WeatherPlot(Plot):
                 start = start +360
             if end <start_azi:
                 end  = end +360
-
             ####print("start",start)
             ####print("end",end)
             #### AQUI SERA LA MAGIA
