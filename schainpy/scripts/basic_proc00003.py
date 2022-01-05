@@ -54,9 +54,9 @@ n= int(1/(VEL*ipp_sec))
 print("N° Profiles   : ", n)
 #---------------------------------------------------------------------------------------
 plot_rti    = 0
-plot_ppi    = 0
+plot_ppi    = 1
 integration = 1
-save        = 1
+save        = 0
 #---------------------------RANGO DE PLOTEO----------------------------------
 dBmin = '1'
 dBmax = '85'

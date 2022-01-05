@@ -407,6 +407,8 @@ class WeatherPlot(Plot):
         data['weather'] = 10*numpy.log10(dataOut.data_360[1]/(factor))
         ####print("weather",data['weather'])
         data['azi']     = dataOut.data_azi
+
+        data['ele']     = dataOut.data_ele
         return data, meta
 
     def get2List(self,angulos):
@@ -456,7 +458,7 @@ class WeatherPlot(Plot):
             condition , value = self.search_pos(i,list1_)
             if condition:
                 pos = tmp + c + 1
-                for k in range(list2_[value]-1):
+                for k in range(round(list2_[value])-1):
                     ang_new[pos+k]  = ang_new[pos+k-1]+1
                     ang_new2[pos+k] = numpy.nan
                 tmp = pos +k
@@ -521,18 +523,22 @@ class WeatherPlot(Plot):
         return data
 
     def replaceNAN(self,data_weather,data_azi,val):
-        ####print("----------------activeNEWFUNCTION")
         data= data_azi
         data_T= data_weather
-        ####print("data_azi",data_azi)
-        ####print("VAL:",val)
-        ####print("SHAPE",data_T.shape)
-        for i in range(len(data)):
-            if numpy.isnan(data[i]):
-               ####print("NAN")
-               #data_T[i,:]=numpy.ones(data_T.shape[1])*val
-               data_T[i,:]=numpy.ones(data_T.shape[1])*numpy.nan
-        return data_T
+        if data.shape[0]> data_T.shape[0]:
+            data_N = numpy.ones( [data.shape[0],data_T.shape[1]])
+            c      = 0
+            for i in range(len(data)):
+                if numpy.isnan(data[i]):
+                    data_N[i,:]=numpy.ones(data_T.shape[1])*numpy.nan
+                else:
+                    data_N[i,:]=data_T[c,:]
+                    sc=c+1
+        else:
+            for i in range(len(data)):
+                if numpy.isnan(data[i]):
+                   data_T[i,:]=numpy.ones(data_T.shape[1])*numpy.nan
+            return data_T
 
     def const_ploteo(self,data_weather,data_azi,step,res):
         if self.ini==0:
@@ -544,7 +550,6 @@ class WeatherPlot(Plot):
             #------------------------
             ####data_azi_new  = self.fixDATA(data_azi)
             #ata_azi_new   = self.fixDATANEW(data_azi)
-
             start = data_azi_new[-1] + res
             end   = data_azi_new[0]  - res
             ##### new
@@ -566,6 +571,9 @@ class WeatherPlot(Plot):
             start_azi = self.res_azi[0]
             #-----------new------------
             data_azi ,data_azi_old= self.globalCheckPED(data_azi)
+            print("---------------------------------------------------")
+            print("data_azi",data_azi)
+            print("data_azi_old",data_azi_old)
             data_weather = self.replaceNAN(data_weather=data_weather,data_azi=data_azi_old,val=self.val_mean)
             #--------------------------
             ####data_azi_old = data_azi
@@ -657,6 +665,7 @@ class WeatherPlot(Plot):
         self.res_weather, self.res_azi = self.const_ploteo(data_weather=data['weather'][:,r_mask],data_azi=data['azi'],step=step,res=res)
         #numpy.set_printoptions(suppress=True)
         #print("resultado",self.res_azi)
+        self.res_ele   =numpy.mean(data['ele'])
         ###########################/DATA_RM/10_tmp/ch0###############################
         #################    PLOTEO           ###################
         ##########################################################
@@ -673,6 +682,6 @@ class WeatherPlot(Plot):
         cbar = plt.gcf().colorbar(pm, pad=0.075)
         caax.set_xlabel('x_range [km]')
         caax.set_ylabel('y_range [km]')
-        plt.text(1.0, 1.05, 'azimuth '+str(thisDatetime)+"  step   "+str(self.ini), transform=caax.transAxes, va='bottom',ha='right')
+        plt.text(1.0, 1.05, 'Azimuth '+str(thisDatetime)+"  Step   "+str(self.ini)+ " Elev: "+str(round(self.res_ele,2)), transform=caax.transAxes, va='bottom',ha='right')
 
         self.ini= self.ini+1
