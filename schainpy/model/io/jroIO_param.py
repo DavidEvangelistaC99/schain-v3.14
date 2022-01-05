@@ -366,15 +366,15 @@ class HDFWriter(Operation):
         return
 
     def generalFlag(self):
-        print("GENERALFLAG")
+        ####rint("GENERALFLAG")
         if self.mode== "weather":
             if self.last_Azipos == None:
                 tmp = self.dataOut.azimuth
-                print("ang azimuth writer",tmp)
+                ####print("ang azimuth writer",tmp)
                 self.last_Azipos = tmp
                 flag = False
                 return flag
-            print("ang_azimuth writer",self.dataOut.azimuth)
+            ####print("ang_azimuth writer",self.dataOut.azimuth)
             result = self.dataOut.azimuth - self.last_Azipos
             self.last_Azipos = self.dataOut.azimuth
             if result<0:
@@ -615,7 +615,7 @@ class HDFWriter(Operation):
         return
 
     def putData(self):
-        print("**************************PUT DATA***************************************************")
+        ####print("**************************PUT DATA***************************************************")
         if (self.blockIndex == self.blocksPerFile) or self.timeFlag() or self.generalFlag():
             self.closeFile()
             self.setNextFile()

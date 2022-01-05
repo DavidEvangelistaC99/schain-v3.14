@@ -4007,7 +4007,6 @@ class PedestalInformation(Operation):
 
 
     def getAnguloProfile(self,utc_adq,list_pedestal):
-        ##print("NEW-METHOD")
         utc_adq       = utc_adq
         list_pedestal = list_pedestal
         utc_ped_list  = []
@@ -4017,25 +4016,22 @@ class PedestalInformation(Operation):
             utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=list_pedestal[i]))
 
         nro_file,utc_ped,utc_ped_1  =self.getNROFile(utc_adq,utc_ped_list)
-        #print("utc_adq",utc_adq)
-        ####print("utc_ped",utc_ped)
-        ####print("DIFF",utc_adq-utc_ped)
-        ####print("nro_file",nro_file)
+
         if nro_file < 0:
-            #print("-----------------------------------------------------------------")
-            #print("INSERTANDO ANGULO NAN")
             return numpy.NaN
         else:
             nro_key_p    = int((utc_adq-utc_ped)/self.t_Interval_p)-1 # ojito al -1 estimado alex
             ff_pedestal  = list_pedestal[nro_file]
             #angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azimuth")
             angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azi_pos")
+            angulo_ele   = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="ele_pos")
+
             if 99>=nro_key_p>0:
                 ##print("angulo_array                  :",angulo[nro_key_p])
-                return angulo[nro_key_p]
+                return angulo[nro_key_p],angulo_ele[nro_key_p]
             else:
                 #print("-----------------------------------------------------------------")
-                return numpy.NaN
+                return numpy.NaN,numpy.NaN
 
 
     def getfirstFilefromPath(self,path,meta,ext):
@@ -4115,27 +4111,11 @@ class PedestalInformation(Operation):
         pass
 
         #def setup(self,dataOut,path_ped,path_adq,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online):
-    def setup(self,dataOut,path_ped,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online):
-        #print("SETUP PEDESTAL")
+    def setup(self,dataOut,path_ped,t_Interval_p):
         self.__dataReady      = False
         self.path_ped     = path_ped
-        #self.path_adq     = path_adq
         self.t_Interval_p = t_Interval_p
-        self.n_Muestras_p = n_Muestras_p
-        self.blocksPerfile= blocksPerfile
-        #print("self.blocksPerfile",self.blocksPerfile)
-        self.f_a_p        = f_a_p
-        self.online       = online
-        self.angulo_adq   = numpy.zeros(self.blocksPerfile)
-        self.__profIndex  = 0
-        self.tmp          = 0
-        self.c_ped        = 0
-        #print(self.path_ped)
-        #### print("self.path_adq",self.path_adq)
         self.list_pedestal = self.getfirstFilefromPath(path=self.path_ped,meta="PE",ext=".hdf5")
-        #### print("self.list_pedestal", self.list_pedestal[:20])
-        #### self.list_adq      = self.getfirstFilefromPath(path=self.path_adq,meta="D",ext=".hdf5")
-        #print("*************Longitud list pedestal****************",len(self.list_pedestal))
 
     def setNextFileP(self,dataOut):
         pass
@@ -4149,22 +4129,23 @@ class PedestalInformation(Operation):
     def setNextFileonline(self):
         pass
 
-    def run(self, dataOut,path_ped,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online):
+    def run(self, dataOut,path_ped,t_Interval_p):
         if not self.isConfig:
-            self.setup(dataOut, path_ped,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online)
+            self.setup(dataOut, path_ped,t_Interval_p)
             self.__dataReady = True
             self.isConfig   = True
             #print("config TRUE")
         utc_adq       = dataOut.utctime
         ####print("utc_adq---------------",utc_adq)
         list_pedestal = self.list_pedestal
-        angulo = self.getAnguloProfile(utc_adq=utc_adq,list_pedestal=list_pedestal)
+        angulo,angulo_ele = self.getAnguloProfile(utc_adq=utc_adq,list_pedestal=list_pedestal)
         ####print("angulo**********",angulo)
         dataOut.flagNoData      = False
-        if numpy.isnan(angulo):
+        if numpy.isnan(angulo) or numpy.isnan(angulo_ele) :
             dataOut.flagNoData = True
             return dataOut
         dataOut.azimuth         = angulo
+        dataOut.elevation       = angulo_ele
         return dataOut
 
 class Block360(Operation):
@@ -4214,8 +4195,10 @@ class Block360(Operation):
         self.mode    = mode
         print("self.mode",self.mode)
         #print("nHeights")
-        self.__buffer = numpy.zeros(( dataOut.nChannels,n, dataOut.nHeights))
-        self.__buffer2= numpy.zeros(n)
+        self.__buffer  = numpy.zeros(( dataOut.nChannels,n, dataOut.nHeights))
+        self.__buffer2 = numpy.zeros(n)
+        self.__buffer3 = numpy.zeros(n)
+
 
     def putData(self,data,mode):
         '''
@@ -4235,6 +4218,7 @@ class Block360(Operation):
 
         #####self.__buffer2[self.__profIndex] = data.azimuth[self.index]
         self.__buffer2[self.__profIndex] = data.azimuth
+        self.__buffer3[self.__profIndex] = data.elevation
         #print("q pasa")
         #####self.index+=1
         #print("index",self.index,data.azimuth[:10])
@@ -4250,13 +4234,15 @@ class Block360(Operation):
 
         data_360 = self.__buffer
         data_p   = self.__buffer2
+        data_e   = self.__buffer3
         n                = self.__profIndex
 
         self.__buffer    = numpy.zeros((self.__nch, self.n,self.__nHeis))
         self.__buffer2 = numpy.zeros(self.n)
+        self.__buffer3 = numpy.zeros(self.n)
         self.__profIndex = 0
         #print("pushData")
-        return data_360,n,data_p
+        return data_360,n,data_p,data_e
 
 
     def byProfiles(self,dataOut):
@@ -4264,24 +4250,25 @@ class Block360(Operation):
         self.__dataReady     =  False
         data_360           =  None
         data_p             = None
+        data_e             = None
         #print("dataOu",dataOut.dataPP_POW)
         self.putData(data=dataOut,mode = self.mode)
         ##### print("profIndex",self.__profIndex)
         if self.__profIndex  == self.n:
-            data_360,n,data_p  = self.pushData(data=dataOut)
+            data_360,n,data_p,data_e  = self.pushData(data=dataOut)
             self.__dataReady                   = True
 
-        return data_360,data_p
+        return data_360,data_p,data_e
 
 
     def blockOp(self, dataOut, datatime= None):
         if self.__initime == None:
             self.__initime = datatime
-        data_360,data_p = self.byProfiles(dataOut)
+        data_360,data_p,data_e = self.byProfiles(dataOut)
         self.__lastdatatime           = datatime
 
         if data_360 is None:
-            return None, None,None
+            return None, None,None,None
 
 
         avgdatatime    = self.__initime
@@ -4290,7 +4277,7 @@ class Block360(Operation):
         deltatime      = datatime - self.__lastdatatime
         self.__initime = datatime
         #print(data_360.shape,avgdatatime,data_p.shape)
-        return data_360,avgdatatime,data_p
+        return data_360,avgdatatime,data_p,data_e
 
     def run(self, dataOut,n = None,mode=None,**kwargs):
         #print("BLOCK 360 HERE WE GO MOMENTOS")
@@ -4301,7 +4288,7 @@ class Block360(Operation):
             self.isConfig   = True
         ####if self.index==dataOut.azimuth.shape[0]:
         ####    self.index=0
-        data_360, avgdatatime,data_p = self.blockOp(dataOut, dataOut.utctime)
+        data_360, avgdatatime,data_p,data_e = self.blockOp(dataOut, dataOut.utctime)
         dataOut.flagNoData                         = True
 
         if self.__dataReady:
@@ -4311,6 +4298,7 @@ class Block360(Operation):
             ##print("---------------------------------------------------------------------------------")
             ##print("data_360",dataOut.data_360.shape)
             dataOut.data_azi         = data_p
+            dataOut.data_ele         = data_e
             #####print("azi:    ",dataOut.data_azi)
             #print("jroproc_parameters",data_p[0],data_p[-1])#,data_360.shape,avgdatatime)
             dataOut.utctime         = avgdatatime

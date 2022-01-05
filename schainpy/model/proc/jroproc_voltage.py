@@ -1324,8 +1324,8 @@ class PulsePair(Operation):
         '''
         n= Numero de PRF's de entrada
         '''
-        print("[INICIO]-setup  del METODO PULSE PAIR")
         self.__initime        = None
+        ####print("[INICIO]-setup  del METODO PULSE PAIR")
         self.__lastdatatime   = 0
         self.__dataReady      = False
         self.__buffer         = 0
@@ -1337,9 +1337,8 @@ class PulsePair(Operation):
         self.lambda_          = 3.0e8/(9345.0e6)
         self.ippSec           = dataOut.ippSeconds
         self.nCohInt          = dataOut.nCohInt
-        print("IPPseconds",dataOut.ippSeconds)
-
-        print("ELVALOR DE n es:", n)
+        ####print("IPPseconds",dataOut.ippSeconds)
+        ####print("ELVALOR DE n es:", n)
         if n == None:
             raise ValueError("n should be specified.")
 

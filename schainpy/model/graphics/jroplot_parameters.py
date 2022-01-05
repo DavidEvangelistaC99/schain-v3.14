@@ -443,7 +443,7 @@ class WeatherPlot(Plot):
         size  = len(ang_)
         size2 = 0
         for i in range(len(list2_)):
-            size2=size2+list2_[i]-1
+            size2=size2+round(list2_[i])-1
         new_size= size+size2
         ang_new = numpy.zeros(new_size)
         ang_new2 = numpy.zeros(new_size)
