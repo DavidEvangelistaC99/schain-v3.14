@@ -3944,12 +3944,13 @@ class WeatherRadar(Operation):
 
     def setMoments(self,dataOut,i):
 
-        type = dataOut.inputUnit
-        nCh  = dataOut.nChannels
-        nHeis= dataOut.nHeights
+        type  = dataOut.inputUnit
+        nCh   = dataOut.nChannels
+        nHeis = dataOut.nHeights
         data_param = numpy.zeros((nCh,4,nHeis))
         if type == "Voltage":
-            data_param[:,0,:] = dataOut.dataPP_POW/(dataOut.nCohInt**2)
+            factor            = dataOut.normFactor
+            data_param[:,0,:] = dataOut.dataPP_POW/(factor)
             data_param[:,1,:] = dataOut.dataPP_DOP
             data_param[:,2,:] = dataOut.dataPP_WIDTH
             data_param[:,3,:] = dataOut.dataPP_SNR
@@ -3957,7 +3958,6 @@ class WeatherRadar(Operation):
             data_param[:,0,:] = dataOut.data_POW
             data_param[:,1,:] = dataOut.data_DOP
             data_param[:,2,:] = dataOut.data_WIDTH
-        def setMoments(self,dataOut,i):
             data_param[:,3,:] = dataOut.data_SNR
 
             return data_param[:,i,:]
