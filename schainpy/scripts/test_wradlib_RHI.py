@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import wradlib as wrl
 import warnings
 # libreia nueva
+#export WRADLIB_DATA="/home/soporte/Downloads/2014-06-09--185000.rhi.mvol"
 from mpl_toolkits.axisartist.grid_finder import FixedLocator, DictFormatter
 warnings.filterwarnings('ignore')
 # lectura de gaMIC hdf5 file

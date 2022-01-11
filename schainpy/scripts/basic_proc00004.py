@@ -83,9 +83,9 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #---------------------UNIDAD DE LECTURA--------------------------------
 readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path_adq,
-                                            startDate="2021/11/10",#today,
+                                            startDate="2021/11/23",#today,
                                             endDate="2021/12/30",#today,
-                                            startTime='17:10:25',
+                                            startTime='14:38:23',
                                             endTime='23:59:59',
                                             delay=0,
                                             #set=0,

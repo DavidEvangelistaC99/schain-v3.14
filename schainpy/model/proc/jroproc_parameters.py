@@ -4010,7 +4010,6 @@ class PedestalInformation(Operation):
         utc_adq       = utc_adq
         list_pedestal = list_pedestal
         utc_ped_list  = []
-
         for i in range(len(list_pedestal)):
             #print(i)# OJO IDENTIFICADOR DE SINCRONISMO
             utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=list_pedestal[i]))
@@ -4018,7 +4017,7 @@ class PedestalInformation(Operation):
         nro_file,utc_ped,utc_ped_1  =self.getNROFile(utc_adq,utc_ped_list)
 
         if nro_file < 0:
-            return numpy.NaN
+            return numpy.NaN,numpy.NaN
         else:
             nro_key_p    = int((utc_adq-utc_ped)/self.t_Interval_p)-1 # ojito al -1 estimado alex
             ff_pedestal  = list_pedestal[nro_file]
@@ -4093,6 +4092,7 @@ class PedestalInformation(Operation):
         c=0
         #print(utc_adq)
         #print(len(utc_ped_list))
+        #print(utc_ped_list)
         for i in range(len(utc_ped_list)):
             if utc_adq>utc_ped_list[i]:
                 #print("mayor")
@@ -4193,7 +4193,7 @@ class Block360(Operation):
 
         self.n       = n
         self.mode    = mode
-        print("self.mode",self.mode)
+        #print("self.mode",self.mode)
         #print("nHeights")
         self.__buffer  = numpy.zeros(( dataOut.nChannels,n, dataOut.nHeights))
         self.__buffer2 = numpy.zeros(n)
