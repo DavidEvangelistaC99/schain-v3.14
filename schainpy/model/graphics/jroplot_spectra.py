@@ -17,7 +17,7 @@ class SpectraPlot(Plot):
     Plot for Spectra data
     '''
 
-    CODE = 'spc_moments'
+    CODE = 'spc'
     colormap = 'jet'
     plot_type = 'pcolor'
     buffering = False
@@ -71,7 +71,6 @@ class SpectraPlot(Plot):
 
         data = self.data[-1]
         z = data['spc']
-        #self.CODE = 'spc_moments'
         for n, ax in enumerate(self.axes):
             noise = data['noise'][n]
             print(n,self.CODE)

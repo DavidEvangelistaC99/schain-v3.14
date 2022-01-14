@@ -2321,16 +2321,19 @@ class SpectralFitting(Operation):
                     LT=L.T
 
                     dp = numpy.dot(LT,d)
-                
+                    
                 #Initial values
                     data_spc = dataOut.data_spc[coord,:,h]
+                    w = data_spc/data_spc
+                    if index >= 100 and index <= 170 :
+                       w[0,100:120] = 0
 
-                    if (h>0)and(error1[3]<5):
+                    if (h>0)and(error1[3]<50):
                         p0 = dataOut.data_param[i,:,h-1]
                     else:
                     #print("INSIDE ELSE")
                     #print(data_spc.shape,constants,i)
-                        p0 = numpy.array(self.library.initialValuesFunction(data_spc, constants))# sin el i(data_spc, constants, i)
+                        p0 = numpy.array(self.library.initialValuesFunction(data_spc*w, constants))# sin el i(data_spc, constants, i)
                     #print ("WAIT_p0",p0)
                     try:
                     #Least Squares
