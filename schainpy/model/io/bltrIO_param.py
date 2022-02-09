@@ -174,7 +174,7 @@ class BLTRParamReader(Reader, ProcessingUnit):
         self.nrecords = self.header_file['nrec'][0]
         self.counter_records = 0
         self.flagIsNewFile = 0
-        self.fileIndex += 1        
+        self.fileIndex += 1
 
     def readNextBlock(self):
 
@@ -184,7 +184,13 @@ class BLTRParamReader(Reader, ProcessingUnit):
                 if not self.setNextFile():
                     return 0
             try:
-                pointer = self.fp.tell()
+                if self.online and self.counter_records == 0:
+                    pos = int(self.fileSize / (38512))
+                    self.counter_records = pos*2 - 2
+                    pointer = 38512 * (pos-1) + 48
+                    self.fp.seek(pointer)
+                else:
+                    pointer = self.fp.tell()
                 self.readBlock()
             except:
                 if self.online and self.waitDataBlock(pointer, 38512) == 1:

@@ -151,7 +151,6 @@ class BasicHeader(Header):
         self.timeZone = 0
         self.dstFlag = 0
         self.errorCount = 0
-
         self.useLocalTime = useLocalTime
 
     def read(self, fp):

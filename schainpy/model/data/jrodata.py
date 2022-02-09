@@ -964,6 +964,7 @@ class Parameters(Spectra):
         self.systemHeaderObj = SystemHeader()
         self.type = "Parameters"
         self.timeZone = 0
+        self.ippFactor = 1
 
     def getTimeRange1(self, interval):
 
