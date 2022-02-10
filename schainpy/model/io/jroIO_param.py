@@ -357,6 +357,8 @@ class HDFWriter(Operation):
     last_Azipos = None
     last_Elepos = None
     mode       = None
+    #-----------------------
+    Typename = None
 
 
 
@@ -364,6 +366,17 @@ class HDFWriter(Operation):
 
         Operation.__init__(self)
         return
+
+
+    def set_kwargs(self, **kwargs):
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    def set_kwargs_obj(self,obj, **kwargs):
+
+        for key, value in kwargs.items():
+            setattr(obj, key, value)
 
     def generalFlag(self):
         ####rint("GENERALFLAG")
@@ -381,13 +394,21 @@ class HDFWriter(Operation):
                 flag = True
                 return flag
 
-    def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None):
+    def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None,type_data=None,**kwargs):
         self.path = path
         self.blocksPerFile = blocksPerFile
         self.metadataList = metadataList
         self.dataList = [s.strip() for s in dataList]
-        self.setType = setType
+        if self.mode == "weather":
+            self.setType = "weather"
+            #----------------------------------------
+            self.set_kwargs(**kwargs)
+            self.set_kwargs_obj(self.dataOut,**kwargs)
+            #print("-----------------------------------------------------------",self.Typename)
+        #print("hola",self.ContactInformation)
+
         self.description = description
+        self.type_data=type_data
 
         if self.metadataList is None:
             self.metadataList = self.dataOut.metadata_list
@@ -443,14 +464,16 @@ class HDFWriter(Operation):
             return False
 
     def run(self, dataOut, path, blocksPerFile=10, metadataList=None,
-            dataList=[], setType=None, description={},mode= None):
+            dataList=[], setType=None, description={},mode= None,type_data=None,**kwargs):
 
+        ###print("VOY A ESCRIBIR----------------------")
+        #print("CHECKTHIS------------------------------------------------------------------*****---",**kwargs)
         self.dataOut = dataOut
         self.mode    = mode
         if not(self.isConfig):
             self.setup(path=path, blocksPerFile=blocksPerFile,
                        metadataList=metadataList, dataList=dataList,
-                       setType=setType, description=description)
+                       setType=setType, description=description,type_data=type_data,**kwargs)
 
             self.isConfig = True
             self.setNextFile()
@@ -459,10 +482,11 @@ class HDFWriter(Operation):
         return
 
     def setNextFile(self):
-
+        ###print("HELLO WORLD--------------------------------")
         ext = self.ext
         path = self.path
         setFile = self.setFile
+        type_data = self.type_data
 
         timeTuple = time.localtime(self.dataOut.utctime)
         subfolder = 'd%4.4d%3.3d' % (timeTuple.tm_year,timeTuple.tm_yday)
@@ -487,6 +511,7 @@ class HDFWriter(Operation):
             os.makedirs(fullpath)
             setFile = -1 #inicializo mi contador de seteo
 
+        ###print("**************************",self.setType)
         if self.setType is None:
             setFile += 1
             file = '%s%4.4d%3.3d%03d%s' % (self.optchar,
@@ -494,6 +519,35 @@ class HDFWriter(Operation):
                                            timeTuple.tm_yday,
                                            setFile,
                                            ext )
+        elif self.setType == "weather":
+              print("HOLA AMIGOS")
+              wr_exp = self.dataOut.wr_exp
+              if wr_exp== "PPI":
+                  wr_type = 'E'
+                  ang_    = numpy.mean(self.dataOut.elevation)
+              else:
+                  wr_type = 'A'
+                  ang_    = numpy.mean(self.dataOut.azimuth)
+
+              wr_writer = '%s%s%2.1f%s'%('-',
+                                         wr_type,
+                                         ang_,
+                                         '-')
+              ###print("wr_writer********************",wr_writer)
+              file = '%s%4.4d%2.2d%2.2d%s%2.2d%2.2d%2.2d%s%s%s' % (self.optchar,
+                                               timeTuple.tm_year,
+                                               timeTuple.tm_mon,
+                                               timeTuple.tm_mday,
+                                               '-',
+                                               timeTuple.tm_hour,
+                                               timeTuple.tm_min,
+                                               timeTuple.tm_sec,
+                                               wr_writer,
+                                               type_data,
+                                               ext )
+              ###print("FILENAME", file)
+
+
         else:
             setFile = timeTuple.tm_hour*60+timeTuple.tm_min
             file = '%s%4.4d%3.3d%04d%s' % (self.optchar,
@@ -505,6 +559,7 @@ class HDFWriter(Operation):
         self.filename = os.path.join( path, subfolder, file )
 
         #Setting HDF5 File
+
         self.fp = h5py.File(self.filename, 'w')
         #write metadata
         self.writeMetadata(self.fp)
@@ -615,7 +670,7 @@ class HDFWriter(Operation):
         return
 
     def putData(self):
-        ####print("**************************PUT DATA***************************************************")
+        ###print("**************************PUT DATA***************************************************")
         if (self.blockIndex == self.blocksPerFile) or self.timeFlag() or self.generalFlag():
             self.closeFile()
             self.setNextFile()

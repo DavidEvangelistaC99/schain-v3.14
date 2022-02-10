@@ -3913,11 +3913,12 @@ class WeatherRadar(Operation):
     Parameters affected:
     '''
     isConfig  = False
+    variableList = None
 
     def __init__(self):
         Operation.__init__(self)
 
-    def setup(self,dataOut,Pt=0,Gt=0,Gr=0,lambda_=0, aL=0,
+    def setup(self,dataOut,variableList= None,Pt=0,Gt=0,Gr=0,lambda_=0, aL=0,
                 tauW= 0,thetaT=0,thetaR=0,Km =0):
         self.nCh      = dataOut.nChannels
         self.nHeis    = dataOut.nHeights
@@ -3938,9 +3939,7 @@ class WeatherRadar(Operation):
         Numerator     = ((4*numpy.pi)**3 * aL**2 * 16 *numpy.log(2))
         Denominator   = (Pt * Gt * Gr * lambda_**2 * SPEED_OF_LIGHT * tauW * numpy.pi*thetaT*thetaR)
         self.RadarConstant = Numerator/Denominator
-        '''-----------2 Reflectividad del Radar y Factor de Reflectividad------'''
-        self.n_radar       = numpy.zeros((self.nCh,self.nHeis))
-        self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
+        self.variableList= variableList
 
     def setMoments(self,dataOut,i):
 
@@ -3960,19 +3959,48 @@ class WeatherRadar(Operation):
             data_param[:,2,:] = dataOut.data_WIDTH
             data_param[:,3,:] = dataOut.data_SNR
 
-            return data_param[:,i,:]
+        return data_param[:,i,:]
 
+    def getCoeficienteCorrelacionROhv_R(self.dataOut):
+        type  = dataOut.inputUnit
+        nHeis = dataOut.nHeights
+        data_RhoHV_R = numpy.zeros((nHeis))
+        if type == "Voltage":
+            powa  = dataOut.dataPP_POWER[0]
+            powb = dataOut.dataPP_POWER[1]
+            ccf   = dataOut.dataPP_CCF
+            avgcoherenceComplex = ccf / numpy.sqrt(powa * powb)
+            data_RhoHV_R = numpy.abs(avgcoherenceComplex)
+        if type == "Spectra":
+            data_RhoHV_R = dataOut.getCoherence()
 
-    def run(self,dataOut,Pt=25,Gt=200.0,Gr=50.0,lambda_=0.32, aL=2.5118,
-                tauW= 4.0e-6,thetaT=0.165,thetaR=0.367,Km =0.93):
+        return data_RhoHV_R
 
-        if not self.isConfig:
-            self.setup(dataOut= dataOut,Pt=25,Gt=200.0,Gr=50.0,lambda_=0.32, aL=2.5118,
-                        tauW= 4.0e-6,thetaT=0.165,thetaR=0.367,Km =0.93)
-            self.isConfig = True
+    def getFasediferencialPhiD_P(self.dataOut,phase= True):
+        type  = dataOut.inputUnit
+        nHeis = dataOut.nHeights
+        data_PhiD_P = numpy.zeros((nHeis))
+        if type == "Voltage":
+            powa  = dataOut.dataPP_POWER[0]
+            powb = dataOut.dataPP_POWER[1]
+            ccf   = dataOut.dataPP_CCF
+            avgcoherenceComplex = ccf / numpy.sqrt(powa * powb)
+            if phase:
+                data_PhiD_P = numpy.arctan2(avgcoherenceComplex.imag,
+                                     avgcoherenceComplex.real) * 180 / numpy.pi
+        if type == "Spectra":
+            data_PhiD_P = dataOut.getCoherence(phase = phase)
+
+        return data_PhiD_P
+
+    def getReflectividad_D(self,dataOut):
         '''-----------------------------Potencia de Radar -Signal S-----------------------------'''
+
         Pr               = self.setMoments(dataOut,0)
 
+        '''-----------2 Reflectividad del Radar y Factor de Reflectividad------'''
+        self.n_radar       = numpy.zeros((self.nCh,self.nHeis))
+        self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
         for R in range(self.nHeis):
             self.n_radar[:,R] = self.RadarConstant*Pr[:,R]* (self.Range[:,R])**2
 
@@ -3981,10 +4009,37 @@ class WeatherRadar(Operation):
         '''----------- Factor de Reflectividad Equivalente lamda_ < 10 cm , lamda_= 3.2cm-------'''
         Zeh  =  self.Z_radar
         dBZeh = 10*numpy.log10(Zeh)
-        dataOut.factor_Zeh= dBZeh
-        self.n_radar       = numpy.zeros((self.nCh,self.nHeis))
-        self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
+        Zdb_D = dBZeh[0] - dBZeh[1]
+        return Zdb_D
 
+    def getRadialVelocity_V(self,dataOut):
+        velRadial_V = self.setMoments(dataOut,1)
+        return velRadial_V
+
+    def getAnchoEspectral_W(self,dataOut):
+        Sigmav_W = self.setMoments(dataOut,2)
+        return Sigmav_W
+
+
+    def run(self,dataOut,variableList=None,Pt=25,Gt=200.0,Gr=50.0,lambda_=0.32, aL=2.5118,
+                tauW= 4.0e-6,thetaT=0.165,thetaR=0.367,Km =0.93):
+
+        if not self.isConfig:
+            self.setup(dataOut= dataOut,variableList=None,Pt=25,Gt=200.0,Gr=50.0,lambda_=0.32, aL=2.5118,
+                        tauW= 4.0e-6,thetaT=0.165,thetaR=0.367,Km =0.93)
+            self.isConfig = True
+
+        for i in range(len(self.variableList)):
+            if self.variableList[i]=='ReflectividadDiferencial':
+                dataOut.Zdb_D =self.getReflectividad_D(dataOut=dataOut)
+            if self.variableList[i]=='FaseDiferencial':
+                dataOut.PhiD_P =self.getFasediferencialPhiD_P(dataOut=dataOut, phase=True)
+            if self.variableList[i] == "CoeficienteCorrelacion":
+                dataOut.RhoHV_R = self.getCoeficienteCorrelacionROhv_R(dataOut)
+            if self.variableList[i] =="VelocidadRadial":
+                dataOut.velRadial_V = self.getRadialVelocity_V(dataOut)
+            if self.variableList[i] =="AnchoEspectral":
+                dataOut.Sigmav_W = self.getAnchoEspectral_W(dataOut)
         return dataOut
 
 class PedestalInformation(Operation):
@@ -4015,7 +4070,7 @@ class PedestalInformation(Operation):
             utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=list_pedestal[i]))
 
         nro_file,utc_ped,utc_ped_1  =self.getNROFile(utc_adq,utc_ped_list)
-
+        ###print("NROFILE************************************", nro_file)
         if nro_file < 0:
             return numpy.NaN,numpy.NaN
         else:
@@ -4092,7 +4147,7 @@ class PedestalInformation(Operation):
         c=0
         #print(utc_adq)
         #print(len(utc_ped_list))
-        #print(utc_ped_list)
+        ###print(utc_ped_list)
         for i in range(len(utc_ped_list)):
             if utc_adq>utc_ped_list[i]:
                 #print("mayor")
@@ -4111,11 +4166,13 @@ class PedestalInformation(Operation):
         pass
 
         #def setup(self,dataOut,path_ped,path_adq,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online):
-    def setup(self,dataOut,path_ped,t_Interval_p):
+    def setup(self,dataOut,path_ped,t_Interval_p,wr_exp):
         self.__dataReady      = False
         self.path_ped     = path_ped
         self.t_Interval_p = t_Interval_p
         self.list_pedestal = self.getfirstFilefromPath(path=self.path_ped,meta="PE",ext=".hdf5")
+        dataOut.wr_exp     = wr_exp
+
 
     def setNextFileP(self,dataOut):
         pass
@@ -4129,17 +4186,20 @@ class PedestalInformation(Operation):
     def setNextFileonline(self):
         pass
 
-    def run(self, dataOut,path_ped,t_Interval_p):
+    def run(self, dataOut,path_ped,t_Interval_p,wr_exp):
+        ###print("INTEGRATION -----")
         if not self.isConfig:
-            self.setup(dataOut, path_ped,t_Interval_p)
+            self.setup(dataOut, path_ped,t_Interval_p,wr_exp)
             self.__dataReady = True
             self.isConfig   = True
             #print("config TRUE")
         utc_adq       = dataOut.utctime
-        ####print("utc_adq---------------",utc_adq)
+        ###print("utc_adq---------------",utc_adq)
+
         list_pedestal = self.list_pedestal
+        #print("list_pedestal",list_pedestal)
         angulo,angulo_ele = self.getAnguloProfile(utc_adq=utc_adq,list_pedestal=list_pedestal)
-        ####print("angulo**********",angulo)
+        ###print("angulo**********",angulo)
         dataOut.flagNoData      = False
         if numpy.isnan(angulo) or numpy.isnan(angulo_ele) :
             dataOut.flagNoData = True
@@ -4198,6 +4258,8 @@ class Block360(Operation):
         self.__buffer  = numpy.zeros(( dataOut.nChannels,n, dataOut.nHeights))
         self.__buffer2 = numpy.zeros(n)
         self.__buffer3 = numpy.zeros(n)
+
+
 
 
     def putData(self,data,mode):

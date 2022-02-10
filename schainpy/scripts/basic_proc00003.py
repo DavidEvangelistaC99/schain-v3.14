@@ -5,19 +5,25 @@ import os, sys
 import datetime
 import time
 import numpy
+import json
 from  ext_met import  getfirstFilefromPath,getDatavaluefromDirFilename
 from schainpy.controller import Project
 #-----------------------------------------------------------------------------------------
+# path_ped  = "/DATA_RM/TEST_PEDESTAL/P20211110-171003"
+## print("PATH PEDESTAL :",path_ped)
+
 print("[SETUP]-RADAR METEOROLOGICO-")
-path_ped  = "/DATA_RM/TEST_PEDESTAL/P20211110-171003"
+path_ped  = "/DATA_RM/TEST_PEDESTAL/P20211111-173856"
 print("PATH PEDESTAL :",path_ped)
-path_adq  = "/DATA_RM/10"
+path_adq  = "/DATA_RM/11"
 print("PATH DATA     :",path_adq)
+
+
 figpath_pp_rti  = "/home/soporte/Pictures/TEST_PP_RTI"
 print("PATH PP RTI   :",figpath_pp_rti)
 figpath_pp_ppi  = "/home/soporte/Pictures/TEST_PP_PPI"
 print("PATH PP PPI   :",figpath_pp_ppi)
-path_pp_save_int  = "/DATA_RM/TEST_SAVE_PP_INT"
+path_pp_save_int  = "/DATA_RM/TEST_NEW_FORMAT"
 print("PATH SAVE PP INT   :",path_pp_save_int)
 print(" ")
 #-------------------------------------------------------------------------------------------
@@ -54,19 +60,33 @@ n= int(1/(VEL*ipp_sec))
 print("N° Profiles   : ", n)
 #---------------------------------------------------------------------------------------
 plot_rti    = 0
-plot_ppi    = 1
+plot_ppi    = 0
 integration = 1
-save        = 0
+save        = 1
 #---------------------------RANGO DE PLOTEO----------------------------------
 dBmin = '1'
 dBmax = '85'
-xmin = '17'
-xmax = '17.25'
+xmin = '14'
+xmax = '16'
 ymin = '0'
 ymax = '600'
 #----------------------------------------------------------------------------
 time.sleep(3)
 #---------------------SIGNAL CHAIN ------------------------------------
+desc_wr= {
+    'Data': {
+        'dataPP_POW': 'Power',
+        'utctime': 'Time',
+        'azimuth': 'az',
+        'elevation':'el'
+    },
+    'Metadata': {
+        'heightList': 'range',
+        'channelList': 'Channels'
+    }
+}
+
+
 desc = "USRP_WEATHER_RADAR"
 filename = "USRP_processing.xml"
 controllerObj = Project()
@@ -74,9 +94,9 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #---------------------UNIDAD DE LECTURA--------------------------------
 readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path_adq,
-                                            startDate="2021/11/10",#today,
+                                            startDate="2021/11/11",#today,
                                             endDate="2021/12/30",#today,
-                                            startTime='17:10:25',
+                                            startTime='17:39:17',
                                             endTime='23:59:59',
                                             delay=0,
                                             #set=0,
@@ -111,7 +131,20 @@ if mode_proc==0:
         opObj11 = procUnitConfObjB.addOperation(name='PedestalInformation')
         opObj11.addParameter(name='path_ped', value=path_ped)
         opObj11.addParameter(name='t_Interval_p', value='0.01', format='float')
-
+        opObj11.addParameter(name='wr_exp', value='PPI')
+        #------------------------------------------------------------------------------
+        '''
+        opObj11.addParameter(name='Datatype', value='RadialSet')
+        opObj11.addParameter(name='Scantype', value='PPI')
+        opObj11.addParameter(name='Latitude', value='-11.96')
+        opObj11.addParameter(name='Longitud', value='-76.54')
+        opObj11.addParameter(name='Heading', value='293')
+        opObj11.addParameter(name='Height', value='293')
+        opObj11.addParameter(name='Waveform', value='OFM')
+        opObj11.addParameter(name='PRF', value='2000')
+        opObj11.addParameter(name='CreatedBy', value='WeatherRadarJROTeam')
+        opObj11.addParameter(name='ContactInformation', value='avaldez@igp.gob.pe')
+        '''
     if plot_ppi==1:
         opObj11 = procUnitConfObjB.addOperation(name='Block360')
         opObj11.addParameter(name='n', value='10', format='int')
@@ -125,9 +158,27 @@ if mode_proc==0:
         opObj10 = procUnitConfObjB.addOperation(name='HDFWriter')
         opObj10.addParameter(name='path',value=path_pp_save_int)
         opObj10.addParameter(name='mode',value="weather")
+        opObj10.addParameter(name='type_data',value='F')
         opObj10.addParameter(name='blocksPerFile',value='360',format='int')
-        opObj10.addParameter(name='metadataList',value='utctimeInit,timeZone,paramInterval,profileIndex,channelList,heightList,flagDataAsBlock',format='list')
-        opObj10.addParameter(name='dataList',value='dataPP_POW,dataPP_DOP,azimuth,elevation,utctime',format='list')#,format='list'
+        #opObj10.addParameter(name='metadataList',value='utctimeInit,paramInterval,channelList,heightList,flagDataAsBlock',format='list')
+        opObj10.addParameter(name='metadataList',value='heightList,channelList,Typename,Datatype,Scantype,Latitude,Longitud,Heading,Height,Waveform,PRF,CreatedBy,ContactInformation',format='list')
+        #--------------------
+        opObj10.addParameter(name='Typename', value='Differential_Reflectivity')
+        opObj10.addParameter(name='Datatype', value='RadialSet')
+        opObj10.addParameter(name='Scantype', value='PPI')
+        opObj10.addParameter(name='Latitude', value='-11.96')
+        opObj10.addParameter(name='Longitud', value='-76.54')
+        opObj10.addParameter(name='Heading', value='293')
+        opObj10.addParameter(name='Height', value='293')
+        opObj10.addParameter(name='Waveform', value='OFM')
+        opObj10.addParameter(name='PRF', value='2000')
+        opObj10.addParameter(name='CreatedBy', value='WeatherRadarJROTeam')
+        opObj10.addParameter(name='ContactInformation', value='avaldez@igp.gob.pe')
+        #---------------------------------------------------
+        #opObj10.addParameter(name='dataList',value='dataPP_POW,dataPP_DOP,azimuth,elevation,utctime',format='list')#,format='list'
+        #opObj10.addParameter(name='metadataList',value='utctimeInit,timeZone,paramInterval,profileIndex,channelList,heightList,flagDataAsBlock',format='list')
 
+        opObj10.addParameter(name='dataList',value='dataPP_POW,azimuth,elevation,utctime',format='list')#,format='list'
+        opObj10.addParameter(name='description',value=json.dumps(desc_wr))
 
 controllerObj.start()
