@@ -5,6 +5,72 @@ import os, sys
 import datetime
 import time
 from schainpy.controller import Project
+import h5py
+
+
+
+def isNumber(str):
+    try:
+        float(str)
+        return True
+    except:
+        return False
+
+def getfirstFilefromPath(path,meta,ext):
+    validFilelist = []
+    #print("SEARH",path)
+    try:
+        fileList      = os.listdir(path)
+    except:
+        print("check path - fileList")
+    if len(fileList)<1:
+     return None
+    # meta    1234 567 8-18 BCDE
+    # H,D,PE  YYYY DDD EPOC .ext
+
+    for thisFile in fileList:
+        #print("HI",thisFile)
+        if meta =="PE":
+            try:
+                number= int(thisFile[len(meta)+7:len(meta)+17])
+            except:
+                 print("There is a file or folder with different format")
+        if meta == "D":
+            try:
+                number= int(thisFile[8:11])
+            except:
+                print("There is a file or folder with different format")
+
+        if not isNumber(str=number):
+            continue
+        if (os.path.splitext(thisFile)[-1].lower() != ext.lower()):
+            continue
+        validFilelist.sort()
+        validFilelist.append(thisFile)
+    if len(validFilelist)>0:
+        validFilelist = sorted(validFilelist,key=str.lower)
+        return validFilelist
+    return None
+def gettimeutcfromDirFilename(path,file):
+    dir_file= path+"/"+file
+    fp      = h5py.File(dir_file,'r')
+    #epoc    = fp['Metadata'].get('utctimeInit')[()]
+    epoc    = fp['Data'].get('utc')[()]
+    fp.close()
+    return epoc
+
+path_ped='/DATA_RM/TEST_PEDESTAL/P20211111-173856'
+
+list_pedestal=getfirstFilefromPath(path=path_ped,meta="PE",ext=".hdf5")
+
+
+timestamp= gettimeutcfromDirFilename(path=path_ped,file=list_pedestal[0])
+print("timestamp",timestamp)
+#timestamp = 1339521878.04
+value = datetime.datetime.fromtimestamp(timestamp)
+print(value.strftime('%Y/%m/%d %H:%M:%S'))
+startdate= value.strftime('%Y/%m/%d')
+starttime= value.strftime('%H:%M:%S')
 #### NOTA###########################################
 # INPUT :
 # VELOCIDAD PARAMETRO :        V = 2°/seg
@@ -23,7 +89,7 @@ from schainpy.controller import Project
 ######## VELOCIDAD DEL PEDESTAL ######################
 print("SETUP- RADAR METEOROLOGICO")
 V       = 6
-V       = 10
+#V       = 10
 mode    = 0
 #--------------------------PATH -----------------------------
 # path    = '/DATA_RM/23/6v'
@@ -32,10 +98,10 @@ mode    = 0
 # path    = '/DATA_RM/WR_20_OCT'
 #### path_ped='/DATA_RM/TEST_PEDESTAL/P20211012-082745'
 ####path_ped='/DATA_RM/TEST_PEDESTAL/P20211019-192244'
-path ="/DATA_RM/10"
+#path ="/DATA_RM/10"
 # path  = '/DATA_RM/WR_POT_09_1'
 #path ="/DATA_RM/11"
-#path ="/DATA_RM/11"
+path ="/DATA_RM/11"
 #-------------------------PATH-PLOTEO------------------------------------
 #figpath_pp  = "/home/soporte/Pictures/TEST_PP"
 #figpath_spec = "/home/soporte/Pictures/TEST_MOM"
@@ -48,8 +114,8 @@ figpath_pp  = "/home/soporte/Pictures/TEST_POT2"
 #path_ped='/DATA_RM/TEST_PEDESTAL/P20211012-082745'
 #path_ped='/DATA_RM/TEST_PEDESTAL/P20211020-131248'
 #path_ped='/DATA_RM/TEST_PEDESTAL/P20211110-171003'
-#path_ped='/DATA_RM/TEST_PEDESTAL/P20211111-173856'
-path_ped  =  "/DATA_RM/TEST_PEDESTAL/P20211110-171003"
+path_ped='/DATA_RM/TEST_PEDESTAL/P20211111-173856'
+#path_ped  =  "/DATA_RM/TEST_PEDESTAL/P20211110-171003"
 
 
 figpath_pp  = "/home/soporte/Pictures/25TEST_PP"
@@ -123,9 +189,9 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #######################################################################
 readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path,
-                                            startDate="2021/11/10",#today,
+                                            startDate=startdate,#today,
                                             endDate="2021/12/30",#today,
-                                            startTime='17:10:25',
+                                            startTime=starttime,
                                             endTime='23:59:59',
                                             delay=0,
                                             #set=0,
@@ -178,10 +244,11 @@ if mode ==0:
         opObj11.addParameter(name='path_ped', value=path_ped)
         #opObj11.addParameter(name='path_adq', value=path_adq)
         opObj11.addParameter(name='t_Interval_p', value='0.01', format='float')
-        opObj11.addParameter(name='blocksPerfile', value=blocksPerfile, format='int')
-        opObj11.addParameter(name='n_Muestras_p', value='100', format='float')
-        opObj11.addParameter(name='f_a_p', value=f_a_p, format='int')
-        opObj11.addParameter(name='online', value='0', format='int')
+        opObj11.addParameter(name='wr_exp', value='PPI')
+        #opObj11.addParameter(name='blocksPerfile', value=blocksPerfile, format='int')
+        #opObj11.addParameter(name='n_Muestras_p', value='100', format='float')
+        #opObj11.addParameter(name='f_a_p', value=f_a_p, format='int')
+        #opObj11.addParameter(name='online', value='0', format='int')
 
         opObj11 = procUnitConfObjB.addOperation(name='Block360')
         opObj11.addParameter(name='n', value='10', format='int')
