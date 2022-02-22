@@ -18,8 +18,10 @@ from schainpy.controller import Project
 #-----------------------------------------------------------------------------------------
 print("[SETUP]-RADAR METEOROLOGICO-")
 path_ped  = "/DATA_RM/TEST_PEDESTAL/P20211123-143826"
+path_ped  = "/DATA_RM/TEST_PEDESTAL/P20220217-172216"
 print("PATH PEDESTAL :",path_ped)
 path_adq  = "/DATA_RM/DRONE/2MHZ_5V_ELEVACION/"
+path_adq  = "/DATA_RM/2MHZTEST/"
 print("PATH DATA     :",path_adq)
 figpath_pp_rti  = "/home/soporte/Pictures/TEST_PP_RHI"
 print("PATH PP RTI   :",figpath_pp_rti)
@@ -44,7 +46,7 @@ else:
     ff_pedestal  = list_ped[2]
     ele_vel      = getDatavaluefromDirFilename(path=path_ped,file=ff_pedestal,value="ele_vel")
     V            = round(ele_vel[0])
-    V            = 10.0
+    V            = 8.0#10.0
     print("VELOCIDAD ELE :", int(numpy.mean(ele_vel)),"°/seg")
 print(" ")
 #---------------------------------------------------------------------------------------
@@ -83,9 +85,9 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #---------------------UNIDAD DE LECTURA--------------------------------
 readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path_adq,
-                                            startDate="2021/11/23",#today,
-                                            endDate="2021/12/30",#today,
-                                            startTime='14:38:23',
+                                            startDate="2022/02/17",#today,
+                                            endDate="2022/02/17",#today,
+                                            startTime='00:00:00',
                                             endTime='23:59:59',
                                             delay=0,
                                             #set=0,
@@ -109,6 +111,7 @@ if mode_proc==0:
         opObj11 = procUnitConfObjB.addOperation(name='PedestalInformation')
         opObj11.addParameter(name='path_ped', value=path_ped)
         opObj11.addParameter(name='t_Interval_p', value='0.01', format='float')
+        opObj11.addParameter(name='wr_exp', value='RHI')
 
     if plot_rhi==1:
         opObj11 = procUnitConfObjB.addOperation(name='Block360')

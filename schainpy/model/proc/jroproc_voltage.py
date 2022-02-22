@@ -1378,7 +1378,7 @@ class PulsePair(Operation):
         pair0       = pair0.real
         lag_0       = numpy.sum(pair0,1)
         #-----------------Calculo de Cscp------------------------------ New
-        cspc_pair01 = self.__buffer[0]*__self.buffer[1]
+        cspc_pair01 = self.__buffer[0]*self.__buffer[1]
         #------------------Calculo de Ruido x canal--------------------
         self.noise  = numpy.zeros(self.__nch)
         for i in range(self.__nch):
@@ -1463,7 +1463,7 @@ class PulsePair(Operation):
         self.__lastdatatime           = datatime
 
         if data_power is None:
-            return None, None, None,None,None,None
+            return None, None, None,None,None,None,None
 
         avgdatatime    = self.__initime
         deltatime      = datatime - self.__lastdatatime

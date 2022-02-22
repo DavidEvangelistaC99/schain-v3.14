@@ -25,17 +25,25 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #path = '/media/data/data/vientos/57.2063km/echoes/NCO_Woodman'
 #path = '/DATA_RM/TEST_INTEGRACION'
 #path = '/DATA_RM/PRUEBA_USRP_RP'
-path = '/DATA_RM/PRUEBA_USRP_RP'
+#path = '/DATA_RM/PRUEBA_USRP_RP'
 
-figpath = '/home/soporte/Pictures/TEST_RP_0001'
-figpath = '/home/soporte/Pictures/TEST_RP_6000'
-figpath = '/home/soporte/Pictures/USRP'
+path = '/DATA_RM/TEST_2M'
+path = '/DATA_RM/TEST_2M_UD'
+path = '/DATA_RM/2MHZ17022022'
+path = '/DATA_RM/10MHZTEST/'
+path = '/DATA_RM/10MHZDRONE/'
+
+#figpath = '/home/soporte/Pictures/TEST_RP_0001'
+#figpath = '/home/soporte/Pictures/TEST_RP_6000'
+figpath = '/home/soporte/Pictures/USRP_TEST_2M'
+figpath = '/home/soporte/Pictures/USRP_TEST_2M_UD'
+figpaht = '/home/soporte/Pictures/10MHZDRONE'
 #remotefolder = "/home/wmaster/graficos"
 #######################################################################
 ################# RANGO DE PLOTEO######################################
 #######################################################################
-dBmin = '-5'
-dBmax = '20'
+dBmin = '20'
+dBmax = '60'
 xmin = '0'
 xmax ='24'
 ymin = '0'
@@ -52,16 +60,16 @@ yesterday = str2.strftime("%Y/%m/%d")
 #######################################################################
 readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path,
-                                            startDate="2021/07/02",#today,
-                                            endDate="2021/07/02",#today,
-                                            startTime='14:50:00',# inicio libre
+                                            startDate="2022/02/18",#today,
+                                            endDate="2022/02/18",#today,
+                                            startTime='00:00:00',# inicio libre
                                             #startTime='00:00:00',
-                                            endTime='14:55:59',
+                                            endTime='23:59:59',
                                             delay=0,
                                             #set=0,
-                                            online=0,
+                                            online=1,
                                             walk=1,
-                                            ippKm = 6000)
+                                            ippKm = 60)
 
 opObj11 = readUnitConfObj.addOperation(name='printInfo')
 #opObj11 = readUnitConfObj.addOperation(name='printNumberOfBlock')
@@ -71,11 +79,24 @@ opObj11 = readUnitConfObj.addOperation(name='printInfo')
 
 procUnitConfObjA = controllerObj.addProcUnit(datatype='VoltageProc', inputId=readUnitConfObj.getId())
 
+'''
+# OJO SCOPE
+opObj10 = procUnitConfObjA.addOperation(name='ScopePlot', optype='external')
+opObj10.addParameter(name='id', value='10', format='int')
+##opObj10.addParameter(name='xmin', value='0', format='int')
+##opObj10.addParameter(name='xmax', value='50', format='int')
+opObj10.addParameter(name='type', value='iq')
+opObj10.addParameter(name='ymin', value='-1200', format='int')
+opObj10.addParameter(name='ymax', value='1200', format='int')
+opObj10.addParameter(name='save', value=figpath, format='str')
+opObj10.addParameter(name='save_period', value=10, format='int')
+'''
+'''
 opObj11 = procUnitConfObjA.addOperation(name='selectHeights')
 opObj11.addParameter(name='minIndex', value='1', format='int')
 #    opObj11.addParameter(name='maxIndex', value='10000', format='int')
 opObj11.addParameter(name='maxIndex', value='39980', format='int')
-
+'''
 #
 # codigo64='1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,0,1,1,1,0,1,1,0,1,0,0,0,1,1,1,0,1,1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,0,0,0,0,1,0,0,1,0,1,1,1,0,0,0,1,0,'+\
 #              '1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,0,1,1,1,0,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,0,1,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,0,1,0,0,0,1,1,1,0,1'
@@ -148,14 +169,19 @@ opObj11.addParameter(name='save_period', value=1)
 8
 '''
 
+
+
+opObj11 = procUnitConfObjA.addOperation(name='CohInt', optype='other')
+opObj11.addParameter(name='n', value='250', format='int')
+
 #######################################################################
 ########## OPERACIONES DOMINIO DE LA FRECUENCIA########################
 #######################################################################
 
-#procUnitConfObjB = controllerObj.addProcUnit(datatype='SpectraProc', inputId=procUnitConfObjA.getId())
-#procUnitConfObjB.addParameter(name='nFFTPoints', value='32', format='int')
-#procUnitConfObjB.addParameter(name='nProfiles', value='32', format='int')
-
+procUnitConfObjB = controllerObj.addProcUnit(datatype='SpectraProc', inputId=procUnitConfObjA.getId())
+procUnitConfObjB.addParameter(name='nFFTPoints', value='32', format='int')
+procUnitConfObjB.addParameter(name='nProfiles', value='32', format='int')
+'''
 procUnitConfObjC = controllerObj.addProcUnit(datatype='SpectraHeisProc', inputId=procUnitConfObjA.getId())
 #procUnitConfObjB.addParameter(name='nFFTPoints', value='64', format='int')
 #procUnitConfObjB.addParameter(name='nProfiles', value='64', format='int')
@@ -174,7 +200,8 @@ opObj11.addParameter(name='n', value='100', format='int')
 ########## PLOTEO DOMINIO DE LA FRECUENCIA#############################
 #######################################################################
 #----
-
+'''
+'''
 opObj11 = procUnitConfObjC.addOperation(name='SpectraHeisPlot')
 opObj11.addParameter(name='id', value='10', format='int')
 opObj11.addParameter(name='wintitle', value='Spectra_Alturas', format='str')
@@ -189,7 +216,7 @@ opObj11.addParameter(name='grid', value=True, format='bool')
 #opObj11.addParameter(name='showprofile', value='1', format='int')
 opObj11.addParameter(name='save', value=figpath, format='str')
 #opObj11.addParameter(name='save_period', value=10, format='int')
-
+'''
 '''
 opObj11 = procUnitConfObjC.addOperation(name='RTIHeisPlot')
 opObj11.addParameter(name='id', value='10', format='int')
@@ -204,7 +231,7 @@ opObj11.addParameter(name='showprofile', value='1', format='int')
 opObj11.addParameter(name='save', value=figpath, format='str')
 opObj11.addParameter(name='save_period', value=10, format='int')
 '''
-'''
+
 #SpectraPlot
 
 opObj11 = procUnitConfObjB.addOperation(name='SpectraPlot', optype='external')
@@ -219,6 +246,7 @@ opObj11.addParameter(name='zmax', value=dBmax, format='int')
 opObj11.addParameter(name='showprofile', value='1', format='int')
 opObj11.addParameter(name='save', value=figpath, format='str')
 opObj11.addParameter(name='save_period', value=10, format='int')
+
 
 #RTIPLOT
 
@@ -259,7 +287,7 @@ opObj11.addParameter(name='save_period', value=10, format='int')
 # opObj11.addParameter(name='save', value=0, format='bool')
 # opObj11.addParameter(name='pairsList', value='(0,1)', format='pairsList')
 #
-
+'''
 '''
 #######################################################################
 ############### UNIDAD DE ESCRITURA ###################################

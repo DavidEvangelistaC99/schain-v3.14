@@ -16,6 +16,7 @@ print("[SETUP]-RADAR METEOROLOGICO-")
 path_ped  = "/DATA_RM/TEST_PEDESTAL/P20211111-173856"
 print("PATH PEDESTAL :",path_ped)
 path_adq  = "/DATA_RM/11"
+path_adq  = "/DATA_RM/10MHZDRONE/"
 print("PATH DATA     :",path_adq)
 
 
@@ -60,9 +61,9 @@ n= int(1/(VEL*ipp_sec))
 print("N° Profiles   : ", n)
 #---------------------------------------------------------------------------------------
 plot_rti    = 0
-plot_ppi    = 0
+plot_ppi    = 1
 integration = 1
-save        = 1
+save        = 0
 #---------------------------RANGO DE PLOTEO----------------------------------
 dBmin = '1'
 dBmax = '85'
@@ -94,9 +95,9 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #---------------------UNIDAD DE LECTURA--------------------------------
 readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path_adq,
-                                            startDate="2021/11/11",#today,
-                                            endDate="2021/12/30",#today,
-                                            startTime='17:39:17',
+                                            startDate="2022/02/19",#today,
+                                            endDate="2022/02/18",#today,
+                                            startTime='00:00:00',
                                             endTime='23:59:59',
                                             delay=0,
                                             #set=0,

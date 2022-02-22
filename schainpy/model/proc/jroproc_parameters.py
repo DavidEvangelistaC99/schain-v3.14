@@ -3961,7 +3961,7 @@ class WeatherRadar(Operation):
 
         return data_param[:,i,:]
 
-    def getCoeficienteCorrelacionROhv_R(self.dataOut):
+    def getCoeficienteCorrelacionROhv_R(self,dataOut):
         type  = dataOut.inputUnit
         nHeis = dataOut.nHeights
         data_RhoHV_R = numpy.zeros((nHeis))
@@ -3976,7 +3976,7 @@ class WeatherRadar(Operation):
 
         return data_RhoHV_R
 
-    def getFasediferencialPhiD_P(self.dataOut,phase= True):
+    def getFasediferencialPhiD_P(self,dataOut,phase= True):
         type  = dataOut.inputUnit
         nHeis = dataOut.nHeights
         data_PhiD_P = numpy.zeros((nHeis))
@@ -4061,25 +4061,34 @@ class PedestalInformation(Operation):
         Operation.__init__(self)
 
 
-    def getAnguloProfile(self,utc_adq,list_pedestal):
+    def getAnguloProfile(self,utc_adq,utc_ped_list):
         utc_adq       = utc_adq
-        list_pedestal = list_pedestal
-        utc_ped_list  = []
-        for i in range(len(list_pedestal)):
-            #print(i)# OJO IDENTIFICADOR DE SINCRONISMO
-            utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=list_pedestal[i]))
-
+        ##list_pedestal = list_pedestal
+        utc_ped_list  = utc_ped_list
+        #for i in range(len(list_pedestal)):
+        #    #print(i)# OJO IDENTIFICADOR DE SINCRONISMO
+        #    utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=list_pedestal[i]))
         nro_file,utc_ped,utc_ped_1  =self.getNROFile(utc_adq,utc_ped_list)
-        ###print("NROFILE************************************", nro_file)
+        #print("NROFILE************************************", nro_file,utc_ped)
         if nro_file < 0:
             return numpy.NaN,numpy.NaN
         else:
             nro_key_p    = int((utc_adq-utc_ped)/self.t_Interval_p)-1 # ojito al -1 estimado alex
-            ff_pedestal  = list_pedestal[nro_file]
+            #print("nro_key_p",nro_key_p)
+            ff_pedestal  = self.list_pedestal[nro_file]
             #angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azimuth")
             angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azi_pos")
             angulo_ele   = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="ele_pos")
-
+            #-----Adicion de filtro........................
+            vel_ele   = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="ele_vel")
+            '''
+            vel_mean = numpy.mean(vel_ele)
+            print("#############################################################")
+            print("VEL MEAN----------------:",vel_mean)
+            f vel_mean<7.7 or vel_mean>8.3:
+                return numpy.NaN,numpy.NaN
+            #------------------------------------------------------------------------------------------------------
+            '''
             if 99>=nro_key_p>0:
                 ##print("angulo_array                  :",angulo[nro_key_p])
                 return angulo[nro_key_p],angulo_ele[nro_key_p]
@@ -4148,11 +4157,14 @@ class PedestalInformation(Operation):
         #print(utc_adq)
         #print(len(utc_ped_list))
         ###print(utc_ped_list)
-        for i in range(len(utc_ped_list)):
-            if utc_adq>utc_ped_list[i]:
-                #print("mayor")
-                #print("utc_ped_list",utc_ped_list[i])
-                c +=1
+        if utc_adq<utc_ped_list[0]:
+            pass
+        else:
+            for i in range(len(utc_ped_list)):
+                if utc_adq>utc_ped_list[i]:
+                    #print("mayor")
+                    #print("utc_ped_list",utc_ped_list[i])
+                    c +=1
 
         return c-1,utc_ped_list[c-1],utc_ped_list[c]
 
@@ -4171,7 +4183,12 @@ class PedestalInformation(Operation):
         self.path_ped     = path_ped
         self.t_Interval_p = t_Interval_p
         self.list_pedestal = self.getfirstFilefromPath(path=self.path_ped,meta="PE",ext=".hdf5")
+        self.utc_ped_list= []
+        for i in range(len(self.list_pedestal)):
+            #print(i)# OJO IDENTIFICADOR DE SINCRONISMO
+            self.utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[i]))
         dataOut.wr_exp     = wr_exp
+        print("SETUP READY")
 
 
     def setNextFileP(self,dataOut):
@@ -4194,12 +4211,12 @@ class PedestalInformation(Operation):
             self.isConfig   = True
             #print("config TRUE")
         utc_adq       = dataOut.utctime
-        ###print("utc_adq---------------",utc_adq)
+        #print("utc_adq---------------",utc_adq)
 
         list_pedestal = self.list_pedestal
-        #print("list_pedestal",list_pedestal)
-        angulo,angulo_ele = self.getAnguloProfile(utc_adq=utc_adq,list_pedestal=list_pedestal)
-        ###print("angulo**********",angulo)
+        #print("list_pedestal",list_pedestal[:20])
+        angulo,angulo_ele = self.getAnguloProfile(utc_adq=utc_adq,utc_ped_list=self.utc_ped_list)
+        #print("angulo**********",angulo)
         dataOut.flagNoData      = False
         if numpy.isnan(angulo) or numpy.isnan(angulo_ele) :
             dataOut.flagNoData = True
@@ -4356,12 +4373,13 @@ class Block360(Operation):
         if self.__dataReady:
             dataOut.data_360         = data_360 # S
             ##print("---------------------------------------------------------------------------------")
-            #####print("---------------------------DATAREADY---------------------------------------------")
+            print("---------------------------DATAREADY---------------------------------------------")
             ##print("---------------------------------------------------------------------------------")
             ##print("data_360",dataOut.data_360.shape)
             dataOut.data_azi         = data_p
             dataOut.data_ele         = data_e
             #####print("azi:    ",dataOut.data_azi)
+            print("ele:    ",dataOut.data_ele)
             #print("jroproc_parameters",data_p[0],data_p[-1])#,data_360.shape,avgdatatime)
             dataOut.utctime         = avgdatatime
             dataOut.flagNoData      = False

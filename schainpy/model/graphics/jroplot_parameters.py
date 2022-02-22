@@ -652,11 +652,11 @@ class WeatherRHIPlot(Plot):
         self.ini     =0
         self.len_azi =0
         self.buffer_ini  = None
-        self.buffer_azi   = None
+        self.buffer_ele   = None
         self.plots_adjust.update({'wspace': 0.4, 'hspace':0.4, 'left': 0.1, 'right': 0.9, 'bottom': 0.08})
         self.flag    =0
         self.indicador= 0
-        self.last_data_azi = None
+        self.last_data_ele = None
         self.val_mean      = None
 
     def update(self, dataOut):
@@ -672,6 +672,161 @@ class WeatherRHIPlot(Plot):
         data['ele']     = dataOut.data_ele
         return data, meta
 
+    def get2List(self,angulos):
+        list1=[]
+        list2=[]
+        for i in reversed(range(len(angulos))):
+            diff_ = angulos[i]-angulos[i-1]
+            if diff_ >1.5:
+                list1.append(i-1)
+                list2.append(diff_)
+        return list(reversed(list1)),list(reversed(list2))
+
+    def fixData180(self,list_,ang_):
+        if list_[0]==-1:
+            vec = numpy.where(ang_<ang_[0])
+            ang_[vec] = ang_[vec]+180
+            return ang_
+        return ang_
+
+    def fixData180HL(self,angulos):
+        vec = numpy.where(angulos>=180)
+        angulos[vec]=angulos[vec]-180
+        return angulos
+
+
+    def search_pos(self,pos,list_):
+        for i in range(len(list_)):
+            if pos == list_[i]:
+                return True,i
+        i=None
+        return False,i
+
+    def fixDataComp(self,ang_,list1_,list2_):
+        size  = len(ang_)
+        size2 = 0
+        for i in range(len(list2_)):
+            size2=size2+round(list2_[i])-1
+        new_size= size+size2
+        ang_new = numpy.zeros(new_size)
+        ang_new2 = numpy.zeros(new_size)
+
+        tmp = 0
+        c   = 0
+        for i in range(len(ang_)):
+            ang_new[tmp +c] = ang_[i]
+            ang_new2[tmp+c] = ang_[i]
+            condition , value = self.search_pos(i,list1_)
+            if condition:
+                pos = tmp + c + 1
+                for k in range(round(list2_[value])-1):
+                    ang_new[pos+k]  = ang_new[pos+k-1]+1
+                    ang_new2[pos+k] = numpy.nan
+                tmp = pos +k
+                c   = 0
+            c=c+1
+        return ang_new,ang_new2
+
+    def globalCheckPED(self,angulos):
+        l1,l2 = self.get2List(angulos)
+        if len(l1)>0:
+            angulos2 = self.fixData180(list_=l1,ang_=angulos)
+            l1,l2 = self.get2List(angulos2)
+
+            ang1_,ang2_ = self.fixDataComp(ang_=angulos2,list1_=l1,list2_=l2)
+            ang1_ = self.fixData180HL(ang1_)
+            ang2_ = self.fixData180HL(ang2_)
+        else:
+            ang1_= angulos
+            ang2_= angulos
+        return ang1_,ang2_
+
+
+    def replaceNAN(self,data_weather,data_ele,val):
+        data= data_ele
+        data_T= data_weather
+        if data.shape[0]> data_T.shape[0]:
+            data_N = numpy.ones( [data.shape[0],data_T.shape[1]])
+            c      = 0
+            for i in range(len(data)):
+                if numpy.isnan(data[i]):
+                    data_N[i,:]=numpy.ones(data_T.shape[1])*numpy.nan
+                else:
+                    data_N[i,:]=data_T[c,:]
+                    sc=c+1
+        else:
+            for i in range(len(data)):
+                if numpy.isnan(data[i]):
+                   data_T[i,:]=numpy.ones(data_T.shape[1])*numpy.nan
+            return data_T
+
+    def const_ploteo(self,data_weather,data_ele,step,res):
+        if self.ini==0:
+            #-------
+            n     = (180/res)-len(data_ele)
+            #--------------------- new -------------------------
+            data_ele_new ,data_ele_old= self.globalCheckPED(data_ele)
+            #------------------------
+            start = data_ele_new[-1] + res
+            end   = data_ele_new[0]  - res
+            #------ new
+            self.last_data_ele = end
+            if start>end:
+                end        = end + 180
+            ele_vacia = numpy.linspace(start,end,int(n))
+            ele_vacia = numpy.where(ele_vacia>180,ele_vacia-180,ele_vacia)
+            data_ele  = numpy.hstack((data_ele_new,ele_vacia))
+            # RADAR
+            val_mean         = numpy.mean(data_weather[:,-1])
+            self.val_mean    = val_mean
+            data_weather_cmp = numpy.ones([(180-data_weather.shape[0]),data_weather.shape[1]])*val_mean
+            data_weather     = self.replaceNAN(data_weather=data_weather,data_ele=data_ele_old,val=self.val_mean)
+            data_weather     = numpy.vstack((data_weather,data_weather_cmp))
+        else:
+            # azimuth
+            flag=0
+            start_ele = self.res_ele[0]
+            #-----------new------------
+            data_ele ,data_ele_old= self.globalCheckPED(data_ele)
+            data_weather = self.replaceNAN(data_weather=data_weather,data_ele=data_ele_old,val=self.val_mean)
+            #--------------------------
+            start = data_ele[0]
+            end   = data_ele[-1]
+            self.last_data_ele= end
+            if start< start_ele:
+                start = start +180
+            if end <start_ele:
+                end  = end +180
+
+            pos_ini = int((start-start_ele)/res)
+            len_ele = len(data_ele)
+            if (180-pos_ini)<len_ele:
+                if pos_ini+1==180:
+                    pos_ini=0
+                else:
+                    flag=1
+                    dif= 180-pos_ini
+                    comp= len_ele-dif
+            #-----------------
+            if flag==0:
+                # elevacion
+                self.res_ele[pos_ini:pos_ini+len_ele] = data_ele
+                # RADAR
+                self.res_weather[pos_ini:pos_ini+len_ele,:] = data_weather
+            else:
+                # elevacion
+                self.res_ele[pos_ini:pos_ini+dif] = data_ele[0:dif]
+                self.res_ele[0:comp]              = data_ele[dif:]
+                # RADAR
+                self.res_weather[pos_ini:pos_ini+dif,:] = data_weather[0:dif,:]
+                self.res_weather[0:comp,:]              = data_weather[dif:,:]
+                flag=0
+            data_ele                                    = self.res_ele
+            data_weather                                = self.res_weather
+
+        return data_weather,data_ele
+
+
     def plot(self):
         thisDatetime = datetime.datetime.utcfromtimestamp(self.data.times[-1]).strftime('%Y-%m-%d %H:%M:%S')
         data         = self.data[-1]
@@ -680,14 +835,50 @@ class WeatherRHIPlot(Plot):
         r_mask       = numpy.where(r>=0)[0]
         r            = numpy.arange(len(r_mask))*delta_height
         self.y       = 2*r
+        '''
+        #-------------------------------------------------------------
+        # RADAR
+        #data_weather = data['weather']
+        # PEDESTAL
+        #data_azi  = data['azi']
+        res          = 1
+        # STEP
+        step = (180/(res*data['weather'].shape[0]))
+
+
+        self.res_weather, self.res_ele = self.const_ploteo(data_weather=data['weather'][:,r_mask],data_ele=data['ele'],step=step,res=res)
+        self.res_azi = numpy.mean(data['azi'])
+        print("self.res_ele------------------------------:",self.res_ele)
+        #################    PLOTEO           ###################
+
+        for i,ax in enumerate(self.axes):
+            if ax.firsttime:
+                plt.clf()
+                cgax, pm = wrl.vis.plot_rhi(self.res_weather,r=r,th=self.res_ele,fig=self.figures[0], proj='cg', vmin=8, vmax=35)
+            else:
+                plt.clf()
+                cgax, pm = wrl.vis.plot_rhi(self.res_weather,r=r,th=self.res_ele,fig=self.figures[0], proj='cg', vmin=8, vmax=35)
+        caax = cgax.parasites[0]
+        paax = cgax.parasites[1]
+        cbar = plt.gcf().colorbar(pm, pad=0.075)
+        caax.set_xlabel('x_range [km]')
+        caax.set_ylabel('y_range [km]')
+        plt.text(1.0, 1.05, 'Elevacion '+str(thisDatetime)+"  Step   "+str(self.ini)+ " Azi: "+str(round(self.res_azi,2)), transform=caax.transAxes, va='bottom',ha='right')
+
+        self.ini= self.ini+1
+
+
+        '''
+        #--------------------------------------------------------
+
         ###self.res_weather, self.res_ele = self.const_ploteo(data_weather=data['weather'][:,r_mask],data_azi=data['ele'],step=step,res=res)
         ###self.res_azi                   = numpy.mean(data['azi'])
         #-------------
         # 90 angulos en el axis 0
         # 1000 step en el axis 1
-        self.res_weather = numpy.ones([90,1000])
+        self.res_weather = numpy.ones([120,1000])
         r                = numpy.linspace(0,1999,1000)
-        self.res_ele     = numpy.arange(0,90)
+        self.res_ele     = numpy.arange(0,120)
         self.res_azi     = 240
         #-------------
         for i,ax in enumerate(self.axes):
