@@ -33,3 +33,13 @@
 0
 # Directorio final
 /home/developer/Downloads/HDF5_WR/
+#NTX
+250
+#TXA
+120
+#TXB
+130
+#CODIFICACION DE TXA
+BARKER 3
+#CODIFICACION DE TXB
+CC64
