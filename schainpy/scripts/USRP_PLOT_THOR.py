@@ -24,14 +24,17 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #######################################################################
 #path = '/media/data/data/vientos/57.2063km/echoes/NCO_Woodman'
 #path = '/DATA_RM/TEST_INTEGRACION'
-path = '/DATA_RM/TEST_ONLINE'
-figpath = '/home/soporte/Pictures/TEST_INTEGRACION_IMG'
+#path = '/DATA_RM/TEST_ONLINE'
+#path ="/DATA_RM/TEST_LU_21_10M/NOISE_LNA_ON_TX_OFF"
+#path ="/DATA_RM/TEST_LU_21_10M/NOISE_LNA_OFF_TX_OFF"
+path = "/DATA_RM/TEST_LU_21_10M/SIGNAL_LNA_ON_TX_ON"
+figpath = '/home/soporte/Pictures/TEST_LU_VI_10M_SIGNAL_LNA_ON_TX_ON_ZOOM'
 #remotefolder = "/home/wmaster/graficos"
 #######################################################################
 ################# RANGO DE PLOTEO######################################
 #######################################################################
-dBmin = '-5'
-dBmax = '20'
+dBmin = '20'
+dBmax = '60'
 xmin = '0'
 xmax ='24'
 ymin = '0'
@@ -48,8 +51,8 @@ yesterday = str2.strftime("%Y/%m/%d")
 #######################################################################
 readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path,
-                                            startDate="2021/01/01",#today,
-                                            endDate="2021/12/30",#today,
+                                            startDate="2022/03/21",#today,
+                                            endDate="2022/03/21",#today,
                                             startTime='00:00:00',
                                             endTime='23:59:59',
                                             delay=0,
@@ -71,6 +74,12 @@ procUnitConfObjA = controllerObj.addProcUnit(datatype='VoltageProc', inputId=rea
 
 #opObj11 = procUnitConfObjA.addOperation(name='setRadarFrequency')
 #opObj11.addParameter(name='frequency', value='70312500')
+opObj11 = procUnitConfObjA.addOperation(name='selectHeights')
+opObj11.addParameter(name='minIndex', value='1', format='int')
+#    opObj11.addParameter(name='maxIndex', value='10000', format='int')
+opObj11.addParameter(name='maxIndex', value='1000', format='int')
+
+
 
 '''
 opObj11 = procUnitConfObjA.addOperation(name='PulsePair', optype='other')
@@ -145,11 +154,11 @@ procUnitConfObjB = controllerObj.addProcUnit(datatype='SpectraProc', inputId=pro
 procUnitConfObjB.addParameter(name='nFFTPoints', value='32', format='int')
 procUnitConfObjB.addParameter(name='nProfiles', value='32', format='int')
 
-procUnitConfObjC = controllerObj.addProcUnit(datatype='SpectraHeisProc', inputId=procUnitConfObjA.getId())
+#procUnitConfObjC = controllerObj.addProcUnit(datatype='SpectraHeisProc', inputId=procUnitConfObjA.getId())
 #procUnitConfObjB.addParameter(name='nFFTPoints', value='64', format='int')
 #procUnitConfObjB.addParameter(name='nProfiles', value='64', format='int')
-opObj11 = procUnitConfObjC.addOperation(name='IncohInt4SpectraHeis', optype='other')
-opObj11.addParameter(name='timeInterval', value='8', format='int')
+#opObj11 = procUnitConfObjC.addOperation(name='IncohInt4SpectraHeis', optype='other')
+#opObj11.addParameter(name='timeInterval', value='8', format='int')
 
 
 #procUnitConfObjB.addParameter(name='pairsList', value='(0,0),(1,1),(0,1)', format='pairsList')
@@ -157,13 +166,13 @@ opObj11.addParameter(name='timeInterval', value='8', format='int')
 #opObj13 = procUnitConfObjB.addOperation(name='removeDC')
 #opObj13.addParameter(name='mode', value='2', format='int')
 
-opObj11 = procUnitConfObjB.addOperation(name='IncohInt', optype='other')
-opObj11.addParameter(name='n', value='8', format='float')
+#opObj11 = procUnitConfObjB.addOperation(name='IncohInt', optype='other')
+#opObj11.addParameter(name='n', value='8', format='float')
 #######################################################################
 ########## PLOTEO DOMINIO DE LA FRECUENCIA#############################
 #######################################################################
 #----
-
+"""
 opObj11 = procUnitConfObjC.addOperation(name='SpectraHeisPlot')
 opObj11.addParameter(name='id', value='10', format='int')
 opObj11.addParameter(name='wintitle', value='Spectra_Alturas', format='str')
@@ -176,7 +185,7 @@ opObj11.addParameter(name='ymax', value=50, format='int')
 opObj11.addParameter(name='showprofile', value='1', format='int')
 opObj11.addParameter(name='save', value=figpath, format='str')
 opObj11.addParameter(name='save_period', value=10, format='int')
-
+"""
 
 #SpectraPlot
 
