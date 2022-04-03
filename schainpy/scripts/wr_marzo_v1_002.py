@@ -24,31 +24,24 @@ from schainpy.controller import Project
 #-------------------------VELOCIDAD DEL PEDESTAL Y MODO ------------------------
 print("SETUP- RADAR METEOROLOGICO")
 IPP        = 400*1e-6
-V          = 6
+V          = 12
 samp_rate  = 10# VERIFICAR
-MODE_TABLE = 1             #  PUEDE SER 1 O 0
+MODE_TABLE = 1             #  PUEDE SER 1 sO 0
 AXIS       = [1,1,1,1]     #  AZIMUTH 1 ELEVACION 0
 SPEED_AXIS = [10,10,10,10] #  VELOCIDAD
 ANGLE_AXIS = [20,25,30,15] #  ANGULOS
 mode_proc       = 0
 #-----------------------------PATH ADQ Y PEDESTAL-------------------------------
-#ath     = "/DATA_RM/TEST_MARTES_22_1M_1us"
-#path_ped = "/DATA_RM/TEST_PEDESTAL/P20220322-171722"
-path     = "/DATA_RM/DRONE01ABRIL"
-#path   = "/DATA_RM/DRONE01ABRIL1429"
-#path_ped = "/DATA_RM/TEST_PEDESTAL/P20220322-171722"
-path = "/DATA_RM/DRONE01ABRIL1701"
-
-path_ped = "/DATA_RM/DRONE01ABRIL1450"
+path     = "/DATA_RM/DRONE2"
+path_ped = "/DATA_RM/TEST_PEDESTAL/P20220329-174143"
 #-------------------------------------------------------------------------------
-figpath_pp     = "/home/soporte/Pictures/DRONE01ABRIL"
-#figpath_pp     = "/home/soporte/Pictures/MARTES_22_PP_1M_1us"
-figpath_spec   = "/home/soporte/Pictures/MARTES_22_1M_1us"
-figpath_pp_ppi = "/home/soporte/Pictures/MARTES_22_1M_1us_PPI"
+figpath_pp     = "/home/soporte/Pictures/MARTES_29_PP_10M_.1us"
+figpath_spec   = "/home/soporte/Pictures/MARTES_29_10M_.1us"
+figpath_pp_ppi = "/home/soporte/Pictures/MARTES_29_10M_.1us_PPI"
 #--------------------------OPCIONES---------------------------------------------
 plot        = 1
-plot_ppi    = 0
-integration = 0
+plot_ppi    = 1
+integration = 1
 save        = 0
 plot_spec   = 0
 #---------------------------SAVE HDF5 PROCESADO/--------------------------------
@@ -98,15 +91,15 @@ if plot==1:
 if plot_ppi==1:
     print("* Path PPI plot    :", figpath_pp_ppi )
 
-time.sleep(4)
+time.sleep(5)
 #remotefolder = "/home/wmaster/graficos"
 ################# RANGO DE PLOTEO######################################
 dBmin = '20'
-dBmax = '60'
-xmin  = '16.3' #17.1,17.5
-xmax  = '16.7' #17.2,17.8
+dBmax = '80'
+xmin  = '17.6' #17.1,17.5
+xmax  = '17.9' #17.2,17.8
 ymin  = '0'    #### PONER A 0
-ymax  = '1.1'    #### PONER A 8
+ymax  = '8'    #### PONER A 8
 ########################FECHA##########################################
 str1 = datetime.date.today()
 today = str1.strftime("%Y/%m/%d")
@@ -121,32 +114,25 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #------------------------ UNIDAD DE LECTURA-------------------------------------
 readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path,
-                                            startDate="2022/04/01",#today,
-                                            endDate="2022/04/01",#today,
-                                            startTime='09:10:35',#'17:39:25',
+                                            startDate="2022/03/29",#today,
+                                            endDate="2022/03/29",#today,
+                                            startTime='17:40:00',#'17:39:25',
                                             endTime='23:59:59',#23:59:59',
                                             delay=0,
                                             #set=0,
                                             online=0,
                                             walk=1,
-                                            ippKm = 60)
+                                            ippKm = 60,
+                                            getByBlock=1,
+                                            nProfileBlocks=250)
 
 opObj11 = readUnitConfObj.addOperation(name='printInfo')
 
 procUnitConfObjA = controllerObj.addProcUnit(datatype='VoltageProc', inputId=readUnitConfObj.getId())
-'''
-opObj10 = procUnitConfObjA.addOperation(name='ScopePlot', optype='external')
-opObj10.addParameter(name='id', value='10', format='int')
-opObj10.addParameter(name='zmin', value='0', format='int')
-opObj10.addParameter(name='zmax', value='3', format='int')
-opObj10.addParameter(name='type', value='iq')
-opObj10.addParameter(name='ymin', value='-1200', format='int')
-opObj10.addParameter(name='ymax', value='1200', format='int')
-#opObj10.addParameter(name='save', value=figpath, format='str')
-opObj10.addParameter(name='save_period', value=10, format='int')
-'''
-opObj11 = procUnitConfObjA.addOperation(name='setH0')
-opObj11.addParameter(name='h0', value='-1', format='float')
+
+
+###opObj11 = procUnitConfObjA.addOperation(name='setH0')
+###opObj11.addParameter(name='h0', value='-1.5', format='float')
 
 opObj11 = procUnitConfObjA.addOperation(name='selectHeights')
 opObj11.addParameter(name='minIndex', value='1', format='int')
@@ -155,29 +141,8 @@ opObj11.addParameter(name='minIndex', value='1', format='int')
  # CUARTA PARTE de 60 Km POR ESO ENTRE 4  - 15 Km
 opObj11.addParameter(name='maxIndex', value=str(int(num_alturas/10.0)), format='int')
  # CUARTA PARTE de 60 Km POR ESO ENTRE 10  - 6 Km
-'''
-
-procUnitConfObjB = controllerObj.addProcUnit(datatype='SpectraProc', inputId=procUnitConfObjA.getId())
-procUnitConfObjB.addParameter(name='nFFTPoints', value='32', format='int')
-procUnitConfObjB.addParameter(name='nProfiles', value='32', format='int')
 
 
-#SpectraPlot
-
-opObj11 = procUnitConfObjB.addOperation(name='SpectraPlot', optype='external')
-opObj11.addParameter(name='id', value='1', format='int')
-opObj11.addParameter(name='wintitle', value='Spectra', format='str')
-#opObj11.addParameter(name='xmin', value=-0.01, format='float')
-#opObj11.addParameter(name='xmax', value=0.01, format='float')
-opObj11.addParameter(name='zmin', value=dBmin, format='int')
-opObj11.addParameter(name='zmax', value=dBmax, format='int')
-opObj11.addParameter(name='ymin', value=ymin, format='int')
-opObj11.addParameter(name='ymax', value=ymax, format='int')
-opObj11.addParameter(name='showprofile', value='1', format='int')
-#opObj11.addParameter(name='save', value=figpath, format='str')
-opObj11.addParameter(name='save_period', value=10, format='int')
-
-'''
 if mode_proc ==0:
     ####################### METODO PULSE PAIR ######################################################################
     opObj11 = procUnitConfObjA.addOperation(name='PulsePair', optype='other')
@@ -191,8 +156,8 @@ if mode_proc ==0:
         opObj11.addParameter(name='colormap', value='jet')
         opObj11.addParameter(name='xmin', value=xmin)
         opObj11.addParameter(name='xmax', value=xmax)
-        opObj11.addParameter(name='ymin', value=ymin)
-        opObj11.addParameter(name='ymax', value=ymax)
+        #opObj11.addParameter(name='ymin', value=ymin)
+        #opObj11.addParameter(name='ymax', value=ymax)
         opObj11.addParameter(name='zmin', value=dBmin)
         opObj11.addParameter(name='zmax', value=dBmax)
         opObj11.addParameter(name='save', value=figpath_pp)

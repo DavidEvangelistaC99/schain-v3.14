@@ -73,7 +73,7 @@ class VoltageReader(JRODataReader, ProcessingUnit):
         """
 
         ProcessingUnit.__init__(self)
-        
+
         self.ext = ".r"
         self.optchar = "D"
         self.basicHeaderObj = BasicHeader(LOCALTIME)
@@ -81,7 +81,7 @@ class VoltageReader(JRODataReader, ProcessingUnit):
         self.radarControllerHeaderObj = RadarControllerHeader()
         self.processingHeaderObj = ProcessingHeader()
         self.lastUTTime = 0
-        self.profileIndex = 2**32 - 1        
+        self.profileIndex = 2**32 - 1
         self.dataOut = Voltage()
         self.selBlocksize = None
         self.selBlocktime = None
@@ -133,7 +133,7 @@ class VoltageReader(JRODataReader, ProcessingUnit):
                 self.flagIsNewBlock
                 self.nTotalBlocks
 
-            Exceptions: 
+            Exceptions:
                 Si un bloque leido no es un bloque valido
         """
 
@@ -673,4 +673,3 @@ class VoltageWriter(JRODataWriter, Operation):
         self.processingHeaderObj.processFlags = self.getProcessFlags()
 
         self.setBasicHeader()
-        

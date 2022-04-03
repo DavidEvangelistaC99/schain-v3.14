@@ -34,3 +34,27 @@ cbar = pl.gcf().colorbar(pm, pad=0.075)
 
 #txt = pl.title('Sector PPI')
 pl.show()
+
+
+### PARA MULTIPLE PloteO REVISAR EL LINK
+#https://docs.wradlib.org/en/stable/notebooks/visualisation/wradlib_plot_curvelinear_grids.html
+'''
+subplots = [221, 222, 223, 224]
+fig = pl.figure(figsize=(10,8))
+fig.subplots_adjust(wspace=0.2, hspace=0.35)
+for sp in subplots:
+    cgax, pm = wrl.vis.plot_rhi(ma1, r, th, rf=1e3, ax=sp, proj='cg')
+    caax = cgax.parasites[0]
+    paax = cgax.parasites[1]
+    t = pl.title('CG RHI #%(sp)d' %locals(), y=1.1)
+    cgax.set_ylim(0, 15)
+    cbar = pl.gcf().colorbar(pm, pad=0.125, ax=paax)
+    caax.set_xlabel('range [km]')
+    caax.set_ylabel('height [km]')
+    gh = cgax.get_grid_helper()
+    # set theta to some nice values
+    locs = [0., 5., 10., 15., 20., 30., 40., 60., 90.]
+    gh.grid_finder.grid_locator1 = FixedLocator(locs)
+    gh.grid_finder.tick_formatter1 = DictFormatter(dict([(i, r"${0:.0f}^\circ$".format(i)) for i in locs]))
+    cbar.set_label('reflectivity [dBZ]')
+'''

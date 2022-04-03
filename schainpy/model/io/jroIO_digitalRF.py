@@ -71,8 +71,10 @@ class DigitalRFReader(ProcessingUnit):
         In this method will be initialized every parameter of dataOut object (header, no data)
         '''
         ippSeconds = 1.0 * self.__nSamples / self.__sample_rate
-
-        nProfiles = 1.0 / ippSeconds  # Number of profiles in one second
+        if not self.getByBlock:
+            nProfiles = 1.0 / ippSeconds  # Number of profiles in one second
+        else:
+            nProfiles = self.nProfileBlocks # Number of profiles in one block
 
         try:
             self.dataOut.radarControllerHeaderObj = RadarControllerHeader(
@@ -115,13 +117,19 @@ class DigitalRFReader(ProcessingUnit):
 
         #self.dataOut.channelList = list(range(self.__num_subchannels))
         self.dataOut.channelList = list(range(len(self.__channelList)))
-        self.dataOut.blocksize   = self.dataOut.nChannels * self.dataOut.nHeights
+        if not self.getByBlock:
+
+            self.dataOut.blocksize   = self.dataOut.nChannels * self.dataOut.nHeights
+        else:
+            self.dataOut.blocksize   = self.dataOut.nChannels * self.dataOut.nHeights*self.nProfileBlocks
 
         # self.dataOut.channelIndexList = None
 
         self.dataOut.flagNoData      = True
-
-        self.dataOut.flagDataAsBlock = False
+        if not self.getByBlock:
+            self.dataOut.flagDataAsBlock = False
+        else:
+            self.dataOut.flagDataAsBlock = True
         # Set to TRUE if the data is discontinuous
         self.dataOut.flagDiscontinuousBlock = False
 
@@ -234,6 +242,8 @@ class DigitalRFReader(ProcessingUnit):
               nBaud=1,
               flagDecodeData=False,
               code=numpy.ones((1, 1), dtype=numpy.int),
+              getByBlock=0,
+              nProfileBlocks=1,
               **kwargs):
         '''
         In this method we should set all initial parameters.
@@ -254,6 +264,9 @@ class DigitalRFReader(ProcessingUnit):
         self.nCohInt        = nCohInt
         self.flagDecodeData = flagDecodeData
         self.i              = 0
+
+        self.getByBlock     = getByBlock
+        self.nProfileBlocks = nProfileBlocks
         if not os.path.isdir(path):
             raise ValueError("[Reading] Directory %s does not exist" % path)
 
@@ -365,6 +378,7 @@ class DigitalRFReader(ProcessingUnit):
             if not ippKm:
                 raise ValueError("[Reading] nSamples or ippKm should be defined")
             nSamples            = int(ippKm / (1e6 * 0.15 / self.__sample_rate))
+
         channelBoundList        = []
         channelNameListFiltered = []
 
@@ -390,9 +404,19 @@ class DigitalRFReader(ProcessingUnit):
         self.__channelNameList  = channelNameListFiltered
         self.__channelBoundList = channelBoundList
         self.__nSamples         = nSamples
+        if self.getByBlock:
+            nSamples = nSamples*nProfileBlocks
+            print('nProfileBlocks',nProfileBlocks)
+            print('nSamples',nSamples)
+        print("self.__nSample",self.__nSamples)
+
+
         self.__samples_to_read  = int(nSamples)  # FIJO: AHORA 40
         self.__nChannels        = len(self.__channelList)
-
+        #print("------------------------------------------")
+        #print("self.__samples_to_read",self.__samples_to_read)
+        #print("self.__nSamples",self.__nSamples)
+        # son iguales y el buffer_index da 0
         self.__startUTCSecond   = startUTCSecond
         self.__endUTCSecond     = endUTCSecond
 
@@ -566,6 +590,7 @@ class DigitalRFReader(ProcessingUnit):
         err_counter = 0
         self.dataOut.flagNoData = True
 
+
         if self.__isBufferEmpty():
             #print("hi")
             self.__flagDiscontinuousBlock = False
@@ -594,19 +619,33 @@ class DigitalRFReader(ProcessingUnit):
                 print('[Reading] waiting %d seconds to read a new block' % seconds)
                 sleep(seconds)
 
-        self.dataOut.data                   = self.__data_buffer[:, self.__bufferIndex:self.__bufferIndex + self.__nSamples]
-        self.dataOut.utctime                = ( self.__thisUnixSample + self.__bufferIndex) / self.__sample_rate
-        self.dataOut.flagNoData             = False
-        self.dataOut.flagDiscontinuousBlock = self.__flagDiscontinuousBlock
-        self.dataOut.profileIndex           = self.profileIndex
 
-        self.__bufferIndex += self.__nSamples
-        self.profileIndex  += 1
+            if not self.getByBlock:
 
-        if self.profileIndex == self.dataOut.nProfiles:
-            self.profileIndex = 0
+                #print("self.__bufferIndex",self.__bufferIndex)# este valor siempre es cero aparentemente
+                self.dataOut.data                   = self.__data_buffer[:, self.__bufferIndex:self.__bufferIndex + self.__nSamples]
+                self.dataOut.utctime                = ( self.__thisUnixSample + self.__bufferIndex) / self.__sample_rate
+                self.dataOut.flagNoData             = False
+                self.dataOut.flagDiscontinuousBlock = self.__flagDiscontinuousBlock
+                self.dataOut.profileIndex           = self.profileIndex
 
-        return True
+                self.__bufferIndex += self.__nSamples
+                self.profileIndex  += 1
+
+                if self.profileIndex == self.dataOut.nProfiles:
+                    self.profileIndex = 0
+            else:
+                # ojo debo anadir el readNextBLock y el  __isBufferEmpty(
+                self.dataOut.flagNoData             = False
+                print('Lectura por bloques')
+                print("self.__nSamples",self.__nSamples)
+                print("self.__bufferIndex",self.__bufferIndex)
+                buffer = self.__data_buffer[:,self.__bufferIndex:self.__bufferIndex + self.__samples_to_read]
+                print('shape',buffer.shape)
+                buffer = buffer.reshape((self.__nChannels,self.nProfileBlocks,int(self.__samples_to_read/self.nProfileBlocks)))
+                print('shape',buffer.shape)
+            return True
+
 
     def printInfo(self):
         '''

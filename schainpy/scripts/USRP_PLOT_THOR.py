@@ -27,16 +27,21 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #path = '/DATA_RM/TEST_ONLINE'
 #path ="/DATA_RM/TEST_LU_21_10M/NOISE_LNA_ON_TX_OFF"
 #path ="/DATA_RM/TEST_LU_21_10M/NOISE_LNA_OFF_TX_OFF"
-path = "/DATA_RM/TEST_LU_21_10M/SIGNAL_LNA_ON_TX_ON"
-figpath = '/home/soporte/Pictures/TEST_LU_VI_10M_SIGNAL_LNA_ON_TX_ON_ZOOM'
+path = "/DATA_RM/TEST_MARTES_22_4M_1us"
+figpath = '/home/soporte/Pictures/TEST_MAR_22_4M_1us'
+#path = "/DATA_RM/TEST_MARTES_22_2M_1us"
+#figpath = '/home/soporte/Pictures/TEST_MAR_22_2M_1us'
+
+#path = "/DATA_RM/TEST_MARTES_22_1M_1us"
+#figpath = '/home/soporte/Pictures/TEST_MAR_22_1M_1us'
 #remotefolder = "/home/wmaster/graficos"
 #######################################################################
 ################# RANGO DE PLOTEO######################################
 #######################################################################
 dBmin = '20'
-dBmax = '60'
-xmin = '0'
-xmax ='24'
+dBmax = '80'
+xmin = '16'
+xmax ='18'
 ymin = '0'
 ymax = '600'
 #######################################################################
@@ -51,8 +56,8 @@ yesterday = str2.strftime("%Y/%m/%d")
 #######################################################################
 readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path,
-                                            startDate="2022/03/21",#today,
-                                            endDate="2022/03/21",#today,
+                                            startDate="2022/03/22",#today,
+                                            endDate="2022/03/22",#today,
                                             startTime='00:00:00',
                                             endTime='23:59:59',
                                             delay=0,
@@ -77,7 +82,7 @@ procUnitConfObjA = controllerObj.addProcUnit(datatype='VoltageProc', inputId=rea
 opObj11 = procUnitConfObjA.addOperation(name='selectHeights')
 opObj11.addParameter(name='minIndex', value='1', format='int')
 #    opObj11.addParameter(name='maxIndex', value='10000', format='int')
-opObj11.addParameter(name='maxIndex', value='1000', format='int')
+opObj11.addParameter(name='maxIndex', value='200', format='int')
 
 
 
@@ -151,8 +156,8 @@ opObj11.addParameter(name='save_period', value=1)
 #######################################################################
 
 procUnitConfObjB = controllerObj.addProcUnit(datatype='SpectraProc', inputId=procUnitConfObjA.getId())
-procUnitConfObjB.addParameter(name='nFFTPoints', value='32', format='int')
-procUnitConfObjB.addParameter(name='nProfiles', value='32', format='int')
+procUnitConfObjB.addParameter(name='nFFTPoints', value='250', format='int')
+procUnitConfObjB.addParameter(name='nProfiles', value='250', format='int')
 
 #procUnitConfObjC = controllerObj.addProcUnit(datatype='SpectraHeisProc', inputId=procUnitConfObjA.getId())
 #procUnitConfObjB.addParameter(name='nFFTPoints', value='64', format='int')
@@ -211,8 +216,8 @@ opObj11.addParameter(name='zmin', value=dBmin, format='int')
 opObj11.addParameter(name='zmax', value=dBmax, format='int')
 #opObj11.addParameter(name='ymin', value=ymin, format='int')
 #opObj11.addParameter(name='ymax', value=ymax, format='int')
-#opObj11.addParameter(name='xmin', value=15, format='int')
-#opObj11.addParameter(name='xmax', value=16, format='int')
+opObj11.addParameter(name='xmin', value=xmin, format='int')
+opObj11.addParameter(name='xmax', value=xmax, format='int')
 
 opObj11.addParameter(name='showprofile', value='1', format='int')
 opObj11.addParameter(name='save', value=figpath, format='str')

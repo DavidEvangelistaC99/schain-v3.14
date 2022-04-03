@@ -401,6 +401,7 @@ class WeatherPlot(Plot):
             factor = 1
         if hasattr(dataOut, 'nFFTPoints'):
             factor = dataOut.normFactor
+        print("DIME EL SHAPE PORFAVOR",dataOut.data_360.shape)
         data['weather'] = 10*numpy.log10(dataOut.data_360[1]/(factor))
         data['azi']     = dataOut.data_azi
         data['ele']     = dataOut.data_ele
@@ -616,14 +617,15 @@ class WeatherPlot(Plot):
         self.res_weather, self.res_azi = self.const_ploteo(data_weather=data['weather'][:,r_mask],data_azi=data['azi'],step=step,res=res)
         self.res_ele = numpy.mean(data['ele'])
         #################    PLOTEO           ###################
-
+        print("self.axes",self.axes)
         for i,ax in enumerate(self.axes):
+            print("INDICE:     ",i)
             if ax.firsttime:
                 plt.clf()
-                cgax, pm = wrl.vis.plot_ppi(self.res_weather,r=r,az=self.res_azi,fig=self.figures[0], proj='cg', vmin=8, vmax=35)
+                cgax, pm = wrl.vis.plot_ppi(self.res_weather,r=r,az=self.res_azi,fig=self.figures[0], proj='cg', vmin=20, vmax=80)
             else:
                 plt.clf()
-                cgax, pm = wrl.vis.plot_ppi(self.res_weather,r=r,az=self.res_azi,fig=self.figures[0], proj='cg', vmin=8, vmax=35)
+                cgax, pm = wrl.vis.plot_ppi(self.res_weather,r=r,az=self.res_azi,fig=self.figures[0], proj='cg', vmin=20, vmax=80)
         caax = cgax.parasites[0]
         paax = cgax.parasites[1]
         cbar = plt.gcf().colorbar(pm, pad=0.075)

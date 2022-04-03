@@ -12,11 +12,12 @@ import matplotlib.pyplot as plt
 #################################################################
 
 #path_ped = '/DATA_RM/TEST_PEDESTAL/P20211012-082745'
-path_ped = '/DATA_RM/TEST_PEDESTAL/P20211020-131248'
-path_ped = '/DATA_RM/TEST_PEDESTAL/P20211110-171003'
-path_ped = '/DATA_RM/TEST_PEDESTAL/P20211111-173856'
-path_ped = '/DATA_RM/TEST_PEDESTAL/P20211123-143826'
-path_ped = "/DATA_RM/TEST_PEDESTAL/P20220217-172216"
+#path_ped = '/DATA_RM/TEST_PEDESTAL/P20211020-131248'
+#path_ped = '/DATA_RM/TEST_PEDESTAL/P20211110-171003'
+#path_ped = '/DATA_RM/TEST_PEDESTAL/P20211111-173856'
+#path_ped = '/DATA_RM/TEST_PEDESTAL/P20211123-143826'
+#path_ped = "/DATA_RM/TEST_PEDESTAL/P20220217-172216"
+path_ped = "/DATA_RM/TEST_PEDESTAL/P20220322-163824"
 #path_ped = '/DATA_RM/TEST_PEDESTAL/P20211111-173409'
 # Metodo para verificar numero
 def isNumber(str):
@@ -115,7 +116,7 @@ t=numpy.arange(len(ele_pos))*0.01/60.0
 plt.plot(t,ele_pos,label='ELEVATION_POS',color='red')#*10
 
 ax.set_xlim(0, 4)
-ax.set_ylim(-5, 50)
+ax.set_ylim(-5, 360)
 plt.ylabel("Azimuth Position")
 plt.xlabel("Muestra")
 plt.title('Azimuth Position vs Muestra ', fontsize=20)

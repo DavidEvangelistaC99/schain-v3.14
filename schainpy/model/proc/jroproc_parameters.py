@@ -4378,7 +4378,7 @@ class Block360(Operation):
             ##print("data_360",dataOut.data_360.shape)
             dataOut.data_azi         = data_p
             dataOut.data_ele         = data_e
-            #####print("azi:    ",dataOut.data_azi)
+            print("azi:    ",dataOut.data_azi)
             print("ele:    ",dataOut.data_ele)
             #print("jroproc_parameters",data_p[0],data_p[-1])#,data_360.shape,avgdatatime)
             dataOut.utctime         = avgdatatime
