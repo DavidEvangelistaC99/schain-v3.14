@@ -34,14 +34,15 @@ mode_proc       = 0
 #-----------------------------PATH ADQ Y PEDESTAL-------------------------------
 #ath     = "/DATA_RM/TEST_MARTES_22_1M_1us"
 #path_ped = "/DATA_RM/TEST_PEDESTAL/P20220322-171722"
-path     = "/DATA_RM/DRONE01ABRIL"
+#path     = "/DATA_RM/DRONE01ABRIL"
 #path   = "/DATA_RM/DRONE01ABRIL1429"
 #path_ped = "/DATA_RM/TEST_PEDESTAL/P20220322-171722"
-path = "/DATA_RM/DRONE01ABRIL1701"
+#path = "/DATA_RM/DRONE01ABRIL1701"
+path = "/DATA_RM/DATA/Torre_con_bola_1649092242/rawdata"
 
 path_ped = "/DATA_RM/DRONE01ABRIL1450"
 #-------------------------------------------------------------------------------
-figpath_pp     = "/home/soporte/Pictures/DRONE01ABRIL"
+figpath_pp     = "/home/soporte/Pictures/Torre_con_bola_1649092242"
 #figpath_pp     = "/home/soporte/Pictures/MARTES_22_PP_1M_1us"
 figpath_spec   = "/home/soporte/Pictures/MARTES_22_1M_1us"
 figpath_pp_ppi = "/home/soporte/Pictures/MARTES_22_1M_1us_PPI"
@@ -103,10 +104,10 @@ time.sleep(4)
 ################# RANGO DE PLOTEO######################################
 dBmin = '20'
 dBmax = '60'
-xmin  = '16.3' #17.1,17.5
-xmax  = '16.7' #17.2,17.8
+xmin  = '12.0' #17.1,17.5
+xmax  = '12.4' #17.2,17.8
 ymin  = '0'    #### PONER A 0
-ymax  = '1.1'    #### PONER A 8
+ymax  = '1.0'    #### PONER A 8
 ########################FECHA##########################################
 str1 = datetime.date.today()
 today = str1.strftime("%Y/%m/%d")
@@ -121,9 +122,9 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #------------------------ UNIDAD DE LECTURA-------------------------------------
 readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path,
-                                            startDate="2022/04/01",#today,
-                                            endDate="2022/04/01",#today,
-                                            startTime='09:10:35',#'17:39:25',
+                                            startDate="2022/04/04",#today,
+                                            endDate="2022/04/04",#today,
+                                            startTime='12:11:05',#'17:39:25',
                                             endTime='23:59:59',#23:59:59',
                                             delay=0,
                                             #set=0,
@@ -146,16 +147,18 @@ opObj10.addParameter(name='ymax', value='1200', format='int')
 opObj10.addParameter(name='save_period', value=10, format='int')
 '''
 opObj11 = procUnitConfObjA.addOperation(name='setH0')
-opObj11.addParameter(name='h0', value='-1', format='float')
+opObj11.addParameter(name='h0', value='-1.2', format='float')
 
 opObj11 = procUnitConfObjA.addOperation(name='selectHeights')
 opObj11.addParameter(name='minIndex', value='1', format='int')
 #opObj11.addParameter(name='maxIndex', value='1000', format='int')
 #opObj11.addParameter(name='maxIndex', value=str(int(num_alturas/4.0)), format='int')
  # CUARTA PARTE de 60 Km POR ESO ENTRE 4  - 15 Km
-opObj11.addParameter(name='maxIndex', value=str(int(num_alturas/10.0)), format='int')
+opObj11.addParameter(name='maxIndex', value=str(int(num_alturas/20.0)), format='int')
  # CUARTA PARTE de 60 Km POR ESO ENTRE 10  - 6 Km
-'''
+ # CUARTA PARTE de 60 Km POR ESO ENTRE 20  - 3 Km
+
+
 
 procUnitConfObjB = controllerObj.addProcUnit(datatype='SpectraProc', inputId=procUnitConfObjA.getId())
 procUnitConfObjB.addParameter(name='nFFTPoints', value='32', format='int')
@@ -177,7 +180,7 @@ opObj11.addParameter(name='showprofile', value='1', format='int')
 #opObj11.addParameter(name='save', value=figpath, format='str')
 opObj11.addParameter(name='save_period', value=10, format='int')
 
-'''
+
 if mode_proc ==0:
     ####################### METODO PULSE PAIR ######################################################################
     opObj11 = procUnitConfObjA.addOperation(name='PulsePair', optype='other')
