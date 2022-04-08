@@ -525,7 +525,8 @@ class WeatherPlot(Plot):
                     data_N[i,:]=numpy.ones(data_T.shape[1])*numpy.nan
                 else:
                     data_N[i,:]=data_T[c,:]
-                    sc=c+1
+                    c=c+1
+            return data_N
         else:
             for i in range(len(data)):
                 if numpy.isnan(data[i]):
@@ -762,7 +763,8 @@ class WeatherRHIPlot(Plot):
                     data_N[i,:]=numpy.ones(data_T.shape[1])*numpy.nan
                 else:
                     data_N[i,:]=data_T[c,:]
-                    sc=c+1
+                    c=c+1
+            return data_N
         else:
             for i in range(len(data)):
                 if numpy.isnan(data[i]):
@@ -788,6 +790,8 @@ class WeatherRHIPlot(Plot):
     def const_ploteo(self,data_weather,data_ele,step,res,ang_max,ang_min):
         ang_max= ang_max
         ang_min= ang_min
+        data_weather=data_weather
+        print("DATA WEATHER**************************************",data_weather)
         if self.ini==0:
             print("**********************************************")
             print("**********************************************")
@@ -797,14 +801,12 @@ class WeatherRHIPlot(Plot):
             print("data_ele",data_ele)
             #----------------------------------------------------------
             tipo_case = self.check_case(data_ele,ang_max,ang_min)
-            print("TIPO DE DATA",tipo_case)
             #--------------------- new -------------------------
             data_ele_new ,data_ele_old= self.globalCheckPED(data_ele,tipo_case)
-            print("data_ele_new",data_ele_new)
-            print("data_ele_old",data_ele_old)
+
             #-------------------------CAMBIOS RHI---------------------------------
             start= ang_min
-            end  = ang_min
+            end  = ang_max
             n= (ang_max-ang_min)/res
             #------ new
             self.start_data_ele = data_ele_new[0]
@@ -822,23 +824,25 @@ class WeatherRHIPlot(Plot):
                     ele2_nan= numpy.ones(n2)*numpy.nan
                     data_ele = numpy.hstack((data_ele,ele2))
                     data_ele_old = numpy.hstack((data_ele_old,ele2_nan))
-                # RADAR
-                val_mean         = numpy.mean(data_weather[:,-1])
-                self.val_mean    = val_mean
-                data_weather     = self.replaceNAN(data_weather=data_weather,data_ele=data_ele_old,val=self.val_mean)
-            '''
-            ele_vacia = numpy.linspace(start,end,int(n))
 
-
-            ele_vacia = numpy.where(ele_vacia>ang_max,ele_vacia-ang_max,ele_vacia)
-            data_ele  = numpy.hstack((data_ele_new,ele_vacia))
+            if tipo_case==1  or tipo_case==2:
+                n1= end- round(self.start_data_ele)
+                n2= round(self.end_data_ele)-start
+                if n1>0:
+                    ele1= numpy.linspace(end,self.start_data_ele+1,n1)
+                    ele1_nan= numpy.ones(n1)*numpy.nan
+                    data_ele = numpy.hstack((ele1,data_ele_new))
+                    data_ele_old = numpy.hstack((ele1_nan,data_ele_old))
+                if n2>0:
+                    ele2= numpy.linspace(self.end_data_ele-1,start,n2)
+                    ele2_nan= numpy.ones(n2)*numpy.nan
+                    data_ele = numpy.hstack((data_ele,ele2))
+                    data_ele_old = numpy.hstack((data_ele_old,ele2_nan))
             # RADAR
+            # NOTA data_ele y data_weather es la variable que retorna
             val_mean         = numpy.mean(data_weather[:,-1])
             self.val_mean    = val_mean
-            data_weather_cmp = numpy.ones([(ang_max-data_weather.shape[0]),data_weather.shape[1]])*val_mean
             data_weather     = self.replaceNAN(data_weather=data_weather,data_ele=data_ele_old,val=self.val_mean)
-            data_weather     = numpy.vstack((data_weather,data_weather_cmp))
-            '''
         else:
             print("**********************************************")
             print("**********************************************")
@@ -856,7 +860,12 @@ class WeatherRHIPlot(Plot):
             data_ele ,data_ele_old= self.globalCheckPED(data_ele,tipo_case)
             print("data_ele_new",data_ele)
             print("data_ele_old",data_ele_old)
-            data_weather = self.replaceNAN(data_weather=data_weather,data_ele=data_ele_old,val=self.val_mean)
+            #-------------------------------NEW RHI ITERATIVO-------------------------
+            self.start_data_ele = data_ele_new[0]
+            self.end_data_ele  = data_ele_new[-1]
+
+
+            #data_weather = self.replaceNAN(data_weather=data_weather,data_ele=data_ele_old,val=self.val_mean)
             '''
             #--------------------------
             start = data_ele[0]
@@ -904,6 +913,8 @@ class WeatherRHIPlot(Plot):
         r            = self.data.yrange
         delta_height = r[1]-r[0]
         r_mask       = numpy.where(r>=0)[0]
+        print("delta_height",delta_height)
+        print("r_mask",r_mask,len(r_mask))
         r            = numpy.arange(len(r_mask))*delta_height
         self.y       = 2*r
         res          = 1
@@ -941,20 +952,21 @@ class WeatherRHIPlot(Plot):
         ###self.res_ele     = numpy.arange(0,120)
         ###self.res_azi     = 240
         #-------------
-        '''
+
         for i,ax in enumerate(self.axes):
             if ax.firsttime:
                 plt.clf()
                 cgax, pm = wrl.vis.plot_rhi(self.res_weather,r=r,th=self.res_ele,fig=self.figures[0], proj='cg')
             else:
-                plt.clf()
-                cgax, pm = wrl.vis.plot_rhi(self.res_weather,r=r,th=self.res_ele,fig=self.figures[0], proj='cg')
+                pass
+                #plt.clf()
+                #cgax, pm = wrl.vis.plot_rhi(self.res_weather,r=r,th=self.res_ele,fig=self.figures[0], proj='cg')
         caax = cgax.parasites[0]
         paax = cgax.parasites[1]
         cbar = plt.gcf().colorbar(pm, pad=0.075)
         caax.set_xlabel('x_range [km]')
         caax.set_ylabel('y_range [km]')
         plt.text(1.0, 1.05, 'Elevacion '+str(thisDatetime)+"  Step   "+str(self.ini)+ " Azi: "+str(round(self.res_azi,2)), transform=caax.transAxes, va='bottom',ha='right')
-        '''
+
         print("""""""""""""self.ini""""""""""""",self.ini)
         self.ini= self.ini+1

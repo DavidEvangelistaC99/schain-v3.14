@@ -4372,10 +4372,12 @@ class Block360(Operation):
 
         if self.__dataReady:
             dataOut.data_360         = data_360 # S
+            #print("DATA 360")
+            #print(dataOut.data_360)
             ##print("---------------------------------------------------------------------------------")
             ###print("---------------------------DATAREADY---------------------------------------------")
             ##print("---------------------------------------------------------------------------------")
-            ##print("data_360",dataOut.data_360.shape)
+            #print("data_360",dataOut.data_360.shape)
             dataOut.data_azi         = data_p
             dataOut.data_ele         = data_e
             ###print("azi:    ",dataOut.data_azi)
