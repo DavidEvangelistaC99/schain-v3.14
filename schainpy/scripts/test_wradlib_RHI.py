@@ -8,6 +8,8 @@ from mpl_toolkits.axisartist.grid_finder import FixedLocator, DictFormatter
 warnings.filterwarnings('ignore')
 # lectura de gaMIC hdf5 file
 filename        = wrl.util.get_wradlib_data_file("/home/soporte/Downloads/2014-06-09--185000.rhi.mvol")
+#filename        = wrl.util.get_wradlib_data_file("2014-06-09--185000.rhi.mvol")
+
 data1, metadata = wrl.io.read_gamic_hdf5(filename)
 print(data1)
 data1 = data1['SCAN0']['ZH']['data']
@@ -26,11 +28,23 @@ site = (metadata['VOL']['Longitude'], metadata['VOL']['Latitude'],
 
 print("Longitud,Latitud,Altura",site)
 ma1 =  np.array(data1)
+for i in range(3):
+    print("dark",ma1[i])
 '''
 mask_ind = np.where(data1 <= np.nanmin(data1))
 data1[mask_ind] = np.nan
 ma1 = np.ma.array(data1, mask=np.isnan(data1))
 '''
+####################### test ####################s
+th=(np.arange(450)/10.0)+5
+#th= np.roll(th,-2)
+#th=np.where(a<7,np.nan,a)
+ma1=np.roll(ma1,-2,axis=0)
+for i in range(3):
+    print("green",ma1[i])
+print("a",th)
+#th = [i for i in reversed(a)]
+######################### test
 #cgax, pm = wrl.vis.plot_rhi(ma1,r=r,th=th,rf=1e3)
 fig = plt.figure(figsize=(10,8))
 cgax, pm = wrl.vis.plot_rhi(ma1,r=r,th=th,rf=1e3,fig=fig, ax=111,proj='cg')

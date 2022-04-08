@@ -24,6 +24,7 @@ import matplotlib.pyplot as plt
 #--------------------------------
 
 path_ped= "/DATA_RM/TEST_PEDESTAL/P20220401-172744"
+
 # Metodo para verificar numero
 def isNumber(str):
     try:
@@ -79,9 +80,9 @@ z=0
 # CONDICION POR LEER EN TIEMPO REAL NO OFFLINE
 
 for filename in LIST:
-    tmp_azi_pos   = getDatavaluefromDirFilename(path=path_ped,file=filename,value="azi_pos")
+    #tmp_azi_pos   = getDatavaluefromDirFilename(path=path_ped,file=filename,value="azi_pos")
     tmp_ele_pos   = getDatavaluefromDirFilename(path=path_ped,file=filename,value="ele_pos")
-    #tmp_azi_pos   = getDatavaluefromDirFilename(path=path_ped,file=filename,value="ele_vel")
+    tmp_azi_pos   = getDatavaluefromDirFilename(path=path_ped,file=filename,value="ele_vel")
     #tmp_ele_pos   = getDatavaluefromDirFilename(path=path_ped,file=filename,value="azi_vel")
     # CONDICION POR LEER EN TIEMPO REAL NO OFFLINE
 

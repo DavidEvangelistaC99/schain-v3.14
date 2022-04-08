@@ -39,17 +39,23 @@ mode_proc       = 0
 #path_ped = "/DATA_RM/TEST_PEDESTAL/P20220322-171722"
 #path = "/DATA_RM/DRONE01ABRIL1701"
 path = "/DATA_RM/DATA/Torre_con_bola_1649092242/rawdata"
-
-path_ped = "/DATA_RM/DRONE01ABRIL1450"
+path="/DATA_RM/DRONE01ABRIL1727"
+#path_ped = "/DATA_RM/DRONE01ABRIL1450"
+path_ped="/DATA_RM/TEST_PEDESTAL/P20220401-172744"
+#path_ped = "/DATA_RM/DATA/Torre_con_bola_1649092242/position/2022-04-04T17-00-00"
 #-------------------------------------------------------------------------------
 figpath_pp     = "/home/soporte/Pictures/Torre_con_bola_1649092242"
 #figpath_pp     = "/home/soporte/Pictures/MARTES_22_PP_1M_1us"
 figpath_spec   = "/home/soporte/Pictures/MARTES_22_1M_1us"
 figpath_pp_ppi = "/home/soporte/Pictures/MARTES_22_1M_1us_PPI"
+
+
+figpath_pp_rhi  = "/DATA_RM/LUNES04ABRIL_1200_RHI"
 #--------------------------OPCIONES---------------------------------------------
-plot        = 1
 plot_ppi    = 0
-integration = 0
+plot        = 0
+plot_rhi    = 1
+integration = 1
 save        = 0
 plot_spec   = 0
 #---------------------------SAVE HDF5 PROCESADO/--------------------------------
@@ -122,9 +128,9 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #------------------------ UNIDAD DE LECTURA-------------------------------------
 readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path,
-                                            startDate="2022/04/04",#today,
-                                            endDate="2022/04/04",#today,
-                                            startTime='12:11:05',#'17:39:25',
+                                            startDate="2022/04/01",#today,
+                                            endDate="2022/04/01",#today,
+                                            startTime='00:10:05',#'17:39:25',
                                             endTime='23:59:59',#23:59:59',
                                             delay=0,
                                             #set=0,
@@ -159,7 +165,7 @@ opObj11.addParameter(name='maxIndex', value=str(int(num_alturas/20.0)), format='
  # CUARTA PARTE de 60 Km POR ESO ENTRE 20  - 3 Km
 
 
-
+'''
 procUnitConfObjB = controllerObj.addProcUnit(datatype='SpectraProc', inputId=procUnitConfObjA.getId())
 procUnitConfObjB.addParameter(name='nFFTPoints', value='32', format='int')
 procUnitConfObjB.addParameter(name='nProfiles', value='32', format='int')
@@ -179,7 +185,7 @@ opObj11.addParameter(name='ymax', value=ymax, format='int')
 opObj11.addParameter(name='showprofile', value='1', format='int')
 #opObj11.addParameter(name='save', value=figpath, format='str')
 opObj11.addParameter(name='save_period', value=10, format='int')
-
+'''
 
 if mode_proc ==0:
     ####################### METODO PULSE PAIR ######################################################################
@@ -213,7 +219,9 @@ if mode_proc ==0:
         opObj11 = procUnitConfObjB.addOperation(name='PedestalInformation')
         opObj11.addParameter(name='path_ped', value=path_ped)
         opObj11.addParameter(name='t_Interval_p', value='0.01', format='float')
-        opObj11.addParameter(name='wr_exp', value='PPI')
+        #opObj11.addParameter(name='wr_exp', value='PPI')
+        opObj11.addParameter(name='wr_exp', value='RHI')
+
     if plot_ppi==1:
         opObj11 = procUnitConfObjB.addOperation(name='Block360')
         opObj11.addParameter(name='n', value='10', format='int')
@@ -221,6 +229,14 @@ if mode_proc ==0:
         # este bloque funciona bien con divisores de 360 no olvidar 0 10 20 30 40 60 90 120 180
         opObj11= procUnitConfObjB.addOperation(name='WeatherPlot',optype='other')
         opObj11.addParameter(name='save', value=figpath_pp_ppi)
+        opObj11.addParameter(name='save_period', value=1)
+    if plot_rhi==1:
+        opObj11 = procUnitConfObjB.addOperation(name='Block360')
+        opObj11.addParameter(name='n', value='10', format='int')
+        opObj11.addParameter(name='mode', value=mode_proc, format='int')
+        # este bloque funciona bien con divisores de 360 no olvidar 0 10 20 30 40 60 90 120 180
+        opObj11= procUnitConfObjB.addOperation(name='WeatherRHIPlot',optype='other')
+        opObj11.addParameter(name='save', value=figpath_pp_rhi)
         opObj11.addParameter(name='save_period', value=1)
 
 controllerObj.start()

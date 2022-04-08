@@ -156,7 +156,7 @@ opObj11.addParameter(name='save_period', value=1)
 #######################################################################
 
 procUnitConfObjB = controllerObj.addProcUnit(datatype='SpectraProc', inputId=procUnitConfObjA.getId())
-procUnitConfObjB.addParameter(name='nFFTPoints', value='250', format='int')
+procUnitConfObjB.addParameter(name='nFFTPoints', value='0', format='int')
 procUnitConfObjB.addParameter(name='nProfiles', value='250', format='int')
 
 #procUnitConfObjC = controllerObj.addProcUnit(datatype='SpectraHeisProc', inputId=procUnitConfObjA.getId())
