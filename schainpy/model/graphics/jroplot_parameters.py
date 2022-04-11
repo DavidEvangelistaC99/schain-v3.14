@@ -642,6 +642,7 @@ class WeatherRHIPlot(Plot):
     plot_name = 'weather'
     plot_type = 'rhistyle'
     buffering = False
+    data_ele_tmp = None
 
     def setup(self):
         self.ncols = 1
@@ -777,13 +778,13 @@ class WeatherRHIPlot(Plot):
         number = (end-start)
         len_ang=len(data_ele)
 
-        if start<end and round(abs(number)+1)>=len_ang:#caso subida
+        if start<end and (round(abs(number)+1)>=len_ang or (numpy.argmin(data_ele)==0)):#caso subida
             return 0
-        elif start>end and round(abs(number)+1)>=len_ang:#caso bajada
+        elif start>end and (round(abs(number)+1)>=len_ang or(numpy.argmax(data_ele)==0)):#caso bajada
             return 1
         elif round(abs(number)+1)<len_ang and data_ele[-2]>data_ele[-1]:# caso BAJADA CAMBIO ANG MAX
             return 2
-        elif round(abs(number)+1)<len_ang and data_ele[-2]<data_ele[-1]:# caso SUBIDA CAMBIO ANG MIN
+        elif round(abs(number)+1)<len_ang and data_ele[-2]<data_ele[-1] :# caso SUBIDA CAMBIO ANG MIN
             return 3
 
 
@@ -791,7 +792,8 @@ class WeatherRHIPlot(Plot):
         ang_max= ang_max
         ang_min= ang_min
         data_weather=data_weather
-        print("DATA WEATHER**************************************",data_weather)
+        print("*********************DATA WEATHER**************************************")
+        ##print(data_weather)
         if self.ini==0:
             print("**********************************************")
             print("**********************************************")
@@ -811,7 +813,7 @@ class WeatherRHIPlot(Plot):
             #------ new
             self.start_data_ele = data_ele_new[0]
             self.end_data_ele  = data_ele_new[-1]
-            if tipo_case==0  or tipo_case==3:
+            if tipo_case==0  or tipo_case==3: # SUBIDA
                 n1= round(self.start_data_ele)- start
                 n2= end - round(self.end_data_ele)
                 if n1>0:
@@ -825,7 +827,7 @@ class WeatherRHIPlot(Plot):
                     data_ele = numpy.hstack((data_ele,ele2))
                     data_ele_old = numpy.hstack((data_ele_old,ele2_nan))
 
-            if tipo_case==1  or tipo_case==2:
+            if tipo_case==1  or tipo_case==2: # BAJADA
                 n1= end- round(self.start_data_ele)
                 n2= round(self.end_data_ele)-start
                 if n1>0:
@@ -843,12 +845,10 @@ class WeatherRHIPlot(Plot):
             val_mean         = numpy.mean(data_weather[:,-1])
             self.val_mean    = val_mean
             data_weather     = self.replaceNAN(data_weather=data_weather,data_ele=data_ele_old,val=self.val_mean)
+            self.data_ele_tmp= data_ele_old
         else:
             print("**********************************************")
-            print("**********************************************")
             print("****************VARIABLE**********************")
-            print("**********************************************")
-            print("**********************************************")
             #-------------------------CAMBIOS RHI---------------------------------
             #---------------------------------------------------------------------
             print("INPUT data_ele",data_ele)
@@ -857,12 +857,127 @@ class WeatherRHIPlot(Plot):
             tipo_case = self.check_case(data_ele,ang_max,ang_min)
             print("TIPO DE DATA",tipo_case)
             #-----------new------------
-            data_ele ,data_ele_old= self.globalCheckPED(data_ele,tipo_case)
+            data_ele ,data_ele_old = self.globalCheckPED(data_ele,tipo_case)
+            data_weather           = self.replaceNAN(data_weather=data_weather,data_ele=data_ele_old,val=self.val_mean)
             print("data_ele_new",data_ele)
             print("data_ele_old",data_ele_old)
             #-------------------------------NEW RHI ITERATIVO-------------------------
-            self.start_data_ele = data_ele_new[0]
-            self.end_data_ele  = data_ele_new[-1]
+            #self.start_d_ele_n = data_ele[0]
+            #self.end_d_ele_n  = data_ele[-1]
+
+            # revision del previo bloque y el nuevo
+            #old_i_ele  = self.start_data_ele
+            #old_f_ele  = self.end_data_ele
+            if tipo_case==0 : # SUBIDA
+                vec = numpy.where(data_ele<ang_max)
+                data_ele = data_ele[vec]
+                data_ele_old = data_ele_old[vec]
+                data_weather  = data_weather[vec[0]]
+                new_i_ele  = int(round(data_ele[0]))
+                new_f_ele  = int(round(data_ele[-1]))
+                if new_i_ele<= 2:
+                    self.data_ele_tmp = numpy.ones(ang_max-ang_min)*numpy.nan
+                    self.res_weather  = self.replaceNAN(data_weather=self.res_weather,data_ele=self.data_ele_tmp,val=self.val_mean)
+                self.data_ele_tmp[new_i_ele-1:new_i_ele+len(data_ele)-1]=data_ele_old
+                self.res_ele[new_i_ele-1:new_i_ele+len(data_ele)-1]= data_ele
+                self.res_weather[new_i_ele-1:new_i_ele+len(data_ele)-1,:]= data_weather
+                data_ele                                    = self.res_ele
+                data_weather                                = self.res_weather
+
+            elif tipo_case==1 : #BAJADA
+                data_ele       = data_ele[::-1] #  reversa
+                data_ele_old   = data_ele_old[::-1]# reversa
+                data_weather   = data_weather[::-1,:]# reversa
+                vec= numpy.where(data_ele<ang_max)
+                data_ele = data_ele[vec]
+                data_ele_old = data_ele_old[vec]
+                data_weather  = data_weather[vec[0]]
+                vec2= numpy.where(0<data_ele)
+                data_ele = data_ele[vec2]
+                data_ele_old = data_ele_old[vec2]
+                data_weather  = data_weather[vec2[0]]
+
+
+                new_i_ele  = int(round(data_ele[0]))
+                new_f_ele  = int(round(data_ele[-1]))
+                print(data_ele)
+                print(ang_max)
+                print(data_ele_old)
+                if new_i_ele <= 1:
+                    new_i_ele = 1
+                if round(data_ele[-1])>=ang_max-1:
+                    self.data_ele_tmp = numpy.ones(ang_max-ang_min)*numpy.nan
+                    self.res_weather  = self.replaceNAN(data_weather=self.res_weather,data_ele=self.data_ele_tmp,val=self.val_mean)
+                self.data_ele_tmp[new_i_ele-1:new_i_ele+len(data_ele)-1]=data_ele_old
+                self.res_ele[new_i_ele-1:new_i_ele+len(data_ele)-1]= data_ele
+                self.res_weather[new_i_ele-1:new_i_ele+len(data_ele)-1,:]= data_weather
+                data_ele     = self.res_ele
+                data_weather = self.res_weather
+
+            elif tipo_case==2:  #bajada
+                vec = numpy.where(data_ele<ang_max)
+                data_ele = data_ele[vec]
+                data_weather= data_weather[vec[0]]
+
+                len_vec = len(vec)
+                data_ele_new     = data_ele[::-1] #  reversa
+                data_weather =  data_weather[::-1,:]
+                new_i_ele  = int(data_ele_new[0])
+                new_f_ele  = int(data_ele_new[-1])
+
+                n1= new_i_ele- ang_min
+                n2= ang_max - new_f_ele-1
+                if n1>0:
+                    ele1= numpy.linspace(ang_min+1,new_i_ele-1,n1)
+                    ele1_nan= numpy.ones(n1)*numpy.nan
+                    data_ele = numpy.hstack((ele1,data_ele_new))
+                    data_ele_old = numpy.hstack((ele1_nan,data_ele_new))
+                if n2>0:
+                    ele2= numpy.linspace(new_f_ele+1,ang_max,n2)
+                    ele2_nan= numpy.ones(n2)*numpy.nan
+                    data_ele = numpy.hstack((data_ele,ele2))
+                    data_ele_old = numpy.hstack((data_ele_old,ele2_nan))
+
+                self.data_ele_tmp = data_ele_old
+                self.res_ele      = data_ele
+                self.res_weather  = self.replaceNAN(data_weather=data_weather,data_ele=data_ele_old,val=self.val_mean)
+                data_ele                                    = self.res_ele
+                data_weather                                = self.res_weather
+
+            elif tipo_case==3:
+                print("TIPO CASE",tipo_case)
+                ##pos_ini = numpy.argmin(data_ele)
+                ##len_vec = len(data_ele)
+                ##vec     = numpy.linspace(pos_ini,len_vec,len_vec-pos_ini)
+                print(data_ele)
+                ##data_ele = data_ele[vec]
+                ##data_weather = data_weather[vec[0]]
+                vec = numpy.where(0<data_ele)
+                data_ele= data_ele[vec]
+                data_ele_new = data_ele
+                data_ele_old= data_ele_old[vec]
+                print(data_ele_new)
+                data_weather= data_weather[vec[0]]
+                new_i_ele  = int(data_ele_new[0])
+                new_f_ele  = int(data_ele_new[-1])
+                n1= new_i_ele- ang_min
+                n2= ang_max - new_f_ele-1
+                if n1>0:
+                    ele1= numpy.linspace(ang_min+1,new_i_ele-1,n1)
+                    ele1_nan= numpy.ones(n1)*numpy.nan
+                    data_ele = numpy.hstack((ele1,data_ele_new))
+                    data_ele_old = numpy.hstack((ele1_nan,data_ele_new))
+                if n2>0:
+                    ele2= numpy.linspace(new_f_ele+1,ang_max,n2)
+                    ele2_nan= numpy.ones(n2)*numpy.nan
+                    data_ele = numpy.hstack((data_ele,ele2))
+                    data_ele_old = numpy.hstack((data_ele_old,ele2_nan))
+
+                self.data_ele_tmp = data_ele_old
+                self.res_ele      = data_ele
+                self.res_weather  = self.replaceNAN(data_weather=data_weather,data_ele=data_ele_old,val=self.val_mean)
+                data_ele                                    = self.res_ele
+                data_weather                                = self.res_weather
 
 
             #data_weather = self.replaceNAN(data_weather=data_weather,data_ele=data_ele_old,val=self.val_mean)
@@ -904,6 +1019,7 @@ class WeatherRHIPlot(Plot):
             '''
             print("OUPUT data_ele",data_ele)
 
+        print("self.data_ele_tmp",self.data_ele_tmp)
         return data_weather,data_ele
 
 
@@ -913,17 +1029,17 @@ class WeatherRHIPlot(Plot):
         r            = self.data.yrange
         delta_height = r[1]-r[0]
         r_mask       = numpy.where(r>=0)[0]
-        print("delta_height",delta_height)
-        print("r_mask",r_mask,len(r_mask))
+        ##print("delta_height",delta_height)
+        #print("r_mask",r_mask,len(r_mask))
         r            = numpy.arange(len(r_mask))*delta_height
         self.y       = 2*r
         res          = 1
-        print("data['weather'].shape[0]",data['weather'].shape[0])
+        ###print("data['weather'].shape[0]",data['weather'].shape[0])
         ang_max = 80
         ang_min = 0
         var_ang      =ang_max -  ang_min
         step         = (int(var_ang)/(res*data['weather'].shape[0]))
-        print("step",step)
+        ###print("step",step)
         '''
         #-------------------------------------------------------------
         # RADAR
@@ -943,7 +1059,7 @@ class WeatherRHIPlot(Plot):
 
         self.res_weather, self.res_ele = self.const_ploteo(data_weather=data['weather'][:,r_mask],data_ele=data['ele'],step=step,res=res,ang_max=ang_max,ang_min=ang_min)
         self.res_azi                   = numpy.mean(data['azi'])
-        print("self.res_ele",self.res_ele)
+        ###print("self.res_ele",self.res_ele)
         #-------------
         # 90 angulos en el axis 0
         # 1000 step en el axis 1
@@ -956,11 +1072,10 @@ class WeatherRHIPlot(Plot):
         for i,ax in enumerate(self.axes):
             if ax.firsttime:
                 plt.clf()
-                cgax, pm = wrl.vis.plot_rhi(self.res_weather,r=r,th=self.res_ele,fig=self.figures[0], proj='cg')
+                cgax, pm = wrl.vis.plot_rhi(self.res_weather,r=r,th=self.res_ele,fig=self.figures[0], proj='cg',vmin=20, vmax=80)
             else:
-                pass
-                #plt.clf()
-                #cgax, pm = wrl.vis.plot_rhi(self.res_weather,r=r,th=self.res_ele,fig=self.figures[0], proj='cg')
+                plt.clf()
+                cgax, pm = wrl.vis.plot_rhi(self.res_weather,r=r,th=self.res_ele,fig=self.figures[0], proj='cg',vmin=20, vmax=80)
         caax = cgax.parasites[0]
         paax = cgax.parasites[1]
         cbar = plt.gcf().colorbar(pm, pad=0.075)
@@ -968,5 +1083,5 @@ class WeatherRHIPlot(Plot):
         caax.set_ylabel('y_range [km]')
         plt.text(1.0, 1.05, 'Elevacion '+str(thisDatetime)+"  Step   "+str(self.ini)+ " Azi: "+str(round(self.res_azi,2)), transform=caax.transAxes, va='bottom',ha='right')
 
-        print("""""""""""""self.ini""""""""""""",self.ini)
+        print("***************************self.ini****************************",self.ini)
         self.ini= self.ini+1
