@@ -38,24 +38,33 @@ mode_proc       = 0
 #path   = "/DATA_RM/DRONE01ABRIL1429"
 #path_ped = "/DATA_RM/TEST_PEDESTAL/P20220322-171722"
 #path = "/DATA_RM/DRONE01ABRIL1701"
-path = "/DATA_RM/DATA/Torre_con_bola_1649092242/rawdata"
-path="/DATA_RM/DRONE01ABRIL1727"
+##path = "/DATA_RM/DATA/Torre_con_bola_1649092242/rawdata"
+##path="/DATA_RM/DRONE01ABRIL1727"
+path ="/DATA_RM/DATA/TEST@2022-04-11T17:29:56/rawdata"
+#path="/DATA_RM/TEST172956_0411"
+
+
+#path = "/DATA_RM/DATA/TEST@2022-04-11T17:29:56/rawdata"
+
 #path_ped = "/DATA_RM/DRONE01ABRIL1450"
-path_ped="/DATA_RM/TEST_PEDESTAL/P20220401-172744"
+#path_ped="/DATA_RM/TEST_PEDESTAL/P20220401-172744"
+
+path_ped="/DATA_RM/TEST_PEDESTAL/P20220411-173017"
+
 #path_ped = "/DATA_RM/DATA/Torre_con_bola_1649092242/position/2022-04-04T17-00-00"
 #-------------------------------------------------------------------------------
-figpath_pp     = "/home/soporte/Pictures/Torre_con_bola_1649092242"
+figpath_pp     = "/home/soporte/Pictures/TEST"
 #figpath_pp     = "/home/soporte/Pictures/MARTES_22_PP_1M_1us"
 figpath_spec   = "/home/soporte/Pictures/MARTES_22_1M_1us"
-figpath_pp_ppi = "/home/soporte/Pictures/MARTES_22_1M_1us_PPI"
+figpath_pp_ppi = "/home/soporte/Pictures/PPILUNES11042022"
 
 
 figpath_pp_rhi  = "/DATA_RM/LUNES04ABRIL_1200_RHI"
 #--------------------------OPCIONES---------------------------------------------
-plot_ppi    = 0
-plot        = 0
-plot_rhi    = 1
-integration = 1
+plot_ppi    = 1
+plot        = 0#0
+plot_rhi    = 0#1
+integration = 1#1
 save        = 0
 plot_spec   = 0
 #---------------------------SAVE HDF5 PROCESADO/--------------------------------
@@ -110,10 +119,10 @@ time.sleep(4)
 ################# RANGO DE PLOTEO######################################
 dBmin = '20'
 dBmax = '60'
-xmin  = '12.0' #17.1,17.5
-xmax  = '12.4' #17.2,17.8
+xmin  = '17.4' #17.1,17.5
+xmax  = '17.7' #17.2,17.8
 ymin  = '0'    #### PONER A 0
-ymax  = '1.0'    #### PONER A 8
+ymax  = '1.5'    #### PONER A 8
 ########################FECHA##########################################
 str1 = datetime.date.today()
 today = str1.strftime("%Y/%m/%d")
@@ -128,9 +137,9 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #------------------------ UNIDAD DE LECTURA-------------------------------------
 readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path,
-                                            startDate="2022/04/01",#today,
-                                            endDate="2022/04/01",#today,
-                                            startTime='00:10:05',#'17:39:25',
+                                            startDate="2022/04/11",#today,
+                                            endDate="2022/04/11",#today,
+                                            startTime='17:36:00',#'17:39:25',
                                             endTime='23:59:59',#23:59:59',
                                             delay=0,
                                             #set=0,
@@ -153,7 +162,7 @@ opObj10.addParameter(name='ymax', value='1200', format='int')
 opObj10.addParameter(name='save_period', value=10, format='int')
 '''
 opObj11 = procUnitConfObjA.addOperation(name='setH0')
-opObj11.addParameter(name='h0', value='-1.2', format='float')
+opObj11.addParameter(name='h0', value='-1.0', format='float')
 
 opObj11 = procUnitConfObjA.addOperation(name='selectHeights')
 opObj11.addParameter(name='minIndex', value='1', format='int')
