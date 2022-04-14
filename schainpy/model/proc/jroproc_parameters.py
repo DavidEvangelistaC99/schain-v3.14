@@ -4045,6 +4045,7 @@ class WeatherRadar(Operation):
 class PedestalInformation(Operation):
     path_ped     = None
     path_adq     = None
+    samp_rate_ped= None
     t_Interval_p = None
     n_Muestras_p = None
     isConfig     = False
@@ -4080,7 +4081,7 @@ class PedestalInformation(Operation):
             angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azi_pos")
             angulo_ele   = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="ele_pos")
             #-----Adicion de filtro........................
-            vel_ele   = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="ele_vel")
+            vel_ele   = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="ele_speed")## ele_speed
             '''
             vel_mean = numpy.mean(vel_ele)
             print("#############################################################")
@@ -4089,8 +4090,8 @@ class PedestalInformation(Operation):
                 return numpy.NaN,numpy.NaN
             #------------------------------------------------------------------------------------------------------
             '''
-            if 99>=nro_key_p>0:
-                ##print("angulo_array                  :",angulo[nro_key_p])
+            if int(self.samp_rate_ped)-1>=nro_key_p>0:
+                #print("angulo_array                  :",angulo[nro_key_p])
                 return angulo[nro_key_p],angulo_ele[nro_key_p]
             else:
                 #print("-----------------------------------------------------------------")
@@ -4099,7 +4100,7 @@ class PedestalInformation(Operation):
 
     def getfirstFilefromPath(self,path,meta,ext):
         validFilelist = []
-        #print("SEARH",path)
+        #("SEARH",path)
         try:
             fileList      = os.listdir(path)
         except:
@@ -4116,6 +4117,11 @@ class PedestalInformation(Operation):
                     number= int(thisFile[len(meta)+7:len(meta)+17])
                 except:
                      print("There is a file or folder with different format")
+            if meta =="pos@":
+                try:
+                    number= int(thisFile[len(meta):len(meta)+10])
+                except:
+                     print("There is a file or folder with different format")
             if meta == "D":
                 try:
                     number= int(thisFile[8:11])
@@ -4128,8 +4134,10 @@ class PedestalInformation(Operation):
                 continue
             validFilelist.sort()
             validFilelist.append(thisFile)
+
         if len(validFilelist)>0:
             validFilelist = sorted(validFilelist,key=str.lower)
+            #print(validFilelist)
             return validFilelist
         return None
 
@@ -4138,6 +4146,8 @@ class PedestalInformation(Operation):
         fp      = h5py.File(dir_file,'r')
         #epoc    = fp['Metadata'].get('utctimeInit')[()]
         epoc    = fp['Data'].get('utc')[()]
+        epoc    = epoc[0]
+        #print("hola",epoc)
         fp.close()
         return epoc
 
@@ -4178,15 +4188,18 @@ class PedestalInformation(Operation):
         pass
 
         #def setup(self,dataOut,path_ped,path_adq,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online):
-    def setup(self,dataOut,path_ped,t_Interval_p,wr_exp):
+    def setup(self,dataOut,path_ped,samp_rate_ped,t_Interval_p,wr_exp):
+        print("**************SETUP******************")
         self.__dataReady      = False
         self.path_ped     = path_ped
+        self.samp_rate_ped= samp_rate_ped
         self.t_Interval_p = t_Interval_p
-        self.list_pedestal = self.getfirstFilefromPath(path=self.path_ped,meta="PE",ext=".hdf5")
+        self.list_pedestal = self.getfirstFilefromPath(path=self.path_ped,meta="pos@",ext=".h5")
         self.utc_ped_list= []
         for i in range(len(self.list_pedestal)):
-            #print(i)# OJO IDENTIFICADOR DE SINCRONISMO
+            print(i,self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[i]))# OJO IDENTIFICADOR DE SINCRONISMO
             self.utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[i]))
+        #print("que paso")
         dataOut.wr_exp     = wr_exp
         #print("SETUP READY")
 
@@ -4203,10 +4216,10 @@ class PedestalInformation(Operation):
     def setNextFileonline(self):
         pass
 
-    def run(self, dataOut,path_ped,t_Interval_p,wr_exp):
-        ###print("INTEGRATION -----")
+    def run(self, dataOut,path_ped,samp_rate_ped,t_Interval_p,wr_exp):
+        #print("INTEGRATION -----")
         if not self.isConfig:
-            self.setup(dataOut, path_ped,t_Interval_p,wr_exp)
+            self.setup(dataOut, path_ped,samp_rate_ped,t_Interval_p,wr_exp)
             self.__dataReady = True
             self.isConfig   = True
             #print("config TRUE")
@@ -4374,14 +4387,14 @@ class Block360(Operation):
             dataOut.data_360         = data_360 # S
             #print("DATA 360")
             #print(dataOut.data_360)
-            ##print("---------------------------------------------------------------------------------")
-            ###print("---------------------------DATAREADY---------------------------------------------")
-            ##print("---------------------------------------------------------------------------------")
+            print("---------------------------------------------------------------------------------")
+            print("---------------------------DATAREADY---------------------------------------------")
+            print("---------------------------------------------------------------------------------")
             #print("data_360",dataOut.data_360.shape)
             dataOut.data_azi         = data_p
             dataOut.data_ele         = data_e
             ###print("azi:    ",dataOut.data_azi)
-            ###print("ele:    ",dataOut.data_ele)
+            print("ele:    ",dataOut.data_ele)
             #print("jroproc_parameters",data_p[0],data_p[-1])#,data_360.shape,avgdatatime)
             dataOut.utctime         = avgdatatime
             dataOut.flagNoData      = False

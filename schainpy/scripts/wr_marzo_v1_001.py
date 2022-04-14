@@ -40,7 +40,9 @@ mode_proc       = 0
 #path = "/DATA_RM/DRONE01ABRIL1701"
 ##path = "/DATA_RM/DATA/Torre_con_bola_1649092242/rawdata"
 ##path="/DATA_RM/DRONE01ABRIL1727"
-path ="/DATA_RM/DATA/TEST@2022-04-11T17:29:56/rawdata"
+#path ="/DATA_RM/DATA/TEST@2022-04-11T17:29:56/rawdata"
+#path ="/DATA_RM/DATA/TEST@2022-04-13T15:10:42/rawdata"
+path ="/DATA_RM/DATA/TEST@2022-04-13T17:35:06/rawdata"
 #path="/DATA_RM/TEST172956_0411"
 
 
@@ -48,22 +50,25 @@ path ="/DATA_RM/DATA/TEST@2022-04-11T17:29:56/rawdata"
 
 #path_ped = "/DATA_RM/DRONE01ABRIL1450"
 #path_ped="/DATA_RM/TEST_PEDESTAL/P20220401-172744"
-
-path_ped="/DATA_RM/TEST_PEDESTAL/P20220411-173017"
+#path_ped = "/DATA_RM/TEST_PEDESTAL/P20220412-140748"
+path_ped="/DATA_RM/DATA/TEST@2022-04-13T17:35:06/position/2022-04-13T22-00-00"
+#path_ped = "/DATA_RM/DATA/TEST@2022-04-13T15:10:42/position/2022-04-13T20-00-00"
+#path_ped = "/DATA_RM/DATA/TEST@2022-04-12T14:05:11/position/2022-04-12T19-00-00"
+#path_ped="/DATA_RM/TEST_PEDESTAL/P20220411-173017"
 
 #path_ped = "/DATA_RM/DATA/Torre_con_bola_1649092242/position/2022-04-04T17-00-00"
 #-------------------------------------------------------------------------------
-figpath_pp     = "/home/soporte/Pictures/TEST"
+figpath_pp     = "/home/soporte/Pictures/PEDMARTES_NEW"
 #figpath_pp     = "/home/soporte/Pictures/MARTES_22_PP_1M_1us"
 figpath_spec   = "/home/soporte/Pictures/MARTES_22_1M_1us"
 figpath_pp_ppi = "/home/soporte/Pictures/PPILUNES11042022"
 
 
-figpath_pp_rhi  = "/DATA_RM/LUNES04ABRIL_1200_RHI"
+figpath_pp_rhi  = "/DATA_RM/MIERCOLES13"
 #--------------------------OPCIONES---------------------------------------------
-plot_ppi    = 1
+plot_ppi    = 0
 plot        = 0#0
-plot_rhi    = 0#1
+plot_rhi    = 1#1
 integration = 1#1
 save        = 0
 plot_spec   = 0
@@ -119,8 +124,8 @@ time.sleep(4)
 ################# RANGO DE PLOTEO######################################
 dBmin = '20'
 dBmax = '60'
-xmin  = '17.4' #17.1,17.5
-xmax  = '17.7' #17.2,17.8
+xmin  = '14.0' #17.1,17.5
+xmax  = '14.5' #17.2,17.8
 ymin  = '0'    #### PONER A 0
 ymax  = '1.5'    #### PONER A 8
 ########################FECHA##########################################
@@ -137,9 +142,9 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #------------------------ UNIDAD DE LECTURA-------------------------------------
 readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path,
-                                            startDate="2022/04/11",#today,
-                                            endDate="2022/04/11",#today,
-                                            startTime='17:36:00',#'17:39:25',
+                                            startDate="2022/04/13",#today,
+                                            endDate="2022/04/13",#today,
+                                            startTime='17:37:00',#'17:39:25',
                                             endTime='23:59:59',#23:59:59',
                                             delay=0,
                                             #set=0,
@@ -227,7 +232,8 @@ if mode_proc ==0:
     if integration==1:
         opObj11 = procUnitConfObjB.addOperation(name='PedestalInformation')
         opObj11.addParameter(name='path_ped', value=path_ped)
-        opObj11.addParameter(name='t_Interval_p', value='0.01', format='float')
+        opObj11.addParameter(name='samp_rate_ped', value='1500',format='int')
+        opObj11.addParameter(name='t_Interval_p', value='0.04', format='float')
         #opObj11.addParameter(name='wr_exp', value='PPI')
         opObj11.addParameter(name='wr_exp', value='RHI')
 
