@@ -251,6 +251,8 @@ if mode_proc ==0:
         opObj11.addParameter(name='mode', value=mode_proc, format='int')
         # este bloque funciona bien con divisores de 360 no olvidar 0 10 20 30 40 60 90 120 180
         opObj11= procUnitConfObjB.addOperation(name='WeatherRHIPlot',optype='other')
+        opObj11.addParameter(name='ang_max', value='90',format='int')
+        opObj11.addParameter(name='ang_min', value='0',format='int')
         opObj11.addParameter(name='save', value=figpath_pp_rhi)
         opObj11.addParameter(name='save_period', value=1)
 

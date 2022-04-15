@@ -4189,7 +4189,7 @@ class PedestalInformation(Operation):
 
         #def setup(self,dataOut,path_ped,path_adq,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online):
     def setup(self,dataOut,path_ped,samp_rate_ped,t_Interval_p,wr_exp):
-        print("**************SETUP******************")
+        #print("**************SETUP******************")
         self.__dataReady      = False
         self.path_ped     = path_ped
         self.samp_rate_ped= samp_rate_ped
@@ -4197,7 +4197,7 @@ class PedestalInformation(Operation):
         self.list_pedestal = self.getfirstFilefromPath(path=self.path_ped,meta="pos@",ext=".h5")
         self.utc_ped_list= []
         for i in range(len(self.list_pedestal)):
-            print(i,self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[i]))# OJO IDENTIFICADOR DE SINCRONISMO
+            #print(i,self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[i]))# OJO IDENTIFICADOR DE SINCRONISMO
             self.utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[i]))
         #print("que paso")
         dataOut.wr_exp     = wr_exp
@@ -4387,14 +4387,14 @@ class Block360(Operation):
             dataOut.data_360         = data_360 # S
             #print("DATA 360")
             #print(dataOut.data_360)
-            print("---------------------------------------------------------------------------------")
-            print("---------------------------DATAREADY---------------------------------------------")
-            print("---------------------------------------------------------------------------------")
+            #print("---------------------------------------------------------------------------------")
+            #print("---------------------------DATAREADY---------------------------------------------")
+            #print("---------------------------------------------------------------------------------")
             #print("data_360",dataOut.data_360.shape)
             dataOut.data_azi         = data_p
             dataOut.data_ele         = data_e
             ###print("azi:    ",dataOut.data_azi)
-            print("ele:    ",dataOut.data_ele)
+            #print("ele:    ",dataOut.data_ele)
             #print("jroproc_parameters",data_p[0],data_p[-1])#,data_360.shape,avgdatatime)
             dataOut.utctime         = avgdatatime
             dataOut.flagNoData      = False

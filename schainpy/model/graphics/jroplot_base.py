@@ -252,6 +252,9 @@ class Plot(Operation):
         self.__throttle_plot = apply_throttle(self.throttle)
         code = self.attr_data if self.attr_data else self.CODE
         self.data = PlotterData(self.CODE, self.exp_code, self.localtime)
+        self.ang_min = kwargs.get('ang_min', None)
+        self.ang_max = kwargs.get('ang_max', None)
+
 
         if self.server:
             if not self.server.startswith('tcp://'):
