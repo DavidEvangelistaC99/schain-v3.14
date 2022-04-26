@@ -406,9 +406,6 @@ class DigitalRFReader(ProcessingUnit):
         self.__nSamples         = nSamples
         if self.getByBlock:
             nSamples = nSamples*nProfileBlocks
-            print('nProfileBlocks',nProfileBlocks)
-            print('nSamples',nSamples)
-        print("self.__nSample",self.__nSamples)
 
 
         self.__samples_to_read  = int(nSamples)  # FIJO: AHORA 40
@@ -568,6 +565,7 @@ class DigitalRFReader(ProcessingUnit):
         return True
 
     def __isBufferEmpty(self):
+        
         return self.__bufferIndex > self.__samples_to_read - self.__nSamples  # 40960 - 40
 
     def getData(self, seconds=30, nTries=5):
@@ -596,7 +594,6 @@ class DigitalRFReader(ProcessingUnit):
             self.__flagDiscontinuousBlock = False
 
             while True:
-                #print ("q ha pasado")
                 if self.__readNextBlock():
                     break
                 if self.__thisUnixSample > self.__endUTCSecond * self.__sample_rate:
@@ -623,11 +620,11 @@ class DigitalRFReader(ProcessingUnit):
             if not self.getByBlock:
 
                 #print("self.__bufferIndex",self.__bufferIndex)# este valor siempre es cero aparentemente
-                self.dataOut.data                   = self.__data_buffer[:, self.__bufferIndex:self.__bufferIndex + self.__nSamples]
-                self.dataOut.utctime                = ( self.__thisUnixSample + self.__bufferIndex) / self.__sample_rate
-                self.dataOut.flagNoData             = False
+                self.dataOut.data = self.__data_buffer[:, self.__bufferIndex:self.__bufferIndex + self.__nSamples]
+                self.dataOut.utctime = ( self.__thisUnixSample + self.__bufferIndex) / self.__sample_rate
+                self.dataOut.flagNoData = False
                 self.dataOut.flagDiscontinuousBlock = self.__flagDiscontinuousBlock
-                self.dataOut.profileIndex           = self.profileIndex
+                self.dataOut.profileIndex = self.profileIndex
 
                 self.__bufferIndex += self.__nSamples
                 self.profileIndex  += 1
@@ -637,13 +634,13 @@ class DigitalRFReader(ProcessingUnit):
             else:
                 # ojo debo anadir el readNextBLock y el  __isBufferEmpty(
                 self.dataOut.flagNoData             = False
-                print('Lectura por bloques')
-                print("self.__nSamples",self.__nSamples)
-                print("self.__bufferIndex",self.__bufferIndex)
                 buffer = self.__data_buffer[:,self.__bufferIndex:self.__bufferIndex + self.__samples_to_read]
-                print('shape',buffer.shape)
-                buffer = buffer.reshape((self.__nChannels,self.nProfileBlocks,int(self.__samples_to_read/self.nProfileBlocks)))
-                print('shape',buffer.shape)
+                buffer = buffer.reshape((self.__nChannels, self.nProfileBlocks, int(self.__samples_to_read/self.nProfileBlocks)))
+                self.dataOut.data = buffer
+                self.dataOut.utctime = ( self.__thisUnixSample + self.__bufferIndex) / self.__sample_rate
+                self.profileIndex  += self.__samples_to_read
+                self.__bufferIndex += self.__samples_to_read
+                self.dataOut.flagDiscontinuousBlock = self.__flagDiscontinuousBlock
             return True
 
 
@@ -671,7 +668,7 @@ class DigitalRFReader(ProcessingUnit):
 
         if not self.isConfig:
             self.setup(**kwargs)
-        #self.i = self.i+1
+
         self.getData(seconds=self.__delay)
 
         return
