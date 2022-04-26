@@ -66,8 +66,10 @@ class ConfBase():
 
     def update(self, **kwargs):
 
-        for key, value in kwargs.items():
-            self.addParameter(name=key, value=value)
+        if 'format' not in kwargs:
+            kwargs['format'] = None
+        for key, value, fmt in kwargs.items():
+            self.addParameter(name=key, value=value, format=fmt)
 
     def addParameter(self, name, value, format=None):
         '''
