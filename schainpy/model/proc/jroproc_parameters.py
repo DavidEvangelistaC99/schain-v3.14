@@ -4071,6 +4071,7 @@ class PedestalInformation(Operation):
         #    utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=list_pedestal[i]))
         nro_file,utc_ped,utc_ped_1  =self.getNROFile(utc_adq,utc_ped_list)
         #print("NROFILE************************************", nro_file,utc_ped)
+        #print(nro_file)
         if nro_file < 0:
             return numpy.NaN,numpy.NaN
         else:
@@ -4090,6 +4091,8 @@ class PedestalInformation(Operation):
                 return numpy.NaN,numpy.NaN
             #------------------------------------------------------------------------------------------------------
             '''
+            #print(int(self.samp_rate_ped))
+            #print(nro_key_p)
             if int(self.samp_rate_ped)-1>=nro_key_p>0:
                 #print("angulo_array                  :",angulo[nro_key_p])
                 return angulo[nro_key_p],angulo_ele[nro_key_p]
@@ -4195,10 +4198,13 @@ class PedestalInformation(Operation):
         self.samp_rate_ped= samp_rate_ped
         self.t_Interval_p = t_Interval_p
         self.list_pedestal = self.getfirstFilefromPath(path=self.path_ped,meta="pos@",ext=".h5")
+
         self.utc_ped_list= []
         for i in range(len(self.list_pedestal)):
             #print(i,self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[i]))# OJO IDENTIFICADOR DE SINCRONISMO
             self.utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[i]))
+            #print(self.utc_ped_list)
+            #exit(1)
         #print("que paso")
         dataOut.wr_exp     = wr_exp
         #print("SETUP READY")
@@ -4218,6 +4224,8 @@ class PedestalInformation(Operation):
 
     def run(self, dataOut,path_ped,samp_rate_ped,t_Interval_p,wr_exp):
         #print("INTEGRATION -----")
+        #print("PEDESTAL")
+
         if not self.isConfig:
             self.setup(dataOut, path_ped,samp_rate_ped,t_Interval_p,wr_exp)
             self.__dataReady = True
@@ -4231,11 +4239,18 @@ class PedestalInformation(Operation):
         angulo,angulo_ele = self.getAnguloProfile(utc_adq=utc_adq,utc_ped_list=self.utc_ped_list)
         #print("angulo**********",angulo)
         dataOut.flagNoData      = False
+
         if numpy.isnan(angulo) or numpy.isnan(angulo_ele) :
+            #print("PEDESTAL 3")
+            #exit(1)
             dataOut.flagNoData = True
             return dataOut
         dataOut.azimuth         = angulo
         dataOut.elevation       = angulo_ele
+        #print("PEDESTAL END")
+        #print(dataOut.azimuth)
+        #print(dataOut.elevation)
+        #exit(1)
         return dataOut
 
 class Block360(Operation):
@@ -4373,6 +4388,8 @@ class Block360(Operation):
 
     def run(self, dataOut,n = None,mode=None,**kwargs):
         #print("BLOCK 360 HERE WE GO MOMENTOS")
+        print("Block 360")
+        #exit(1)
         if not self.isConfig:
             self.setup(dataOut = dataOut, n    = n ,mode= mode ,**kwargs)
             ####self.index = 0
@@ -4388,7 +4405,7 @@ class Block360(Operation):
             #print("DATA 360")
             #print(dataOut.data_360)
             #print("---------------------------------------------------------------------------------")
-            #print("---------------------------DATAREADY---------------------------------------------")
+            print("---------------------------DATAREADY---------------------------------------------")
             #print("---------------------------------------------------------------------------------")
             #print("data_360",dataOut.data_360.shape)
             dataOut.data_azi         = data_p
@@ -4398,4 +4415,208 @@ class Block360(Operation):
             #print("jroproc_parameters",data_p[0],data_p[-1])#,data_360.shape,avgdatatime)
             dataOut.utctime         = avgdatatime
             dataOut.flagNoData      = False
+        return dataOut
+
+class Block360_vRF(Operation):
+    '''
+    '''
+    isConfig       = False
+    __profIndex    = 0
+    __initime      = None
+    __lastdatatime = None
+    __buffer       = None
+    __dataReady    = False
+    n              = None
+    __nch          = 0
+    __nHeis        = 0
+    index          = 0
+    mode           = 0
+
+    def __init__(self,**kwargs):
+        Operation.__init__(self,**kwargs)
+
+    def setup(self, dataOut, n = None, mode = None):
+        '''
+        n= Numero de PRF's de entrada
+        '''
+        self.__initime        = None
+        self.__lastdatatime   = 0
+        self.__dataReady      = False
+        self.__buffer         = 0
+        self.__buffer_1D      = 0
+        self.__profIndex      = 0
+        self.index            = 0
+        self.__nch            = dataOut.nChannels
+        self.__nHeis          = dataOut.nHeights
+        ##print("ELVALOR DE n es:", n)
+        if n == None:
+            raise ValueError("n should be specified.")
+
+        if mode == None:
+            raise ValueError("mode should be specified.")
+
+        if n != None:
+            if n<1:
+                print("n should be greater than 2")
+                raise ValueError("n should be greater than 2")
+
+        self.n       = n
+        self.mode    = mode
+        #print("self.mode",self.mode)
+        #print("nHeights")
+        self.__buffer  = numpy.zeros(( dataOut.nChannels,n, dataOut.nHeights))
+        self.__buffer2 = numpy.zeros(n)
+        self.__buffer3 = numpy.zeros(n)
+
+
+
+
+    def putData(self,data,mode):
+        '''
+        Add a profile to he __buffer and increase in one the __profiel Index
+        '''
+        #print("line 4049",data.dataPP_POW.shape,data.dataPP_POW[:10])
+        #print("line 4049",data.azimuth.shape,data.azimuth)
+        if self.mode==0:
+            self.__buffer[:,self.__profIndex,:]= data.dataPP_POWER# PRIMER MOMENTO
+        if self.mode==1:
+            self.__buffer[:,self.__profIndex,:]= data.data_pow
+        #print("me casi",self.index,data.azimuth[self.index])
+        #print(self.__profIndex, self.index , data.azimuth[self.index] )
+        #print("magic",data.profileIndex)
+        #print(data.azimuth[self.index])
+        #print("index",self.index)
+
+        #####self.__buffer2[self.__profIndex] = data.azimuth[self.index]
+        self.__buffer2[self.__profIndex] = data.azimuth
+        self.__buffer3[self.__profIndex] = data.elevation
+        #print("q pasa")
+        #####self.index+=1
+        #print("index",self.index,data.azimuth[:10])
+        self.__profIndex      += 1
+        return        #················· Remove DC···································
+
+    def pushData(self,data):
+        '''
+        Return the PULSEPAIR and the profiles used in the operation
+        Affected :  self.__profileIndex
+        '''
+        #print("pushData")
+
+        data_360 = self.__buffer
+        data_p   = self.__buffer2
+        data_e   = self.__buffer3
+        n                = self.__profIndex
+
+        self.__buffer    = numpy.zeros((self.__nch, self.n,self.__nHeis))
+        self.__buffer2 = numpy.zeros(self.n)
+        self.__buffer3 = numpy.zeros(self.n)
+        self.__profIndex = 0
+        #print("pushData")
+        return data_360,n,data_p,data_e
+
+
+    def byProfiles(self,dataOut):
+
+        self.__dataReady     =  False
+        data_360           =  None
+        data_p             = None
+        data_e             = None
+        #print("dataOu",dataOut.dataPP_POW)
+        self.putData(data=dataOut,mode = self.mode)
+        ##### print("profIndex",self.__profIndex)
+        if self.__profIndex  == self.n:
+            data_360,n,data_p,data_e  = self.pushData(data=dataOut)
+            self.__dataReady                   = True
+
+        return data_360,data_p,data_e
+
+
+    def blockOp(self, dataOut, datatime= None):
+        if self.__initime == None:
+            self.__initime = datatime
+        data_360,data_p,data_e = self.byProfiles(dataOut)
+        self.__lastdatatime           = datatime
+
+        if data_360 is None:
+            return None, None,None,None
+
+
+        avgdatatime    = self.__initime
+        if self.n==1:
+            avgdatatime = datatime
+        deltatime      = datatime - self.__lastdatatime
+        self.__initime = datatime
+        #print(data_360.shape,avgdatatime,data_p.shape)
+        return data_360,avgdatatime,data_p,data_e
+
+    def checkcase(self,data_ele):
+        start  = data_ele[0]
+        end    = data_ele[-1]
+        diff_angle = (end-start)
+        len_ang=len(data_ele)
+        print("start",start)
+        print("end",end)
+        print("number",diff_angle)
+
+        print("len_ang",len_ang)
+
+        aux = (data_ele<0).any(axis=0)
+
+        #exit(1)
+        if diff_angle<0 and aux!=1: #Bajada
+            return 1
+        elif diff_angle<0 and aux==1: #Bajada con angulos negativos
+            return 0
+        elif diff_angle == 0: # This case happens when the angle reaches the max_angle if n = 2
+            self.flagEraseFirstData = 1
+            print("ToDO this case")
+            exit(1)
+        elif diff_angle>0: #Subida
+            return 0
+
+    def run(self, dataOut,n = None,mode=None,**kwargs):
+        #print("BLOCK 360 HERE WE GO MOMENTOS")
+        print("Block 360")
+
+        #exit(1)
+        if not self.isConfig:
+            if n == 1:
+                print("*******************Min Value is 2. Setting n = 2*******************")
+                n = 2
+            #exit(1)
+            print(n)
+            self.setup(dataOut = dataOut, n    = n ,mode= mode ,**kwargs)
+            ####self.index = 0
+            #print("comova",self.isConfig)
+            self.isConfig   = True
+        ####if self.index==dataOut.azimuth.shape[0]:
+        ####    self.index=0
+        data_360, avgdatatime,data_p,data_e = self.blockOp(dataOut, dataOut.utctime)
+        dataOut.flagNoData                         = True
+
+        if self.__dataReady:
+            dataOut.data_360         = data_360 # S
+            #print("DATA 360")
+            #print(dataOut.data_360)
+            #print("---------------------------------------------------------------------------------")
+            print("---------------------------DATAREADY---------------------------------------------")
+            #print("---------------------------------------------------------------------------------")
+            #print("data_360",dataOut.data_360.shape)
+            dataOut.data_azi         = data_p
+            dataOut.data_ele         = data_e
+            ###print("azi:    ",dataOut.data_azi)
+            #print("ele:    ",dataOut.data_ele)
+            #print("jroproc_parameters",data_p[0],data_p[-1])#,data_360.shape,avgdatatime)
+            dataOut.utctime         = avgdatatime
+
+            dataOut.case_flag = self.checkcase(dataOut.data_ele)
+            if dataOut.case_flag: #Si está de bajada empieza a plotear
+                print("INSIDE CASE FLAG BAJADA")
+                dataOut.flagNoData  = False
+            else:
+                print("CASE SUBIDA")
+                dataOut.flagNoData  = True
+
+            #dataOut.flagNoData      = False
         return dataOut

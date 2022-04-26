@@ -216,7 +216,7 @@ class selectHeights(Operation):
 
             if (maxIndex >= self.dataOut.nHeights):
                 maxIndex = self.dataOut.nHeights
-
+            #print("shapeeee",self.dataOut.data.shape)
             #voltage
             if self.dataOut.flagDataAsBlock:
                 """
@@ -1472,7 +1472,10 @@ class PulsePair(Operation):
         return data_power, data_intensity, data_velocity, data_snrPP,data_specwidth,data_ccf, avgdatatime
 
     def run(self, dataOut,n = None,removeDC= False, overlapping= False,**kwargs):
-
+        #print("hey")
+        #print(dataOut.data.shape)
+        #exit(1)
+        #print(self.__profIndex)
         if not self.isConfig:
             self.setup(dataOut = dataOut, n    = n , removeDC=removeDC , **kwargs)
             self.isConfig   = True
@@ -1494,7 +1497,233 @@ class PulsePair(Operation):
             dataOut.flagNoData      = False
         return dataOut
 
+class PulsePair_vRF(Operation):
+    '''
+    Function PulsePair(Signal Power, Velocity)
+    The real component of Lag[0] provides Intensity Information
+    The imag component of Lag[1] Phase provides Velocity Information
 
+    Configuration Parameters:
+    nPRF = Number of Several PRF
+    theta = Degree Azimuth angel Boundaries
+
+    Input:
+          self.dataOut
+          lag[N]
+    Affected:
+          self.dataOut.spc
+    '''
+    isConfig       = False
+    __profIndex    = 0
+    __initime      = None
+    __lastdatatime = None
+    __buffer       = None
+    noise          = None
+    __dataReady    = False
+    n              = None
+    __nch          = 0
+    __nHeis        = 0
+    removeDC       = False
+    ipp            = None
+    lambda_        = 0
+
+    def __init__(self,**kwargs):
+        Operation.__init__(self,**kwargs)
+
+    def setup(self, dataOut, n = None, removeDC=False):
+        '''
+        n= Numero de PRF's de entrada
+        '''
+        self.__initime        = None
+        ####print("[INICIO]-setup  del METODO PULSE PAIR")
+        self.__lastdatatime   = 0
+        self.__dataReady      = False
+        self.__buffer         = 0
+        self.__profIndex      = 0
+        self.noise            = None
+        self.__nch            = dataOut.nChannels
+        self.__nHeis          = dataOut.nHeights
+        self.removeDC         = removeDC
+        self.lambda_          = 3.0e8/(9345.0e6)
+        self.ippSec           = dataOut.ippSeconds
+        self.nCohInt          = dataOut.nCohInt
+        ####print("IPPseconds",dataOut.ippSeconds)
+        ####print("ELVALOR DE n es:", n)
+        if n == None:
+            raise ValueError("n should be specified.")
+
+        if n != None:
+            if n<2:
+                raise ValueError("n should be greater than 2")
+
+        self.n       = n
+        self.__nProf = n
+
+        self.__buffer = numpy.zeros((dataOut.nChannels,
+                                           n,
+                                           dataOut.nHeights),
+                                          dtype='complex')
+
+    def putData(self,data):
+        '''
+        Add a profile to he __buffer and increase in one the __profiel Index
+        '''
+        self.__buffer[:,self.__profIndex,:]= data
+        self.__profIndex      += 1
+        return
+
+    def putDataByBlock(self,data,n):
+        '''
+        Add a profile to he __buffer and increase in one the __profiel Index
+        '''
+        self.__buffer[:]= data
+        self.__profIndex      = n
+        return
+
+    def pushData(self,dataOut):
+        '''
+        Return the PULSEPAIR and the profiles used in the operation
+        Affected :  self.__profileIndex
+        '''
+        #----------------- Remove DC-----------------------------------
+        if self.removeDC==True:
+            mean    = numpy.mean(self.__buffer,1)
+            tmp     = mean.reshape(self.__nch,1,self.__nHeis)
+            dc= numpy.tile(tmp,[1,self.__nProf,1])
+            self.__buffer = self.__buffer -  dc
+        #------------------Calculo de Potencia ------------------------
+        pair0       = self.__buffer*numpy.conj(self.__buffer)
+        pair0       = pair0.real
+        lag_0       = numpy.sum(pair0,1)
+        #-----------------Calculo de Cscp------------------------------ New
+        cspc_pair01 = self.__buffer[0]*self.__buffer[1]
+        #------------------Calculo de Ruido x canal--------------------
+        self.noise  = numpy.zeros(self.__nch)
+        for i in range(self.__nch):
+            daux         = numpy.sort(pair0[i,:,:],axis= None)
+            self.noise[i]=hildebrand_sekhon( daux ,self.nCohInt)
+
+        self.noise       = self.noise.reshape(self.__nch,1)
+        self.noise       = numpy.tile(self.noise,[1,self.__nHeis])
+        noise_buffer     = self.noise.reshape(self.__nch,1,self.__nHeis)
+        noise_buffer     = numpy.tile(noise_buffer,[1,self.__nProf,1])
+        #------------------ Potencia recibida= P , Potencia senal = S , Ruido= N--
+        #------------------   P= S+N  ,P=lag_0/N ---------------------------------
+        #-------------------- Power --------------------------------------------------
+        data_power       = lag_0/(self.n*self.nCohInt)
+        #--------------------CCF------------------------------------------------------
+        data_ccf         =numpy.sum(cspc_pair01,axis=0)/(self.n*self.nCohInt)
+        #------------------  Senal  --------------------------------------------------
+        data_intensity   = pair0 - noise_buffer
+        data_intensity   = numpy.sum(data_intensity,axis=1)*(self.n*self.nCohInt)#*self.nCohInt)
+        #data_intensity   = (lag_0-self.noise*self.n)*(self.n*self.nCohInt)
+        for i in range(self.__nch):
+            for j in range(self.__nHeis):
+                if data_intensity[i][j]  < 0:
+                    data_intensity[i][j] = numpy.min(numpy.absolute(data_intensity[i][j]))
+
+        #----------------- Calculo de Frecuencia y Velocidad doppler--------
+        pair1            = self.__buffer[:,:-1,:]*numpy.conjugate(self.__buffer[:,1:,:])
+        lag_1            = numpy.sum(pair1,1)
+        data_freq        = (-1/(2.0*math.pi*self.ippSec*self.nCohInt))*numpy.angle(lag_1)
+        data_velocity    = (self.lambda_/2.0)*data_freq
+
+        #---------------- Potencia promedio estimada de la Senal-----------
+        lag_0            = lag_0/self.n
+        S                = lag_0-self.noise
+
+        #---------------- Frecuencia Doppler promedio ---------------------
+        lag_1            = lag_1/(self.n-1)
+        R1               = numpy.abs(lag_1)
+
+        #---------------- Calculo del SNR----------------------------------
+        data_snrPP       = S/self.noise
+        for i in range(self.__nch):
+            for j in range(self.__nHeis):
+                if data_snrPP[i][j]  < 1.e-20:
+                    data_snrPP[i][j] = 1.e-20
+
+        #----------------- Calculo del ancho espectral ----------------------
+        L                = S/R1
+        L                = numpy.where(L<0,1,L)
+        L                = numpy.log(L)
+        tmp              = numpy.sqrt(numpy.absolute(L))
+        data_specwidth   = (self.lambda_/(2*math.sqrt(2)*math.pi*self.ippSec*self.nCohInt))*tmp*numpy.sign(L)
+        n                = self.__profIndex
+
+        self.__buffer    = numpy.zeros((self.__nch, self.__nProf,self.__nHeis),  dtype='complex')
+        self.__profIndex = 0
+        return data_power,data_intensity,data_velocity,data_snrPP,data_specwidth,data_ccf,n
+
+
+    def pulsePairbyProfiles(self,dataOut,n):
+
+        self.__dataReady     =  False
+        data_power           =  None
+        data_intensity       =  None
+        data_velocity        =  None
+        data_specwidth       =  None
+        data_snrPP           =  None
+        data_ccf             =  None
+
+        if dataOut.flagDataAsBlock:
+            self.putDataByBlock(data=dataOut.data,n=n)
+        else:
+            self.putData(data=dataOut.data)
+        if self.__profIndex  == self.n:
+            data_power,data_intensity, data_velocity,data_snrPP,data_specwidth,data_ccf, n   = self.pushData(dataOut=dataOut)
+            self.__dataReady                   = True
+
+        return data_power, data_intensity, data_velocity, data_snrPP,data_specwidth,data_ccf
+
+
+    def pulsePairOp(self, dataOut, n, datatime= None):
+
+        if self.__initime == None:
+            self.__initime = datatime
+        data_power, data_intensity, data_velocity, data_snrPP,data_specwidth,data_ccf = self.pulsePairbyProfiles(dataOut,n)
+        self.__lastdatatime           = datatime
+
+        if data_power is None:
+            return None, None, None,None,None,None,None
+
+        avgdatatime    = self.__initime
+        deltatime      = datatime - self.__lastdatatime
+        self.__initime = datatime
+
+        return data_power, data_intensity, data_velocity, data_snrPP,data_specwidth,data_ccf, avgdatatime
+
+    def run(self, dataOut,n = None,removeDC= False, overlapping= False,**kwargs):
+        #print("hey")
+        #print(dataOut.data.shape)
+        #exit(1)
+        if dataOut.flagDataAsBlock:
+            n = dataOut.nProfileBlocks
+        #print(self.__profIndex)
+        if not self.isConfig:
+            self.setup(dataOut = dataOut, n    = n , removeDC=removeDC , **kwargs)
+            self.isConfig   = True
+
+
+        data_power, data_intensity, data_velocity,data_snrPP,data_specwidth,data_ccf, avgdatatime = self.pulsePairOp(dataOut, n, dataOut.utctime)
+
+
+        dataOut.flagNoData                         = True
+
+        if self.__dataReady:
+            ###print("READY ----------------------------------")
+            dataOut.nCohInt        *= self.n
+            dataOut.dataPP_POW      = data_intensity # S
+            dataOut.dataPP_POWER    = data_power     # P valor que corresponde a POTENCIA MOMENTO
+            dataOut.dataPP_DOP      = data_velocity
+            dataOut.dataPP_SNR      = data_snrPP
+            dataOut.dataPP_WIDTH    = data_specwidth
+            dataOut.dataPP_CCF      = data_ccf
+            dataOut.PRFbyAngle      = self.n         #numero de PRF*cada angulo rotado que equivale a un tiempo.
+            dataOut.nProfiles       = int(dataOut.nProfiles/n)
+            dataOut.utctime         = avgdatatime
+            dataOut.flagNoData      = False
+        return dataOut
 
 # import collections
 # from scipy.stats import mode

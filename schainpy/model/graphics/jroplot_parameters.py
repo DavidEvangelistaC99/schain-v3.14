@@ -691,9 +691,9 @@ class WeatherRHIPlot(Plot):
         #data['weather'] = 10*numpy.log10(dataOut.data_360[1]/(factor))
         data['azi']     = dataOut.data_azi
         data['ele']     = dataOut.data_ele
-        print("UPDATE")
-        print("data[weather]",data['weather'].shape)
-        print("data[azi]",data['azi'])
+        #print("UPDATE")
+        #print("data[weather]",data['weather'].shape)
+        #print("data[azi]",data['azi'])
         return data, meta
 
     def get2List(self,angulos):
@@ -797,6 +797,13 @@ class WeatherRHIPlot(Plot):
         end    = data_ele[-1]
         number = (end-start)
         len_ang=len(data_ele)
+        print("start",start)
+        print("end",end)
+        print("number",number)
+
+        print("len_ang",len_ang)
+
+        #exit(1)
 
         if start<end and (round(abs(number)+1)>=len_ang or (numpy.argmin(data_ele)==0)):#caso subida
             return 0
@@ -829,6 +836,7 @@ class WeatherRHIPlot(Plot):
             #----------------------------------------------------------
             tipo_case = self.check_case(data_ele,ang_max,ang_min)
             print("check_case",tipo_case)
+            #exit(1)
             #--------------------- new -------------------------
             data_ele_new ,data_ele_old= self.globalCheckPED(data_ele,tipo_case)
 
@@ -842,15 +850,21 @@ class WeatherRHIPlot(Plot):
             if tipo_case==0  or tipo_case==3: # SUBIDA
                 n1= round(self.start_data_ele)- start
                 n2= end - round(self.end_data_ele)
+                print(self.start_data_ele)
+                print(self.end_data_ele)
                 if n1>0:
                     ele1= numpy.linspace(ang_min+1,self.start_data_ele-1,n1)
                     ele1_nan= numpy.ones(n1)*numpy.nan
                     data_ele = numpy.hstack((ele1,data_ele_new))
+                    print("ele1_nan",ele1_nan.shape)
+                    print("data_ele_old",data_ele_old.shape)
                     data_ele_old = numpy.hstack((ele1_nan,data_ele_old))
                 if n2>0:
                     ele2= numpy.linspace(self.end_data_ele+1,end,n2)
                     ele2_nan= numpy.ones(n2)*numpy.nan
                     data_ele = numpy.hstack((data_ele,ele2))
+                    print("ele2_nan",ele2_nan.shape)
+                    print("data_ele_old",data_ele_old.shape)
                     data_ele_old = numpy.hstack((data_ele_old,ele2_nan))
 
             if tipo_case==1  or tipo_case==2: # BAJADA
@@ -1065,11 +1079,780 @@ class WeatherRHIPlot(Plot):
         for i,ax in enumerate(self.axes):
             self.res_weather[i], self.res_ele = self.const_ploteo(val_ch=i, data_weather=data['weather'][i][:,r_mask],data_ele=data['ele'],step=step,res=res,ang_max=ang_max,ang_min=ang_min)
             self.res_azi                   = numpy.mean(data['azi'])
+            if i==0:
+                print("*****************************************************************************to plot**************************",self.res_weather[i].shape)
             if ax.firsttime:
                 #plt.clf()
                 cgax, pm = wrl.vis.plot_rhi(self.res_weather[i],r=r,th=self.res_ele,ax=subplots[i], proj='cg',vmin=20, vmax=80)
                 #fig=self.figures[0]
             else:
+                #plt.clf()
+                if i==0:
+                    print(self.res_weather[i])
+                    print(self.res_ele)
+                cgax, pm = wrl.vis.plot_rhi(self.res_weather[i],r=r,th=self.res_ele,ax=subplots[i], proj='cg',vmin=20, vmax=80)
+            caax = cgax.parasites[0]
+            paax = cgax.parasites[1]
+            cbar = plt.gcf().colorbar(pm, pad=0.075)
+            caax.set_xlabel('x_range [km]')
+            caax.set_ylabel('y_range [km]')
+            plt.text(1.0, 1.05, 'Elevacion '+str(thisDatetime)+"  Step   "+str(self.ini)+ " Azi: "+str(round(self.res_azi,2)), transform=caax.transAxes, va='bottom',ha='right')
+        print("***************************self.ini****************************",self.ini)
+        self.ini= self.ini+1
+
+class WeatherRHI_vRF2_Plot(Plot):
+    CODE = 'weather'
+    plot_name = 'weather'
+    plot_type = 'rhistyle'
+    buffering = False
+    data_ele_tmp = None
+
+    def setup(self):
+        print("********************")
+        print("********************")
+        print("********************")
+        print("SETUP WEATHER PLOT")
+        self.ncols = 1
+        self.nrows = 1
+        self.nplots= 1
+        self.ylabel= 'Range [Km]'
+        self.titles= ['Weather']
+        if self.channels is not None:
+            self.nplots = len(self.channels)
+            self.nrows = len(self.channels)
+        else:
+            self.nplots = self.data.shape(self.CODE)[0]
+            self.nrows = self.nplots
+            self.channels = list(range(self.nplots))
+        print("channels",self.channels)
+        print("que saldra", self.data.shape(self.CODE)[0])
+        self.titles = ['{} Channel {}'.format(self.CODE.upper(), x) for x in range(self.nrows)]
+        print("self.titles",self.titles)
+        self.colorbar=False
+        self.width   =8
+        self.height  =8
+        self.ini     =0
+        self.len_azi =0
+        self.buffer_ini  = None
+        self.buffer_ele   = None
+        self.plots_adjust.update({'wspace': 0.4, 'hspace':0.4, 'left': 0.1, 'right': 0.9, 'bottom': 0.08})
+        self.flag    =0
+        self.indicador= 0
+        self.last_data_ele = None
+        self.val_mean      = None
+
+    def update(self, dataOut):
+
+        data = {}
+        meta = {}
+        if hasattr(dataOut, 'dataPP_POWER'):
+            factor = 1
+        if hasattr(dataOut, 'nFFTPoints'):
+            factor = dataOut.normFactor
+        print("dataOut",dataOut.data_360.shape)
+        #
+        data['weather'] = 10*numpy.log10(dataOut.data_360/(factor))
+        #
+        #data['weather'] = 10*numpy.log10(dataOut.data_360[1]/(factor))
+        data['azi']     = dataOut.data_azi
+        data['ele']     = dataOut.data_ele
+        data['case_flag']     = dataOut.case_flag
+        #print("UPDATE")
+        #print("data[weather]",data['weather'].shape)
+        #print("data[azi]",data['azi'])
+        return data, meta
+
+    def get2List(self,angulos):
+        list1=[]
+        list2=[]
+        for i in reversed(range(len(angulos))):
+            if not i==0:#el caso de i=0 evalula el primero de la lista con el ultimo y no es relevante
+                diff_ = angulos[i]-angulos[i-1]
+                if abs(diff_) >1.5:
+                    list1.append(i-1)
+                    list2.append(diff_)
+        return list(reversed(list1)),list(reversed(list2))
+
+    def fixData90(self,list_,ang_):
+        if list_[0]==-1:
+            vec = numpy.where(ang_<ang_[0])
+            ang_[vec] = ang_[vec]+90
+            return ang_
+        return ang_
+
+    def fixData90HL(self,angulos):
+        vec = numpy.where(angulos>=90)
+        angulos[vec]=angulos[vec]-90
+        return angulos
+
+
+    def search_pos(self,pos,list_):
+        for i in range(len(list_)):
+            if pos == list_[i]:
+                return True,i
+        i=None
+        return False,i
+
+    def fixDataComp(self,ang_,list1_,list2_,tipo_case):
+        size  = len(ang_)
+        size2 = 0
+        for i in range(len(list2_)):
+            size2=size2+round(abs(list2_[i]))-1
+        new_size= size+size2
+        ang_new = numpy.zeros(new_size)
+        ang_new2 = numpy.zeros(new_size)
+
+        tmp = 0
+        c   = 0
+        for i in range(len(ang_)):
+            ang_new[tmp +c] = ang_[i]
+            ang_new2[tmp+c] = ang_[i]
+            condition , value = self.search_pos(i,list1_)
+            if condition:
+                pos = tmp + c + 1
+                for k in range(round(abs(list2_[value]))-1):
+                    if tipo_case==0 or tipo_case==3:#subida
+                        ang_new[pos+k]  = ang_new[pos+k-1]+1
+                        ang_new2[pos+k] = numpy.nan
+                    elif tipo_case==1 or tipo_case==2:#bajada
+                        ang_new[pos+k]  = ang_new[pos+k-1]-1
+                        ang_new2[pos+k] = numpy.nan
+
+                tmp = pos +k
+                c   = 0
+            c=c+1
+        return ang_new,ang_new2
+
+    def globalCheckPED(self,angulos,tipo_case):
+        l1,l2 = self.get2List(angulos)
+        ##print("l1",l1)
+        ##print("l2",l2)
+        if len(l1)>0:
+            #angulos2 = self.fixData90(list_=l1,ang_=angulos)
+            #l1,l2 = self.get2List(angulos2)
+            ang1_,ang2_ = self.fixDataComp(ang_=angulos,list1_=l1,list2_=l2,tipo_case=tipo_case)
+            #ang1_ = self.fixData90HL(ang1_)
+            #ang2_ = self.fixData90HL(ang2_)
+        else:
+            ang1_= angulos
+            ang2_= angulos
+        return ang1_,ang2_
+
+
+    def replaceNAN(self,data_weather,data_ele,val):
+        data= data_ele
+        data_T= data_weather
+        if data.shape[0]> data_T.shape[0]:
+            data_N = numpy.ones( [data.shape[0],data_T.shape[1]])
+            c      = 0
+            for i in range(len(data)):
+                if numpy.isnan(data[i]):
+                    data_N[i,:]=numpy.ones(data_T.shape[1])*numpy.nan
+                else:
+                    data_N[i,:]=data_T[c,:]
+                    c=c+1
+            return data_N
+        else:
+            for i in range(len(data)):
+                if numpy.isnan(data[i]):
+                   data_T[i,:]=numpy.ones(data_T.shape[1])*numpy.nan
+            return data_T
+
+    def check_case(self,data_ele,ang_max,ang_min):
+        start  = data_ele[0]
+        end    = data_ele[-1]
+        number = (end-start)
+        len_ang=len(data_ele)
+        print("start",start)
+        print("end",end)
+        print("number",number)
+
+        print("len_ang",len_ang)
+
+        #exit(1)
+
+        if start<end and (round(abs(number)+1)>=len_ang or (numpy.argmin(data_ele)==0)):#caso subida
+            return 0
+        #elif start>end and (round(abs(number)+1)>=len_ang or(numpy.argmax(data_ele)==0)):#caso bajada
+        #    return 1
+        elif round(abs(number)+1)>=len_ang and (start>end or(numpy.argmax(data_ele)==0)):#caso bajada
+            return 1
+        elif round(abs(number)+1)<len_ang and data_ele[-2]>data_ele[-1]:# caso BAJADA CAMBIO ANG MAX
+            return 2
+        elif round(abs(number)+1)<len_ang and data_ele[-2]<data_ele[-1] :# caso SUBIDA CAMBIO ANG MIN
+            return 3
+
+
+    def const_ploteo(self,val_ch,data_weather,data_ele,step,res,ang_max,ang_min,case_flag):
+        ang_max= ang_max
+        ang_min= ang_min
+        data_weather=data_weather
+        val_ch=val_ch
+        ##print("*********************DATA WEATHER**************************************")
+        ##print(data_weather)
+        if self.ini==0:
+            '''
+            print("**********************************************")
+            print("**********************************************")
+            print("***************ini**************")
+            print("**********************************************")
+            print("**********************************************")
+            '''
+            #print("data_ele",data_ele)
+            #----------------------------------------------------------
+            tipo_case = case_flag[-1]
+            #tipo_case = self.check_case(data_ele,ang_max,ang_min)
+            print("check_case",tipo_case)
+            #exit(1)
+            #--------------------- new -------------------------
+            data_ele_new ,data_ele_old= self.globalCheckPED(data_ele,tipo_case)
+
+            #-------------------------CAMBIOS RHI---------------------------------
+            start= ang_min
+            end  = ang_max
+            n= (ang_max-ang_min)/res
+            #------ new
+            self.start_data_ele = data_ele_new[0]
+            self.end_data_ele  = data_ele_new[-1]
+            if tipo_case==0  or tipo_case==3: # SUBIDA
+                n1= round(self.start_data_ele)- start
+                n2= end - round(self.end_data_ele)
+                print(self.start_data_ele)
+                print(self.end_data_ele)
+                if n1>0:
+                    ele1= numpy.linspace(ang_min+1,self.start_data_ele-1,n1)
+                    ele1_nan= numpy.ones(n1)*numpy.nan
+                    data_ele = numpy.hstack((ele1,data_ele_new))
+                    print("ele1_nan",ele1_nan.shape)
+                    print("data_ele_old",data_ele_old.shape)
+                    data_ele_old = numpy.hstack((ele1_nan,data_ele_old))
+                if n2>0:
+                    ele2= numpy.linspace(self.end_data_ele+1,end,n2)
+                    ele2_nan= numpy.ones(n2)*numpy.nan
+                    data_ele = numpy.hstack((data_ele,ele2))
+                    print("ele2_nan",ele2_nan.shape)
+                    print("data_ele_old",data_ele_old.shape)
+                    data_ele_old = numpy.hstack((data_ele_old,ele2_nan))
+
+            if tipo_case==1  or tipo_case==2: # BAJADA
+                data_ele_new       = data_ele_new[::-1] #  reversa
+                data_ele_old   = data_ele_old[::-1]# reversa
+                data_weather   = data_weather[::-1,:]# reversa
+                vec= numpy.where(data_ele_new<ang_max)
+                data_ele_new = data_ele_new[vec]
+                data_ele_old = data_ele_old[vec]
+                data_weather  = data_weather[vec[0]]
+                vec2= numpy.where(0<data_ele_new)
+                data_ele_new = data_ele_new[vec2]
+                data_ele_old = data_ele_old[vec2]
+                data_weather  = data_weather[vec2[0]]
+                self.start_data_ele = data_ele_new[0]
+                self.end_data_ele  = data_ele_new[-1]
+
+                n1= round(self.start_data_ele)- start
+                n2= end - round(self.end_data_ele)-1
+                print(self.start_data_ele)
+                print(self.end_data_ele)
+                if n1>0:
+                    ele1= numpy.linspace(ang_min+1,self.start_data_ele-1,n1)
+                    ele1_nan= numpy.ones(n1)*numpy.nan
+                    data_ele = numpy.hstack((ele1,data_ele_new))
+                    data_ele_old = numpy.hstack((ele1_nan,data_ele_old))
+                if n2>0:
+                    ele2= numpy.linspace(self.end_data_ele+1,end,n2)
+                    ele2_nan= numpy.ones(n2)*numpy.nan
+                    data_ele = numpy.hstack((data_ele,ele2))
+                    data_ele_old = numpy.hstack((data_ele_old,ele2_nan))
+            # RADAR
+            # NOTA data_ele y data_weather es la variable que retorna
+            val_mean         = numpy.mean(data_weather[:,-1])
+            self.val_mean    = val_mean
+            data_weather     = self.replaceNAN(data_weather=data_weather,data_ele=data_ele_old,val=self.val_mean)
+            print("eleold",data_ele_old)
+            print(self.data_ele_tmp[val_ch])
+            print(data_ele_old.shape[0])
+            print(self.data_ele_tmp[val_ch].shape[0])
+            if (data_ele_old.shape[0]==91 or self.data_ele_tmp[val_ch].shape[0]==91):
+                import sys
+                print("EXIT",self.ini)
+
+                sys.exit(1)
+            self.data_ele_tmp[val_ch]= data_ele_old
+        else:
+            #print("**********************************************")
+            #print("****************VARIABLE**********************")
+            #-------------------------CAMBIOS RHI---------------------------------
+            #---------------------------------------------------------------------
+            ##print("INPUT data_ele",data_ele)
+            flag=0
+            start_ele = self.res_ele[0]
+            #tipo_case = self.check_case(data_ele,ang_max,ang_min)
+            tipo_case = case_flag[-1]
+            #print("TIPO DE DATA",tipo_case)
+            #-----------new------------
+            data_ele ,data_ele_old = self.globalCheckPED(data_ele,tipo_case)
+            data_weather           = self.replaceNAN(data_weather=data_weather,data_ele=data_ele_old,val=self.val_mean)
+
+            #-------------------------------NEW RHI ITERATIVO-------------------------
+
+            if tipo_case==0 : # SUBIDA
+                vec = numpy.where(data_ele<ang_max)
+                data_ele = data_ele[vec]
+                data_ele_old = data_ele_old[vec]
+                data_weather  = data_weather[vec[0]]
+
+                vec2 = numpy.where(0<data_ele)
+                data_ele= data_ele[vec2]
+                data_ele_old= data_ele_old[vec2]
+                ##print(data_ele_new)
+                data_weather= data_weather[vec2[0]]
+
+                new_i_ele  = int(round(data_ele[0]))
+                new_f_ele  = int(round(data_ele[-1]))
+                #print(new_i_ele)
+                #print(new_f_ele)
+                #print(data_ele,len(data_ele))
+                #print(data_ele_old,len(data_ele_old))
+                if new_i_ele< 2:
+                    self.data_ele_tmp[val_ch] = numpy.ones(ang_max-ang_min)*numpy.nan
+                    self.res_weather[val_ch]  = self.replaceNAN(data_weather=self.res_weather[val_ch],data_ele=self.data_ele_tmp[val_ch],val=self.val_mean)
+                self.data_ele_tmp[val_ch][new_i_ele:new_i_ele+len(data_ele)]=data_ele_old
+                self.res_ele[new_i_ele:new_i_ele+len(data_ele)]= data_ele
+                self.res_weather[val_ch][new_i_ele:new_i_ele+len(data_ele),:]= data_weather
+                data_ele                                    = self.res_ele
+                data_weather                                = self.res_weather[val_ch]
+
+            elif tipo_case==1 : #BAJADA
+                data_ele       = data_ele[::-1] #  reversa
+                data_ele_old   = data_ele_old[::-1]# reversa
+                data_weather   = data_weather[::-1,:]# reversa
+                vec= numpy.where(data_ele<ang_max)
+                data_ele = data_ele[vec]
+                data_ele_old = data_ele_old[vec]
+                data_weather  = data_weather[vec[0]]
+                vec2= numpy.where(0<data_ele)
+                data_ele = data_ele[vec2]
+                data_ele_old = data_ele_old[vec2]
+                data_weather  = data_weather[vec2[0]]
+
+
+                new_i_ele  = int(round(data_ele[0]))
+                new_f_ele  = int(round(data_ele[-1]))
+                #print(data_ele)
+                #print(ang_max)
+                #print(data_ele_old)
+                if new_i_ele <= 1:
+                    new_i_ele = 1
+                if round(data_ele[-1])>=ang_max-1:
+                    self.data_ele_tmp[val_ch] = numpy.ones(ang_max-ang_min)*numpy.nan
+                    self.res_weather[val_ch]  = self.replaceNAN(data_weather=self.res_weather[val_ch],data_ele=self.data_ele_tmp[val_ch],val=self.val_mean)
+                self.data_ele_tmp[val_ch][new_i_ele-1:new_i_ele+len(data_ele)-1]=data_ele_old
+                self.res_ele[new_i_ele-1:new_i_ele+len(data_ele)-1]= data_ele
+                self.res_weather[val_ch][new_i_ele-1:new_i_ele+len(data_ele)-1,:]= data_weather
+                data_ele     = self.res_ele
+                data_weather = self.res_weather[val_ch]
+
+            elif tipo_case==2:  #bajada
+                vec = numpy.where(data_ele<ang_max)
+                data_ele = data_ele[vec]
+                data_weather= data_weather[vec[0]]
+
+                len_vec = len(vec)
+                data_ele_new     = data_ele[::-1] #  reversa
+                data_weather =  data_weather[::-1,:]
+                new_i_ele  = int(data_ele_new[0])
+                new_f_ele  = int(data_ele_new[-1])
+
+                n1= new_i_ele- ang_min
+                n2= ang_max - new_f_ele-1
+                if n1>0:
+                    ele1= numpy.linspace(ang_min+1,new_i_ele-1,n1)
+                    ele1_nan= numpy.ones(n1)*numpy.nan
+                    data_ele = numpy.hstack((ele1,data_ele_new))
+                    data_ele_old = numpy.hstack((ele1_nan,data_ele_new))
+                if n2>0:
+                    ele2= numpy.linspace(new_f_ele+1,ang_max,n2)
+                    ele2_nan= numpy.ones(n2)*numpy.nan
+                    data_ele = numpy.hstack((data_ele,ele2))
+                    data_ele_old = numpy.hstack((data_ele_old,ele2_nan))
+
+                self.data_ele_tmp[val_ch] = data_ele_old
+                self.res_ele      = data_ele
+                self.res_weather[val_ch]  = self.replaceNAN(data_weather=data_weather,data_ele=data_ele_old,val=self.val_mean)
+                data_ele                                    = self.res_ele
+                data_weather                                = self.res_weather[val_ch]
+
+            elif tipo_case==3:#subida
+                vec = numpy.where(0<data_ele)
+                data_ele= data_ele[vec]
+                data_ele_new = data_ele
+                data_ele_old= data_ele_old[vec]
+                data_weather= data_weather[vec[0]]
+                pos_ini = numpy.argmin(data_ele)
+                if pos_ini>0:
+                    len_vec= len(data_ele)
+                    vec3  = numpy.linspace(pos_ini,len_vec-1,len_vec-pos_ini).astype(int)
+                    #print(vec3)
+                    data_ele= data_ele[vec3]
+                    data_ele_new = data_ele
+                    data_ele_old= data_ele_old[vec3]
+                    data_weather= data_weather[vec3]
+
+                new_i_ele  = int(data_ele_new[0])
+                new_f_ele  = int(data_ele_new[-1])
+                n1= new_i_ele- ang_min
+                n2= ang_max - new_f_ele-1
+                if n1>0:
+                    ele1= numpy.linspace(ang_min+1,new_i_ele-1,n1)
+                    ele1_nan= numpy.ones(n1)*numpy.nan
+                    data_ele = numpy.hstack((ele1,data_ele_new))
+                    data_ele_old = numpy.hstack((ele1_nan,data_ele_new))
+                if n2>0:
+                    ele2= numpy.linspace(new_f_ele+1,ang_max,n2)
+                    ele2_nan= numpy.ones(n2)*numpy.nan
+                    data_ele = numpy.hstack((data_ele,ele2))
+                    data_ele_old = numpy.hstack((data_ele_old,ele2_nan))
+
+                self.data_ele_tmp[val_ch] = data_ele_old
+                self.res_ele      = data_ele
+                self.res_weather[val_ch]  = self.replaceNAN(data_weather=data_weather,data_ele=data_ele_old,val=self.val_mean)
+                data_ele                                    = self.res_ele
+                data_weather                                = self.res_weather[val_ch]
+        #print("self.data_ele_tmp",self.data_ele_tmp)
+        return data_weather,data_ele
+
+
+    def plot(self):
+        thisDatetime = datetime.datetime.utcfromtimestamp(self.data.times[-1]).strftime('%Y-%m-%d %H:%M:%S')
+        data         = self.data[-1]
+        r            = self.data.yrange
+        delta_height = r[1]-r[0]
+        r_mask       = numpy.where(r>=0)[0]
+        ##print("delta_height",delta_height)
+        #print("r_mask",r_mask,len(r_mask))
+        r            = numpy.arange(len(r_mask))*delta_height
+        self.y       = 2*r
+        res          = 1
+        ###print("data['weather'].shape[0]",data['weather'].shape[0])
+        ang_max = self.ang_max
+        ang_min = self.ang_min
+        var_ang      =ang_max -  ang_min
+        step         = (int(var_ang)/(res*data['weather'].shape[0]))
+        ###print("step",step)
+        #--------------------------------------------------------
+        ##print('weather',data['weather'].shape)
+        ##print('ele',data['ele'].shape)
+
+        ###self.res_weather, self.res_ele = self.const_ploteo(data_weather=data['weather'][:,r_mask],data_ele=data['ele'],step=step,res=res,ang_max=ang_max,ang_min=ang_min)
+        ###self.res_azi                   = numpy.mean(data['azi'])
+        ###print("self.res_ele",self.res_ele)
+        plt.clf()
+        subplots = [121, 122]
+        try:
+            if self.data[-2]['ele'].max()<data['ele'].max():
+                self.ini=0
+        except:
+            pass
+        if self.ini==0:
+            self.data_ele_tmp = numpy.ones([self.nplots,int(var_ang)])*numpy.nan
+            self.res_weather= numpy.ones([self.nplots,int(var_ang),len(r_mask)])*numpy.nan
+            print("SHAPE",self.data_ele_tmp.shape)
+
+        for i,ax in enumerate(self.axes):
+            self.res_weather[i], self.res_ele = self.const_ploteo(val_ch=i, data_weather=data['weather'][i][:,r_mask],data_ele=data['ele'],step=step,res=res,ang_max=ang_max,ang_min=ang_min,case_flag=self.data['case_flag'])
+            self.res_azi                   = numpy.mean(data['azi'])
+
+            if ax.firsttime:
+                #plt.clf()
+                print("Frist Plot")
+                cgax, pm = wrl.vis.plot_rhi(self.res_weather[i],r=r,th=self.res_ele,ax=subplots[i], proj='cg',vmin=20, vmax=80)
+                #fig=self.figures[0]
+            else:
+                #plt.clf()
+                print("ELSE PLOT")
+                cgax, pm = wrl.vis.plot_rhi(self.res_weather[i],r=r,th=self.res_ele,ax=subplots[i], proj='cg',vmin=20, vmax=80)
+            caax = cgax.parasites[0]
+            paax = cgax.parasites[1]
+            cbar = plt.gcf().colorbar(pm, pad=0.075)
+            caax.set_xlabel('x_range [km]')
+            caax.set_ylabel('y_range [km]')
+            plt.text(1.0, 1.05, 'Elevacion '+str(thisDatetime)+"  Step   "+str(self.ini)+ " Azi: "+str(round(self.res_azi,2)), transform=caax.transAxes, va='bottom',ha='right')
+        print("***************************self.ini****************************",self.ini)
+        self.ini= self.ini+1
+
+class WeatherRHI_vRF_Plot(Plot):
+    CODE = 'weather'
+    plot_name = 'weather'
+    plot_type = 'rhistyle'
+    buffering = False
+    data_ele_tmp = None
+
+    def setup(self):
+        print("********************")
+        print("********************")
+        print("********************")
+        print("SETUP WEATHER PLOT")
+        self.ncols = 1
+        self.nrows = 1
+        self.nplots= 1
+        self.ylabel= 'Range [Km]'
+        self.titles= ['Weather']
+        if self.channels is not None:
+            self.nplots = len(self.channels)
+            self.nrows = len(self.channels)
+        else:
+            self.nplots = self.data.shape(self.CODE)[0]
+            self.nrows = self.nplots
+            self.channels = list(range(self.nplots))
+        print("channels",self.channels)
+        print("que saldra", self.data.shape(self.CODE)[0])
+        self.titles = ['{} Channel {}'.format(self.CODE.upper(), x) for x in range(self.nrows)]
+        print("self.titles",self.titles)
+        self.colorbar=False
+        self.width   =8
+        self.height  =8
+        self.ini     =0
+        self.len_azi =0
+        self.buffer_ini  = None
+        self.buffer_ele   = None
+        self.plots_adjust.update({'wspace': 0.4, 'hspace':0.4, 'left': 0.1, 'right': 0.9, 'bottom': 0.08})
+        self.flag    =0
+        self.indicador= 0
+        self.last_data_ele = None
+        self.val_mean      = None
+
+    def update(self, dataOut):
+
+        data = {}
+        meta = {}
+        if hasattr(dataOut, 'dataPP_POWER'):
+            factor = 1
+        if hasattr(dataOut, 'nFFTPoints'):
+            factor = dataOut.normFactor
+        print("dataOut",dataOut.data_360.shape)
+        #
+        data['weather'] = 10*numpy.log10(dataOut.data_360/(factor))
+        #
+        #data['weather'] = 10*numpy.log10(dataOut.data_360[1]/(factor))
+        data['azi']     = dataOut.data_azi
+        data['ele']     = dataOut.data_ele
+        data['case_flag']     = dataOut.case_flag
+        #print("UPDATE")
+        #print("data[weather]",data['weather'].shape)
+        #print("data[azi]",data['azi'])
+        return data, meta
+
+    def get2List(self,angulos):
+        list1=[]
+        list2=[]
+        #print(angulos)
+        #exit(1)
+        for i in reversed(range(len(angulos))):
+            if not i==0:#el caso de i=0 evalula el primero de la lista con el ultimo y no es relevante
+                diff_ = angulos[i]-angulos[i-1]
+                if abs(diff_) >1.5:
+                    list1.append(i-1)
+                    list2.append(diff_)
+        return list(reversed(list1)),list(reversed(list2))
+
+    def fixData90(self,list_,ang_):
+        if list_[0]==-1:
+            vec = numpy.where(ang_<ang_[0])
+            ang_[vec] = ang_[vec]+90
+            return ang_
+        return ang_
+
+    def fixData90HL(self,angulos):
+        vec = numpy.where(angulos>=90)
+        angulos[vec]=angulos[vec]-90
+        return angulos
+
+
+    def search_pos(self,pos,list_):
+        for i in range(len(list_)):
+            if pos == list_[i]:
+                return True,i
+        i=None
+        return False,i
+
+    def fixDataComp(self,ang_,list1_,list2_,tipo_case):
+        size  = len(ang_)
+        size2 = 0
+        for i in range(len(list2_)):
+            size2=size2+round(abs(list2_[i]))-1
+        new_size= size+size2
+        ang_new = numpy.zeros(new_size)
+        ang_new2 = numpy.zeros(new_size)
+
+        tmp = 0
+        c   = 0
+        for i in range(len(ang_)):
+            ang_new[tmp +c] = ang_[i]
+            ang_new2[tmp+c] = ang_[i]
+            condition , value = self.search_pos(i,list1_)
+            if condition:
+                pos = tmp + c + 1
+                for k in range(round(abs(list2_[value]))-1):
+                    if tipo_case==0 or tipo_case==3:#subida
+                        ang_new[pos+k]  = ang_new[pos+k-1]+1
+                        ang_new2[pos+k] = numpy.nan
+                    elif tipo_case==1 or tipo_case==2:#bajada
+                        ang_new[pos+k]  = ang_new[pos+k-1]-1
+                        ang_new2[pos+k] = numpy.nan
+
+                tmp = pos +k
+                c   = 0
+            c=c+1
+        return ang_new,ang_new2
+
+    def globalCheckPED(self,angulos,tipo_case):
+        l1,l2 = self.get2List(angulos)
+        print("l1",l1)
+        print("l2",l2)
+        if len(l1)>0:
+            #angulos2 = self.fixData90(list_=l1,ang_=angulos)
+            #l1,l2 = self.get2List(angulos2)
+            ang1_,ang2_ = self.fixDataComp(ang_=angulos,list1_=l1,list2_=l2,tipo_case=tipo_case)
+            #ang1_ = self.fixData90HL(ang1_)
+            #ang2_ = self.fixData90HL(ang2_)
+        else:
+            ang1_= angulos
+            ang2_= angulos
+        return ang1_,ang2_
+
+
+    def replaceNAN(self,data_weather,data_ele,val):
+        data= data_ele
+        data_T= data_weather
+        #print(data.shape[0])
+        #print(data_T.shape[0])
+        #exit(1)
+        if data.shape[0]> data_T.shape[0]:
+            data_N = numpy.ones( [data.shape[0],data_T.shape[1]])
+            c      = 0
+            for i in range(len(data)):
+                if numpy.isnan(data[i]):
+                    data_N[i,:]=numpy.ones(data_T.shape[1])*numpy.nan
+                else:
+                    data_N[i,:]=data_T[c,:]
+                    c=c+1
+            return data_N
+        else:
+            for i in range(len(data)):
+                if numpy.isnan(data[i]):
+                   data_T[i,:]=numpy.ones(data_T.shape[1])*numpy.nan
+            return data_T
+
+
+    def const_ploteo(self,val_ch,data_weather,data_ele,step,res,ang_max,ang_min,case_flag):
+        ang_max= ang_max
+        ang_min= ang_min
+        data_weather=data_weather
+        val_ch=val_ch
+        ##print("*********************DATA WEATHER**************************************")
+        ##print(data_weather)
+
+        '''
+        print("**********************************************")
+        print("**********************************************")
+        print("***************ini**************")
+        print("**********************************************")
+        print("**********************************************")
+        '''
+        #print("data_ele",data_ele)
+        #----------------------------------------------------------
+
+        #exit(1)
+        tipo_case = case_flag[-1]
+        print("tipo_case",tipo_case)
+        #--------------------- new -------------------------
+        data_ele_new ,data_ele_old= self.globalCheckPED(data_ele,tipo_case)
+
+        #-------------------------CAMBIOS RHI---------------------------------
+
+        vec = numpy.where(data_ele<ang_max)
+        data_ele = data_ele[vec]
+        data_weather= data_weather[vec[0]]
+
+        len_vec = len(vec)
+        data_ele_new     = data_ele[::-1] #  reversa
+        data_weather =  data_weather[::-1,:]
+        new_i_ele  = int(data_ele_new[0])
+        new_f_ele  = int(data_ele_new[-1])
+
+        n1= new_i_ele- ang_min
+        n2= ang_max - new_f_ele-1
+        if n1>0:
+            ele1= numpy.linspace(ang_min+1,new_i_ele-1,n1)
+            ele1_nan= numpy.ones(n1)*numpy.nan
+            data_ele = numpy.hstack((ele1,data_ele_new))
+            data_ele_old = numpy.hstack((ele1_nan,data_ele_new))
+        if n2>0:
+            ele2= numpy.linspace(new_f_ele+1,ang_max,n2)
+            ele2_nan= numpy.ones(n2)*numpy.nan
+            data_ele = numpy.hstack((data_ele,ele2))
+            data_ele_old = numpy.hstack((data_ele_old,ele2_nan))
+
+
+        print("ele shape",data_ele.shape)
+        print(data_ele)
+
+        #print("self.data_ele_tmp",self.data_ele_tmp)
+        val_mean         = numpy.mean(data_weather[:,-1])
+        self.val_mean    = val_mean
+        data_weather     = self.replaceNAN(data_weather=data_weather,data_ele=data_ele_old,val=self.val_mean)
+        self.data_ele_tmp[val_ch]= data_ele_old
+
+
+        print("data_weather shape",data_weather.shape)
+        print(data_weather)
+        #exit(1)
+        return data_weather,data_ele
+
+
+    def plot(self):
+        thisDatetime = datetime.datetime.utcfromtimestamp(self.data.times[-1]).strftime('%Y-%m-%d %H:%M:%S')
+        data         = self.data[-1]
+        r            = self.data.yrange
+        delta_height = r[1]-r[0]
+        r_mask       = numpy.where(r>=0)[0]
+        ##print("delta_height",delta_height)
+        #print("r_mask",r_mask,len(r_mask))
+        r            = numpy.arange(len(r_mask))*delta_height
+        self.y       = 2*r
+        res          = 1
+        ###print("data['weather'].shape[0]",data['weather'].shape[0])
+        ang_max = self.ang_max
+        ang_min = self.ang_min
+        var_ang      =ang_max -  ang_min
+        step         = (int(var_ang)/(res*data['weather'].shape[0]))
+        ###print("step",step)
+        #--------------------------------------------------------
+        ##print('weather',data['weather'].shape)
+        ##print('ele',data['ele'].shape)
+
+        ###self.res_weather, self.res_ele = self.const_ploteo(data_weather=data['weather'][:,r_mask],data_ele=data['ele'],step=step,res=res,ang_max=ang_max,ang_min=ang_min)
+        ###self.res_azi                   = numpy.mean(data['azi'])
+        ###print("self.res_ele",self.res_ele)
+        plt.clf()
+        subplots = [121, 122]
+        if self.ini==0:
+            self.data_ele_tmp = numpy.ones([self.nplots,int(var_ang)])*numpy.nan
+            self.res_weather= numpy.ones([self.nplots,int(var_ang),len(r_mask)])*numpy.nan
+            print("SHAPE",self.data_ele_tmp.shape)
+
+        for i,ax in enumerate(self.axes):
+            self.res_weather[i], self.res_ele = self.const_ploteo(val_ch=i, data_weather=data['weather'][i][:,r_mask],data_ele=data['ele'],step=step,res=res,ang_max=ang_max,ang_min=ang_min,case_flag=self.data['case_flag'])
+            self.res_azi                   = numpy.mean(data['azi'])
+
+            print(self.res_ele)
+            #exit(1)
+            if ax.firsttime:
+                #plt.clf()
+                cgax, pm = wrl.vis.plot_rhi(self.res_weather[i],r=r,th=self.res_ele,ax=subplots[i], proj='cg',vmin=20, vmax=80)
+                #fig=self.figures[0]
+            else:
+
                 #plt.clf()
                 cgax, pm = wrl.vis.plot_rhi(self.res_weather[i],r=r,th=self.res_ele,ax=subplots[i], proj='cg',vmin=20, vmax=80)
             caax = cgax.parasites[0]

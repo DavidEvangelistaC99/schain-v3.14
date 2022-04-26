@@ -565,7 +565,7 @@ class DigitalRFReader(ProcessingUnit):
         return True
 
     def __isBufferEmpty(self):
-        
+
         return self.__bufferIndex > self.__samples_to_read - self.__nSamples  # 40960 - 40
 
     def getData(self, seconds=30, nTries=5):
@@ -636,6 +636,7 @@ class DigitalRFReader(ProcessingUnit):
                 self.dataOut.flagNoData             = False
                 buffer = self.__data_buffer[:,self.__bufferIndex:self.__bufferIndex + self.__samples_to_read]
                 buffer = buffer.reshape((self.__nChannels, self.nProfileBlocks, int(self.__samples_to_read/self.nProfileBlocks)))
+                self.dataOut.nProfileBlocks = self.nProfileBlocks
                 self.dataOut.data = buffer
                 self.dataOut.utctime = ( self.__thisUnixSample + self.__bufferIndex) / self.__sample_rate
                 self.profileIndex  += self.__samples_to_read
