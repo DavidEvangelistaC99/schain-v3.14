@@ -4620,3 +4620,214 @@ class Block360_vRF(Operation):
 
             #dataOut.flagNoData      = False
         return dataOut
+
+class Block360_vRF2(Operation):
+    '''
+    '''
+    isConfig       = False
+    __profIndex    = 0
+    __initime      = None
+    __lastdatatime = None
+    __buffer       = None
+    __dataReady    = False
+    n              = None
+    __nch          = 0
+    __nHeis        = 0
+    index          = 0
+    mode           = 0
+
+    def __init__(self,**kwargs):
+        Operation.__init__(self,**kwargs)
+
+    def setup(self, dataOut, n = None, mode = None):
+        '''
+        n= Numero de PRF's de entrada
+        '''
+        self.__initime        = None
+        self.__lastdatatime   = 0
+        self.__dataReady      = False
+        self.__buffer         = 0
+        self.__buffer_1D      = 0
+        #self.__profIndex      = 0
+        self.index            = 0
+        self.__nch            = dataOut.nChannels
+        self.__nHeis          = dataOut.nHeights
+
+        self.mode    = mode
+        #print("self.mode",self.mode)
+        #print("nHeights")
+        self.__buffer  = []
+        self.__buffer2 = []
+        self.__buffer3 = []
+
+    def putData(self,data,mode):
+        '''
+        Add a profile to he __buffer and increase in one the __profiel Index
+        '''
+        #print("line 4049",data.dataPP_POW.shape,data.dataPP_POW[:10])
+        #print("line 4049",data.azimuth.shape,data.azimuth)
+        if self.mode==0:
+            self.__buffer.append(data.dataPP_POWER)# PRIMER MOMENTO
+        if self.mode==1:
+            self.__buffer.append(data.data_pow)
+        #print("me casi",self.index,data.azimuth[self.index])
+        #print(self.__profIndex, self.index , data.azimuth[self.index] )
+        #print("magic",data.profileIndex)
+        #print(data.azimuth[self.index])
+        #print("index",self.index)
+
+        #####self.__buffer2[self.__profIndex] = data.azimuth[self.index]
+        self.__buffer2.append(data.azimuth)
+        self.__buffer3.append(data.elevation)
+        self.__profIndex      += 1
+        #print("q pasa")
+        return numpy.array(self.__buffer3)        #················· Remove DC···································
+
+    def pushData(self,data):
+        '''
+        Return the PULSEPAIR and the profiles used in the operation
+        Affected :  self.__profileIndex
+        '''
+        #print("pushData")
+
+        data_360 = numpy.array(self.__buffer).transpose(1,0,2)
+        data_p   = numpy.array(self.__buffer2)
+        data_e   = numpy.array(self.__buffer3)
+        n                = self.__profIndex
+
+        self.__buffer    = []
+        self.__buffer2 = []
+        self.__buffer3 = []
+        self.__profIndex = 0
+        #print("pushData")
+        return data_360,n,data_p,data_e
+
+
+    def byProfiles(self,dataOut):
+
+        self.__dataReady     =  False
+        data_360           =  None
+        data_p             = None
+        data_e             = None
+        #print("dataOu",dataOut.dataPP_POW)
+
+        elevations = self.putData(data=dataOut,mode = self.mode)
+        ##### print("profIndex",self.__profIndex)
+
+
+        if self.__profIndex > 1:
+            case_flag = self.checkcase(elevations)
+
+            if case_flag == 0: #Subida
+                #Se borra el dato anterior para liberar buffer y comparar el dato actual con el siguiente
+                if len(self.__buffer) == 2: #Cuando está de subida
+                    self.__buffer.pop(0) #Erase first data
+                    self.__buffer2.pop(0)
+                    self.__buffer3.pop(0)
+                    self.__profIndex -= 1
+                else: #Cuando ha estado de bajada y ha vuelto a subir
+                    #print("else",self.__buffer3)
+                    self.__buffer.pop() #Erase last data
+                    self.__buffer2.pop()
+                    self.__buffer3.pop()
+                    data_360,n,data_p,data_e  = self.pushData(data=dataOut)
+                    #print(data_360.shape)
+                    #print(data_e.shape)
+                    #exit(1)
+                    self.__dataReady = True
+            '''
+            elif elevations[-1]<0.:
+                if len(self.__buffer) == 2:
+                    self.__buffer.pop(0) #Erase first data
+                    self.__buffer2.pop(0)
+                    self.__buffer3.pop(0)
+                    self.__profIndex -= 1
+                else:
+                    self.__buffer.pop() #Erase last data
+                    self.__buffer2.pop()
+                    self.__buffer3.pop()
+                    data_360,n,data_p,data_e  = self.pushData(data=dataOut)
+                    self.__dataReady = True
+                    '''
+
+
+        '''
+        if self.__profIndex  == self.n:
+            data_360,n,data_p,data_e  = self.pushData(data=dataOut)
+            self.__dataReady                   = True
+            '''
+
+        return data_360,data_p,data_e
+
+
+    def blockOp(self, dataOut, datatime= None):
+        if self.__initime == None:
+            self.__initime = datatime
+        data_360,data_p,data_e = self.byProfiles(dataOut)
+        self.__lastdatatime           = datatime
+
+        if data_360 is None:
+            return None, None,None,None
+
+
+        avgdatatime    = self.__initime
+        if self.n==1:
+            avgdatatime = datatime
+        deltatime      = datatime - self.__lastdatatime
+        self.__initime = datatime
+        #print(data_360.shape,avgdatatime,data_p.shape)
+        return data_360,avgdatatime,data_p,data_e
+
+    def checkcase(self,data_ele):
+        print(data_ele)
+        start  = data_ele[-2]
+        end    = data_ele[-1]
+        diff_angle = (end-start)
+        len_ang=len(data_ele)
+
+        if diff_angle > 0: #Subida
+            return 0
+
+    def run(self, dataOut,n = None,mode=None,**kwargs):
+        #print("BLOCK 360 HERE WE GO MOMENTOS")
+        print("Block 360")
+
+        #exit(1)
+        if not self.isConfig:
+
+            print(n)
+            self.setup(dataOut = dataOut ,mode= mode ,**kwargs)
+            ####self.index = 0
+            #print("comova",self.isConfig)
+            self.isConfig   = True
+        ####if self.index==dataOut.azimuth.shape[0]:
+        ####    self.index=0
+
+        data_360, avgdatatime,data_p,data_e = self.blockOp(dataOut, dataOut.utctime)
+
+
+
+
+        dataOut.flagNoData                         = True
+
+        if self.__dataReady:
+            dataOut.data_360         = data_360 # S
+            #print("DATA 360")
+            #print(dataOut.data_360)
+            #print("---------------------------------------------------------------------------------")
+            print("---------------------------DATAREADY---------------------------------------------")
+            #print("---------------------------------------------------------------------------------")
+            #print("data_360",dataOut.data_360.shape)
+            print(data_e)
+            #exit(1)
+            dataOut.data_azi         = data_p
+            dataOut.data_ele         = data_e
+            ###print("azi:    ",dataOut.data_azi)
+            #print("ele:    ",dataOut.data_ele)
+            #print("jroproc_parameters",data_p[0],data_p[-1])#,data_360.shape,avgdatatime)
+            dataOut.utctime         = avgdatatime
+
+
+
+            dataOut.flagNoData      = False
+        return dataOut
