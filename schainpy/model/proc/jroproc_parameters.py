@@ -4075,7 +4075,7 @@ class PedestalInformation(Operation):
             self.utcfile += file_size*self.interval
             dt = datetime.datetime.utcfromtimestamp(self.utctime)
             path = os.path.join(self.path, dt.strftime('%Y-%m-%dT%H-00-00'))
-            self.filename = os.path.join(path, 'pos@{}.000.h5'.format(self.utcfile))
+            self.filename = os.path.join(path, 'pos@{}.000.h5'.format(int(self.utcfile)))
             if not os.path.exists(self.filename):
                 log.warning('Waiting for position files...', self.name)
         
