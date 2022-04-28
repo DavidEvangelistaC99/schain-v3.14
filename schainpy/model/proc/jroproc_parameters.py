@@ -1,31 +1,33 @@
-import numpy,os,h5py
+
+import os
+import time
 import math
-from scipy import optimize, interpolate, signal, stats, ndimage
-import scipy
+
 import re
 import datetime
 import copy
 import sys
 import importlib
 import itertools
+
 from multiprocessing import Pool, TimeoutError
 from multiprocessing.pool import ThreadPool
-import time
-
+import numpy
+import glob
+import scipy
+import h5py
 from scipy.optimize import fmin_l_bfgs_b #optimize with bounds on state papameters
 from .jroproc_base import ProcessingUnit, Operation, MPDecorator
 from schainpy.model.data.jrodata import Parameters, hildebrand_sekhon
 from scipy import asarray as ar,exp
 from scipy.optimize import curve_fit
 from schainpy.utils import log
+import schainpy.admin
 import warnings
-from numpy import NaN
+from scipy import optimize, interpolate, signal, stats, ndimage
 from scipy.optimize.optimize import OptimizeWarning
 warnings.filterwarnings('ignore')
 
-from time import sleep
-
-import matplotlib.pyplot as plt
 
 SPEED_OF_LIGHT = 299792458
 
@@ -4043,214 +4045,87 @@ class WeatherRadar(Operation):
         return dataOut
 
 class PedestalInformation(Operation):
-    path_ped     = None
-    path_adq     = None
-    samp_rate_ped= None
-    t_Interval_p = None
-    n_Muestras_p = None
-    isConfig     = False
-    blocksPerfile= None
-    f_a_p        = None
-    online       = None
-    angulo_adq   = None
-    nro_file     = None
-    nro_key_p    = None
-    tmp          = None
-
 
     def __init__(self):
         Operation.__init__(self)
+        self.filename = False
 
+    def find_file(self, timestamp):
 
-    def getAnguloProfile(self,utc_adq,utc_ped_list):
-        utc_adq       = utc_adq
-        ##list_pedestal = list_pedestal
-        utc_ped_list  = utc_ped_list
-        #for i in range(len(list_pedestal)):
-        #    #print(i)# OJO IDENTIFICADOR DE SINCRONISMO
-        #    utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=list_pedestal[i]))
-        nro_file,utc_ped,utc_ped_1  =self.getNROFile(utc_adq,utc_ped_list)
-        #print("NROFILE************************************", nro_file,utc_ped)
-        #print(nro_file)
-        if nro_file < 0:
-            return numpy.NaN,numpy.NaN
+        dt = datetime.datetime.utcfromtimestamp(timestamp)
+        path = os.path.join(self.path, dt.strftime('%Y-%m-%dT%H-00-00'))
+        
+        if not os.path.exists(path):
+            return False, False
+        fileList = glob.glob(os.path.join(path, '*.h5'))
+        fileList.sort()
+        for fullname in fileList:
+            filename = fullname.split('/')[-1]
+            number = int(filename[4:14])
+            if number <= timestamp:
+                return number, fullname
+        return False, False
+
+    def find_next_file(self):
+
+        while True:
+            file_size = len(self.fp['Data']['utc']) 
+            if self.utctime < self.utcfile+file_size*self.interval:
+                break
+            self.utcfile += file_size*self.interval
+            dt = datetime.datetime.utcfromtimestamp(self.utctime)
+            path = os.path.join(self.path, dt.strftime('%Y-%m-%dT%H-00-00'))
+            self.filename = os.path.join(path, 'pos@{}.000.h5'.format(self.utcfile))
+            if not os.path.exists(self.filename):
+                log.warning('Waiting for position files...', self.name)
+        
+                if not os.path.exists(self.filename):
+                
+                    raise IOError('No new position files found in {}'.format(path))
+            self.fp.close()
+            self.fp = h5py.File(self.filename, 'r')
+            log.log('Opening file: {}'.format(self.filename), self.name)
+    
+    def get_values(self):
+
+        index = int((self.utctime-self.utcfile)/self.interval)
+        return self.fp['Data']['azi_pos'][index], self.fp['Data']['ele_pos'][index]
+
+    def setup(self, dataOut, path, conf, samples, interval, wr_exp):
+
+        self.path = path
+        self.conf = conf
+        self.samples = samples
+        self.interval = interval
+        self.utcfile, self.filename = self.find_file(dataOut.utctime)
+        
+        if not self.filename:
+            log.error('No position files found in {}'.format(path), self.name)
+            raise IOError('No position files found in {}'.format(path))
         else:
-            nro_key_p    = int((utc_adq-utc_ped)/self.t_Interval_p)-1 # ojito al -1 estimado alex
-            #print("nro_key_p",nro_key_p)
-            ff_pedestal  = self.list_pedestal[nro_file]
-            #angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azimuth")
-            angulo       = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="azi_pos")
-            angulo_ele   = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="ele_pos")
-            #-----Adicion de filtro........................
-            vel_ele   = self.getDatavaluefromDirFilename(path=self.path_ped,file=ff_pedestal,value="ele_speed")## ele_speed
-            '''
-            vel_mean = numpy.mean(vel_ele)
-            print("#############################################################")
-            print("VEL MEAN----------------:",vel_mean)
-            f vel_mean<7.7 or vel_mean>8.3:
-                return numpy.NaN,numpy.NaN
-            #------------------------------------------------------------------------------------------------------
-            '''
-            #print(int(self.samp_rate_ped))
-            #print(nro_key_p)
-            if int(self.samp_rate_ped)-1>=nro_key_p>0:
-                #print("angulo_array                  :",angulo[nro_key_p])
-                return angulo[nro_key_p],angulo_ele[nro_key_p]
-            else:
-                #print("-----------------------------------------------------------------")
-                return numpy.NaN,numpy.NaN
+            log.log('Opening file: {}'.format(self.filename), self.name)
+            self.fp = h5py.File(self.filename, 'r')
 
-
-    def getfirstFilefromPath(self,path,meta,ext):
-        validFilelist = []
-        #("SEARH",path)
-        try:
-            fileList      = os.listdir(path)
-        except:
-            print("check path - fileList")
-        if len(fileList)<1:
-         return None
-        # meta    1234 567 8-18 BCDE
-        # H,D,PE  YYYY DDD EPOC .ext
-
-        for thisFile in fileList:
-            #print("HI",thisFile)
-            if meta =="PE":
-                try:
-                    number= int(thisFile[len(meta)+7:len(meta)+17])
-                except:
-                     print("There is a file or folder with different format")
-            if meta =="pos@":
-                try:
-                    number= int(thisFile[len(meta):len(meta)+10])
-                except:
-                     print("There is a file or folder with different format")
-            if meta == "D":
-                try:
-                    number= int(thisFile[8:11])
-                except:
-                    print("There is a file or folder with different format")
-
-            if not isNumber(str=number):
-                continue
-            if (os.path.splitext(thisFile)[-1].lower() != ext.lower()):
-                continue
-            validFilelist.sort()
-            validFilelist.append(thisFile)
-
-        if len(validFilelist)>0:
-            validFilelist = sorted(validFilelist,key=str.lower)
-            #print(validFilelist)
-            return validFilelist
-        return None
-
-    def gettimeutcfromDirFilename(self,path,file):
-        dir_file= path+"/"+file
-        fp      = h5py.File(dir_file,'r')
-        #epoc    = fp['Metadata'].get('utctimeInit')[()]
-        epoc    = fp['Data'].get('utc')[()]
-        epoc    = epoc[0]
-        #print("hola",epoc)
-        fp.close()
-        return epoc
-
-    def gettimeutcadqfromDirFilename(self,path,file):
-        pass
-
-    def getDatavaluefromDirFilename(self,path,file,value):
-        dir_file= path+"/"+file
-        fp      = h5py.File(dir_file,'r')
-        array    = fp['Data'].get(value)[()]
-        fp.close()
-        return array
-
-
-    def getNROFile(self,utc_adq,utc_ped_list):
-        c=0
-        #print(utc_adq)
-        #print(len(utc_ped_list))
-        ###print(utc_ped_list)
-        if utc_adq<utc_ped_list[0]:
-            pass
-        else:
-            for i in range(len(utc_ped_list)):
-                if utc_adq>utc_ped_list[i]:
-                    #print("mayor")
-                    #print("utc_ped_list",utc_ped_list[i])
-                    c +=1
-
-        return c-1,utc_ped_list[c-1],utc_ped_list[c]
-
-    def verificarNROFILE(self,dataOut,utc_ped,f_a_p,n_Muestras_p):
-        pass
-
-    def setup_offline(self,dataOut,list_pedestal):
-        pass
-
-    def setup_online(self,dataOut):
-        pass
-
-        #def setup(self,dataOut,path_ped,path_adq,t_Interval_p,n_Muestras_p,blocksPerfile,f_a_p,online):
-    def setup(self,dataOut,path_ped,samp_rate_ped,t_Interval_p,wr_exp):
-        #print("**************SETUP******************")
-        self.__dataReady      = False
-        self.path_ped     = path_ped
-        self.samp_rate_ped= samp_rate_ped
-        self.t_Interval_p = t_Interval_p
-        self.list_pedestal = self.getfirstFilefromPath(path=self.path_ped,meta="pos@",ext=".h5")
-
-        self.utc_ped_list= []
-        for i in range(len(self.list_pedestal)):
-            #print(i,self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[i]))# OJO IDENTIFICADOR DE SINCRONISMO
-            self.utc_ped_list.append(self.gettimeutcfromDirFilename(path=self.path_ped,file=self.list_pedestal[i]))
-            #print(self.utc_ped_list)
-            #exit(1)
-        #print("que paso")
-        dataOut.wr_exp     = wr_exp
-        #print("SETUP READY")
-
-
-    def setNextFileP(self,dataOut):
-        pass
-
-    def checkPedFile(self,path,nro_file):
-        pass
-
-    def setNextFileoffline(self,dataOut):
-        pass
-
-    def setNextFileonline(self):
-        pass
-
-    def run(self, dataOut,path_ped,samp_rate_ped,t_Interval_p,wr_exp):
-        #print("INTEGRATION -----")
-        #print("PEDESTAL")
-
+    def run(self, dataOut, path, conf=None, samples=1500, interval=0.04, wr_exp=None):
+        
         if not self.isConfig:
-            self.setup(dataOut, path_ped,samp_rate_ped,t_Interval_p,wr_exp)
-            self.__dataReady = True
+            self.setup(dataOut, path, conf, samples, interval, wr_exp)
             self.isConfig   = True
-            #print("config TRUE")
-        utc_adq       = dataOut.utctime
-        #print("utc_adq---------------",utc_adq)
+            
+        self.utctime = dataOut.utctime
+        
+        self.find_next_file()
+        
+        az, el = self.get_values()
+        dataOut.flagNoData = False
 
-        list_pedestal = self.list_pedestal
-        #print("list_pedestal",list_pedestal[:20])
-        angulo,angulo_ele = self.getAnguloProfile(utc_adq=utc_adq,utc_ped_list=self.utc_ped_list)
-        #print("angulo**********",angulo)
-        dataOut.flagNoData      = False
-
-        if numpy.isnan(angulo) or numpy.isnan(angulo_ele) :
-            #print("PEDESTAL 3")
-            #exit(1)
+        if numpy.isnan(az) or numpy.isnan(el) :
             dataOut.flagNoData = True
             return dataOut
-        dataOut.azimuth         = angulo
-        dataOut.elevation       = angulo_ele
-        #print("PEDESTAL END")
-        #print(dataOut.azimuth)
-        #print(dataOut.elevation)
-        #exit(1)
+
+        dataOut.azimuth = az
+        dataOut.elevation = el
+        # print('AZ: ', az, ' EL: ', el)
         return dataOut
 
 class Block360(Operation):
