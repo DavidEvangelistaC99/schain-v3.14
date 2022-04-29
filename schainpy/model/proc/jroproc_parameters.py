@@ -4054,7 +4054,7 @@ class PedestalInformation(Operation):
 
         dt = datetime.datetime.utcfromtimestamp(timestamp)
         path = os.path.join(self.path, dt.strftime('%Y-%m-%dT%H-00-00'))
-        
+
         if not os.path.exists(path):
             return False, False
         fileList = glob.glob(os.path.join(path, '*.h5'))
@@ -4069,7 +4069,7 @@ class PedestalInformation(Operation):
     def find_next_file(self):
 
         while True:
-            file_size = len(self.fp['Data']['utc']) 
+            file_size = len(self.fp['Data']['utc'])
             if self.utctime < self.utcfile+file_size*self.interval:
                 break
             self.utcfile += file_size*self.interval
@@ -4078,14 +4078,14 @@ class PedestalInformation(Operation):
             self.filename = os.path.join(path, 'pos@{}.000.h5'.format(int(self.utcfile)))
             if not os.path.exists(self.filename):
                 log.warning('Waiting for position files...', self.name)
-        
+
                 if not os.path.exists(self.filename):
-                
+
                     raise IOError('No new position files found in {}'.format(path))
             self.fp.close()
             self.fp = h5py.File(self.filename, 'r')
             log.log('Opening file: {}'.format(self.filename), self.name)
-    
+
     def get_values(self):
 
         index = int((self.utctime-self.utcfile)/self.interval)
@@ -4098,7 +4098,7 @@ class PedestalInformation(Operation):
         self.samples = samples
         self.interval = interval
         self.utcfile, self.filename = self.find_file(dataOut.utctime)
-        
+
         if not self.filename:
             log.error('No position files found in {}'.format(path), self.name)
             raise IOError('No position files found in {}'.format(path))
@@ -4107,15 +4107,15 @@ class PedestalInformation(Operation):
             self.fp = h5py.File(self.filename, 'r')
 
     def run(self, dataOut, path, conf=None, samples=1500, interval=0.04, wr_exp=None):
-        
+
         if not self.isConfig:
             self.setup(dataOut, path, conf, samples, interval, wr_exp)
             self.isConfig   = True
-            
+
         self.utctime = dataOut.utctime
-        
+
         self.find_next_file()
-        
+
         az, el = self.get_values()
         dataOut.flagNoData = False
 
@@ -4509,7 +4509,7 @@ class Block360_vRF2(Operation):
     __nch          = 0
     __nHeis        = 0
     index          = 0
-    mode           = 0
+    mode           = None
 
     def __init__(self,**kwargs):
         Operation.__init__(self,**kwargs)
@@ -4534,28 +4534,24 @@ class Block360_vRF2(Operation):
         self.__buffer  = []
         self.__buffer2 = []
         self.__buffer3 = []
+        self.__buffer4 = []
 
     def putData(self,data,mode):
         '''
         Add a profile to he __buffer and increase in one the __profiel Index
         '''
-        #print("line 4049",data.dataPP_POW.shape,data.dataPP_POW[:10])
-        #print("line 4049",data.azimuth.shape,data.azimuth)
+
         if self.mode==0:
             self.__buffer.append(data.dataPP_POWER)# PRIMER MOMENTO
         if self.mode==1:
             self.__buffer.append(data.data_pow)
-        #print("me casi",self.index,data.azimuth[self.index])
-        #print(self.__profIndex, self.index , data.azimuth[self.index] )
-        #print("magic",data.profileIndex)
-        #print(data.azimuth[self.index])
-        #print("index",self.index)
 
-        #####self.__buffer2[self.__profIndex] = data.azimuth[self.index]
+        self.__buffer4.append(data.dataPP_DOP)
+
         self.__buffer2.append(data.azimuth)
         self.__buffer3.append(data.elevation)
         self.__profIndex      += 1
-        #print("q pasa")
+
         return numpy.array(self.__buffer3)        #················· Remove DC···································
 
     def pushData(self,data):
@@ -4563,98 +4559,71 @@ class Block360_vRF2(Operation):
         Return the PULSEPAIR and the profiles used in the operation
         Affected :  self.__profileIndex
         '''
-        #print("pushData")
 
-        data_360 = numpy.array(self.__buffer).transpose(1,0,2)
+        data_360_Power = numpy.array(self.__buffer).transpose(1,0,2)
+        data_360_Velocity = numpy.array(self.__buffer4).transpose(1,0,2)
         data_p   = numpy.array(self.__buffer2)
         data_e   = numpy.array(self.__buffer3)
         n                = self.__profIndex
 
-        self.__buffer    = []
+        self.__buffer = []
+        self.__buffer4 = []
         self.__buffer2 = []
         self.__buffer3 = []
         self.__profIndex = 0
-        #print("pushData")
-        return data_360,n,data_p,data_e
+        return data_360_Power,data_360_Velocity,n,data_p,data_e
 
 
     def byProfiles(self,dataOut):
 
         self.__dataReady     =  False
-        data_360           =  None
+        data_360_Power           =  []
+        data_360_Velocity           =  []
         data_p             = None
         data_e             = None
-        #print("dataOu",dataOut.dataPP_POW)
 
         elevations = self.putData(data=dataOut,mode = self.mode)
-        ##### print("profIndex",self.__profIndex)
-
 
         if self.__profIndex > 1:
             case_flag = self.checkcase(elevations)
 
             if case_flag == 0: #Subida
-                #Se borra el dato anterior para liberar buffer y comparar el dato actual con el siguiente
+
                 if len(self.__buffer) == 2: #Cuando está de subida
+                    #Se borra el dato anterior para liberar buffer y comparar el dato actual con el siguiente
                     self.__buffer.pop(0) #Erase first data
                     self.__buffer2.pop(0)
                     self.__buffer3.pop(0)
+                    self.__buffer4.pop(0)
                     self.__profIndex -= 1
                 else: #Cuando ha estado de bajada y ha vuelto a subir
-                    #print("else",self.__buffer3)
+                    #Se borra el último dato
                     self.__buffer.pop() #Erase last data
                     self.__buffer2.pop()
                     self.__buffer3.pop()
-                    data_360,n,data_p,data_e  = self.pushData(data=dataOut)
-                    #print(data_360.shape)
-                    #print(data_e.shape)
-                    #exit(1)
+                    self.__buffer4.pop()
+                    data_360_Power,data_360_Velocity,n,data_p,data_e  = self.pushData(data=dataOut)
+
                     self.__dataReady = True
-            '''
-            elif elevations[-1]<0.:
-                if len(self.__buffer) == 2:
-                    self.__buffer.pop(0) #Erase first data
-                    self.__buffer2.pop(0)
-                    self.__buffer3.pop(0)
-                    self.__profIndex -= 1
-                else:
-                    self.__buffer.pop() #Erase last data
-                    self.__buffer2.pop()
-                    self.__buffer3.pop()
-                    data_360,n,data_p,data_e  = self.pushData(data=dataOut)
-                    self.__dataReady = True
-                    '''
 
-
-        '''
-        if self.__profIndex  == self.n:
-            data_360,n,data_p,data_e  = self.pushData(data=dataOut)
-            self.__dataReady                   = True
-            '''
-
-        return data_360,data_p,data_e
+        return data_360_Power,data_360_Velocity,data_p,data_e
 
 
     def blockOp(self, dataOut, datatime= None):
         if self.__initime == None:
             self.__initime = datatime
-        data_360,data_p,data_e = self.byProfiles(dataOut)
+        data_360_Power,data_360_Velocity,data_p,data_e = self.byProfiles(dataOut)
         self.__lastdatatime           = datatime
-
-        if data_360 is None:
-            return None, None,None,None
-
 
         avgdatatime    = self.__initime
         if self.n==1:
             avgdatatime = datatime
         deltatime      = datatime - self.__lastdatatime
         self.__initime = datatime
-        #print(data_360.shape,avgdatatime,data_p.shape)
-        return data_360,avgdatatime,data_p,data_e
+        return data_360_Power,data_360_Velocity,avgdatatime,data_p,data_e
 
     def checkcase(self,data_ele):
-        print(data_ele)
+        #print(data_ele)
         start  = data_ele[-2]
         end    = data_ele[-1]
         diff_angle = (end-start)
@@ -4663,46 +4632,190 @@ class Block360_vRF2(Operation):
         if diff_angle > 0: #Subida
             return 0
 
-    def run(self, dataOut,n = None,mode=None,**kwargs):
+    def run(self, dataOut,mode='Power',**kwargs):
         #print("BLOCK 360 HERE WE GO MOMENTOS")
-        print("Block 360")
+        #print("Block 360")
+        dataOut.mode = mode
 
-        #exit(1)
         if not self.isConfig:
-
-            print(n)
             self.setup(dataOut = dataOut ,mode= mode ,**kwargs)
-            ####self.index = 0
-            #print("comova",self.isConfig)
             self.isConfig   = True
-        ####if self.index==dataOut.azimuth.shape[0]:
-        ####    self.index=0
-
-        data_360, avgdatatime,data_p,data_e = self.blockOp(dataOut, dataOut.utctime)
 
 
+        data_360_Power, data_360_Velocity, avgdatatime,data_p,data_e = self.blockOp(dataOut, dataOut.utctime)
 
 
         dataOut.flagNoData                         = True
 
+
         if self.__dataReady:
-            dataOut.data_360         = data_360 # S
-            #print("DATA 360")
-            #print(dataOut.data_360)
-            #print("---------------------------------------------------------------------------------")
-            print("---------------------------DATAREADY---------------------------------------------")
-            #print("---------------------------------------------------------------------------------")
-            #print("data_360",dataOut.data_360.shape)
-            print(data_e)
-            #exit(1)
+            dataOut.data_360_Power         = data_360_Power # S
+            dataOut.data_360_Velocity         = data_360_Velocity
             dataOut.data_azi         = data_p
             dataOut.data_ele         = data_e
-            ###print("azi:    ",dataOut.data_azi)
-            #print("ele:    ",dataOut.data_ele)
-            #print("jroproc_parameters",data_p[0],data_p[-1])#,data_360.shape,avgdatatime)
             dataOut.utctime         = avgdatatime
-
-
-
             dataOut.flagNoData      = False
+
+        return dataOut
+
+class Block360_vRF3(Operation):
+    '''
+    '''
+    isConfig       = False
+    __profIndex    = 0
+    __initime      = None
+    __lastdatatime = None
+    __buffer       = None
+    __dataReady    = False
+    n              = None
+    __nch          = 0
+    __nHeis        = 0
+    index          = 0
+    mode           = None
+
+    def __init__(self,**kwargs):
+        Operation.__init__(self,**kwargs)
+
+    def setup(self, dataOut, n = None, mode = None):
+        '''
+        n= Numero de PRF's de entrada
+        '''
+        self.__initime        = None
+        self.__lastdatatime   = 0
+        self.__dataReady      = False
+        self.__buffer         = 0
+        self.__buffer_1D      = 0
+        #self.__profIndex      = 0
+        self.index            = 0
+        self.__nch            = dataOut.nChannels
+        self.__nHeis          = dataOut.nHeights
+
+        self.mode    = mode
+        #print("self.mode",self.mode)
+        #print("nHeights")
+        self.__buffer  = []
+        self.__buffer2 = []
+        self.__buffer3 = []
+        self.__buffer4 = []
+
+    def putData(self,data,mode):
+        '''
+        Add a profile to he __buffer and increase in one the __profiel Index
+        '''
+
+        if self.mode==0:
+            self.__buffer.append(data.dataPP_POWER)# PRIMER MOMENTO
+        if self.mode==1:
+            self.__buffer.append(data.data_pow)
+
+        self.__buffer4.append(data.dataPP_DOP)
+
+        self.__buffer2.append(data.azimuth)
+        self.__buffer3.append(data.elevation)
+        self.__profIndex      += 1
+
+        return numpy.array(self.__buffer3)        #················· Remove DC···································
+
+    def pushData(self,data):
+        '''
+        Return the PULSEPAIR and the profiles used in the operation
+        Affected :  self.__profileIndex
+        '''
+
+        data_360_Power = numpy.array(self.__buffer).transpose(1,0,2)
+        data_360_Velocity = numpy.array(self.__buffer4).transpose(1,0,2)
+        data_p   = numpy.array(self.__buffer2)
+        data_e   = numpy.array(self.__buffer3)
+        n                = self.__profIndex
+
+        self.__buffer = []
+        self.__buffer4 = []
+        self.__buffer2 = []
+        self.__buffer3 = []
+        self.__profIndex = 0
+        return data_360_Power,data_360_Velocity,n,data_p,data_e
+
+
+    def byProfiles(self,dataOut):
+
+        self.__dataReady     =  False
+        data_360_Power           =  []
+        data_360_Velocity           =  []
+        data_p             = None
+        data_e             = None
+
+        elevations = self.putData(data=dataOut,mode = self.mode)
+
+        if self.__profIndex > 1:
+            case_flag = self.checkcase(elevations)
+
+            if case_flag == 0: #Subida
+
+                if len(self.__buffer) == 2: #Cuando está de subida
+                    #Se borra el dato anterior para liberar buffer y comparar el dato actual con el siguiente
+                    self.__buffer.pop(0) #Erase first data
+                    self.__buffer2.pop(0)
+                    self.__buffer3.pop(0)
+                    self.__buffer4.pop(0)
+                    self.__profIndex -= 1
+                else: #Cuando ha estado de bajada y ha vuelto a subir
+                    #Se borra el último dato
+                    self.__buffer.pop() #Erase last data
+                    self.__buffer2.pop()
+                    self.__buffer3.pop()
+                    self.__buffer4.pop()
+                    data_360_Power,data_360_Velocity,n,data_p,data_e  = self.pushData(data=dataOut)
+
+                    self.__dataReady = True
+
+        return data_360_Power,data_360_Velocity,data_p,data_e
+
+
+    def blockOp(self, dataOut, datatime= None):
+        if self.__initime == None:
+            self.__initime = datatime
+        data_360_Power,data_360_Velocity,data_p,data_e = self.byProfiles(dataOut)
+        self.__lastdatatime           = datatime
+
+        avgdatatime    = self.__initime
+        if self.n==1:
+            avgdatatime = datatime
+        deltatime      = datatime - self.__lastdatatime
+        self.__initime = datatime
+        return data_360_Power,data_360_Velocity,avgdatatime,data_p,data_e
+
+    def checkcase(self,data_ele):
+        #print(data_ele)
+        start  = data_ele[-2]
+        end    = data_ele[-1]
+        diff_angle = (end-start)
+        len_ang=len(data_ele)
+
+        if diff_angle > 0: #Subida
+            return 0
+
+    def run(self, dataOut,mode='Power',**kwargs):
+        #print("BLOCK 360 HERE WE GO MOMENTOS")
+        #print("Block 360")
+        dataOut.mode = mode
+
+        if not self.isConfig:
+            self.setup(dataOut = dataOut ,mode= mode ,**kwargs)
+            self.isConfig   = True
+
+
+        data_360_Power, data_360_Velocity, avgdatatime,data_p,data_e = self.blockOp(dataOut, dataOut.utctime)
+
+
+        dataOut.flagNoData                         = True
+
+
+        if self.__dataReady:
+            dataOut.data_360_Power         = data_360_Power # S
+            dataOut.data_360_Velocity         = data_360_Velocity
+            dataOut.data_azi         = data_p
+            dataOut.data_ele         = data_e
+            dataOut.utctime         = avgdatatime
+            dataOut.flagNoData      = False
+
         return dataOut

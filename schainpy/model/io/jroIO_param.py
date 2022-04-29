@@ -394,11 +394,22 @@ class HDFWriter(Operation):
                 flag = True
                 return flag
 
+    def generalFlag_vRF(self):
+        ####rint("GENERALFLAG")
+
+        try:
+            self.dataOut.flagBlock360Done
+            return self.dataOut.flagBlock360Done
+        except:
+            return 0
+
+
     def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None,type_data=None,**kwargs):
         self.path = path
         self.blocksPerFile = blocksPerFile
         self.metadataList = metadataList
         self.dataList = [s.strip() for s in dataList]
+        self.setType = setType
         if self.mode == "weather":
             self.setType = "weather"
             #----------------------------------------
@@ -624,7 +635,7 @@ class HDFWriter(Operation):
         return
 
     def writeData(self, fp):
-
+        print("writing data")
         if self.description:
             if 'Data' in self.description:
                 grp = fp.create_group('Data')
@@ -671,7 +682,7 @@ class HDFWriter(Operation):
 
     def putData(self):
         ###print("**************************PUT DATA***************************************************")
-        if (self.blockIndex == self.blocksPerFile) or self.timeFlag() or self.generalFlag():
+        if (self.blockIndex == self.blocksPerFile) or self.timeFlag():# or self.generalFlag_vRF():
             self.closeFile()
             self.setNextFile()
 
