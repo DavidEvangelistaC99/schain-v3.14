@@ -74,8 +74,8 @@ class ConfBase():
     def addParameter(self, name, value, format=None):
         '''
         '''
-        if os.path.isdir(value):
-            self.parameters[name] = value
+        if format is not None:
+            self.parameters[name] = eval(format)(value)
         elif isinstance(value, str) and re.search(r'(\d+/\d+/\d+)', value):
             self.parameters[name] = datetime.date(*[int(x) for x in value.split('/')])
         elif isinstance(value, str) and re.search(r'(\d+:\d+:\d+)', value):
@@ -312,7 +312,7 @@ class ReadUnitConf(ProcUnitConf):
         self.datatype = datatype
         self.err_queue = err_queue
 
-        self.addParameter(name='path', value=path)
+        self.addParameter(name='path', value=path, format='str')
         self.addParameter(name='startDate', value=startDate)
         self.addParameter(name='endDate', value=endDate)
         self.addParameter(name='startTime', value=startTime)

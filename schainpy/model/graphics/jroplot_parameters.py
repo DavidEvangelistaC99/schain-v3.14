@@ -620,18 +620,20 @@ class WeatherPlot(Plot):
         self.res_ele = numpy.mean(data['ele'])
         #################    PLOTEO           ###################
         for i,ax in enumerate(self.axes):
+            self.zmin = self.zmin if self.zmin else 20
+            self.zmax = self.zmax if self.zmax else 80
             if ax.firsttime:
                 plt.clf()
-                cgax, pm = wrl.vis.plot_ppi(self.res_weather,r=r,az=self.res_azi,fig=self.figures[0], proj='cg', vmin=20, vmax=80)
+                cgax, pm = wrl.vis.plot_ppi(self.res_weather,r=r,az=self.res_azi,fig=self.figures[0], proj='cg', vmin=self.zmin, vmax=self.zmax)
             else:
                 plt.clf()
-                cgax, pm = wrl.vis.plot_ppi(self.res_weather,r=r,az=self.res_azi,fig=self.figures[0], proj='cg', vmin=20, vmax=80)
+                cgax, pm = wrl.vis.plot_ppi(self.res_weather,r=r,az=self.res_azi,fig=self.figures[0], proj='cg', vmin=self.zmin, vmax=self.zmax)
         caax = cgax.parasites[0]
         paax = cgax.parasites[1]
         cbar = plt.gcf().colorbar(pm, pad=0.075)
         caax.set_xlabel('x_range [km]')
         caax.set_ylabel('y_range [km]')
-        plt.text(1.0, 1.05, 'Azimuth '+str(thisDatetime)+"  Step   "+str(self.ini)+ " Elev: "+str(round(self.res_ele,2)), transform=caax.transAxes, va='bottom',ha='right')
+        plt.text(1.0, 1.05, 'Azimuth '+str(thisDatetime)+"  Step   "+str(self.ini)+ " EL: "+str(round(self.res_ele, 1)), transform=caax.transAxes, va='bottom',ha='right')
 
         self.ini= self.ini+1
 
@@ -665,7 +667,7 @@ class WeatherRHIPlot(Plot):
         self.titles = ['{} Channel {}'.format(self.CODE.upper(), x) for x in range(self.nrows)]
         print("self.titles",self.titles)
         self.colorbar=False
-        self.width   =8
+        self.width   =12
         self.height  =8
         self.ini     =0
         self.len_azi =0
@@ -1072,6 +1074,7 @@ class WeatherRHIPlot(Plot):
         ###print("self.res_ele",self.res_ele)
         plt.clf()
         subplots = [121, 122]
+        cg={'angular_spacing': 20.}
         if self.ini==0:
             self.data_ele_tmp = numpy.ones([self.nplots,int(var_ang)])*numpy.nan
             self.res_weather= numpy.ones([self.nplots,int(var_ang),len(r_mask)])*numpy.nan
@@ -1082,16 +1085,18 @@ class WeatherRHIPlot(Plot):
             self.res_azi                   = numpy.mean(data['azi'])
             if i==0:
                 print("*****************************************************************************to plot**************************",self.res_weather[i].shape)
+            self.zmin = self.zmin if self.zmin else 20
+            self.zmax = self.zmax if self.zmax else 80
             if ax.firsttime:
                 #plt.clf()
-                cgax, pm = wrl.vis.plot_rhi(self.res_weather[i],r=r,th=self.res_ele,ax=subplots[i], proj='cg',vmin=20, vmax=80)
+                cgax, pm = wrl.vis.plot_rhi(self.res_weather[i],r=r,th=self.res_ele,ax=subplots[i], proj=cg,vmin=self.zmin, vmax=self.zmax)
                 #fig=self.figures[0]
             else:
                 #plt.clf()
                 if i==0:
                     print(self.res_weather[i])
                     print(self.res_ele)
-                cgax, pm = wrl.vis.plot_rhi(self.res_weather[i],r=r,th=self.res_ele,ax=subplots[i], proj='cg',vmin=20, vmax=80)
+                cgax, pm = wrl.vis.plot_rhi(self.res_weather[i],r=r,th=self.res_ele,ax=subplots[i], proj=cg,vmin=self.zmin, vmax=self.zmax)
             caax = cgax.parasites[0]
             paax = cgax.parasites[1]
             cbar = plt.gcf().colorbar(pm, pad=0.075)

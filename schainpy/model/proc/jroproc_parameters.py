@@ -4059,23 +4059,28 @@ class PedestalInformation(Operation):
             return False, False
         fileList = glob.glob(os.path.join(path, '*.h5'))
         fileList.sort()
-        for fullname in fileList:
-            filename = fullname.split('/')[-1]
-            number = int(filename[4:14])
-            if number <= timestamp:
-                return number, fullname
-        return False, False
+        print(fileList)
+        return fileList
 
     def find_next_file(self):
 
         while True:
+            if self.utctime < self.utcfile:
+                self.flagNoData = True
+                break
+            self.flagNoData = False
             file_size = len(self.fp['Data']['utc']) 
             if self.utctime < self.utcfile+file_size*self.interval:
                 break
-            self.utcfile += file_size*self.interval
+            dt = datetime.datetime.utcfromtimestamp(self.utcfile)
+            if dt.second > 0:
+                self.utcfile -= dt.second
+            self.utcfile += self.samples*self.interval
             dt = datetime.datetime.utcfromtimestamp(self.utctime)
             path = os.path.join(self.path, dt.strftime('%Y-%m-%dT%H-00-00'))
-            self.filename = os.path.join(path, 'pos@{}.000.h5'.format(self.utcfile))
+            self.filename = os.path.join(path, 'pos@{}.000.h5'.format(int(self.utcfile)))
+            print('ACQ time: ', self.utctime, 'POS time: ', self.utcfile)
+            print('Next file: ', self.filename)
             if not os.path.exists(self.filename):
                 log.warning('Waiting for position files...', self.name)
         
@@ -4088,8 +4093,11 @@ class PedestalInformation(Operation):
     
     def get_values(self):
 
-        index = int((self.utctime-self.utcfile)/self.interval)
-        return self.fp['Data']['azi_pos'][index], self.fp['Data']['ele_pos'][index]
+        if self.flagNoData:
+            return numpy.nan, numpy.nan
+        else:
+            index = int((self.utctime-self.utcfile)/self.interval)
+            return self.fp['Data']['azi_pos'][index], self.fp['Data']['ele_pos'][index]
 
     def setup(self, dataOut, path, conf, samples, interval, wr_exp):
 
@@ -4097,22 +4105,24 @@ class PedestalInformation(Operation):
         self.conf = conf
         self.samples = samples
         self.interval = interval
-        self.utcfile, self.filename = self.find_file(dataOut.utctime)
+        filelist = self.find_file(dataOut.utctime)
         
-        if not self.filename:
+        if not filelist:
             log.error('No position files found in {}'.format(path), self.name)
             raise IOError('No position files found in {}'.format(path))
         else:
+            self.filename = filelist[0]
+            self.utcfile = int(self.filename.split('/')[-1][4:14])
             log.log('Opening file: {}'.format(self.filename), self.name)
             self.fp = h5py.File(self.filename, 'r')
 
-    def run(self, dataOut, path, conf=None, samples=1500, interval=0.04, wr_exp=None):
+    def run(self, dataOut, path, conf=None, samples=1500, interval=0.04, wr_exp=None, offset=0):
         
         if not self.isConfig:
             self.setup(dataOut, path, conf, samples, interval, wr_exp)
             self.isConfig   = True
             
-        self.utctime = dataOut.utctime
+        self.utctime = dataOut.utctime + offset
         
         self.find_next_file()
         
