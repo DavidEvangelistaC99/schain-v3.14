@@ -2383,8 +2383,8 @@ class WeatherRHI_vRF3_Plot(Plot):
         self.ini= self.ini+1
 
 class WeatherRHI_vRF4_Plot(Plot):
-    CODE = 'weather'
-    plot_name = 'weather'
+    CODE = 'RHI'
+    plot_name = 'RHI'
     #plot_type = 'rhistyle'
     buffering = False
     data_ele_tmp = None
@@ -2395,7 +2395,7 @@ class WeatherRHI_vRF4_Plot(Plot):
         self.nrows = 1
         self.nplots= 1
         self.ylabel= 'Range [Km]'
-        self.titles= ['Weather']
+        self.titles= ['RHI']
         self.polar = True
         if self.channels is not None:
             self.nplots = len(self.channels)
@@ -2430,11 +2430,6 @@ class WeatherRHI_vRF4_Plot(Plot):
 
     def update(self, dataOut):
 
-        if self.mode == 'Power':
-            self.CODE = 'Power'
-        elif self.mode == 'Doppler':
-            self.CODE = 'Doppler'
-
         data = {}
         meta = {}
         if hasattr(dataOut, 'dataPP_POWER'):
@@ -2442,10 +2437,10 @@ class WeatherRHI_vRF4_Plot(Plot):
         if hasattr(dataOut, 'nFFTPoints'):
             factor = dataOut.normFactor
 
-        if self.CODE == 'Power':
-            data[self.CODE] = 10*numpy.log10(dataOut.data_360_Power/(factor))
-        elif self.CODE == 'Doppler':
-            data[self.CODE] = dataOut.data_360_Velocity/(factor)
+        if 'pow' in self.attr_data[0].lower():
+            data['data'] = 10*numpy.log10(getattr(dataOut, self.attr_data[0])/(factor))
+        else:
+            data['data'] = getattr(dataOut, self.attr_data[0])/(factor)
 
         data['azi']     = dataOut.data_azi
         data['ele']     = dataOut.data_ele
@@ -2465,19 +2460,15 @@ class WeatherRHI_vRF4_Plot(Plot):
         ang_max = self.ang_max
         ang_min = self.ang_min
         var_ang      =ang_max -  ang_min
-        step         = (int(var_ang)/(res*data[self.CODE].shape[0]))
+        step         = (int(var_ang)/(res*data['data'].shape[0]))
 
-        z = data[self.CODE][self.channels[0]][:,r_mask]
+        z = data['data'][self.channels[0]][:,r_mask]
 
         #print(z[2,:])
         self.titles = []
 
         #exit(1)
 
-        if self.CODE == 'Power':
-            cmap = 'jet'
-        elif self.CODE == 'Doppler':
-            cmap = 'RdBu'
 
         self.ymax = self.ymax if self.ymax else numpy.nanmax(r)
         self.ymin = self.ymin if self.ymin else numpy.nanmin(r)
@@ -2496,11 +2487,12 @@ class WeatherRHI_vRF4_Plot(Plot):
 
             if ax.firsttime:
                 ax.set_xlim(numpy.radians(self.ang_min),numpy.radians(self.ang_max))
-                ax.plt = ax.contourf(theta, r, z, points_cb, cmap=cmap, vmin=self.zmin, vmax=self.zmax, levels=mylevs_cbar)
+                #ax.plt = ax.contourf(theta, r, z, points_cb, cmap=self.colormap, vmin=self.zmin, vmax=self.zmax, levels=mylevs_cbar)
+                ax.plt = ax.pcolormesh(theta, r, z, cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
                 #print(ax.plt)
                 #exit(1)
                 '''
-                self.figures[-1].colorbar(plt, orientation="vertical", fraction=0.025, pad=0.07)
+                self.figures[-1].colorbmapplt, orientation="vertical", fraction=0.025, pad=0.07)
                 print(self.figures[0])
                 print(self.figures)
                 print(plt)
@@ -2510,14 +2502,15 @@ class WeatherRHI_vRF4_Plot(Plot):
 
             else:
                 ax.set_xlim(numpy.radians(self.ang_min),numpy.radians(self.ang_max))
-                ax.plt = ax.contourf(theta, r, z, points_cb, cmap=cmap, vmin=self.zmin, vmax=self.zmax, levels=mylevs_cbar)
+                #ax.plt = ax.contourf(theta, r, z, points_cb, cmap=self.colormap, vmin=self.zmin, vmax=self.zmax, levels=mylevs_cbar)
+                ax.plt = ax.pcolormesh(theta, r, z, cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
                 #self.figures[0].colorbar(plt, orientation="vertical", fraction=0.025, pad=0.07)
 
             #print(self.titles)
             if len(self.channels) !=1:
-                self.titles = ['{} Azi: {} Channel {}'.format(self.CODE.upper(), str(round(numpy.mean(data['azi']),2)), x) for x in range(self.nrows)]
+                self.titles = ['RHI {} AZ: {} Channel {}'.format(self.labels[x], str(round(numpy.mean(data['azi']),1)), x) for x in range(self.nrows)]
             else:
-                self.titles = ['{} Azi: {} Channel {}'.format(self.CODE.upper(), str(round(numpy.mean(data['azi']),2)), self.channels[0])]
+                self.titles = ['RHI {} AZ: {} Channel {}'.format(self.labels[0], str(round(numpy.mean(data['azi']),1)), self.channels[0])]
             #self.titles.append('Azi: {}'.format(str(round(numpy.mean(data['azi']),2))))
             #self.titles.append(str(round(numpy.mean(data['azi']),2)))
             #print(self.titles)

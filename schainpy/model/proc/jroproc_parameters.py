@@ -4686,7 +4686,7 @@ class Block360_vRF3(Operation):
     def __init__(self,**kwargs):
         Operation.__init__(self,**kwargs)
 
-    def setup(self, dataOut, n = None, mode = None):
+    def setup(self, dataOut, attr):
         '''
         n= Numero de PRF's de entrada
         '''
@@ -4695,66 +4695,55 @@ class Block360_vRF3(Operation):
         self.__dataReady      = False
         self.__buffer         = 0
         self.__buffer_1D      = 0
-        #self.__profIndex      = 0
         self.index            = 0
         self.__nch            = dataOut.nChannels
         self.__nHeis          = dataOut.nHeights
 
-        self.mode    = mode
+        self.attr = attr
         #print("self.mode",self.mode)
         #print("nHeights")
         self.__buffer  = []
         self.__buffer2 = []
         self.__buffer3 = []
-        self.__buffer4 = []
 
-    def putData(self,data,mode):
+    def putData(self, data, attr):
         '''
         Add a profile to he __buffer and increase in one the __profiel Index
         '''
 
-        if self.mode==0:
-            self.__buffer.append(data.dataPP_POWER)# PRIMER MOMENTO
-        if self.mode==1:
-            self.__buffer.append(data.data_pow)
-
-        self.__buffer4.append(data.dataPP_DOP)
-
+        self.__buffer.append(getattr(data, attr))
         self.__buffer2.append(data.azimuth)
         self.__buffer3.append(data.elevation)
-        self.__profIndex      += 1
+        self.__profIndex  += 1
 
-        return numpy.array(self.__buffer3)        #················· Remove DC···································
+        return numpy.array(self.__buffer3)
 
-    def pushData(self,data):
+    def pushData(self, data):
         '''
         Return the PULSEPAIR and the profiles used in the operation
         Affected :  self.__profileIndex
         '''
 
-        data_360_Power = numpy.array(self.__buffer).transpose(1,0,2)
-        data_360_Velocity = numpy.array(self.__buffer4).transpose(1,0,2)
+        data_360 = numpy.array(self.__buffer).transpose(1, 0, 2)
         data_p   = numpy.array(self.__buffer2)
         data_e   = numpy.array(self.__buffer3)
-        n                = self.__profIndex
+        n   = self.__profIndex
 
         self.__buffer = []
-        self.__buffer4 = []
         self.__buffer2 = []
         self.__buffer3 = []
         self.__profIndex = 0
-        return data_360_Power,data_360_Velocity,n,data_p,data_e
+        return data_360, n, data_p, data_e
 
 
     def byProfiles(self,dataOut):
 
         self.__dataReady     =  False
-        data_360_Power           =  []
-        data_360_Velocity           =  []
+        data_360 =  []
         data_p             = None
         data_e             = None
 
-        elevations = self.putData(data=dataOut,mode = self.mode)
+        elevations = self.putData(data=dataOut, attr = self.attr)
 
         if self.__profIndex > 1:
             case_flag = self.checkcase(elevations)
@@ -4766,25 +4755,23 @@ class Block360_vRF3(Operation):
                     self.__buffer.pop(0) #Erase first data
                     self.__buffer2.pop(0)
                     self.__buffer3.pop(0)
-                    self.__buffer4.pop(0)
                     self.__profIndex -= 1
                 else: #Cuando ha estado de bajada y ha vuelto a subir
                     #Se borra el último dato
                     self.__buffer.pop() #Erase last data
                     self.__buffer2.pop()
                     self.__buffer3.pop()
-                    self.__buffer4.pop()
-                    data_360_Power,data_360_Velocity,n,data_p,data_e  = self.pushData(data=dataOut)
+                    data_360, n, data_p, data_e  = self.pushData(data=dataOut)
 
                     self.__dataReady = True
 
-        return data_360_Power,data_360_Velocity,data_p,data_e
+        return data_360, data_p, data_e
 
 
     def blockOp(self, dataOut, datatime= None):
         if self.__initime == None:
             self.__initime = datatime
-        data_360_Power,data_360_Velocity,data_p,data_e = self.byProfiles(dataOut)
+        data_360, data_p, data_e = self.byProfiles(dataOut)
         self.__lastdatatime           = datatime
 
         avgdatatime    = self.__initime
@@ -4792,9 +4779,9 @@ class Block360_vRF3(Operation):
             avgdatatime = datatime
         deltatime      = datatime - self.__lastdatatime
         self.__initime = datatime
-        return data_360_Power,data_360_Velocity,avgdatatime,data_p,data_e
+        return data_360, avgdatatime, data_p, data_e
 
-    def checkcase(self,data_ele):
+    def checkcase(self, data_ele):
         #print(data_ele)
         start  = data_ele[-2]
         end    = data_ele[-1]
@@ -4804,28 +4791,24 @@ class Block360_vRF3(Operation):
         if diff_angle > 0: #Subida
             return 0
 
-    def run(self, dataOut,mode='Power',**kwargs):
+    def run(self, dataOut, attr_data='dataPP_POWER',**kwargs):
         #print("BLOCK 360 HERE WE GO MOMENTOS")
         #print("Block 360")
-        dataOut.mode = mode
+        dataOut.attr_data = attr_data
 
         if not self.isConfig:
-            self.setup(dataOut = dataOut ,mode= mode ,**kwargs)
+            self.setup(dataOut = dataOut, attr = attr_data ,**kwargs)
             self.isConfig   = True
 
+        data_360, avgdatatime, data_p, data_e = self.blockOp(dataOut, dataOut.utctime)
 
-        data_360_Power, data_360_Velocity, avgdatatime,data_p,data_e = self.blockOp(dataOut, dataOut.utctime)
-
-
-        dataOut.flagNoData                         = True
-
+        dataOut.flagNoData = True
 
         if self.__dataReady:
-            dataOut.data_360_Power         = data_360_Power # S
-            dataOut.data_360_Velocity         = data_360_Velocity
-            dataOut.data_azi         = data_p
-            dataOut.data_ele         = data_e
-            dataOut.utctime         = avgdatatime
-            dataOut.flagNoData      = False
+            setattr(dataOut, attr_data, data_360 )
+            dataOut.data_azi  = data_p
+            dataOut.data_ele  = data_e
+            dataOut.utctime  = avgdatatime
+            dataOut.flagNoData  = False
 
         return dataOut
