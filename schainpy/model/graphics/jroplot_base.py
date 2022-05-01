@@ -254,6 +254,7 @@ class Plot(Operation):
         self.data = PlotterData(self.CODE, self.exp_code, self.localtime)
         self.ang_min = kwargs.get('ang_min', None)
         self.ang_max = kwargs.get('ang_max', None)
+        self.mode = kwargs.get('mode', None)
 
 
         if self.server:
@@ -434,9 +435,15 @@ class Plot(Operation):
                     self.time_label),
                     size=8)
             else:
-                ax.set_title('{}'.format(self.titles[n]), size=8)
-                ax.set_ylim(0, 90)
-                ax.set_yticks(numpy.arange(0, 90, 20))
+                #ax.set_title('{}'.format(self.titles[n]), size=8)
+                ax.set_title('{} {} {}'.format(
+                    self.titles[n],
+                    self.getDateTime(self.data.max_time).strftime(
+                        '%Y-%m-%d %H:%M:%S'),
+                    self.time_label),
+                    size=8)
+                ax.set_ylim(0, self.ymax)
+                #ax.set_yticks(numpy.arange(0, self.ymax, 20))
                 ax.yaxis.labelpad = 40
 
         if self.firsttime:

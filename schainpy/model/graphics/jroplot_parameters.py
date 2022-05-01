@@ -2381,3 +2381,147 @@ class WeatherRHI_vRF3_Plot(Plot):
             plt.text(1.0, 1.05, 'Elevacion '+str(thisDatetime)+"  Step   "+str(self.ini)+ " Azi: "+str(round(self.res_azi,2)), transform=caax.transAxes, va='bottom',ha='right')
         print("***************************self.ini****************************",self.ini)
         self.ini= self.ini+1
+
+class WeatherRHI_vRF4_Plot(Plot):
+    CODE = 'weather'
+    plot_name = 'weather'
+    #plot_type = 'rhistyle'
+    buffering = False
+    data_ele_tmp = None
+
+    def setup(self):
+
+        self.ncols = 1
+        self.nrows = 1
+        self.nplots= 1
+        self.ylabel= 'Range [Km]'
+        self.titles= ['Weather']
+        self.polar = True
+        if self.channels is not None:
+            self.nplots = len(self.channels)
+            self.nrows = len(self.channels)
+        else:
+            self.nplots = self.data.shape(self.CODE)[0]
+            self.nrows = self.nplots
+            self.channels = list(range(self.nplots))
+            #print("JERE")
+            #exit(1)
+        #print("channels",self.channels)
+        #print("que saldra", self.data.shape(self.CODE)[0])
+        #self.titles = ['{} Channel {}'.format(self.CODE.upper(), x) for x in range(self.nrows)]
+
+        #print("self.titles",self.titles)
+        if self.CODE == 'Power':
+            self.cb_label = r'Power (dB)'
+        elif self.CODE == 'Doppler':
+            self.cb_label = r'Velocity (m/s)'
+        self.colorbar=True
+        self.width   =8
+        self.height  =8
+        self.ini     =0
+        self.len_azi =0
+        self.buffer_ini  = None
+        self.buffer_ele   = None
+        self.plots_adjust.update({'wspace': 0.4, 'hspace':0.4, 'left': 0.1, 'right': 0.9, 'bottom': 0.08})
+        self.flag    =0
+        self.indicador= 0
+        self.last_data_ele = None
+        self.val_mean      = None
+
+    def update(self, dataOut):
+
+        if self.mode == 'Power':
+            self.CODE = 'Power'
+        elif self.mode == 'Doppler':
+            self.CODE = 'Doppler'
+
+        data = {}
+        meta = {}
+        if hasattr(dataOut, 'dataPP_POWER'):
+            factor = 1
+        if hasattr(dataOut, 'nFFTPoints'):
+            factor = dataOut.normFactor
+
+        if self.CODE == 'Power':
+            data[self.CODE] = 10*numpy.log10(dataOut.data_360_Power/(factor))
+        elif self.CODE == 'Doppler':
+            data[self.CODE] = dataOut.data_360_Velocity/(factor)
+
+        data['azi']     = dataOut.data_azi
+        data['ele']     = dataOut.data_ele
+
+        return data, meta
+
+    def plot(self):
+        thisDatetime = datetime.datetime.utcfromtimestamp(self.data.times[-1]).strftime('%Y-%m-%d %H:%M:%S')
+        data         = self.data[-1]
+        r            = self.data.yrange
+        delta_height = r[1]-r[0]
+        r_mask       = numpy.where(r>=0)[0]
+        self.r_mask =r_mask
+        r            = numpy.arange(len(r_mask))*delta_height
+        self.y       = 2*r
+        res          = 1
+        ang_max = self.ang_max
+        ang_min = self.ang_min
+        var_ang      =ang_max -  ang_min
+        step         = (int(var_ang)/(res*data[self.CODE].shape[0]))
+
+        z = data[self.CODE][self.channels[0]][:,r_mask]
+
+        #print(z[2,:])
+        self.titles = []
+
+        #exit(1)
+
+        if self.CODE == 'Power':
+            cmap = 'jet'
+        elif self.CODE == 'Doppler':
+            cmap = 'RdBu'
+
+        self.ymax = self.ymax if self.ymax else numpy.nanmax(r)
+        self.ymin = self.ymin if self.ymin else numpy.nanmin(r)
+        self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
+        self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
+
+        #plt.clf()
+        subplots = [121, 122]
+
+        r, theta = numpy.meshgrid(r, numpy.radians(data['ele']) )
+
+        points_cb = 200
+        mylevs_cbar = list(numpy.linspace(self.zmin,self.zmax,points_cb)) #niveles de la barra de colores
+
+        for i,ax in enumerate(self.axes):
+
+            if ax.firsttime:
+                ax.set_xlim(numpy.radians(self.ang_min),numpy.radians(self.ang_max))
+                ax.plt = ax.contourf(theta, r, z, points_cb, cmap=cmap, vmin=self.zmin, vmax=self.zmax, levels=mylevs_cbar)
+                #print(ax.plt)
+                #exit(1)
+                '''
+                self.figures[-1].colorbar(plt, orientation="vertical", fraction=0.025, pad=0.07)
+                print(self.figures[0])
+                print(self.figures)
+                print(plt)
+                print(ax)
+                exit(1)
+                '''
+
+            else:
+                ax.set_xlim(numpy.radians(self.ang_min),numpy.radians(self.ang_max))
+                ax.plt = ax.contourf(theta, r, z, points_cb, cmap=cmap, vmin=self.zmin, vmax=self.zmax, levels=mylevs_cbar)
+                #self.figures[0].colorbar(plt, orientation="vertical", fraction=0.025, pad=0.07)
+
+            #print(self.titles)
+            if len(self.channels) !=1:
+                self.titles = ['{} Azi: {} Channel {}'.format(self.CODE.upper(), str(round(numpy.mean(data['azi']),2)), x) for x in range(self.nrows)]
+            else:
+                self.titles = ['{} Azi: {} Channel {}'.format(self.CODE.upper(), str(round(numpy.mean(data['azi']),2)), self.channels[0])]
+            #self.titles.append('Azi: {}'.format(str(round(numpy.mean(data['azi']),2))))
+            #self.titles.append(str(round(numpy.mean(data['azi']),2)))
+            #print(self.titles)
+            #plt.text(1.0, 1.05, str(thisDatetime)+ " Azi: "+str(round(numpy.mean(data['azi']),2)), transform=caax.transAxes, va='bottom',ha='right')
+        #print("***************************self.ini****************************",self.ini)
+        #self.figures[-1].colorbar(plt, orientation="vertical", fraction=0.025, pad=0.07)
+        #self.ini= self.ini+1
