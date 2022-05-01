@@ -362,7 +362,8 @@ class DigitalRFReader(ProcessingUnit):
         start_index, end_index = self.digitalReadObj.get_bounds(
             channelNameList[channelList[0]])
 
-        ##print("*****",start_index,end_index)
+        print("*****",start_index,end_index)
+        print(metadata_bounds)
         if not startUTCSecond:
             startUTCSecond = start_index / self.__sample_rate
 
@@ -371,9 +372,11 @@ class DigitalRFReader(ProcessingUnit):
 
         if not endUTCSecond:
             endUTCSecond   = end_index / self.__sample_rate
-
+        print("1",endUTCSecond)
+        print(self.__sample_rate)
         if end_index       < endUTCSecond * self.__sample_rate:
-            endUTCSecond   = end_index / self.__sample_rate
+            endUTCSecond   = end_index / self.__sample_rate #Check UTC and LT time
+            print("2",endUTCSecond)
         if not nSamples:
             if not ippKm:
                 raise ValueError("[Reading] nSamples or ippKm should be defined")

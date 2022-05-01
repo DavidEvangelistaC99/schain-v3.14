@@ -4069,7 +4069,7 @@ class PedestalInformation(Operation):
                 self.flagNoData = True
                 break
             self.flagNoData = False
-            file_size = len(self.fp['Data']['utc']) 
+            file_size = len(self.fp['Data']['utc'])
             if self.utctime < self.utcfile+file_size*self.interval:
                 break
             dt = datetime.datetime.utcfromtimestamp(self.utcfile)
@@ -4106,7 +4106,7 @@ class PedestalInformation(Operation):
         self.samples = samples
         self.interval = interval
         filelist = self.find_file(dataOut.utctime)
-        
+
         if not filelist:
             log.error('No position files found in {}'.format(path), self.name)
             raise IOError('No position files found in {}'.format(path))
@@ -4117,13 +4117,13 @@ class PedestalInformation(Operation):
             self.fp = h5py.File(self.filename, 'r')
 
     def run(self, dataOut, path, conf=None, samples=1500, interval=0.04, wr_exp=None, offset=0):
-        
+
         if not self.isConfig:
             self.setup(dataOut, path, conf, samples, interval, wr_exp)
             self.isConfig   = True
-            
+
         self.utctime = dataOut.utctime + offset
-        
+
         self.find_next_file()
 
         az, el = self.get_values()
@@ -4801,6 +4801,178 @@ class Block360_vRF3(Operation):
             self.isConfig   = True
 
         data_360, avgdatatime, data_p, data_e = self.blockOp(dataOut, dataOut.utctime)
+
+        dataOut.flagNoData = True
+
+        if self.__dataReady:
+            setattr(dataOut, attr_data, data_360 )
+            dataOut.data_azi  = data_p
+            dataOut.data_ele  = data_e
+            dataOut.utctime  = avgdatatime
+            dataOut.flagNoData  = False
+
+        return dataOut
+
+class Block360_vRF4(Operation):
+    '''
+    '''
+    isConfig       = False
+    __profIndex    = 0
+    __initime      = None
+    __lastdatatime = None
+    __buffer       = None
+    __dataReady    = False
+    n              = None
+    __nch          = 0
+    __nHeis        = 0
+    index          = 0
+    mode           = None
+
+    def __init__(self,**kwargs):
+        Operation.__init__(self,**kwargs)
+
+    def setup(self, dataOut, attr):
+        '''
+        n= Numero de PRF's de entrada
+        '''
+        self.__initime        = None
+        self.__lastdatatime   = 0
+        self.__dataReady      = False
+        self.__buffer         = 0
+        self.__buffer_1D      = 0
+        self.index            = 0
+        self.__nch            = dataOut.nChannels
+        self.__nHeis          = dataOut.nHeights
+
+        self.attr = attr
+
+        self.__buffer  = []
+        self.__buffer2 = []
+        self.__buffer3 = []
+
+    def putData(self, data, attr, flagMode):
+        '''
+        Add a profile to he __buffer and increase in one the __profiel Index
+        '''
+
+        self.__buffer.append(getattr(data, attr))
+        self.__buffer2.append(data.azimuth)
+        self.__buffer3.append(data.elevation)
+        self.__profIndex  += 1
+
+        if flagMode == 1: #'AZI'
+            return numpy.array(self.__buffer2)
+        elif flagMode == 0: #'ELE'
+            return numpy.array(self.__buffer3)
+
+    def pushData(self, data,flagMode):
+        '''
+        Return the PULSEPAIR and the profiles used in the operation
+        Affected :  self.__profileIndex
+        '''
+
+        data_360 = numpy.array(self.__buffer).transpose(1, 0, 2)
+        data_p   = numpy.array(self.__buffer2)
+        data_e   = numpy.array(self.__buffer3)
+        n   = self.__profIndex
+
+        self.__buffer = []
+        self.__buffer2 = []
+        self.__buffer3 = []
+        self.__profIndex = 0
+
+        if flagMode == 1 and case_flag == 0: #'AZI' y ha girado
+            self.putData(data=dataOut, attr = self.attr, flagMode=flagMode)
+
+        return data_360, n, data_p, data_e
+
+
+    def byProfiles(self,dataOut,flagMode):
+
+        self.__dataReady     =  False
+        data_360 =  []
+        data_p             = None
+        data_e             = None
+
+        angles = self.putData(data=dataOut, attr = self.attr, flagMode=flagMode)
+
+        if self.__profIndex > 1:
+            case_flag = self.checkcase(angles,flagMode)
+
+            if flagMode == 1: #'AZI':
+                if case_flag == 0: #Ya giró
+                    self.__buffer.pop() #Erase last data
+                    self.__buffer2.pop()
+                    self.__buffer3.pop()
+                    data_360,n,data_p,data_e  = self.pushData(data=dataOut,flagMode=flagMode)
+
+                    self.__dataReady = True
+
+            elif flagMode == 0: #'ELE'
+
+                if case_flag == 0: #Subida
+
+                    if len(self.__buffer) == 2: #Cuando está de subida
+                        #Se borra el dato anterior para liberar buffer y comparar el dato actual con el siguiente
+                        self.__buffer.pop(0) #Erase first data
+                        self.__buffer2.pop(0)
+                        self.__buffer3.pop(0)
+                        self.__profIndex -= 1
+                    else: #Cuando ha estado de bajada y ha vuelto a subir
+                        #Se borra el último dato
+                        self.__buffer.pop() #Erase last data
+                        self.__buffer2.pop()
+                        self.__buffer3.pop()
+                        data_360, n, data_p, data_e  = self.pushData(data=dataOut,flagMode=flagMode)
+
+                        self.__dataReady = True
+
+        return data_360, data_p, data_e
+
+
+    def blockOp(self, dataOut, flagMode, datatime= None):
+        if self.__initime == None:
+            self.__initime = datatime
+        data_360, data_p, data_e = self.byProfiles(dataOut,flagMode)
+        self.__lastdatatime           = datatime
+
+        avgdatatime    = self.__initime
+        if self.n==1:
+            avgdatatime = datatime
+        deltatime      = datatime - self.__lastdatatime
+        self.__initime = datatime
+        return data_360, avgdatatime, data_p, data_e
+
+    def checkcase(self, angles, flagMode):
+
+        if flagMode == 1: #'AZI'
+            start  = angles[-2]
+            end    = angles[-1]
+            diff_angle = (end-start)
+
+            if diff_angle < 0: #Ya giró
+                return 0
+
+        elif flagMode == 0: #'ELE'
+
+            start  = angles[-2]
+            end    = angles[-1]
+            diff_angle = (end-start)
+
+            if diff_angle > 0: #Subida
+                return 0
+
+    def run(self, dataOut, attr_data='dataPP_POWER', axis=None,**kwargs):
+
+        dataOut.attr_data = attr_data
+
+        dataOut.flagMode = axis[0] #Provisional, debería venir del header
+
+        if not self.isConfig:
+            self.setup(dataOut = dataOut, attr = attr_data ,**kwargs)
+            self.isConfig   = True
+
+        data_360, avgdatatime, data_p, data_e = self.blockOp(dataOut, dataOut.flagMode, dataOut.utctime)
 
         dataOut.flagNoData = True
 
