@@ -1176,8 +1176,8 @@ class Weather_vRF_Plot(Plot):
         self.y       = 2*r
         res          = 1
 
-        var_ang      =ang_max -  ang_min
-        step         = (int(var_ang)/(res*data['data'].shape[0]))
+        #var_ang      = ang_max - ang_min
+        #step         = (int(var_ang)/(res*data['data'].shape[0]))
 
         z = data['data'][self.channels[0]][:,r_mask]
 
@@ -1188,7 +1188,7 @@ class Weather_vRF_Plot(Plot):
         self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
         self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
         self.ang_min = self.ang_min if self.ang_min else 0
-        self.ang_max = self.ang_max if self.ang_max else 2*numpy.pi
+        self.ang_max = self.ang_max if self.ang_max else 360
 
         subplots = [121, 122]
 
@@ -2499,6 +2499,7 @@ class WeatherRHI_vRF4_Plot(Plot):
         self.ylabel= 'Range [Km]'
         self.titles= ['RHI']
         self.polar = True
+        self.grid = True
         if self.channels is not None:
             self.nplots = len(self.channels)
             self.nrows = len(self.channels)
@@ -2552,10 +2553,10 @@ class WeatherRHI_vRF4_Plot(Plot):
         r            = numpy.arange(len(r_mask))*delta_height
         self.y       = 2*r
         res          = 1
-        ang_max = self.ang_max
-        ang_min = self.ang_min
-        var_ang      =ang_max -  ang_min
-        step         = (int(var_ang)/(res*data['data'].shape[0]))
+        #ang_max = self.ang_max
+        #ang_min = self.ang_min
+        #var_ang      =ang_max -  ang_min
+        #step         = (int(var_ang)/(res*data['data'].shape[0]))
 
         z = data['data'][self.channels[0]][:,r_mask]
 
@@ -2566,7 +2567,7 @@ class WeatherRHI_vRF4_Plot(Plot):
         self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
         self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
         self.ang_min = self.ang_min if self.ang_min else 0
-        self.ang_max = self.ang_max if self.ang_max else 2*numpy.pi
+        self.ang_max = self.ang_max if self.ang_max else 90
 
         subplots = [121, 122]
 

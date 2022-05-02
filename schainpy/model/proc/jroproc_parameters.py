@@ -4865,7 +4865,7 @@ class Block360_vRF4(Operation):
         elif flagMode == 0: #'ELE'
             return numpy.array(self.__buffer3)
 
-    def pushData(self, data,flagMode):
+    def pushData(self, data,flagMode,case_flag):
         '''
         Return the PULSEPAIR and the profiles used in the operation
         Affected :  self.__profileIndex
@@ -4882,7 +4882,7 @@ class Block360_vRF4(Operation):
         self.__profIndex = 0
 
         if flagMode == 1 and case_flag == 0: #'AZI' y ha girado
-            self.putData(data=dataOut, attr = self.attr, flagMode=flagMode)
+            self.putData(data=data, attr = self.attr, flagMode=flagMode)
 
         return data_360, n, data_p, data_e
 
@@ -4904,7 +4904,7 @@ class Block360_vRF4(Operation):
                     self.__buffer.pop() #Erase last data
                     self.__buffer2.pop()
                     self.__buffer3.pop()
-                    data_360,n,data_p,data_e  = self.pushData(data=dataOut,flagMode=flagMode)
+                    data_360,n,data_p,data_e  = self.pushData(data=dataOut,flagMode=flagMode,case_flag=case_flag)
 
                     self.__dataReady = True
 
@@ -4923,7 +4923,7 @@ class Block360_vRF4(Operation):
                         self.__buffer.pop() #Erase last data
                         self.__buffer2.pop()
                         self.__buffer3.pop()
-                        data_360, n, data_p, data_e  = self.pushData(data=dataOut,flagMode=flagMode)
+                        data_360, n, data_p, data_e  = self.pushData(data=dataOut,flagMode=flagMode,case_flag=case_flag)
 
                         self.__dataReady = True
 
