@@ -444,7 +444,7 @@ class Plot(Operation):
                     size=8)
                 ax.set_ylim(0, self.ymax)
                 #ax.set_yticks(numpy.arange(0, self.ymax, 20))
-                ax.yaxis.labelpad = 40
+                ax.yaxis.labelpad = 20
 
         if self.firsttime:
             for n, fig in enumerate(self.figures):
