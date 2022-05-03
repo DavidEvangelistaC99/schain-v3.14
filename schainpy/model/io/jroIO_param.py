@@ -412,11 +412,9 @@ class HDFWriter(Operation):
         self.setType = setType
         if self.mode == "weather":
             self.setType = "weather"
-            #----------------------------------------
             self.set_kwargs(**kwargs)
             self.set_kwargs_obj(self.dataOut,**kwargs)
-            #print("-----------------------------------------------------------",self.Typename)
-        #print("hola",self.ContactInformation)
+
 
         self.description = description
         self.type_data=type_data
@@ -445,7 +443,6 @@ class HDFWriter(Operation):
                 dsDict['shape'] = dataAux.shape
                 dsDict['dsNumber'] = dataAux.shape[0]
                 dsDict['dtype'] = dataAux.dtype
-
             dsList.append(dsDict)
 
         self.dsList = dsList
@@ -475,10 +472,14 @@ class HDFWriter(Operation):
             return False
 
     def run(self, dataOut, path, blocksPerFile=10, metadataList=None,
-            dataList=[], setType=None, description={},mode= None,type_data=None,**kwargs):
+            dataList=[], setType=None, description={},mode= None,type_data=None,Reset = False,**kwargs):
 
-        ###print("VOY A ESCRIBIR----------------------")
-        #print("CHECKTHIS------------------------------------------------------------------*****---",**kwargs)
+        if Reset:
+            self.isConfig = False
+            self.closeFile()
+            self.lastTime = None
+            self.blockIndex = 0
+
         self.dataOut = dataOut
         self.mode    = mode
         if not(self.isConfig):
@@ -635,7 +636,7 @@ class HDFWriter(Operation):
         return
 
     def writeData(self, fp):
-        print("writing data")
+
         if self.description:
             if 'Data' in self.description:
                 grp = fp.create_group('Data')
@@ -681,7 +682,6 @@ class HDFWriter(Operation):
         return
 
     def putData(self):
-        ###print("**************************PUT DATA***************************************************")
         if (self.blockIndex == self.blocksPerFile) or self.timeFlag():# or self.generalFlag_vRF():
             self.closeFile()
             self.setNextFile()

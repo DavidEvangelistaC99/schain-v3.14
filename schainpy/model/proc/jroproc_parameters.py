@@ -4782,7 +4782,7 @@ class Block360_vRF3(Operation):
         return data_360, avgdatatime, data_p, data_e
 
     def checkcase(self, data_ele):
-        #print(data_ele)
+
         start  = data_ele[-2]
         end    = data_ele[-1]
         diff_angle = (end-start)
@@ -4792,8 +4792,7 @@ class Block360_vRF3(Operation):
             return 0
 
     def run(self, dataOut, attr_data='dataPP_POWER',**kwargs):
-        #print("BLOCK 360 HERE WE GO MOMENTOS")
-        #print("Block 360")
+
         dataOut.attr_data = attr_data
 
         if not self.isConfig:
