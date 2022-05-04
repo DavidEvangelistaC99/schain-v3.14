@@ -1198,9 +1198,9 @@ class Weather_vRF_Plot(Plot):
             else:
                 ax.set_xlim(numpy.radians(self.ang_min),numpy.radians(self.ang_max))
                 ax.plt = ax.pcolormesh(theta, r, z, cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
-            
+
             ax.grid(True)
-            
+
             if len(self.channels) !=1:
                 self.titles = ['PPI {} at EL: {} Channel {}'.format(self.self.labels[x], str(round(numpy.mean(data['ele']),1)), x) for x in range(self.nrows)]
             else:

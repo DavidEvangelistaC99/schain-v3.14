@@ -954,7 +954,7 @@ class ProfileSelector(Operation):
         return True
 
     def run(self, dataOut, profileList=None, profileRangeList=None, beam=None, byblock=False, rangeList = None, nProfiles=None):
-
+        #print("before",dataOut.data.shape)
         """
         ProfileSelector:
 
@@ -1002,7 +1002,7 @@ class ProfileSelector(Operation):
             dataOut.nProfiles = len(profileList)
             dataOut.profileIndex = dataOut.nProfiles - 1
             dataOut.flagNoData = False
-
+            #print(dataOut.data.shape)
             return dataOut
 
         """
@@ -1694,12 +1694,10 @@ class PulsePair_vRF(Operation):
         return data_power, data_intensity, data_velocity, data_snrPP,data_specwidth,data_ccf, avgdatatime
 
     def run(self, dataOut,n = None,removeDC= False, overlapping= False,**kwargs):
-        #print("hey")
-        #print(dataOut.data.shape)
-        #exit(1)
+
         if dataOut.flagDataAsBlock:
-            n = dataOut.nProfileBlocks
-        #print(self.__profIndex)
+            n = dataOut.nProfiles
+
         if not self.isConfig:
             self.setup(dataOut = dataOut, n    = n , removeDC=removeDC , **kwargs)
             self.isConfig   = True

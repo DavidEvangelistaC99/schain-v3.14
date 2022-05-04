@@ -104,10 +104,11 @@ class ParametersProc(ProcessingUnit):
         self.dataOut.heightList = self.dataIn.heightList
         self.dataOut.frequency = self.dataIn.frequency
         # self.dataOut.noise = self.dataIn.noise
+        self.dataOut.runNextUnit = self.dataIn.runNextUnit
 
-    def run(self):
+    def run(self, runNextUnit = 0):
 
-
+        self.dataIn.runNextUnit = runNextUnit
         #print("HOLA MUNDO SOY YO")
         #----------------------    Voltage Data    ---------------------------
 
@@ -4080,7 +4081,7 @@ class PedestalInformation(Operation):
             dt = datetime.datetime.utcfromtimestamp(self.utctime)
             path = os.path.join(self.path, dt.strftime('%Y-%m-%dT%H-00-00'))
             self.filename = os.path.join(path, 'pos@{}.000.h5'.format(int(self.utcfile)))
-            
+
             for n in range(self.nTries):
                 ok = False
                 try:
@@ -4097,7 +4098,7 @@ class PedestalInformation(Operation):
                     log.warning('Waiting {}s for position file to be ready...'.format(self.delay), self.name)
                     time.sleep(self.delay)
                     continue
-            
+
             if not ok:
                 log.error('No new position files found in {}'.format(path))
                 raise IOError('No new position files found in {}'.format(path))
@@ -4908,7 +4909,7 @@ class Block360_vRF4(Operation):
         data_e             = None
 
         angles = self.putData(data=dataOut, attr = self.attr, flagMode=flagMode)
-
+        #print(angles)
         if self.__profIndex > 1:
             case_flag = self.checkcase(angles,flagMode)
 
@@ -4995,5 +4996,93 @@ class Block360_vRF4(Operation):
             dataOut.data_ele  = data_e
             dataOut.utctime  = avgdatatime
             dataOut.flagNoData  = False
+            #print(data_360.shape)
+            #print(dataOut.heightList)
 
         return dataOut
+
+class MergeProc(ProcessingUnit):
+
+    def __init__(self):
+        ProcessingUnit.__init__(self)
+
+    def run(self, attr_data, mode=0):
+
+        #exit(1)
+        self.dataOut = getattr(self, self.inputs[0])
+        data_inputs = [getattr(self, attr) for attr in self.inputs]
+        #print(data_inputs)
+        #print(numpy.shape([getattr(data, attr_data) for data in data_inputs][1]))
+        #exit(1)
+        if mode==0:
+            data = numpy.concatenate([getattr(data, attr_data) for data in data_inputs])
+            setattr(self.dataOut, attr_data, data)
+
+        if mode==1: #Hybrid
+            #data = numpy.concatenate([getattr(data, attr_data) for data in data_inputs],axis=1)
+            #setattr(self.dataOut, attr_data, data)
+            setattr(self.dataOut, 'dataLag_spc', [getattr(data, attr_data) for data in data_inputs][0])
+            setattr(self.dataOut, 'dataLag_spc_LP', [getattr(data, attr_data) for data in data_inputs][1])
+            setattr(self.dataOut, 'dataLag_cspc', [getattr(data, attr_data_2) for data in data_inputs][0])
+            setattr(self.dataOut, 'dataLag_cspc_LP', [getattr(data, attr_data_2) for data in data_inputs][1])
+            #setattr(self.dataOut, 'nIncohInt', [getattr(data, attr_data_3) for data in data_inputs][0])
+            #setattr(self.dataOut, 'nIncohInt_LP', [getattr(data, attr_data_3) for data in data_inputs][1])
+            '''
+            print(self.dataOut.dataLag_spc_LP.shape)
+            print(self.dataOut.dataLag_cspc_LP.shape)
+            exit(1)
+            '''
+
+            #self.dataOut.dataLag_spc_LP = numpy.transpose(self.dataOut.dataLag_spc_LP[0],(2,0,1))
+            #self.dataOut.dataLag_cspc_LP = numpy.transpose(self.dataOut.dataLag_cspc_LP,(3,1,2,0))
+            '''
+            print("Merge")
+            print(numpy.shape(self.dataOut.dataLag_spc))
+            print(numpy.shape(self.dataOut.dataLag_spc_LP))
+            print(numpy.shape(self.dataOut.dataLag_cspc))
+            print(numpy.shape(self.dataOut.dataLag_cspc_LP))
+            exit(1)
+            '''
+            #print(numpy.sum(self.dataOut.dataLag_spc_LP[2,:,164])/128)
+            #print(numpy.sum(self.dataOut.dataLag_cspc_LP[0,:,30,1])/128)
+            #exit(1)
+            #print(self.dataOut.NDP)
+            #print(self.dataOut.nNoiseProfiles)
+
+            #self.dataOut.nIncohInt_LP = 128
+            self.dataOut.nProfiles_LP = 128#self.dataOut.nIncohInt_LP
+            self.dataOut.nIncohInt_LP = self.dataOut.nIncohInt
+            self.dataOut.NLAG = 16
+            self.dataOut.NRANGE = 200
+            self.dataOut.NSCAN = 128
+            #print(numpy.shape(self.dataOut.data_spc))
+
+            #exit(1)
+
+        if mode==2: #HAE 2022
+            data = numpy.sum([getattr(data, attr_data) for data in data_inputs],axis=0)
+            setattr(self.dataOut, attr_data, data)
+
+            self.dataOut.nIncohInt *= 2
+            #meta = self.dataOut.getFreqRange(1)/1000.
+            self.dataOut.freqRange = self.dataOut.getFreqRange(1)/1000.
+
+            #exit(1)
+
+        if mode==7: #RM
+
+            f = [getattr(data, attr_data) for data in data_inputs][0]
+            g = [getattr(data, attr_data) for data in data_inputs][1]
+
+            data = numpy.concatenate((f,g),axis=2)
+            #print(data)
+            setattr(self.dataOut, attr_data, data)
+            #print(self.dataOut.dataPP_POWER.shape)
+            #CONSTRUIR NUEVA ALTURAS
+            #print("hei_merge",self.dataOut.heightList)
+            dh = self.dataOut.heightList[1]-self.dataOut.heightList[0]
+            heightList_2  = (self.dataOut.heightList[-1]+dh) + numpy.arange(g.shape[-1], dtype=numpy.float) * dh
+
+            self.dataOut.heightList = numpy.concatenate((self.dataOut.heightList,heightList_2))
+            #print("hei_merge_total",self.dataOut.heightList)
+            #exit(1)

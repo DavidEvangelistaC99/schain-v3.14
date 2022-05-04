@@ -29,10 +29,19 @@ class ProcessingUnit(object):
         self.dataOut = None
         self.isConfig = False
         self.operations = []
+        self.name = 'Test'
+        self.inputs = []
 
     def setInput(self, unit):
 
-        self.dataIn = unit.dataOut
+        attr = 'dataIn'
+        for i, u in enumerate(unit):
+            if i==0:
+                self.dataIn = u.dataOut
+                self.inputs.append('dataIn')
+            else:
+                setattr(self, 'dataIn{}'.format(i), u.dataOut)
+                self.inputs.append('dataIn{}'.format(i))
 
     def getAllowedArgs(self):
         if hasattr(self, '__attrs__'):
@@ -86,7 +95,16 @@ class ProcessingUnit(object):
                 #op.queue.put(self.dataOut)
                 op.queue.put(aux)
 
-        return 'Error' if self.dataOut.error else self.dataOut.isReady()
+        try:
+            if self.dataOut.runNextUnit:
+                runNextUnit = self.dataOut.runNextUnit
+
+            else:
+                runNextUnit = self.dataOut.isReady()
+        except:
+            runNextUnit = self.dataOut.isReady()
+
+        return 'Error' if self.dataOut.error else runNextUnit
 
     def setup(self):
 
