@@ -4049,7 +4049,7 @@ class PedestalInformation(Operation):
     def __init__(self):
         Operation.__init__(self)
         self.filename = False
-        self.delay = 20
+        self.delay = 30
         self.nTries = 3
 
     def find_file(self, timestamp):
@@ -4094,8 +4094,9 @@ class PedestalInformation(Operation):
                     ok = True
                     break
                 except:
-                    log.error('No new position files found in {}'.format(path))
-                    raise IOError('No new position files found in {}'.format(path))
+                    log.warning('Waiting {}s for position file to be ready...'.format(self.delay), self.name)
+                    time.sleep(self.delay)
+                    continue
             
             if not ok:
                 log.error('No new position files found in {}'.format(path))
