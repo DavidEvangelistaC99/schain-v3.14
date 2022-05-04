@@ -1194,10 +1194,12 @@ class Weather_vRF_Plot(Plot):
             if ax.firsttime:
                 ax.set_xlim(numpy.radians(self.ang_min),numpy.radians(self.ang_max))
                 ax.plt = ax.pcolormesh(theta, r, z, cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
+                ax.set_theta_direction(-1)
 
             else:
                 ax.set_xlim(numpy.radians(self.ang_min),numpy.radians(self.ang_max))
                 ax.plt = ax.pcolormesh(theta, r, z, cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
+                ax.set_theta_direction(-1)
 
             ax.grid(True)
 

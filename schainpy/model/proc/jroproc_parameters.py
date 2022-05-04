@@ -4996,6 +4996,7 @@ class Block360_vRF4(Operation):
             dataOut.data_ele  = data_e
             dataOut.utctime  = avgdatatime
             dataOut.flagNoData  = False
+            print("********************attr_data********************",attr_data)
             #print(data_360.shape)
             #print(dataOut.heightList)
 
