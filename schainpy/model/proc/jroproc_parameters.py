@@ -4049,6 +4049,8 @@ class PedestalInformation(Operation):
     def __init__(self):
         Operation.__init__(self)
         self.filename = False
+        self.delay = 20
+        self.nTries = 3
 
     def find_file(self, timestamp):
 
@@ -4059,7 +4061,6 @@ class PedestalInformation(Operation):
             return False, False
         fileList = glob.glob(os.path.join(path, '*.h5'))
         fileList.sort()
-        print(fileList)
         return fileList
 
     def find_next_file(self):
@@ -4079,17 +4080,27 @@ class PedestalInformation(Operation):
             dt = datetime.datetime.utcfromtimestamp(self.utctime)
             path = os.path.join(self.path, dt.strftime('%Y-%m-%dT%H-00-00'))
             self.filename = os.path.join(path, 'pos@{}.000.h5'.format(int(self.utcfile)))
-            print('ACQ time: ', self.utctime, 'POS time: ', self.utcfile)
-            print('Next file: ', self.filename)
-            if not os.path.exists(self.filename):
-                log.warning('Waiting for position files...', self.name)
-
-                if not os.path.exists(self.filename):
-
+            
+            for n in range(self.nTries):
+                ok = False
+                try:
+                    if not os.path.exists(self.filename):
+                        log.warning('Waiting {}s for position files...'.format(self.delay), self.name)
+                        time.sleep(self.delay)
+                        continue
+                    self.fp.close()
+                    self.fp = h5py.File(self.filename, 'r')
+                    log.log('Opening file: {}'.format(self.filename), self.name)
+                    ok = True
+                    break
+                except:
+                    log.error('No new position files found in {}'.format(path))
                     raise IOError('No new position files found in {}'.format(path))
-            self.fp.close()
-            self.fp = h5py.File(self.filename, 'r')
-            log.log('Opening file: {}'.format(self.filename), self.name)
+            
+            if not ok:
+                log.error('No new position files found in {}'.format(path))
+                raise IOError('No new position files found in {}'.format(path))
+
 
     def get_values(self):
 
@@ -4099,7 +4110,7 @@ class PedestalInformation(Operation):
             index = int((self.utctime-self.utcfile)/self.interval)
             return self.fp['Data']['azi_pos'][index], self.fp['Data']['ele_pos'][index]
 
-    def setup(self, dataOut, path, conf, samples, interval, wr_exp):
+    def setup(self, dataOut, path, conf, samples, interval, az_offset):
 
         self.path = path
         self.conf = conf
@@ -4116,13 +4127,13 @@ class PedestalInformation(Operation):
             log.log('Opening file: {}'.format(self.filename), self.name)
             self.fp = h5py.File(self.filename, 'r')
 
-    def run(self, dataOut, path, conf=None, samples=1500, interval=0.04, wr_exp=None, offset=0):
+    def run(self, dataOut, path, conf=None, samples=1500, interval=0.04, az_offset=0, time_offset=0):
 
         if not self.isConfig:
-            self.setup(dataOut, path, conf, samples, interval, wr_exp)
+            self.setup(dataOut, path, conf, samples, interval, az_offset)
             self.isConfig   = True
 
-        self.utctime = dataOut.utctime + offset
+        self.utctime = dataOut.utctime + time_offset
 
         self.find_next_file()
 
@@ -4133,9 +4144,11 @@ class PedestalInformation(Operation):
             dataOut.flagNoData = True
             return dataOut
 
-        dataOut.azimuth = az
+        dataOut.azimuth = az - az_offset
+        if dataOut.azimuth < 0:
+            dataOut.azimuth += 360
         dataOut.elevation = el
-        # print('AZ: ', az, ' EL: ', el)
+
         return dataOut
 
 class Block360(Operation):
