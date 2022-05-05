@@ -11,8 +11,8 @@ PARAM = {
     'V': {'name': 'dataPP_DOP', 'zmin': -20, 'zmax': 20, 'colormap': 'seismic', 'label': 'Velocity', 'cb_label': 'm/s'},
     'RH': {'name': 'RhoHV_R', 'zmin': 0, 'zmax': 1, 'colormap': 'jet', 'label': 'CoeficienteCorrelacion', 'cb_label': '*'},
     'FD': {'name': 'PhiD_P', 'zmin': -180, 'zmax': 180, 'colormap': 'RdBu_r', 'label': 'Fase Diferencial', 'cb_label': 'º'},
-    'ZD': {'name': 'Zdb_D', 'zmin': -20, 'zmax': 60, 'colormap': 'viridis', 'label': 'ReflectividadDiferencial', 'cb_label': 'dB'},
-    'Z': {'name': 'Zdb', 'zmin': -20, 'zmax': 60, 'colormap': 'viridis', 'label': 'Reflectividad', 'cb_label': 'dB'},
+    'ZD': {'name': 'Zdb_D', 'zmin': -20, 'zmax': 80, 'colormap': 'viridis', 'label': 'ReflectividadDiferencial', 'cb_label': 'dB'},
+    'Z': {'name': 'Zdb', 'zmin': 100, 'zmax': 200, 'colormap': 'viridis', 'label': 'Reflectividad', 'cb_label': 'dB'},
     'W': {'name': 'Sigmav_W', 'zmin': -20, 'zmax': 60, 'colormap': 'viridis', 'label': 'AnchoEspectral', 'cb_label': 'hz'}
 }
 #Z,ZD 'mm^6/m^3'
@@ -91,11 +91,12 @@ def main(args):
     #-----------------------new--------- variables polarimetricas---------------
     opObj10 = proc.addOperation(name="WeatherRadar")
     opObj10.addParameter(name='variableList',value='Reflectividad,ReflectividadDiferencial,CoeficienteCorrelacion,FaseDiferencial,VelocidadRadial,AnchoEspectral')
+
     #---------------------------------------------------------------------------
     op = proc.addOperation(name='PedestalInformation')
     op.addParameter(name='path', value=path_ped, format='str')
     op.addParameter(name='interval', value='0.04', format='float')
-    op.addParameter(name='offset', value=time_offset)
+    op.addParameter(name='time_offset', value=time_offset)
 
     for param in parameters:
         op = proc.addOperation(name='Block360_vRF4')
@@ -138,6 +139,7 @@ def main(args):
             opObj10.addParameter(name='blocksPerFile',value='1',format='int')
             opObj10.addParameter(name='metadataList',value='heightList,data_azi,data_ele')
             opObj10.addParameter(name='dataList',value='dataPP_POWER,utctime')
+
 
     project.start()
 
