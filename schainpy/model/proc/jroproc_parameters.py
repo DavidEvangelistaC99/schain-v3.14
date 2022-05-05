@@ -140,6 +140,10 @@ class ParametersProc(ProcessingUnit):
 
             if hasattr(self.dataIn, 'dataPP_WIDTH'):
                 self.dataOut.dataPP_WIDTH = self.dataIn.dataPP_WIDTH
+
+            if hasattr(self.dataIn, 'dataPP_CCF'):
+                self.dataOut.dataPP_CCF = self.dataIn.dataPP_CCF
+
             return
 
         #----------------------    Spectra Data    ---------------------------
@@ -3942,7 +3946,8 @@ class WeatherRadar(Operation):
         Numerator     = ((4*numpy.pi)**3 * aL**2 * 16 *numpy.log(2))
         Denominator   = (Pt * Gt * Gr * lambda_**2 * SPEED_OF_LIGHT * tauW * numpy.pi*thetaT*thetaR)
         self.RadarConstant = Numerator/Denominator
-        self.variableList= variableList
+        if self.variableList== None:
+            self.variableList= ['Reflectividad,ReflectividadDiferencial,CoeficienteCorrelacion,FaseDiferencial,VelocidadRadial,AnchoEspectral']
 
     def setMoments(self,dataOut,i):
 
@@ -3951,13 +3956,14 @@ class WeatherRadar(Operation):
         nHeis = dataOut.nHeights
         data_param = numpy.zeros((nCh,4,nHeis))
         if type == "Voltage":
-            factor            = dataOut.normFactor
+            factor            = 1
             data_param[:,0,:] = dataOut.dataPP_POW/(factor)
             data_param[:,1,:] = dataOut.dataPP_DOP
             data_param[:,2,:] = dataOut.dataPP_WIDTH
             data_param[:,3,:] = dataOut.dataPP_SNR
         if type == "Spectra":
-            data_param[:,0,:] = dataOut.data_POW
+            factor = dataOut.normFactor
+            data_param[:,0,:] = dataOut.data_POW/(factor)
             data_param[:,1,:] = dataOut.data_DOP
             data_param[:,2,:] = dataOut.data_WIDTH
             data_param[:,3,:] = dataOut.data_SNR
@@ -3996,7 +4002,7 @@ class WeatherRadar(Operation):
 
         return data_PhiD_P
 
-    def getReflectividad_D(self,dataOut):
+    def getReflectividad_D(self,dataOut,type):
         '''-----------------------------Potencia de Radar -Signal S-----------------------------'''
 
         Pr               = self.setMoments(dataOut,0)
@@ -4012,8 +4018,11 @@ class WeatherRadar(Operation):
         '''----------- Factor de Reflectividad Equivalente lamda_ < 10 cm , lamda_= 3.2cm-------'''
         Zeh  =  self.Z_radar
         dBZeh = 10*numpy.log10(Zeh)
-        Zdb_D = dBZeh[0] - dBZeh[1]
-        return Zdb_D
+        if type=='N':
+            return dBZeh
+        elif type=='D':
+            Zdb_D = dBZeh[0] - dBZeh[1]
+            return Zdb_D
 
     def getRadialVelocity_V(self,dataOut):
         velRadial_V = self.setMoments(dataOut,1)
@@ -4028,13 +4037,15 @@ class WeatherRadar(Operation):
                 tauW= 4.0e-6,thetaT=0.165,thetaR=0.367,Km =0.93):
 
         if not self.isConfig:
-            self.setup(dataOut= dataOut,variableList=None,Pt=25,Gt=200.0,Gr=50.0,lambda_=0.32, aL=2.5118,
+            self.setup(dataOut= dataOut,variableList=variableList,Pt=25,Gt=200.0,Gr=50.0,lambda_=0.32, aL=2.5118,
                         tauW= 4.0e-6,thetaT=0.165,thetaR=0.367,Km =0.93)
             self.isConfig = True
 
         for i in range(len(self.variableList)):
+	        if self.variableList[i]=='Reflectividad':
+                dataOut.Zdb =self.getReflectividad_D(dataOut=dataOut,type='N')
             if self.variableList[i]=='ReflectividadDiferencial':
-                dataOut.Zdb_D =self.getReflectividad_D(dataOut=dataOut)
+                dataOut.Zdb_D =self.getReflectividad_D(dataOut=dataOut,type='D')
             if self.variableList[i]=='FaseDiferencial':
                 dataOut.PhiD_P =self.getFasediferencialPhiD_P(dataOut=dataOut, phase=True)
             if self.variableList[i] == "CoeficienteCorrelacion":
@@ -4868,8 +4879,12 @@ class Block360_vRF4(Operation):
         '''
         Add a profile to he __buffer and increase in one the __profiel Index
         '''
+        tmp= getattr(data, attr)
+        if tmp.shape[0] is not 2:
+            size_tmp= tmp.shape[0]
+            tmp=tmp.reshape(1,size_tmp)
 
-        self.__buffer.append(getattr(data, attr))
+        self.__buffer.append(tmp)
         self.__buffer2.append(data.azimuth)
         self.__buffer3.append(data.elevation)
         self.__profIndex  += 1
