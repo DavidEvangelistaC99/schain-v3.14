@@ -3925,8 +3925,9 @@ class WeatherRadar(Operation):
     def __init__(self):
         Operation.__init__(self)
 
-    def setup(self,dataOut,variableList= None,Pt=0,Gt=0,Gr=0,lambda_=0, aL=0,
+    def setup(self,dataOut,variableList= None,Pt=0,Gt=0,Gr=0,Glna=0,lambda_=0, aL=0,
                 tauW= 0,thetaT=0,thetaR=0,Km =0):
+        print("INICIO")
         self.nCh      = dataOut.nChannels
         self.nHeis    = dataOut.nHeights
         deltaHeight   = dataOut.heightList[1] - dataOut.heightList[0]
@@ -3934,21 +3935,22 @@ class WeatherRadar(Operation):
         self.Range    = self.Range.reshape(1,self.nHeis)
         self.Range    = numpy.tile(self.Range,[self.nCh,1])
         '''-----------1 Constante del Radar----------'''
-        self.Pt       = Pt
-        self.Gt       = Gt
-        self.Gr       = Gr
-        self.lambda_  = lambda_
-        self.aL       = aL
-        self.tauW     = tauW
-        self.thetaT   = thetaT
-        self.thetaR   = thetaR
+        self.Pt       = Pt # Pmax =200 W x DC=(0.2 useg/400useg)
+        self.Gt       = Gt  # 38 db
+        self.Gr       = Gr  # 38 dB
+        self.Glna     = Glna # 60 dB
+        self.lambda_  = lambda_ # 3.2 cm 0.032 m.
+        self.aL       = aL # Perdidas
+        self.tauW     = tauW #ancho de pulso 0.2useg pulso corto.
+        self.thetaT   = thetaT # 1.8º -- 0.0314 rad
+        self.thetaR   = thetaR # 1.8ª --0.0314 rad
         self.Km       = Km
-        Numerator     = ((4*numpy.pi)**3 * aL**2 * 16 *numpy.log(2))
-        Denominator   = (Pt * Gt * Gr * lambda_**2 * SPEED_OF_LIGHT * tauW * numpy.pi*thetaT*thetaR)
+        Numerator     = ((4*numpy.pi)**3 * aL**2 * 16 *numpy.log(2)*(10**18))
+        Denominator   = (Pt *(10**(Gt/10.0))*(10**(Gr/10.0))*(10**(Glna/10.0))* lambda_**2 * SPEED_OF_LIGHT * tauW * numpy.pi*thetaT*thetaR)
         self.RadarConstant = Numerator/Denominator
         if self.variableList== None:
-            self.variableList= ['Reflectividad,ReflectividadDiferencial,CoeficienteCorrelacion,FaseDiferencial,VelocidadRadial,AnchoEspectral']
-
+            self.variableList= ['Reflectividad','ReflectividadDiferencial','CoeficienteCorrelacion','FaseDiferencial','VelocidadRadial','AnchoEspectral']
+        print('FIN')
     def setMoments(self,dataOut,i):
 
         type  = dataOut.inputUnit
@@ -4033,17 +4035,17 @@ class WeatherRadar(Operation):
         return Sigmav_W
 
 
-    def run(self,dataOut,variableList=None,Pt=25,Gt=200.0,Gr=50.0,lambda_=0.32, aL=2.5118,
-                tauW= 4.0e-6,thetaT=0.165,thetaR=0.367,Km =0.93):
+    def run(self,dataOut,variableList=variableList,Pt=0.158,Gt=38.5,Gr=38.5,Glna=70.0,lambda_=0.032, aL=1,
+                tauW= 0.2*1e-6,thetaT=0.0314,thetaR=0.0314,Km =0.93):
 
         if not self.isConfig:
-            self.setup(dataOut= dataOut,variableList=variableList,Pt=25,Gt=200.0,Gr=50.0,lambda_=0.32, aL=2.5118,
-                        tauW= 4.0e-6,thetaT=0.165,thetaR=0.367,Km =0.93)
+            self.setup(dataOut= dataOut,variableList=variableList,Pt=Pt,Gt=Gt,Gr=Gr,Glna=Glna,lambda_=lambda_, aL=aL,
+                        tauW= tauW,thetaT=thetaT,thetaR=thetaR,Km =Km)
             self.isConfig = True
-
         for i in range(len(self.variableList)):
-	        if self.variableList[i]=='Reflectividad':
+            if self.variableList[i]=='Reflectividad':
                 dataOut.Zdb =self.getReflectividad_D(dataOut=dataOut,type='N')
+                print(dataOut.Zdb)
             if self.variableList[i]=='ReflectividadDiferencial':
                 dataOut.Zdb_D =self.getReflectividad_D(dataOut=dataOut,type='D')
             if self.variableList[i]=='FaseDiferencial':
