@@ -1761,7 +1761,10 @@ class WeatherRHI_vRF4_Plot(Plot):
         r            = numpy.arange(len(r_mask))*delta_height
         self.y       = 2*r
 
-        z = data['data'][self.channels[0]][:,r_mask]
+        try:
+            z = data['data'][self.channels[0]][:,r_mask]
+        except:
+            z = data['data'][0][:,r_mask]
 
         self.titles = []
 
