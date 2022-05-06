@@ -4882,7 +4882,7 @@ class Block360_vRF4(Operation):
         Add a profile to he __buffer and increase in one the __profiel Index
         '''
         tmp= getattr(data, attr)
-        if tmp.shape[0] is not 2:
+        if tmp.shape[0] != 2:
             size_tmp= tmp.shape[0]
             tmp=tmp.reshape(1,size_tmp)
 
@@ -4993,9 +4993,10 @@ class Block360_vRF4(Operation):
             if diff_angle > 0: #Subida
                 return 0
 
-    def run(self, dataOut, attr_data='dataPP_POWER', axis=None,**kwargs):
+    def run(self, dataOut, attr_data='dataPP_POWER', axis=None, runNextOp = False,**kwargs):
 
         dataOut.attr_data = attr_data
+        dataOut.runNextOp = runNextOp
 
         dataOut.flagMode = axis[0] #Provisional, debería venir del header
 
@@ -5013,7 +5014,7 @@ class Block360_vRF4(Operation):
             dataOut.data_ele  = data_e
             dataOut.utctime  = avgdatatime
             dataOut.flagNoData  = False
-            print("********************attr_data********************",attr_data)
+            #print("********************attr_data********************",attr_data)
             #print(data_360.shape)
             #print(dataOut.heightList)
 

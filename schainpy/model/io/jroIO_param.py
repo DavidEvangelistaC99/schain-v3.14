@@ -482,6 +482,8 @@ class HDFWriter(Operation):
 
         self.dataOut = dataOut
         self.mode    = mode
+        self.var = dataList[0]
+
         if not(self.isConfig):
             self.setup(path=path, blocksPerFile=blocksPerFile,
                        metadataList=metadataList, dataList=dataList,
@@ -532,33 +534,47 @@ class HDFWriter(Operation):
                                            setFile,
                                            ext )
         elif self.setType == "weather":
-              print("HOLA AMIGOS")
-              wr_exp = self.dataOut.wr_exp
-              if wr_exp== "PPI":
-                  wr_type = 'E'
-                  ang_    = numpy.mean(self.dataOut.elevation)
-              else:
-                  wr_type = 'A'
-                  ang_    = numpy.mean(self.dataOut.azimuth)
 
-              wr_writer = '%s%s%2.1f%s'%('-',
-                                         wr_type,
-                                         ang_,
-                                         '-')
-              ###print("wr_writer********************",wr_writer)
-              file = '%s%4.4d%2.2d%2.2d%s%2.2d%2.2d%2.2d%s%s%s' % (self.optchar,
-                                               timeTuple.tm_year,
-                                               timeTuple.tm_mon,
-                                               timeTuple.tm_mday,
-                                               '-',
-                                               timeTuple.tm_hour,
-                                               timeTuple.tm_min,
-                                               timeTuple.tm_sec,
-                                               wr_writer,
-                                               type_data,
-                                               ext )
-              ###print("FILENAME", file)
+            if self.var.lower() == 'Zdb'.lower():
+                wr_type = 'Z'
+            elif self.var.lower() == 'Zdb_D'.lower():
+                wr_type = 'D'
+            elif self.var.lower() == 'PhiD_P'.lower():
+                wr_type = 'P'
+            elif self.var.lower() == 'RhoHV_R'.lower():
+                wr_type = 'R'
+            elif self.var.lower() == 'velRadial_V'.lower():
+                wr_type = 'V'
+            elif self.var.lower() == 'Sigmav_W'.lower():
+                wr_type = 'S'
+            elif self.var.lower() == 'dataPP_POWER'.lower():
+                wr_type = 'Pow'
+            elif self.var.lower() == 'dataPP_DOP'.lower():
+                wr_type = 'Dop'
 
+
+            #Z_SOPHy_El10.0_20200505_14:02:15.h5
+            #Z_SOPHy_Az40.0_20200505_14:02:15.h5
+            if self.dataOut.flagMode == 1: #'AZI' #PPI
+                ang_type = 'El'
+                ang_    = round(numpy.mean(self.dataOut.data_ele),1)
+            elif self.dataOut.flagMode == 0: #'ELE' #RHI
+                ang_type = 'Az'
+                ang_    = round(numpy.mean(self.dataOut.data_azi),1)
+
+            file = '%s%s%s%2.1f%s%2.2d%2.2d%2.2d%s%2.2d%2.2d%2.2d%s' % (wr_type,
+                                           '_SOPHy_',
+                                           ang_type,
+                                           ang_,
+                                           '_',
+                                           timeTuple.tm_year,
+                                           timeTuple.tm_mon,
+                                           timeTuple.tm_mday,
+                                           '_',
+                                           timeTuple.tm_hour,
+                                           timeTuple.tm_min,
+                                           timeTuple.tm_sec,
+                                           ext )
 
         else:
             setFile = timeTuple.tm_hour*60+timeTuple.tm_min
@@ -571,7 +587,7 @@ class HDFWriter(Operation):
         self.filename = os.path.join( path, subfolder, file )
 
         #Setting HDF5 File
-
+        print("filename",self.filename)
         self.fp = h5py.File(self.filename, 'w')
         #write metadata
         self.writeMetadata(self.fp)
@@ -682,6 +698,7 @@ class HDFWriter(Operation):
         return
 
     def putData(self):
+
         if (self.blockIndex == self.blocksPerFile) or self.timeFlag():# or self.generalFlag_vRF():
             self.closeFile()
             self.setNextFile()

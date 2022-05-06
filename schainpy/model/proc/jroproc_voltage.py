@@ -669,7 +669,7 @@ class CohInt(Operation):
             if not dataOut.flagCohInt:
                 dataOut.nCohInt *= self.n
                 dataOut.flagCohInt = True
-            dataOut.utctime = avgdatatime
+            ####################################dataOut.utctime = avgdatatime
             # print avgdata, avgdatatime
             # raise
             #   dataOut.timeInterval = dataOut.ippSeconds * dataOut.nCohInt
@@ -1696,7 +1696,8 @@ class PulsePair_vRF(Operation):
     def run(self, dataOut,n = None,removeDC= False, overlapping= False,**kwargs):
 
         if dataOut.flagDataAsBlock:
-            n = dataOut.nProfiles
+            n = int(dataOut.nProfiles)
+            #print("n",n)
 
         if not self.isConfig:
             self.setup(dataOut = dataOut, n    = n , removeDC=removeDC , **kwargs)

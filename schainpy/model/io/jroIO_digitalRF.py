@@ -408,6 +408,7 @@ class DigitalRFReader(ProcessingUnit):
 
 
         self.__samples_to_read  = int(nSamples)  # FIJO: AHORA 40
+        #self.__samples_to_read  = int(1000000)  # FIJO: AHORA 40
         self.__nChannels        = len(self.__channelList)
         #print("------------------------------------------")
         #print("self.__samples_to_read",self.__samples_to_read)
@@ -522,6 +523,8 @@ class DigitalRFReader(ProcessingUnit):
             for indexSubchannel in range(self.__num_subchannels):
                 try:
                     t0     = time()
+                    #print("Unitindex",self.__thisUnixSample)
+                    #print("__samples_to_read",self.__samples_to_read)
                     result = self.digitalReadObj.read_vector_c81d(self.__thisUnixSample,
                                                                   self.__samples_to_read,
                                                                   thisChannelName, sub_channel=indexSubchannel)
@@ -634,6 +637,7 @@ class DigitalRFReader(ProcessingUnit):
                 # ojo debo anadir el readNextBLock y el  __isBufferEmpty(
                 self.dataOut.flagNoData             = False
                 buffer = self.__data_buffer[:,self.__bufferIndex:self.__bufferIndex + self.__samples_to_read]
+                #print("test",self.__bufferIndex)
                 buffer = buffer.reshape((self.__nChannels, self.nProfileBlocks, int(self.__samples_to_read/self.nProfileBlocks)))
                 self.dataOut.nProfileBlocks = self.nProfileBlocks
                 self.dataOut.data = buffer

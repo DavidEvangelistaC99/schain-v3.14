@@ -86,7 +86,17 @@ class ProcessingUnit(object):
         ##### correcion de la declaracion Out
         for op, optype, opkwargs in self.operations:
             aux = self.dataOut.copy()
-            if optype == 'other' and not self.dataOut.flagNoData:
+            '''
+            print("op",op)
+            try:
+                print("runNextOp",self.dataOut.runNextOp)
+            except:
+                pass
+                '''
+            if not hasattr(self.dataOut, 'runNextOp'):
+                self.dataOut.runNextOp = False
+            if optype == 'other' and (not self.dataOut.flagNoData or self.dataOut.runNextOp):
+            #if optype == 'other' and not self.dataOut.flagNoData:
                 self.dataOut = op.run(self.dataOut, **opkwargs)
             elif optype == 'external' and not self.dataOut.flagNoData:
                 #op.queue.put(self.dataOut)
