@@ -7,7 +7,7 @@ from schainpy.model.graphics.jroplot_base import Plot, plt
 from schainpy.model.graphics.jroplot_spectra import SpectraPlot, RTIPlot, CoherencePlot, SpectraCutPlot
 from schainpy.utils import log
 # libreria wradlib
-import wradlib as wrl
+#import wradlib as wrl
 
 EARTH_RADIUS = 6.3710e3
 
@@ -1175,9 +1175,10 @@ class Weather_vRF_Plot(Plot):
         self.r_mask = r_mask
         r            = numpy.arange(len(r_mask))*delta_height
         self.y       = 2*r
-
-        z = data['data'][self.channels[0]][:,r_mask]
-
+        try:
+            z = data['data'][self.channels[0]][:,r_mask]
+        except:
+            z = data['data'][0][:,r_mask]
         self.titles = []
 
         self.ymax = self.ymax if self.ymax else numpy.nanmax(r)

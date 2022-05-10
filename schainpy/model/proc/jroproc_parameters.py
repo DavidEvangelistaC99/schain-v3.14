@@ -3927,7 +3927,7 @@ class WeatherRadar(Operation):
 
     def setup(self,dataOut,variableList= None,Pt=0,Gt=0,Gr=0,Glna=0,lambda_=0, aL=0,
                 tauW= 0,thetaT=0,thetaR=0,Km =0):
-        print("INICIO")
+
         self.nCh      = dataOut.nChannels
         self.nHeis    = dataOut.nHeights
         deltaHeight   = dataOut.heightList[1] - dataOut.heightList[0]
@@ -3950,7 +3950,7 @@ class WeatherRadar(Operation):
         self.RadarConstant = Numerator/Denominator
         if self.variableList== None:
             self.variableList= ['Reflectividad','ReflectividadDiferencial','CoeficienteCorrelacion','FaseDiferencial','VelocidadRadial','AnchoEspectral']
-        print('FIN')
+
     def setMoments(self,dataOut,i):
 
         type  = dataOut.inputUnit
@@ -4013,7 +4013,7 @@ class WeatherRadar(Operation):
         self.n_radar       = numpy.zeros((self.nCh,self.nHeis))
         self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
         for R in range(self.nHeis):
-            self.n_radar[:,R] = self.RadarConstant*Pr[:,R]* (self.Range[:,R])**2
+            self.n_radar[:,R] = self.RadarConstant*Pr[:,R]* (self.Range[:,R])**2*(10**-10.246)
 
             self.Z_radar[:,R] = self.n_radar[:,R]* self.lambda_**4/( numpy.pi**5 * self.Km**2)
 
@@ -4035,8 +4035,8 @@ class WeatherRadar(Operation):
         return Sigmav_W
 
 
-    def run(self,dataOut,variableList=variableList,Pt=0.158,Gt=38.5,Gr=38.5,Glna=70.0,lambda_=0.032, aL=1,
-                tauW= 0.2*1e-6,thetaT=0.0314,thetaR=0.0314,Km =0.93):
+    def run(self,dataOut,variableList=variableList,Pt=1.58,Gt=38.5,Gr=38.5,Glna=70.0,lambda_=0.032, aL=1,
+                tauW= 0.2,thetaT=0.0314,thetaR=0.0314,Km =0.93):
 
         if not self.isConfig:
             self.setup(dataOut= dataOut,variableList=variableList,Pt=Pt,Gt=Gt,Gr=Gr,Glna=Glna,lambda_=lambda_, aL=aL,
@@ -4045,7 +4045,6 @@ class WeatherRadar(Operation):
         for i in range(len(self.variableList)):
             if self.variableList[i]=='Reflectividad':
                 dataOut.Zdb =self.getReflectividad_D(dataOut=dataOut,type='N')
-                print(dataOut.Zdb)
             if self.variableList[i]=='ReflectividadDiferencial':
                 dataOut.Zdb_D =self.getReflectividad_D(dataOut=dataOut,type='D')
             if self.variableList[i]=='FaseDiferencial':
