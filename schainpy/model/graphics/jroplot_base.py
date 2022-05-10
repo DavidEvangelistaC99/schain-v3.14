@@ -515,7 +515,7 @@ class Plot(Operation):
         self.save_time = self.data.max_time
 
         fig = self.figures[n]
-        print("save_code",self.save_code)
+        
         if self.throttle == 0:
             if self.oneFigure:
                 figname = os.path.join(
