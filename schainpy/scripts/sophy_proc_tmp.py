@@ -7,12 +7,12 @@ PATH = '/DATA_RM/DATA'
 # PATH = '/Users/jespinoza/workspace/data/'
 
 PARAM = {
-    'P': {'name': 'dataPP_POWER', 'zmin': 35, 'zmax': 60, 'colormap': 'viridis', 'label': 'Power', 'cb_label': 'dB'},
+    'P': {'name': 'dataPP_POWER', 'zmin': 35, 'zmax': 60, 'colormap': 'jet', 'label': 'Power', 'cb_label': 'dB'},
     'V': {'name': 'dataPP_DOP', 'zmin': -20, 'zmax': 20, 'colormap': 'seismic', 'label': 'Velocity', 'cb_label': 'm/s'},
     'RH': {'name': 'RhoHV_R', 'zmin': 0, 'zmax': 1, 'colormap': 'jet', 'label': 'CoeficienteCorrelacion', 'cb_label': '*'},
     'FD': {'name': 'PhiD_P', 'zmin': -180, 'zmax': 180, 'colormap': 'RdBu_r', 'label': 'Fase Diferencial', 'cb_label': 'º'},
     'ZD': {'name': 'Zdb_D', 'zmin': -20, 'zmax': 80, 'colormap': 'viridis', 'label': 'ReflectividadDiferencial', 'cb_label': 'dB'},
-    'Z': {'name': 'Zdb', 'zmin': 100, 'zmax': 200, 'colormap': 'viridis', 'label': 'Reflectividad', 'cb_label': 'dB'},
+    'Z': {'name': 'Zdb', 'zmin': -20, 'zmax': 60, 'colormap': 'viridis', 'label': 'Reflectividad', 'cb_label': 'dB'},
     'W': {'name': 'Sigmav_W', 'zmin': -20, 'zmax': 60, 'colormap': 'viridis', 'label': 'AnchoEspectral', 'cb_label': 'hz'}
 }
 #Z,ZD 'mm^6/m^3'

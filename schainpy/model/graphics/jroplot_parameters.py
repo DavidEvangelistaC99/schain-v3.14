@@ -7,7 +7,7 @@ from schainpy.model.graphics.jroplot_base import Plot, plt
 from schainpy.model.graphics.jroplot_spectra import SpectraPlot, RTIPlot, CoherencePlot, SpectraCutPlot
 from schainpy.utils import log
 # libreria wradlib
-import wradlib as wrl
+#import wradlib as wrl
 
 EARTH_RADIUS = 6.3710e3
 
@@ -1176,7 +1176,11 @@ class Weather_vRF_Plot(Plot):
         r            = numpy.arange(len(r_mask))*delta_height
         self.y       = 2*r
 
-        z = data['data'][self.channels[0]][:,r_mask]
+        try:
+            z = data['data'][self.channels[0]][:,r_mask]
+
+        except:
+            z = data['data'][0][:,r_mask]
 
         self.titles = []
 
@@ -1791,3 +1795,138 @@ class WeatherRHI_vRF4_Plot(Plot):
                 self.titles = ['RHI {} at AZ: {} Channel {}'.format(self.labels[x], str(round(numpy.mean(data['azi']),1)), x) for x in range(self.nrows)]
             else:
                 self.titles = ['RHI {} at AZ: {} Channel {}'.format(self.labels[0], str(round(numpy.mean(data['azi']),1)), self.channels[0])]
+
+class WeatherParamsPlot(Plot):
+    #CODE = 'RHI'
+    #plot_name = 'RHI'
+    #plot_type = 'rhistyle'
+    buffering = False
+
+    def setup(self):
+
+        self.ncols = 1
+        self.nrows = 1
+        self.nplots= 1
+        self.ylabel= 'Range [Km]'
+        self.xlabel= 'Range [Km]'
+        self.polar = True
+        self.grid = True
+        if self.channels is not None:
+            self.nplots = len(self.channels)
+            self.nrows = len(self.channels)
+        else:
+            self.nplots = self.data.shape(self.CODE)[0]
+            self.nrows = self.nplots
+            self.channels = list(range(self.nplots))
+
+        self.colorbar=True
+        self.width   =8
+        self.height  =8
+        self.ini     =0
+        self.len_azi =0
+        self.buffer_ini  = None
+        self.buffer_ele   = None
+        self.plots_adjust.update({'wspace': 0.4, 'hspace':0.4, 'left': 0.1, 'right': 0.9, 'bottom': 0.08})
+        self.flag    =0
+        self.indicador= 0
+        self.last_data_ele = None
+        self.val_mean      = None
+
+    def update(self, dataOut):
+
+        data = {}
+        meta = {}
+        if hasattr(dataOut, 'dataPP_POWER'):
+            factor = 1
+        if hasattr(dataOut, 'nFFTPoints'):
+            factor = dataOut.normFactor
+
+        if 'pow' in self.attr_data[0].lower():
+            data['data'] = 10*numpy.log10(getattr(dataOut, self.attr_data[0])/(factor))
+        else:
+            data['data'] = getattr(dataOut, self.attr_data[0])/(factor)
+
+        if dataOut.mode_op == 'PPI':
+            self.CODE = 'PPI'
+            self.title = self.CODE
+        elif dataOut.mode_op == 'RHI':
+            self.CODE = 'RHI'
+            self.title = self.CODE
+
+        data['azi']     = dataOut.data_azi
+        data['ele']     = dataOut.data_ele
+        data['mode_op'] = dataOut.mode_op
+
+        return data, meta
+
+    def plot(self):
+        data         = self.data[-1]
+        r            = self.data.yrange
+        delta_height = r[1]-r[0]
+        r_mask       = numpy.where(r>=0)[0]
+        self.r_mask =r_mask
+        r            = numpy.arange(len(r_mask))*delta_height
+        self.y       = 2*r
+
+        try:
+            z = data['data'][self.channels[0]][:,r_mask]
+        except:
+            z = data['data'][0][:,r_mask]
+
+        self.titles = []
+
+        self.ymax = self.ymax if self.ymax else numpy.nanmax(r)
+        self.ymin = self.ymin if self.ymin else numpy.nanmin(r)
+        self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
+        self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
+        print("mode inside plot",self.data['mode_op'],data['mode_op'])
+        if data['mode_op'] == 'RHI':
+            try:
+                if self.data['mode_op'][-2] == 'PPI':
+                    self.ang_min = None
+                    self.ang_max = None
+            except:
+                pass
+            self.ang_min = self.ang_min if self.ang_min else 0
+            self.ang_max = self.ang_max if self.ang_max else 90
+            r, theta = numpy.meshgrid(r, numpy.radians(data['ele']) )
+        elif data['mode_op'] == 'PPI':
+            try:
+                if self.data['mode_op'][-2] == 'RHI':
+                    self.ang_min = None
+                    self.ang_max = None
+            except:
+                pass
+            self.ang_min = self.ang_min if self.ang_min else 0
+            self.ang_max = self.ang_max if self.ang_max else 360
+            r, theta = numpy.meshgrid(r, numpy.radians(data['azi']) )
+
+        self.clear_figures()
+
+        for i,ax in enumerate(self.axes):
+
+            if ax.firsttime:
+                ax.set_xlim(numpy.radians(self.ang_min),numpy.radians(self.ang_max))
+                ax.plt = ax.pcolormesh(theta, r, z, cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
+                if data['mode_op'] == 'PPI':
+                    ax.set_theta_direction(-1)
+            else:
+                ax.set_xlim(numpy.radians(self.ang_min),numpy.radians(self.ang_max))
+                ax.plt = ax.pcolormesh(theta, r, z, cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
+                if data['mode_op'] == 'PPI':
+                    ax.set_theta_direction(-1)
+            ax.grid(True)
+            if data['mode_op'] == 'RHI':
+                len_aux = int(data['azi'].shape[0]/4)
+                mean = numpy.mean(data['azi'][len_aux:-len_aux])
+                if len(self.channels) !=1:
+                    self.titles = ['RHI {} at AZ: {} Channel {}'.format(self.labels[x], str(round(mean,1)), x) for x in range(self.nrows)]
+                else:
+                    self.titles = ['RHI {} at AZ: {} Channel {}'.format(self.labels[0], str(round(mean,1)), self.channels[0])]
+            elif data['mode_op'] == 'PPI':
+                len_aux = int(data['ele'].shape[0]/4)
+                mean = numpy.mean(data['ele'][len_aux:-len_aux])
+                if len(self.channels) !=1:
+                    self.titles = ['PPI {} at EL: {} Channel {}'.format(self.self.labels[x], str(round(mean,1)), x) for x in range(self.nrows)]
+                else:
+                    self.titles = ['PPI {} at EL: {} Channel {}'.format(self.labels[0], str(round(mean,1)), self.channels[0])]

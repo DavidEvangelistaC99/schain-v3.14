@@ -557,10 +557,14 @@ class HDFWriter(Operation):
             #Z_SOPHy_Az40.0_20200505_14:02:15.h5
             if self.dataOut.flagMode == 1: #'AZI' #PPI
                 ang_type = 'El'
-                ang_    = round(numpy.mean(self.dataOut.data_ele),1)
+                len_aux = int(self.dataOut.data_ele.shape[0]/4)
+                mean = numpy.mean(self.dataOut.data_ele[len_aux:-len:aux])
+                ang_    = round(mean,1)
             elif self.dataOut.flagMode == 0: #'ELE' #RHI
                 ang_type = 'Az'
-                ang_    = round(numpy.mean(self.dataOut.data_azi),1)
+                len_aux = int(self.dataOut.data_azi.shape[0]/4)
+                mean = numpy.mean(self.dataOut.data_azi[len_aux:-len:aux])
+                ang_    = round(mean,1)
 
             file = '%s%s%s%2.1f%s%2.2d%2.2d%2.2d%s%2.2d%2.2d%2.2d%s' % (wr_type,
                                            '_SOPHy_',
@@ -587,7 +591,7 @@ class HDFWriter(Operation):
         self.filename = os.path.join( path, subfolder, file )
 
         #Setting HDF5 File
-        print("filename",self.filename)
+        #print("filename",self.filename)
         self.fp = h5py.File(self.filename, 'w')
         #write metadata
         self.writeMetadata(self.fp)

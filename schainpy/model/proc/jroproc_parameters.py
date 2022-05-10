@@ -143,6 +143,8 @@ class ParametersProc(ProcessingUnit):
 
             if hasattr(self.dataIn, 'dataPP_CCF'):
                 self.dataOut.dataPP_CCF = self.dataIn.dataPP_CCF
+            if hasattr(self.dataIn, 'flagAskMode'):
+                self.dataOut.flagAskMode = self.dataIn.flagAskMode
 
             return
 
@@ -3927,7 +3929,7 @@ class WeatherRadar(Operation):
 
     def setup(self,dataOut,variableList= None,Pt=0,Gt=0,Gr=0,Glna=0,lambda_=0, aL=0,
                 tauW= 0,thetaT=0,thetaR=0,Km =0):
-        print("INICIO")
+
         self.nCh      = dataOut.nChannels
         self.nHeis    = dataOut.nHeights
         deltaHeight   = dataOut.heightList[1] - dataOut.heightList[0]
@@ -3950,7 +3952,7 @@ class WeatherRadar(Operation):
         self.RadarConstant = Numerator/Denominator
         if self.variableList== None:
             self.variableList= ['Reflectividad','ReflectividadDiferencial','CoeficienteCorrelacion','FaseDiferencial','VelocidadRadial','AnchoEspectral']
-        print('FIN')
+
     def setMoments(self,dataOut,i):
 
         type  = dataOut.inputUnit
@@ -4013,7 +4015,7 @@ class WeatherRadar(Operation):
         self.n_radar       = numpy.zeros((self.nCh,self.nHeis))
         self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
         for R in range(self.nHeis):
-            self.n_radar[:,R] = self.RadarConstant*Pr[:,R]* (self.Range[:,R])**2
+            self.n_radar[:,R] = self.RadarConstant*Pr[:,R]* (self.Range[:,R])**2*(10**-10.246)
 
             self.Z_radar[:,R] = self.n_radar[:,R]* self.lambda_**4/( numpy.pi**5 * self.Km**2)
 
@@ -4035,8 +4037,8 @@ class WeatherRadar(Operation):
         return Sigmav_W
 
 
-    def run(self,dataOut,variableList=variableList,Pt=0.158,Gt=38.5,Gr=38.5,Glna=70.0,lambda_=0.032, aL=1,
-                tauW= 0.2*1e-6,thetaT=0.0314,thetaR=0.0314,Km =0.93):
+    def run(self,dataOut,variableList=variableList,Pt=1.58,Gt=38.5,Gr=38.5,Glna=70.0,lambda_=0.032, aL=1,
+                tauW= 0.2,thetaT=0.0314,thetaR=0.0314,Km =0.93):
 
         if not self.isConfig:
             self.setup(dataOut= dataOut,variableList=variableList,Pt=Pt,Gt=Gt,Gr=Gr,Glna=Glna,lambda_=lambda_, aL=aL,
@@ -4045,7 +4047,6 @@ class WeatherRadar(Operation):
         for i in range(len(self.variableList)):
             if self.variableList[i]=='Reflectividad':
                 dataOut.Zdb =self.getReflectividad_D(dataOut=dataOut,type='N')
-                print(dataOut.Zdb)
             if self.variableList[i]=='ReflectividadDiferencial':
                 dataOut.Zdb_D =self.getReflectividad_D(dataOut=dataOut,type='D')
             if self.variableList[i]=='FaseDiferencial':
@@ -4116,14 +4117,76 @@ class PedestalInformation(Operation):
                 log.error('No new position files found in {}'.format(path))
                 raise IOError('No new position files found in {}'.format(path))
 
+    def find_mode(self,index):
+        sample_max = 20
+        start = index
+        flag_mode = None
+        azi = self.fp['Data']['azi_pos'][:]
+        ele = self.fp['Data']['ele_pos'][:]
+        #print("az: ",az)
+        #exit(1)
+        while True:
+          if start+sample_max > numpy.shape(ele)[0]:
+            print("CANNOT KNOW IF MODE IS PPI OR RHI, ANALIZE NEXT FILE")
+            print("ele",ele[start-sample_max:start+sample_max])
+            print("azi",ele[start-sample_max:start+sample_max])
+            if  sample_max == 10:
+                break
+            else:
+                sample_max = 10
+                continue
+          sigma_ele = numpy.nanstd(ele[start:start+sample_max])
+          sigma_azi = numpy.nanstd(azi[start:start+sample_max])
+          print("Start",start)
+          print("ele",ele[start:start+sample_max])
+          print("s_ele",sigma_ele)
+          print("azi",azi[start:start+sample_max])
+          print("s_azi",sigma_azi)
+          #print(start)
+          if sigma_ele<.5 and sigma_azi<.5:
+            if sigma_ele<sigma_azi:
+              flag_mode = 'PPI'
+              break
+            else:
+              flag_mode = 'RHI'
+              break
+          elif sigma_ele<.5:
+            #print(sigma_ele)
+            #print(round(numpy.nanmean(ele[start:start+sample_max]),1))
+            #print(start)
+            #print(ele[start:start+sample_max])
+            flag_mode = 'PPI'
+            break
+          elif sigma_azi<.5:
+            #print(sigma_azi)
+            #print(azi[start:start+sample_max])
+            #print("round",round(numpy.nanmean(azi[start:start+sample_max]),1))
+            flag_mode = 'RHI'
+            break
+          #else:
+            #print("STD mayor que .5")
+          start += sample_max
+        print("MODE: ",flag_mode)
+        return flag_mode
 
     def get_values(self):
 
         if self.flagNoData:
-            return numpy.nan, numpy.nan
+            print("get_value_1")
+            return numpy.nan, numpy.nan, numpy.nan #Should be self.mode?
         else:
             index = int((self.utctime-self.utcfile)/self.interval)
-            return self.fp['Data']['azi_pos'][index], self.fp['Data']['ele_pos'][index]
+
+            if self.flagAskMode:
+                mode = self.find_mode(index)
+            else:
+                mode = self.mode
+
+            if mode is not None:
+                return self.fp['Data']['azi_pos'][index], self.fp['Data']['ele_pos'][index], mode
+            else:
+                print("get_value_2")
+                return numpy.nan, numpy.nan, numpy.nan
 
     def setup(self, dataOut, path, conf, samples, interval, az_offset):
 
@@ -4146,23 +4209,33 @@ class PedestalInformation(Operation):
 
         if not self.isConfig:
             self.setup(dataOut, path, conf, samples, interval, az_offset)
+            #self.flagAskMode = True
             self.isConfig   = True
 
         self.utctime = dataOut.utctime + time_offset
 
+        if hasattr(dataOut, 'flagAskMode'):
+            self.flagAskMode = dataOut.flagAskMode
+            #print("inside",self.flagAskMode)
+        else:
+            #print("nooooooo")
+            self.flagAskMode = True
+
         self.find_next_file()
 
-        az, el = self.get_values()
+        az, el, self.mode = self.get_values()
+        print("after get_values",az,el,self.mode)
         dataOut.flagNoData = False
-
         if numpy.isnan(az) or numpy.isnan(el) :
             dataOut.flagNoData = True
+            #print("NAN")
             return dataOut
 
         dataOut.azimuth = az - az_offset
         if dataOut.azimuth < 0:
             dataOut.azimuth += 360
         dataOut.elevation = el
+        dataOut.mode_op = self.mode[:]
 
         return dataOut
 
@@ -4926,7 +4999,7 @@ class Block360_vRF4(Operation):
         data_e             = None
 
         angles = self.putData(data=dataOut, attr = self.attr, flagMode=flagMode)
-        #print(angles)
+        #print("ANGLES",angles)
         if self.__profIndex > 1:
             case_flag = self.checkcase(angles,flagMode)
 
@@ -4993,12 +5066,17 @@ class Block360_vRF4(Operation):
             if diff_angle > 0: #Subida
                 return 0
 
-    def run(self, dataOut, attr_data='dataPP_POWER', axis=None, runNextOp = False,**kwargs):
+    def run(self, dataOut, attr_data='dataPP_POWER', runNextOp = False,**kwargs):
 
         dataOut.attr_data = attr_data
         dataOut.runNextOp = runNextOp
-
-        dataOut.flagMode = axis[0] #Provisional, debería venir del header
+        dataOut.flagAskMode = False
+        #print("Block 360")
+        #dataOut.flagMode = axis[0] #Provisional, debería venir del header
+        if dataOut.mode_op == 'PPI':
+            dataOut.flagMode = 1
+        elif dataOut.mode_op == 'RHI':
+            dataOut.flagMode = 0
 
         if not self.isConfig:
             self.setup(dataOut = dataOut, attr = attr_data ,**kwargs)
@@ -5014,6 +5092,9 @@ class Block360_vRF4(Operation):
             dataOut.data_ele  = data_e
             dataOut.utctime  = avgdatatime
             dataOut.flagNoData  = False
+            dataOut.flagAskMode = True
+            print("AZI: ",dataOut.data_azi)
+            print("ELE: ",dataOut.data_ele)
             #print("********************attr_data********************",attr_data)
             #print(data_360.shape)
             #print(dataOut.heightList)
