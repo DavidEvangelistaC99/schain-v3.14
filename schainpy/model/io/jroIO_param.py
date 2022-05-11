@@ -558,12 +558,12 @@ class HDFWriter(Operation):
             if self.dataOut.flagMode == 1: #'AZI' #PPI
                 ang_type = 'El'
                 len_aux = int(self.dataOut.data_ele.shape[0]/4)
-                mean = numpy.mean(self.dataOut.data_ele[len_aux:-len:aux])
+                mean = numpy.mean(self.dataOut.data_ele[len_aux:-len_aux])
                 ang_    = round(mean,1)
             elif self.dataOut.flagMode == 0: #'ELE' #RHI
                 ang_type = 'Az'
                 len_aux = int(self.dataOut.data_azi.shape[0]/4)
-                mean = numpy.mean(self.dataOut.data_azi[len_aux:-len:aux])
+                mean = numpy.mean(self.dataOut.data_azi[len_aux:-len_aux])
                 ang_    = round(mean,1)
 
             file = '%s%s%s%2.1f%s%2.2d%2.2d%2.2d%s%2.2d%2.2d%2.2d%s' % (wr_type,
