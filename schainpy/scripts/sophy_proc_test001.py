@@ -10,14 +10,32 @@ PATH = '/home/soporte/Downloads/data_WR_RHI'
 
 
 PARAM = {
-    'P': {'name': 'dataPP_POWER', 'zmin': 35, 'zmax': 60, 'colormap': 'jet', 'label': 'Power', 'cb_label': 'dB'},
-    'V': {'name': 'dataPP_DOP', 'zmin': -20, 'zmax': 20, 'colormap': 'seismic', 'label': 'Velocity', 'cb_label': 'm/s'},
-    'RH': {'name': 'RhoHV_R', 'zmin': 0, 'zmax': 1, 'colormap': 'jet', 'label': 'CoeficienteCorrelacion', 'cb_label': '*'},
-    'FD': {'name': 'PhiD_P', 'zmin': -180, 'zmax': 180, 'colormap': 'RdBu_r', 'label': 'Fase Diferencial', 'cb_label': 'º'},
-    'ZD': {'name': 'Zdb_D', 'zmin': -20, 'zmax': 80, 'colormap': 'viridis', 'label': 'ReflectividadDiferencial', 'cb_label': 'dBz'},
-    'Z': {'name': 'Zdb', 'zmin': -20, 'zmax': 60, 'colormap': 'viridis', 'label': 'Reflectividad', 'cb_label': 'dBz'},
-    'W': {'name': 'Sigmav_W', 'zmin': -20, 'zmax': 60, 'colormap': 'viridis', 'label': 'AnchoEspectral', 'cb_label': 'hz'}
+    'P':  {'name': 'dataPP_POWER','zmin': 35,  'zmax': 60, 'colormap': 'jet',    'label': 'Power',              'wrname':'Pow', 'cb_label': 'dB', 'ch':1},
+    'V':  {'name': 'dataPP_DOP',  'zmin': -20, 'zmax': 20, 'colormap': 'seismic','label': 'Velocity',           'wrname':'Dop', 'cb_label': 'm/s','ch':1},
+    'RH': {'name': 'RhoHV_R',     'zmin': 0,   'zmax': 1,  'colormap': 'jet',    'label': 'Coef.Correlacion',   'wrname':'R',   'cb_label': '*',  'ch':0},
+    'FD': {'name': 'PhiD_P',      'zmin': -180,'zmax': 180,'colormap': 'RdBu_r', 'label': 'Fase Diferencial',   'wrname':'P' ,  'cb_label': 'º',  'ch':0},
+    'ZD': {'name': 'Zdb_D',       'zmin': -20, 'zmax': 80, 'colormap': 'viridis','label': 'Reflect.Diferencial','wrname':'D' ,  'cb_label': 'dBz','ch':0},
+    'Z':  {'name': 'Zdb',         'zmin': -20, 'zmax': 60, 'colormap': 'viridis','label': 'Reflectividad',      'wrname':'Z',   'cb_label': 'dBz','ch':1},
+    'W':  {'name': 'Sigmav_W',    'zmin': -20, 'zmax': 60, 'colormap': 'viridis','label': 'AnchoEspectral',     'wrname':'S',   'cb_label': 'hz', 'ch':1}
 }
+
+
+#---------------------SIGNAL CHAIN ------------------------------------
+# Definido por el usuario puede ser modificado solo se necesita definir. Ejemplo
+'''
+desc_wr= {
+    'Data': {
+        'dataPP_POW': 'Power',
+        'utctime': 'Time',
+        'azimuth': 'az',
+        'elevation':'el'
+    },
+    'Metadata': {
+        'heightList': 'range',
+        'channelList': 'Channels'
+    }
+}
+'''
 
 def main(args):
 
@@ -120,13 +138,38 @@ def main(args):
         op.addParameter(name='colormap', value=PARAM[param]['colormap'])
 
         if args.save:
+            desc_wr= {
+                'Data': {
+                    PARAM[param]['name']: PARAM[param]['wrname'],#PARAM[param]['name']: {PARAM[param]['wrname']:['P0','P1']},
+                    'utctime': 'Time'
+                },
+                'Metadata': {
+                    'heightList': 'range',
+                    'channelList': 'Channels',
+                    'data_azi': 'azimuth',
+                    'data_ele': 'elevation'
+                }
+            }
             opObj10 = proc.addOperation(name='HDFWriter')
             opObj10.addParameter(name='path',value=path_save, format='str')
             opObj10.addParameter(name='Reset',value=True)
             opObj10.addParameter(name='setType',value='weather')
             opObj10.addParameter(name='blocksPerFile',value='1',format='int')
-            opObj10.addParameter(name='metadataList',value='heightList,data_azi,data_ele')
+            #opObj10.addParameter(name='channel',value=PARAM[param]['ch'],format='int')
+            opObj10.addParameter(name='metadataList',value='heightList,channelList,Typename,Datatype,Scantype,Latitude,Longitud,Heading,Waveform,PRF,CreatedBy,ContactInformation,data_azi,data_ele')
+            opObj10.addParameter(name='Typename', value=PARAM[param]['label'])
+            opObj10.addParameter(name='Datatype', value='RadialSet')
+            opObj10.addParameter(name='Scantype', value='PPI')
+            opObj10.addParameter(name='Latitude', value='-11.96')
+            opObj10.addParameter(name='Longitud', value='-76.54')
+            opObj10.addParameter(name='Heading', value='293')
+            opObj10.addParameter(name='Height', value='293')
+            opObj10.addParameter(name='Waveform', value='OFM')
+            opObj10.addParameter(name='PRF', value='2500')
+            opObj10.addParameter(name='CreatedBy', value='WeatherRadarJROTeam')
+            opObj10.addParameter(name='ContactInformation', value='dscipion@igp.gob.pe')
             opObj10.addParameter(name='dataList',value=','.join([PARAM[param]['name'],'utctime']))
+            opObj10.addParameter(name='description',value=json.dumps(desc_wr))
 
     project.start()
 

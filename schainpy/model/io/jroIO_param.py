@@ -410,8 +410,7 @@ class HDFWriter(Operation):
         self.metadataList = metadataList
         self.dataList = [s.strip() for s in dataList]
         self.setType = setType
-        if self.mode == "weather":
-            self.setType = "weather"
+        if self.setType == "weather":
             self.set_kwargs(**kwargs)
             self.set_kwargs_obj(self.dataOut,**kwargs)
 
