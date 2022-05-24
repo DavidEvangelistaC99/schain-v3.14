@@ -4064,7 +4064,7 @@ class PedestalInformation(Operation):
     def __init__(self):
         Operation.__init__(self)
         self.filename = False
-        self.delay = 30
+        self.delay = 32
         self.nTries = 3
 
     def find_file(self, timestamp):
@@ -4073,7 +4073,7 @@ class PedestalInformation(Operation):
         path = os.path.join(self.path, dt.strftime('%Y-%m-%dT%H-00-00'))
 
         if not os.path.exists(path):
-            return False, False
+            return False
         fileList = glob.glob(os.path.join(path, '*.h5'))
         fileList.sort()
         return fileList
@@ -4092,30 +4092,40 @@ class PedestalInformation(Operation):
             if dt.second > 0:
                 self.utcfile -= dt.second
             self.utcfile += self.samples*self.interval
-            dt = datetime.datetime.utcfromtimestamp(self.utctime)
+            dt = datetime.datetime.utcfromtimestamp(self.utcfile)
             path = os.path.join(self.path, dt.strftime('%Y-%m-%dT%H-00-00'))
             self.filename = os.path.join(path, 'pos@{}.000.h5'.format(int(self.utcfile)))
 
-            for n in range(self.nTries):
+            for i in range(2):
                 ok = False
-                try:
-                    if not os.path.exists(self.filename):
-                        log.warning('Waiting {}s for position files...'.format(self.delay), self.name)
+                for j in range(self.nTries):
+                    ok = False
+                    try:
+                        if not os.path.exists(self.filename):
+                            log.warning('Waiting {}s for position files...'.format(self.delay), self.name)
+                            time.sleep(self.delay)
+                            continue
+                        self.fp.close()
+                        self.fp = h5py.File(self.filename, 'r')
+                        log.log('Opening file: {}'.format(self.filename), self.name)
+                        ok = True
+                        break
+                    except Exception as e:
+                        print(e)
+                        log.warning('Waiting {}s for position file to be ready...'.format(self.delay), self.name)
                         time.sleep(self.delay)
                         continue
-                    self.fp.close()
-                    self.fp = h5py.File(self.filename, 'r')
-                    log.log('Opening file: {}'.format(self.filename), self.name)
-                    ok = True
+                if ok:
                     break
-                except:
-                    log.warning('Waiting {}s for position file to be ready...'.format(self.delay), self.name)
-                    time.sleep(self.delay)
-                    continue
-
+                log.warning('Trying next file...', self.name)
+                self.utcfile += self.samples*self.interval
+                dt = datetime.datetime.utcfromtimestamp(self.utcfime)
+                path = os.path.join(self.path, dt.strftime('%Y-%m-%dT%H-00-00'))
+                self.filename = os.path.join(path, 'pos@{}.000.h5'.format(int(self.utcfile)))
             if not ok:
                 log.error('No new position files found in {}'.format(path))
                 raise IOError('No new position files found in {}'.format(path))
+
 
     def find_mode(self,index):
         sample_max = 20
@@ -4177,11 +4187,11 @@ class PedestalInformation(Operation):
         else:
             index = int((self.utctime-self.utcfile)/self.interval)
 
-            if self.flagAskMode:
-                mode = self.find_mode(index)
-            else:
-                mode = self.mode
-
+            #if self.flagAskMode:
+            #    mode = self.find_mode(index)
+            #else:
+            #    mode = self.mode
+            mode = 'PPI'
             if mode is not None:
                 return self.fp['Data']['azi_pos'][index], self.fp['Data']['ele_pos'][index], mode
             else:

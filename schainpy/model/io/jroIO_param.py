@@ -545,38 +545,37 @@ class HDFWriter(Operation):
             elif self.var.lower() == 'velRadial_V'.lower():
                 wr_type = 'V'
             elif self.var.lower() == 'Sigmav_W'.lower():
-                wr_type = 'S'
+                wr_type = 'W'
             elif self.var.lower() == 'dataPP_POWER'.lower():
-                wr_type = 'Pow'
+                wr_type = 'S'
             elif self.var.lower() == 'dataPP_DOP'.lower():
-                wr_type = 'Dop'
+                wr_type = 'V'
 
 
-            #Z_SOPHy_El10.0_20200505_14:02:15.h5
-            #Z_SOPHy_Az40.0_20200505_14:02:15.h5
+            #SOPHY_20200505_140215_E10.0_Z.h5
+            #SOPHY_20200505_140215_A40.0_Z.h5
             if self.dataOut.flagMode == 1: #'AZI' #PPI
-                ang_type = 'El'
+                ang_type = 'E'
                 len_aux = int(self.dataOut.data_ele.shape[0]/4)
                 mean = numpy.mean(self.dataOut.data_ele[len_aux:-len_aux])
                 ang_    = round(mean,1)
             elif self.dataOut.flagMode == 0: #'ELE' #RHI
-                ang_type = 'Az'
+                ang_type = 'A'
                 len_aux = int(self.dataOut.data_azi.shape[0]/4)
                 mean = numpy.mean(self.dataOut.data_azi[len_aux:-len_aux])
                 ang_    = round(mean,1)
 
-            file = '%s%s%s%2.1f%s%2.2d%2.2d%2.2d%s%2.2d%2.2d%2.2d%s' % (wr_type,
-                                           '_SOPHy_',
-                                           ang_type,
-                                           ang_,
-                                           '_',
+            file = '%s_%2.2d%2.2d%2.2d_%2.2d%2.2d%2.2d_%s%2.1f_%s%s' % (
+                'SOPHY',
                                            timeTuple.tm_year,
                                            timeTuple.tm_mon,
                                            timeTuple.tm_mday,
-                                           '_',
                                            timeTuple.tm_hour,
                                            timeTuple.tm_min,
                                            timeTuple.tm_sec,
+                                           ang_type,
+                                           ang_,
+                                           wr_type,
                                            ext )
 
         else:
