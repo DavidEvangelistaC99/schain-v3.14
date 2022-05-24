@@ -4119,7 +4119,7 @@ class PedestalInformation(Operation):
                     break
                 log.warning('Trying next file...', self.name)
                 self.utcfile += self.samples*self.interval
-                dt = datetime.datetime.utcfromtimestamp(self.utcfime)
+                dt = datetime.datetime.utcfromtimestamp(self.utcfile)
                 path = os.path.join(self.path, dt.strftime('%Y-%m-%dT%H-00-00'))
                 self.filename = os.path.join(path, 'pos@{}.000.h5'.format(int(self.utcfile)))
             if not ok:
