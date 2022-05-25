@@ -494,10 +494,20 @@ class DigitalRFReader(ProcessingUnit):
         self.count          = self.count + 1.0
         return
 
-    def __readNextBlock(self, seconds=30, volt_scale=1):
+    def __readNextBlock(self, seconds=30, volt_scale=1/20000.0):
         '''
-        '''
+        NOTA: APLICACION RADAR METEOROLOGICO
+        VALORES OBTENIDOS CON LA USRP, volt_scale = 1,conexion directa al Ch Rx.
 
+        MAXIMO
+        9886  -> 0.980 Voltiospp
+        4939  -> 0.480 Voltiospp
+        14825 -> 1.440 Voltiospp
+        18129 -> 1.940 Voltiospp
+        Para llevar al valor correspondiente de Voltaje, debemos dividir por 20000
+        y obtenemos la Amplitud correspondiente de entrada IQ.
+        volt_scale = (1/20000.0)
+        '''
         # Set the next data
         self.__flagDiscontinuousBlock = False
         self.__thisUnixSample        += self.__samples_to_read
