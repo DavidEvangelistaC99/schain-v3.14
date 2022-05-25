@@ -1584,6 +1584,26 @@ class PulsePair_vRF(Operation):
         '''
         Return the PULSEPAIR and the profiles used in the operation
         Affected :  self.__profileIndex
+        NOTA:
+        1.)  Calculo de Potencia
+        PdBm = 10 *log10(10*(I**2  + Q**2)) Unidades dBm
+        self.__buffer = I + Qj
+
+        2.) Data decodificada
+        Se toma como referencia el factor estimado en jrodata.py y se adiciona
+        en PulsePair solo pwcode.
+        if self.flagDecodeData:
+            pwcode = numpy.sum(self.code[0]**2)
+        normFactor = self.nProfiles * self.nIncohInt * self.nCohInt * pwcode * self.windowOfFilter
+        3.) hildebrand_sekhon
+        Se pasa el arreglo de Potencia pair0 que contiene canales perfiles y altura dividiendole entre el
+        factor pwcode.
+        4.) data_power
+        Este parametro esta dividido por los factores: nro. perfiles, nro intCoh y pwcode
+        5.) lag_0
+        Este parametro esta dividido por los factores: nro. perfiles, nro intCoh y pwcode
+        Igual a data_power
+
         '''
         #----------------- Remove DC-----------------------------------
         if self.removeDC==True:
@@ -1592,16 +1612,20 @@ class PulsePair_vRF(Operation):
             dc= numpy.tile(tmp,[1,self.__nProf,1])
             self.__buffer = self.__buffer -  dc
         #------------------Calculo de Potencia ------------------------
-        pair0       = self.__buffer*numpy.conj(self.__buffer)
+        pair0       = self.__buffer*numpy.conj(self.__buffer) * 10.0
         pair0       = pair0.real
         lag_0       = numpy.sum(pair0,1)
         #-----------------Calculo de Cscp------------------------------ New
         cspc_pair01 = self.__buffer[0]*self.__buffer[1]
+        #------------------  Data Decodificada------------------------
+        pwcode =  1
+        if dataOut.flagDecodeData == True:
+            pwcode = numpy.sum(dataOut.code[0]**2)
         #------------------Calculo de Ruido x canal--------------------
         self.noise  = numpy.zeros(self.__nch)
         for i in range(self.__nch):
             daux         = numpy.sort(pair0[i,:,:],axis= None)
-            self.noise[i]=hildebrand_sekhon( daux ,self.nCohInt)
+            self.noise[i]=hildebrand_sekhon( daux/pwcode ,self.nCohInt)
 
         self.noise       = self.noise.reshape(self.__nch,1)
         self.noise       = numpy.tile(self.noise,[1,self.__nHeis])
@@ -1610,7 +1634,7 @@ class PulsePair_vRF(Operation):
         #------------------ Potencia recibida= P , Potencia senal = S , Ruido= N--
         #------------------   P= S+N  ,P=lag_0/N ---------------------------------
         #-------------------- Power --------------------------------------------------
-        data_power       = lag_0/(self.n*self.nCohInt)
+        data_power       = lag_0/(self.n*self.nCohInt*pwcode)
         #--------------------CCF------------------------------------------------------
         data_ccf         =numpy.sum(cspc_pair01,axis=0)/(self.n*self.nCohInt)
         #------------------  Senal  --------------------------------------------------
@@ -1629,7 +1653,7 @@ class PulsePair_vRF(Operation):
         data_velocity    = (self.lambda_/2.0)*data_freq
 
         #---------------- Potencia promedio estimada de la Senal-----------
-        lag_0            = lag_0/self.n
+        lag_0            = data_power
         S                = lag_0-self.noise
 
         #---------------- Frecuencia Doppler promedio ---------------------
