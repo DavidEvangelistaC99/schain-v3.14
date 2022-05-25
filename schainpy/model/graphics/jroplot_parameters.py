@@ -1807,8 +1807,8 @@ class WeatherParamsPlot(Plot):
         self.ncols = 1
         self.nrows = 1
         self.nplots= 1
-        self.ylabel= 'Range [Km]'
-        self.xlabel= 'Range [Km]'
+        self.ylabel= 'Range [km]'
+        self.xlabel= 'Range [km]'
         self.polar = True
         self.grid = True
         if self.channels is not None:
@@ -1826,7 +1826,7 @@ class WeatherParamsPlot(Plot):
         self.len_azi =0
         self.buffer_ini  = None
         self.buffer_ele   = None
-        self.plots_adjust.update({'wspace': 0.4, 'hspace':0.4, 'left': 0.1, 'right': 0.9, 'bottom': 0.08})
+        self.plots_adjust.update({'wspace': 0.4, 'hspace':0.4, 'left': 0.08, 'right': 0.92, 'bottom': 0.01,'top':0.99})
         self.flag    =0
         self.indicador= 0
         self.last_data_ele = None
@@ -1910,11 +1910,15 @@ class WeatherParamsPlot(Plot):
                 ax.plt = ax.pcolormesh(theta, r, z, cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
                 if data['mode_op'] == 'PPI':
                     ax.set_theta_direction(-1)
+                    ax.set_theta_offset(numpy.pi/2)
+
             else:
                 ax.set_xlim(numpy.radians(self.ang_min),numpy.radians(self.ang_max))
                 ax.plt = ax.pcolormesh(theta, r, z, cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
                 if data['mode_op'] == 'PPI':
                     ax.set_theta_direction(-1)
+                    ax.set_theta_offset(numpy.pi/2)
+
             ax.grid(True)
             if data['mode_op'] == 'RHI':
                 len_aux = int(data['azi'].shape[0]/4)
