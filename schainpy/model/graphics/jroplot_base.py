@@ -414,7 +414,7 @@ class Plot(Operation):
                      for tick in self.pf_axes[n].get_yticklabels()]
                 if self.colorbar:
                     ax.cbar = plt.colorbar(
-                        ax.plt, ax=ax, fraction=0.05, pad=0.02, aspect=10)
+                        ax.plt, ax=ax, fraction=0.05, pad=0.06, aspect=10)
                     ax.cbar.ax.tick_params(labelsize=8)
                     ax.cbar.ax.press = None
                     if self.cb_label:
@@ -445,7 +445,7 @@ class Plot(Operation):
                     size=8)
                 ax.set_ylim(0, self.ymax)
                 #ax.set_yticks(numpy.arange(0, self.ymax, 20))
-                ax.yaxis.labelpad = 20
+                ax.yaxis.labelpad = 28
 
         if self.firsttime:
             for n, fig in enumerate(self.figures):
@@ -515,7 +515,7 @@ class Plot(Operation):
         self.save_time = self.data.max_time
 
         fig = self.figures[n]
-        
+
         if self.throttle == 0:
             if self.oneFigure:
                 figname = os.path.join(

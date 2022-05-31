@@ -5,7 +5,7 @@ import time
 
 PATH = '/DATA_RM/DATA'
 # PATH = '/Users/jespinoza/workspace/data/'
-PATH = '/home/soporte/Documents/HUANCAYO'
+#PATH = '/home/soporte/Documents/HUANCAYO'
 PARAM = {
     'P': {'name': 'dataPP_POWER', 'zmin': -50, 'zmax': -15, 'colormap': 'jet', 'label': 'Power', 'wrname': 'Pow','cb_label': 'dB', 'ch':0},
     'V': {'name': 'dataPP_DOP', 'zmin': -20, 'zmax': 20, 'colormap': 'seismic', 'label': 'Velocity', 'wrname': 'Vel', 'cb_label': 'm/s', 'ch':0},

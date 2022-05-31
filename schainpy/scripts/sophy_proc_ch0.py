@@ -1,3 +1,4 @@
+
 # SOPHY PROC script
 import os, sys, json, argparse
 import datetime
@@ -5,9 +6,9 @@ import time
 
 PATH = '/DATA_RM/DATA'
 # PATH = '/Users/jespinoza/workspace/data/'
-PATH = '/home/soporte/Documents/HUANCAYO'
+#PATH = '/home/soporte/Documents/HUANCAYO'
 PARAM = {
-    'P': {'name': 'dataPP_POWER', 'zmin': -40, 'zmax': -5, 'colormap': 'jet', 'label': 'Power', 'wrname': 'Pow','cb_label': 'dB', 'ch':0},
+    'P': {'name': 'dataPP_POWER', 'zmin': -45, 'zmax': -25, 'colormap': 'jet', 'label': 'Power', 'wrname': 'Pow','cb_label': 'dB', 'ch':0},
     'V': {'name': 'dataPP_DOP', 'zmin': -20, 'zmax': 20, 'colormap': 'seismic', 'label': 'Velocity', 'wrname': 'Vel', 'cb_label': 'm/s', 'ch':0},
     'RH': {'name': 'RhoHV_R', 'zmin': 0,   'zmax': 1,  'colormap': 'jet',    'label': 'Coef.Correlacion', 'wrname':'R', 'cb_label': '*',  'ch':0},
     'FD': {'name': 'PhiD_P', 'zmin': -180,'zmax': 180,'colormap': 'RdBu_r', 'label': 'Fase Diferencial', 'wrname':'P' , 'cb_label': 'º',  'ch':0},
@@ -44,7 +45,7 @@ def main(args):
     path_ped = os.path.join(PATH, experiment, 'position')
     path_plots = os.path.join(PATH, experiment, 'plots_ch0')
     path_save = os.path.join(PATH, experiment, 'param')
-    RMIX = 10
+    RMIX = 20
 
     from schainpy.controller import Project
 
@@ -295,8 +296,8 @@ def main(args):
 
         opObj10 = proc2.addOperation(name="WeatherRadar")
         opObj10.addParameter(name='variableList',value='Reflectividad,AnchoEspectral')
-        opObj10.addParameter(name='tauW',value=3.2*1e-6)
-        opObj10.addParameter(name='Pt',value=1.6)
+        opObj10.addParameter(name='tauW',value=6.3*1e-6)
+        opObj10.addParameter(name='Pt',value=3.2)
 
 
         # {"latitude": -12.0404828587, "longitude": -75.2147483647, "altitude": 3379.2147483647}

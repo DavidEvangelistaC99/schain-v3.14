@@ -1826,7 +1826,7 @@ class WeatherParamsPlot(Plot):
         self.len_azi =0
         self.buffer_ini  = None
         self.buffer_ele   = None
-        self.plots_adjust.update({'wspace': 0.4, 'hspace':0.4, 'left': 0.08, 'right': 0.92, 'bottom': 0.01,'top':0.99})
+        self.plots_adjust.update({'wspace': 0.4, 'hspace':0.4, 'left': 0.1, 'right': 0.9, 'bottom': 0.08})
         self.flag    =0
         self.indicador= 0
         self.last_data_ele = None
