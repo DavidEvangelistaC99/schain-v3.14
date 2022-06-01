@@ -4182,28 +4182,27 @@ class PedestalInformation(Operation):
     def get_values(self):
 
         if self.flagNoData:
-            print("get_value_1")
             return numpy.nan, numpy.nan, numpy.nan #Should be self.mode?
         else:
             index = int((self.utctime-self.utcfile)/self.interval)
 
-            #if self.flagAskMode:
-            #    mode = self.find_mode(index)
-            #else:
-            #    mode = self.mode
-            mode = 'PPI'
+            if self.flagAskMode:
+               mode = self.find_mode(index)
+            else:
+               mode = self.mode
+            
             if mode is not None:
                 return self.fp['Data']['azi_pos'][index], self.fp['Data']['ele_pos'][index], mode
             else:
-                print("get_value_2")
                 return numpy.nan, numpy.nan, numpy.nan
 
-    def setup(self, dataOut, path, conf, samples, interval, az_offset):
+    def setup(self, dataOut, path, conf, samples, interval, mode):
 
         self.path = path
         self.conf = conf
         self.samples = samples
         self.interval = interval
+        self.mode = mode
         filelist = self.find_file(dataOut.utctime)
 
         if not filelist:
@@ -4215,26 +4214,22 @@ class PedestalInformation(Operation):
             log.log('Opening file: {}'.format(self.filename), self.name)
             self.fp = h5py.File(self.filename, 'r')
 
-    def run(self, dataOut, path, conf=None, samples=1500, interval=0.04, az_offset=0, time_offset=0):
+    def run(self, dataOut, path, conf=None, samples=1500, interval=0.04, az_offset=0, time_offset=0, mode=None):
 
         if not self.isConfig:
-            self.setup(dataOut, path, conf, samples, interval, az_offset)
-            #self.flagAskMode = True
+            self.setup(dataOut, path, conf, samples, interval, mode)
             self.isConfig   = True
 
         self.utctime = dataOut.utctime + time_offset
 
         if hasattr(dataOut, 'flagAskMode'):
             self.flagAskMode = dataOut.flagAskMode
-            #print("inside",self.flagAskMode)
         else:
-            #print("nooooooo")
             self.flagAskMode = True
 
         self.find_next_file()
 
-        az, el, self.mode = self.get_values()
-        print("after get_values",az,el,self.mode)
+        az, el, scan = self.get_values()
         dataOut.flagNoData = False
         if numpy.isnan(az) or numpy.isnan(el) :
             dataOut.flagNoData = True
@@ -4245,7 +4240,7 @@ class PedestalInformation(Operation):
         if dataOut.azimuth < 0:
             dataOut.azimuth += 360
         dataOut.elevation = el
-        dataOut.mode_op = self.mode[:]
+        dataOut.mode_op = scan
 
         return dataOut
 
