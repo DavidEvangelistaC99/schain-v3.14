@@ -15,12 +15,12 @@ import datetime
 from collections import deque
 from functools import wraps
 from threading import Thread
-import matplotlib
+import matplotlib,re
 
 if 'BACKEND' in os.environ:
     matplotlib.use(os.environ['BACKEND'])
 elif 'linux' in sys.platform:
-    matplotlib.use("TkAgg")
+    matplotlib.use("Agg")#TkAgg
 elif 'darwin' in sys.platform:
     matplotlib.use('MacOSX')
 else:
@@ -44,8 +44,11 @@ ncmap = matplotlib.colors.LinearSegmentedColormap.from_list(
     'jro', numpy.vstack((blu_values, jet_values)))
 matplotlib.pyplot.register_cmap(cmap=ncmap)
 
+rwg=matplotlib.colors.LinearSegmentedColormap.from_list('rwg',["r", "w", "g"], N=256)
+matplotlib.pyplot.register_cmap(cmap=rwg)
+
 CMAPS = [plt.get_cmap(s) for s in ('jro', 'jet', 'viridis',
-                                   'plasma', 'inferno', 'Greys', 'seismic', 'bwr', 'coolwarm')]
+                                   'plasma', 'inferno', 'Greys', 'seismic', 'bwr', 'coolwarm','rwg')]
 
 EARTH_RADIUS = 6.3710e3
 
@@ -414,7 +417,7 @@ class Plot(Operation):
                      for tick in self.pf_axes[n].get_yticklabels()]
                 if self.colorbar:
                     ax.cbar = plt.colorbar(
-                        ax.plt, ax=ax, fraction=0.05, pad=0.02, aspect=10)
+                        ax.plt, ax=ax, fraction=0.05, pad=0.06, aspect=10)
                     ax.cbar.ax.tick_params(labelsize=8)
                     ax.cbar.ax.press = None
                     if self.cb_label:
@@ -445,7 +448,7 @@ class Plot(Operation):
                     size=8)
                 ax.set_ylim(0, self.ymax)
                 #ax.set_yticks(numpy.arange(0, self.ymax, 20))
-                ax.yaxis.labelpad = 20
+                ax.yaxis.labelpad = 28
 
         if self.firsttime:
             for n, fig in enumerate(self.figures):
@@ -486,7 +489,10 @@ class Plot(Operation):
                 figpause(0.01)
 
             if self.save:
-                self.save_figure(n)
+                if self.CODE=="PPI" or self.CODE=="RHI":
+                  self.save_figure(n,stitle =self.titles)
+                else:
+                  self.save_figure(n)
 
         if self.server:
             self.send_to_server()
@@ -505,9 +511,13 @@ class Plot(Operation):
         metadata.update(meta)
         self.data.update(data, timestamp, metadata)
 
-    def save_figure(self, n):
+    def save_figure(self, n,stitle=None):
         '''
         '''
+        if stitle is not None:
+            s_string = re.sub(r"[^A-Z0-9.]","",str(stitle))
+            new_string=s_string[:3]+"_"+"_"+s_string[4:6]+"_"+s_string[6:]
+
         if self.oneFigure:
             if (self.data.max_time - self.save_time) <= self.save_period:
                 return
@@ -515,19 +525,32 @@ class Plot(Operation):
         self.save_time = self.data.max_time
 
         fig = self.figures[n]
-        
+
         if self.throttle == 0:
             if self.oneFigure:
-                figname = os.path.join(
-                    self.save,
-                    self.save_code,
-                    '{}_{}.png'.format(
+                if stitle is not None:
+                    figname = os.path.join(
+                        self.save,
                         self.save_code,
-                        self.getDateTime(self.data.max_time).strftime(
-                            '%Y%m%d_%H%M%S'
-                            ),
+                        '{}_{}_{}.png'.format(
+                            self.save_code,
+                            self.getDateTime(self.data.max_time).strftime(
+                                '%Y%m%d_%H%M%S',
+                                ),
+                                new_string,
+                            )
                         )
-                    )
+                else:
+                      figname = os.path.join(
+                      self.save,
+                      self.save_code,
+                      '{}_{}.png'.format(
+                          self.save_code,
+                          self.getDateTime(self.data.max_time).strftime(
+                              '%Y%m%d_%H%M%S'
+                               ),
+                           )
+                       )
             else:
                 figname = os.path.join(
                     self.save,

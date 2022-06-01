@@ -3920,6 +3920,10 @@ class WeatherRadar(Operation):
     Input:
     Output:
     Parameters affected:
+
+    Conversion Watt
+    Referencia
+    https://www.tek.com/en/blog/calculating-rf-power-iq-samples
     '''
     isConfig  = False
     variableList = None
@@ -3950,6 +3954,7 @@ class WeatherRadar(Operation):
         Numerator     = ((4*numpy.pi)**3 * aL**2 * 16 *numpy.log(2)*(10**18))
         Denominator   = (Pt *(10**(Gt/10.0))*(10**(Gr/10.0))*(10**(Glna/10.0))* lambda_**2 * SPEED_OF_LIGHT * tauW * numpy.pi*thetaT*thetaR)
         self.RadarConstant = Numerator/Denominator
+        self.variableList  = variableList
         if self.variableList== None:
             self.variableList= ['Reflectividad','ReflectividadDiferencial','CoeficienteCorrelacion','FaseDiferencial','VelocidadRadial','AnchoEspectral']
 
@@ -3961,7 +3966,7 @@ class WeatherRadar(Operation):
         data_param = numpy.zeros((nCh,4,nHeis))
         if type == "Voltage":
             factor            = 1
-            data_param[:,0,:] = dataOut.dataPP_POW/(factor)
+            data_param[:,0,:] = dataOut.dataPP_POWER/(factor)
             data_param[:,1,:] = dataOut.dataPP_DOP
             data_param[:,2,:] = dataOut.dataPP_WIDTH
             data_param[:,3,:] = dataOut.dataPP_SNR
@@ -4010,18 +4015,36 @@ class WeatherRadar(Operation):
         '''-----------------------------Potencia de Radar -Signal S-----------------------------'''
 
         Pr               = self.setMoments(dataOut,0)
-
+        '''---------------------------- Calculo de Noise y threshold para Reflectividad---------'''
+        noise            = numpy.zeros(self.nCh)
+        for i in range(self.nCh):
+            noise[i] = hildebrand_sekhon(Pr[i,:], 1)
+            window = numpy.where(Pr[i,:]<1.3*noise[i])
+            Pr[i,window]= 1e-10
+        Pr               = Pr/1000.0 # Conversion Watt
         '''-----------2 Reflectividad del Radar y Factor de Reflectividad------'''
         self.n_radar       = numpy.zeros((self.nCh,self.nHeis))
         self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
+
         for R in range(self.nHeis):
-            self.n_radar[:,R] = self.RadarConstant*Pr[:,R]* (self.Range[:,R])**2*(10**-10.246)
+            self.n_radar[:,R] = self.RadarConstant*Pr[:,R]* (self.Range[:,R]*(10**3))**2
 
             self.Z_radar[:,R] = self.n_radar[:,R]* self.lambda_**4/( numpy.pi**5 * self.Km**2)
 
         '''----------- Factor de Reflectividad Equivalente lamda_ < 10 cm , lamda_= 3.2cm-------'''
         Zeh  =  self.Z_radar
-        dBZeh = 10*numpy.log10(Zeh)
+        #print("---------------------------------------------------------------------")
+        #print("RangedBz",10*numpy.log10((self.Range[0,-10:]*(10**3))**2))
+        #print("CTE",10*numpy.log10(self.RadarConstant))
+        #print("Pr first10",10*numpy.log10(Pr[0,:20]))
+        #print("Pr last10",10*numpy.log10(Pr[0,-20:]))
+        #print("LCTE",10*numpy.log10(self.lambda_**4/( numpy.pi**5 * self.Km**2)))
+        if self.Pt<0.3:
+            factor=-20.0
+        else:
+            factor=0
+
+        dBZeh = 10*numpy.log10(Zeh) + factor
         if type=='N':
             return dBZeh
         elif type=='D':
