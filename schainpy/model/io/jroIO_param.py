@@ -471,7 +471,8 @@ class HDFWriter(Operation):
             return False
 
     def run(self, dataOut, path, blocksPerFile=10, metadataList=None,
-            dataList=[], setType=None, description={},mode= None,type_data=None,Reset = False,**kwargs):
+            dataList=[], setType=None, description={}, mode= None, 
+            type_data=None, Reset = False,**kwargs):
 
         if Reset:
             self.isConfig = False
@@ -495,14 +496,23 @@ class HDFWriter(Operation):
         return
 
     def setNextFile(self):
-        ###print("HELLO WORLD--------------------------------")
+
         ext = self.ext
         path = self.path
         setFile = self.setFile
         type_data = self.type_data
 
         timeTuple = time.localtime(self.dataOut.utctime)
-        subfolder = 'd%4.4d%3.3d' % (timeTuple.tm_year,timeTuple.tm_yday)
+        
+        if self.setType == 'weather':
+            subfolder = '%4.4d-%2.2d-%2.2dT%2.2d-00-00' % (timeTuple.tm_year,
+                                           timeTuple.tm_mon,
+                                           timeTuple.tm_mday,
+                                           timeTuple.tm_hour,
+                                           )
+        else: 
+            subfolder = 'd%4.4d%3.3d' % (timeTuple.tm_year,timeTuple.tm_yday)
+        
         fullpath = os.path.join(path, subfolder)
 
         if os.path.exists(fullpath):
