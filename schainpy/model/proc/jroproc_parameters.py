@@ -105,6 +105,7 @@ class ParametersProc(ProcessingUnit):
         self.dataOut.frequency = self.dataIn.frequency
         # self.dataOut.noise = self.dataIn.noise
         self.dataOut.runNextUnit = self.dataIn.runNextUnit
+        self.dataOut.h0 = self.dataIn.h0
 
     def run(self, runNextUnit = 0):
 
@@ -4256,10 +4257,9 @@ class PedestalInformation(Operation):
         dataOut.flagNoData = False
         if numpy.isnan(az) or numpy.isnan(el) :
             dataOut.flagNoData = True
-            #print("NAN")
             return dataOut
 
-        dataOut.azimuth = az - az_offset
+        dataOut.azimuth = az + az_offset
         if dataOut.azimuth < 0:
             dataOut.azimuth += 360
         dataOut.elevation = el

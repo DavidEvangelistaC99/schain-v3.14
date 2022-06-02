@@ -625,15 +625,17 @@ class HDFWriter(Operation):
                         return key
             return name
         else:
-            if 'Metadata' in self.description:
-                meta = self.description['Metadata']
+            if 'Data' in self.description:
+                data = self.description['Data']
+                if 'Metadata' in self.description:
+                    data.update(self.description['Metadata'])
             else:
-                meta = self.description
-            if name in meta:
-                if isinstance(meta[name], list):
-                    return meta[name][x]
-                elif isinstance(meta[name], dict):
-                    for key, value in meta[name].items():
+                data = self.description
+            if name in data:
+                if isinstance(data[name], list):
+                    return data[name][x]
+                elif isinstance(data[name], dict):
+                    for key, value in data[name].items():
                         return value[x]
             if 'cspc' in name:
                 return 'pair{:02d}'.format(x)
@@ -677,6 +679,7 @@ class HDFWriter(Operation):
         data = []
 
         for dsInfo in self.dsList:
+
             if dsInfo['nDim'] == 0:
                 ds = grp.create_dataset(
                     self.getLabel(dsInfo['variable']),
@@ -691,10 +694,14 @@ class HDFWriter(Operation):
                     sgrp = grp.create_group(label)
                 else:
                     sgrp = grp
+                if self.blocksPerFile == 1:
+                    shape = dsInfo['shape'][1:]
+                else:
+                    shape = (self.blocksPerFile, ) + dsInfo['shape'][1:]
                 for i in range(dsInfo['dsNumber']):
                     ds = sgrp.create_dataset(
                         self.getLabel(dsInfo['variable'], i),
-                        (self.blocksPerFile, ) + dsInfo['shape'][1:],
+                        shape,
                         chunks=True,
                         dtype=dsInfo['dtype'])
                     dtsets.append(ds)
@@ -720,7 +727,10 @@ class HDFWriter(Operation):
             if ch == -1:
                 ds[self.blockIndex] = getattr(self.dataOut, attr)
             else:
-                ds[self.blockIndex] = getattr(self.dataOut, attr)[ch]
+                if self.blocksPerFile == 1:
+                    ds[:] = getattr(self.dataOut, attr)[ch]
+                else:
+                    ds[self.blockIndex] = getattr(self.dataOut, attr)[ch]
 
         self.fp.flush()
         self.blockIndex += 1

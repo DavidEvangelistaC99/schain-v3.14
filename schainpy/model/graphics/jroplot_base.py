@@ -516,7 +516,7 @@ class Plot(Operation):
         '''
         if stitle is not None:
             s_string = re.sub(r"[^A-Z0-9.]","",str(stitle))
-            new_string=s_string[:3]+"_"+"_"+s_string[4:6]+"_"+s_string[6:]
+            new_string=s_string[:3]+"_"+s_string[4:6]+"_"+s_string[6:]
 
         if self.oneFigure:
             if (self.data.max_time - self.save_time) <= self.save_period:
