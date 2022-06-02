@@ -190,6 +190,7 @@ class JROData(GenericData):
     error = None
     data = None
     nmodes = None
+    h0 = 0
     metadata_list = ['heightList', 'timeZone', 'type']
 
     def __str__(self):

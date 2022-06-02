@@ -309,6 +309,7 @@ class setH0(Operation):
         newHeiRange = h0 + numpy.arange(nHeights)*deltaHeight
 
         dataOut.heightList = newHeiRange
+        dataOut.h0 = h0
 
         return dataOut
 
