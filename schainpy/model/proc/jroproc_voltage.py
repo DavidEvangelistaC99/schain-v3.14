@@ -1617,7 +1617,8 @@ class PulsePair_vRF(Operation):
         pair0       = pair0.real
         lag_0       = numpy.sum(pair0,1)
         #-----------------Calculo de Cscp------------------------------ New
-        cspc_pair01 = self.__buffer[0]*self.__buffer[1]
+        if len(self.__buffer)>1:
+            cspc_pair01 = self.__buffer[0]*self.__buffer[1]
         #------------------  Data Decodificada------------------------
         pwcode =  1
         if dataOut.flagDecodeData == True:
@@ -1637,7 +1638,11 @@ class PulsePair_vRF(Operation):
         #-------------------- Power --------------------------------------------------
         data_power       = lag_0/(self.n*self.nCohInt*pwcode)
         #--------------------CCF------------------------------------------------------
-        data_ccf         =numpy.sum(cspc_pair01,axis=0)/(self.n*self.nCohInt)
+        
+        if len(self.__buffer)>1:
+            data_ccf         =numpy.sum(cspc_pair01,axis=0)/(self.n*self.nCohInt)
+        else:
+            data_ccf = 0
         #------------------  Senal  --------------------------------------------------
         data_intensity   = pair0 - noise_buffer
         data_intensity   = numpy.sum(data_intensity,axis=1)*(self.n*self.nCohInt)#*self.nCohInt)

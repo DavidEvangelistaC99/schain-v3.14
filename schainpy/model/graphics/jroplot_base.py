@@ -531,13 +531,13 @@ class Plot(Operation):
                 if stitle is not None:
                     figname = os.path.join(
                         self.save,
-                        self.save_code,
+                        self.save_code + '_' + new_string,
                         '{}_{}_{}.png'.format(
                             self.save_code,
+                            new_string,
                             self.getDateTime(self.data.max_time).strftime(
                                 '%Y%m%d_%H%M%S',
                                 ),
-                                new_string,
                             )
                         )
                 else:
