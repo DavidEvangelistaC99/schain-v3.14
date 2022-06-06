@@ -33,22 +33,15 @@ from matplotlib.patches import Polygon
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.ticker import FuncFormatter, LinearLocator, MultipleLocator
 
+from .plotting_codes import *
+
 from schainpy.model.data.jrodata import PlotterData
 from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecorator
 from schainpy.utils import log
 
-jet_values = matplotlib.pyplot.get_cmap('jet', 100)(numpy.arange(100))[10:90]
-blu_values = matplotlib.pyplot.get_cmap(
-    'seismic_r', 20)(numpy.arange(20))[10:15]
-ncmap = matplotlib.colors.LinearSegmentedColormap.from_list(
-    'jro', numpy.vstack((blu_values, jet_values)))
-matplotlib.pyplot.register_cmap(cmap=ncmap)
-
-rwg=matplotlib.colors.LinearSegmentedColormap.from_list('rwg',["r", "w", "g"], N=256)
-matplotlib.pyplot.register_cmap(cmap=rwg)
-
-CMAPS = [plt.get_cmap(s) for s in ('jro', 'jet', 'viridis',
-                                   'plasma', 'inferno', 'Greys', 'seismic', 'bwr', 'coolwarm','rwg')]
+for name, cb_table in sophy_cb_tables:
+    ncmap = matplotlib.colors.ListedColormap(cb_table, name=name)
+    matplotlib.pyplot.register_cmap(cmap=ncmap)
 
 EARTH_RADIUS = 6.3710e3
 
