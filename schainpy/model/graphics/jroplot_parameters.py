@@ -413,11 +413,15 @@ class WeatherParamsPlot(Plot):
             factor = 1
         if hasattr(dataOut, 'nFFTPoints'):
             factor = dataOut.normFactor
+        
+        mask = dataOut.data_snr<self.snr_threshold
 
         if 'pow' in self.attr_data[0].lower():
-            data['data'] = 10*numpy.log10(getattr(dataOut, self.attr_data[0])/(factor))
+            # data['data'] = 10*numpy.log10(getattr(dataOut, self.attr_data[0])/(factor))
+            data['data'] = numpy.ma.masked_array(10*numpy.log10(getattr(dataOut, self.attr_data[0])/(factor)), mask=mask)
         else:
-            data['data'] = getattr(dataOut, self.attr_data[0])/(factor)
+            data['data'] = numpy.ma.masked_array(getattr(dataOut, self.attr_data[0]), mask=mask)
+            # data['data'] = getattr(dataOut, self.attr_data[0])
 
         if dataOut.mode_op == 'PPI':
             self.CODE = 'PPI'
@@ -437,7 +441,6 @@ class WeatherParamsPlot(Plot):
         r            = self.data.yrange
         delta_height = r[1]-r[0]
         r_mask       = numpy.where(r>=0)[0]
-        self.r_mask =r_mask
         r            = numpy.arange(len(r_mask))*delta_height
         self.y       = 2*r
 
@@ -451,7 +454,7 @@ class WeatherParamsPlot(Plot):
         self.ymax = self.ymax if self.ymax else numpy.nanmax(r)
         self.ymin = self.ymin if self.ymin else numpy.nanmin(r)
         self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
-        self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
+        self.zmin = self.zmin if self.zmin is not None else numpy.nanmin(z)
 
         if data['mode_op'] == 'RHI':
             try:

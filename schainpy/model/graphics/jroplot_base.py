@@ -251,7 +251,7 @@ class Plot(Operation):
         self.ang_min = kwargs.get('ang_min', None)
         self.ang_max = kwargs.get('ang_max', None)
         self.mode = kwargs.get('mode', None)
-
+        self.snr_threshold = kwargs.get('snr_threshold', 0)
 
 
         if self.server:
@@ -440,7 +440,7 @@ class Plot(Operation):
                     self.time_label),
                     size=8)
                 ax.set_ylim(0, self.ymax)
-                #ax.set_yticks(numpy.arange(0, self.ymax, 20))
+                ax.set_yticks(ax.get_yticks(), labels=ax.get_yticks(), color='white')
                 ax.yaxis.labelpad = 28
 
         if self.firsttime:
