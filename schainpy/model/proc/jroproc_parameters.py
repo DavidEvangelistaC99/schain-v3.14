@@ -4120,14 +4120,14 @@ class PedestalInformation(Operation):
             path = os.path.join(self.path, dt.strftime('%Y-%m-%dT%H-00-00'))
             self.filename = os.path.join(path, 'pos@{}.000.h5'.format(int(self.utcfile)))
 
-            for i in range(2):
+            for i in range(20):
                 ok = False
                 for j in range(self.nTries):
                     ok = False
                     try:
                         if not os.path.exists(self.filename):
                             log.warning('Waiting {}s for position files...'.format(self.delay), self.name)
-                            time.sleep(self.delay)
+                            time.sleep(2)
                             continue
                         self.fp.close()
                         self.fp = h5py.File(self.filename, 'r')
