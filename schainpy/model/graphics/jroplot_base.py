@@ -251,7 +251,7 @@ class Plot(Operation):
         self.ang_min = kwargs.get('ang_min', None)
         self.ang_max = kwargs.get('ang_max', None)
         self.mode = kwargs.get('mode', None)
-
+        self.snr_threshold = kwargs.get('snr_threshold', 0)
 
 
         if self.server:

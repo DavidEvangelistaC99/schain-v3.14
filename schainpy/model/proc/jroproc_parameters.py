@@ -3959,7 +3959,7 @@ class WeatherRadar(Operation):
         if self.variableList== None:
             self.variableList= ['Reflectividad','ReflectividadDiferencial','CoeficienteCorrelacion','FaseDiferencial','VelocidadRadial','AnchoEspectral']
 
-    def setMoments(self,dataOut,i):
+    def setMoments(self, dataOut):
 
         type  = dataOut.inputUnit
         nCh   = dataOut.nChannels
@@ -3976,9 +3976,9 @@ class WeatherRadar(Operation):
             data_param[:,0,:] = dataOut.data_POW/(factor)
             data_param[:,1,:] = dataOut.data_DOP
             data_param[:,2,:] = dataOut.data_WIDTH
-            data_param[:,3,:] = dataOut.data_SNR
-
-        return data_param[:,i,:]
+            data_param[:,3,:] = dataOut.data_SNR        
+        
+        return data_param
 
     def getCoeficienteCorrelacionROhv_R(self,dataOut):
         type  = dataOut.inputUnit
@@ -4015,13 +4015,13 @@ class WeatherRadar(Operation):
     def getReflectividad_D(self,dataOut,type):
         '''-----------------------------Potencia de Radar -Signal S-----------------------------'''
 
-        Pr               = self.setMoments(dataOut,0)
+        Pr = dataOut.data_param[:,0,:]
         '''---------------------------- Calculo de Noise y threshold para Reflectividad---------'''
-        noise            = numpy.zeros(self.nCh)
-        for i in range(self.nCh):
-            noise[i] = hildebrand_sekhon(Pr[i,:], 1)
-            window = numpy.where(Pr[i,:]<1.3*noise[i])
-            Pr[i,window]= 1e-10
+        # noise            = numpy.zeros(self.nCh)
+        # for i in range(self.nCh):
+        #     noise[i] = hildebrand_sekhon(Pr[i,:], 1)
+        #     window = numpy.where(Pr[i,:]<1.3*noise[i])
+        #     Pr[i,window]= 1e-10
         Pr               = Pr/1000.0 # Conversion Watt
         '''-----------2 Reflectividad del Radar y Factor de Reflectividad------'''
         self.n_radar       = numpy.zeros((self.nCh,self.nHeis))
@@ -4053,11 +4053,11 @@ class WeatherRadar(Operation):
             return Zdb_D
 
     def getRadialVelocity_V(self,dataOut):
-        velRadial_V = self.setMoments(dataOut,1)
+        velRadial_V = dataOut.data_param[:,1,:]
         return velRadial_V
 
     def getAnchoEspectral_W(self,dataOut):
-        Sigmav_W = self.setMoments(dataOut,2)
+        Sigmav_W = dataOut.data_param[:,2,:]
         return Sigmav_W
 
 
@@ -4068,6 +4068,9 @@ class WeatherRadar(Operation):
             self.setup(dataOut= dataOut,variableList=variableList,Pt=Pt,Gt=Gt,Gr=Gr,Glna=Glna,lambda_=lambda_, aL=aL,
                         tauW= tauW,thetaT=thetaT,thetaR=thetaR,Km =Km)
             self.isConfig = True
+        
+        dataOut.data_param = self.setMoments(dataOut)
+
         for i in range(len(self.variableList)):
             if self.variableList[i]=='Reflectividad':
                 dataOut.Zdb =self.getReflectividad_D(dataOut=dataOut,type='N')
@@ -4081,6 +4084,7 @@ class WeatherRadar(Operation):
                 dataOut.velRadial_V = self.getRadialVelocity_V(dataOut)
             if self.variableList[i] =="AnchoEspectral":
                 dataOut.Sigmav_W = self.getAnchoEspectral_W(dataOut)
+        dataOut.data_snr = dataOut.data_param[:,3,:]
         return dataOut
 
 class PedestalInformation(Operation):
@@ -4171,12 +4175,7 @@ class PedestalInformation(Operation):
                 continue
           sigma_ele = numpy.nanstd(ele[start:start+sample_max])
           sigma_azi = numpy.nanstd(azi[start:start+sample_max])
-          print("Start",start)
-          print("ele",ele[start:start+sample_max])
-          print("s_ele",sigma_ele)
-          print("azi",azi[start:start+sample_max])
-          print("s_azi",sigma_azi)
-          #print(start)
+          
           if sigma_ele<.5 and sigma_azi<.5:
             if sigma_ele<sigma_azi:
               flag_mode = 'PPI'
@@ -4304,20 +4303,18 @@ class Block360(Operation):
         self.__buffer  = []
         self.__buffer2 = []
         self.__buffer3 = []
+        self.__buffer4 = []
 
     def putData(self, data, attr, flagMode):
         '''
         Add a profile to he __buffer and increase in one the __profiel Index
         '''
-        tmp= getattr(data, attr)
-        #log.warning(tmp.shape)
-        #if tmp.shape[0] != 2:
-        #    size_tmp= tmp.shape[1]
-        #    tmp=tmp.reshape(1, size_tmp)
-
+        tmp= getattr(data, attr)        
+        
         self.__buffer.append(tmp)
         self.__buffer2.append(data.azimuth)
         self.__buffer3.append(data.elevation)
+        self.__buffer4.append(data.data_snr)
         self.__profIndex  += 1
 
         if flagMode == 1: #'AZI'
@@ -4329,9 +4326,10 @@ class Block360(Operation):
         '''
         Return the PULSEPAIR and the profiles used in the operation
         Affected :  self.__profileIndex
-        '''
-
+        '''  
+        
         data_360 = numpy.array(self.__buffer).transpose(1, 0, 2)
+        data_snr = numpy.array(self.__buffer4).transpose(1, 0, 2)
         data_p   = numpy.array(self.__buffer2)
         data_e   = numpy.array(self.__buffer3)
         n   = self.__profIndex
@@ -4339,18 +4337,19 @@ class Block360(Operation):
         self.__buffer = []
         self.__buffer2 = []
         self.__buffer3 = []
+        self.__buffer4 = []
         self.__profIndex = 0
 
         if flagMode == 1 and case_flag == 0: #'AZI' y ha girado
             self.putData(data=data, attr = self.attr, flagMode=flagMode)
 
-        return data_360, n, data_p, data_e
-
+        return data_360, data_snr, n, data_p, data_e
 
     def byProfiles(self,dataOut,flagMode):
 
         self.__dataReady     =  False
         data_360 =  []
+        data_snr =  []
         data_p             = None
         data_e             = None
 
@@ -4364,8 +4363,8 @@ class Block360(Operation):
                     self.__buffer.pop() #Erase last data
                     self.__buffer2.pop()
                     self.__buffer3.pop()
-                    data_360,n,data_p,data_e  = self.pushData(data=dataOut,flagMode=flagMode,case_flag=case_flag)
-
+                    self.__buffer4.pop()
+                    data_360, data_snr ,n,data_p,data_e  = self.pushData(data=dataOut,flagMode=flagMode,case_flag=case_flag)
                     self.__dataReady = True
 
             elif flagMode == 0: #'ELE'
@@ -4377,23 +4376,24 @@ class Block360(Operation):
                         self.__buffer.pop(0) #Erase first data
                         self.__buffer2.pop(0)
                         self.__buffer3.pop(0)
+                        self.__buffer4.pop(0)
                         self.__profIndex -= 1
                     else: #Cuando ha estado de bajada y ha vuelto a subir
                         #Se borra el último dato
                         self.__buffer.pop() #Erase last data
                         self.__buffer2.pop()
                         self.__buffer3.pop()
-                        data_360, n, data_p, data_e  = self.pushData(data=dataOut,flagMode=flagMode,case_flag=case_flag)
-
+                        self.__buffer4.pop()
+                        data_360, data_snr, n, data_p, data_e  = self.pushData(data=dataOut,flagMode=flagMode,case_flag=case_flag)
                         self.__dataReady = True
 
-        return data_360, data_p, data_e
+        return data_360, data_snr, data_p, data_e
 
 
     def blockOp(self, dataOut, flagMode, datatime= None):
         if self.__initime == None:
             self.__initime = datatime
-        data_360, data_p, data_e = self.byProfiles(dataOut,flagMode)
+        data_360, data_snr, data_p, data_e = self.byProfiles(dataOut,flagMode)
         self.__lastdatatime           = datatime
 
         avgdatatime    = self.__initime
@@ -4401,7 +4401,7 @@ class Block360(Operation):
             avgdatatime = datatime
         deltatime      = datatime - self.__lastdatatime
         self.__initime = datatime
-        return data_360, avgdatatime, data_p, data_e
+        return data_360, data_snr, avgdatatime, data_p, data_e
 
     def checkcase(self, angles, flagMode):
 
@@ -4427,8 +4427,7 @@ class Block360(Operation):
         dataOut.attr_data = attr_data
         dataOut.runNextOp = runNextOp
         dataOut.flagAskMode = False
-        #print("Block 360")
-        #dataOut.flagMode = axis[0] #Provisional, debería venir del header
+        
         if dataOut.mode_op == 'PPI':
             dataOut.flagMode = 1
         elif dataOut.mode_op == 'RHI':
@@ -4438,12 +4437,13 @@ class Block360(Operation):
             self.setup(dataOut = dataOut, attr = attr_data ,**kwargs)
             self.isConfig   = True
 
-        data_360, avgdatatime, data_p, data_e = self.blockOp(dataOut, dataOut.flagMode, dataOut.utctime)
+        data_360, data_snr, avgdatatime, data_p, data_e = self.blockOp(dataOut, dataOut.flagMode, dataOut.utctime)
 
         dataOut.flagNoData = True
 
         if self.__dataReady:
             setattr(dataOut, attr_data, data_360 )
+            dataOut.data_snr = data_snr
             dataOut.data_azi  = data_p + 26.2
             dataOut.data_azi[dataOut.data_azi>360] = dataOut.data_azi[dataOut.data_azi>360] - 360 
             dataOut.data_ele  = data_e
@@ -4525,16 +4525,15 @@ class MergeProc(ProcessingUnit):
 
             f = [getattr(data, attr_data) for data in data_inputs][0]
             g = [getattr(data, attr_data) for data in data_inputs][1]
-
-            data = numpy.concatenate((f,g),axis=2)
-            #print(data)
+            data = numpy.concatenate((f,g),axis=2)            
             setattr(self.dataOut, attr_data, data)
-            #print(self.dataOut.dataPP_POWER.shape)
-            #CONSTRUIR NUEVA ALTURAS
-            #print("hei_merge",self.dataOut.heightList)
+
+            # snr
+            self.dataOut.data_snr = numpy.concatenate((data_inputs[0].data_snr, data_inputs[1].data_snr), axis=2)
+            
+            # ranges
             dh = self.dataOut.heightList[1]-self.dataOut.heightList[0]
             heightList_2  = (self.dataOut.heightList[-1]+dh) + numpy.arange(g.shape[-1], dtype=numpy.float) * dh
 
             self.dataOut.heightList = numpy.concatenate((self.dataOut.heightList,heightList_2))
-            #print("hei_merge_total",self.dataOut.heightList)
-            #exit(1)
+            
