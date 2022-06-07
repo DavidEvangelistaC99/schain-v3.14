@@ -53,7 +53,6 @@ reflectivity = [
     "#fe00fe", # 65
     "#8e59ff", # 70
     "#f0f0f0", # 75
-    "#cccccc" # 80
     ]
 
 velocity = [
