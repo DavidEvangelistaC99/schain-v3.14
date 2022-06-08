@@ -7,15 +7,18 @@ PATH = '/DATA_RM/DATA'
 #PATH = '/media/jespinoza/Elements'
 #PATH = '/media/jespinoza/data/SOPHY'
 PATH = '/home/soporte/Documents/HUANCAYO'
+PATH = '/home/soporte/Documents/EVENTO/'
+#HYO_PM@2022-05-31T12-00-17
 
 PARAM = {
     'S': {'name': 'dataPP_POWER', 'zmin': -45, 'zmax': -15, 'colormap': 'jet', 'label': 'Power', 'wrname': 'power','cb_label': 'dBm', 'ch':0},
-    'V': {'name': 'dataPP_DOP', 'zmin': -10, 'zmax': 10, 'colormap': 'RdYlGn', 'label': 'Velocity', 'wrname': 'velocity', 'cb_label': 'm/s', 'ch':0},
+    #'V': {'name': 'dataPP_DOP', 'zmin': -10, 'zmax': 10, 'colormap': 'sophy_v', 'label': 'Velocity', 'wrname': 'velocity', 'cb_label': 'm/s', 'ch':0},
+    'V': {'name': 'velRadial_V', 'zmin': -10, 'zmax': 10, 'colormap': 'sophy_v', 'label': 'Velocity', 'wrname': 'velocity', 'cb_label': 'm/s', 'ch':0},
     'R': {'name': 'RhoHV_R', 'zmin': 0,   'zmax': 1,  'colormap': 'jet',    'label': 'RhoHV', 'wrname':'rhoHV', 'cb_label': '*',  'ch':0},
     'P': {'name': 'PhiD_P', 'zmin': -180,'zmax': 180,'colormap': 'RdBu_r', 'label': 'PhiDP', 'wrname':'phiDP' , 'cb_label': 'º',  'ch':0},
     'D': {'name': 'Zdb_D', 'zmin': -20, 'zmax': 80, 'colormap': 'gist_ncar','label': 'ZDR','wrname':'differential_reflectivity' , 'cb_label': 'dBz','ch':0},
-    'Z':  {'name': 'Zdb', 'zmin': -20, 'zmax': 60, 'colormap': 'gist_ncar','label': 'Reflectivity',  'wrname':'reflectivity', 'cb_label': 'dBz','ch':1},
-    'W':  {'name': 'Sigmav_W', 'zmin': -20, 'zmax': 60, 'colormap': 'viridis','label': 'Spectral Width', 'wrname':'spectral_width', 'cb_label': 'hz', 'ch':1}
+    'Z':  {'name': 'Zdb', 'zmin': -30, 'zmax': 80, 'colormap': 'sophy_r','label': 'Reflectivity',  'wrname':'reflectivity', 'cb_label': 'dBz','ch':1},
+    'W':  {'name': 'Sigmav_W', 'zmin': -20, 'zmax': 60, 'colormap': 'sophy_w','label': 'Spectral Width', 'wrname':'spectral_width', 'cb_label': 'hz', 'ch':1}
     }
 
 def max_index(r, sample_rate, ipp):
@@ -42,14 +45,14 @@ def main(args):
         start_time = args.start_time
     else:
         start_time = experiment.split('@')[1].split('T')[1].replace('-', ':')
-    #start_time = '13:00:00'
+    #start_time = '16:15:00'
     end_time = '23:59:59'
     N = int(1/(speed_axis[0]*ipp))                                               # 1 GRADO DE RESOLUCION
     path = os.path.join(PATH, experiment, 'rawdata')
     path_ped = os.path.join(PATH, experiment, 'position')
-    path_plots = os.path.join(PATH, experiment, 'plots')
+    path_plots = os.path.join(PATH, experiment, 'plots_R5km_M1.62km')
     path_save = os.path.join(PATH, experiment, 'param')
-    RMIX = 1
+    RMIX = 1.62
 
     from schainpy.controller import Project
 
@@ -60,7 +63,7 @@ def main(args):
         path=path,
         startDate=start_date,
         endDate=end_date,
-        start_time=start_time,
+        startTime=start_time,
         endTime=end_time,
         delay=30,
         online=args.online,
@@ -109,7 +112,7 @@ def main(args):
         op.addParameter(name='mode', value='PPI')
 
         for param in parameters:
-            op = proc.addOperation(name='Block360_vRF4')
+            op = proc.addOperation(name='Block360')
             op.addParameter(name='attr_data', value=PARAM[param]['name'])
             op.addParameter(name='runNextOp', value=True)
 
@@ -172,7 +175,7 @@ def main(args):
         op.addParameter(name='n', value=2, format='int')
 
         op = voltage1.addOperation(name='setH0')
-        op.addParameter(name='h0', value='-1.6')
+        op.addParameter(name='h0', value='-1.68')
 
         if args.range > 0:
             op = voltage1.addOperation(name='selectHeights')
@@ -200,11 +203,11 @@ def main(args):
         op.addParameter(name='path', value=path_ped, format='str')
         op.addParameter(name='interval', value='0.04')
         op.addParameter(name='time_offset', value=time_offset)
-        op.addParameter(name='az_offset', value=-26.2)
+        #op.addParameter(name='az_offset', value=-26.2)
         op.addParameter(name='mode', value='PPI')
 
         for param in parameters:
-            op = proc1.addOperation(name='Block360_vRF4')
+            op = proc1.addOperation(name='Block360')
             op.addParameter(name='attr_data', value=PARAM[param]['name'])
             op.addParameter(name='runNextOp', value=True)
 
@@ -231,7 +234,7 @@ def main(args):
             ncode = 1
 
         op = voltage2.addOperation(name='setH0')
-        op.addParameter(name='h0', value='-1.6')
+        op.addParameter(name='h0', value='-1.68')
 
         if args.range > 0:
             op = voltage2.addOperation(name='selectHeights')
@@ -244,7 +247,7 @@ def main(args):
         proc2 = project.addProcUnit(datatype='ParametersProc', inputId=voltage2.getId())
 
         opObj10 = proc2.addOperation(name="WeatherRadar")
-        opObj10.addParameter(name='variableList',value='Reflectividad,AnchoEspectral')
+        opObj10.addParameter(name='variableList',value='Reflectividad,VelocidadRadial,AnchoEspectral')
         print("tauw2",(1e-6/sample_rate)*len(code[0]))
         print("Pt2",((1e-6/sample_rate)*len(code[0])/ipp)*200)
         opObj10.addParameter(name='tauW',value=(1e-6/sample_rate)*len(code[0]))
@@ -255,11 +258,11 @@ def main(args):
         op.addParameter(name='path', value=path_ped, format='str')
         op.addParameter(name='interval', value='0.04')
         op.addParameter(name='time_offset', value=time_offset)
-        op.addParameter(name='az_offset', value=-26.2)
+        #op.addParameter(name='az_offset', value=-26.2)
         op.addParameter(name='mode', value='PPI')
 
         for param in parameters:
-            op = proc2.addOperation(name='Block360_vRF4')
+            op = proc2.addOperation(name='Block360')
             #op.addParameter(name='axis', value=','.join(axis))
             op.addParameter(name='attr_data', value=PARAM[param]['name'])
             op.addParameter(name='runNextOp', value=True)
@@ -280,6 +283,10 @@ def main(args):
             op.addParameter(name='save_code', value=param)
             op.addParameter(name='cb_label', value=PARAM[param]['cb_label'])
             op.addParameter(name='colormap', value=PARAM[param]['colormap'])
+            op.addParameter(name='bgcolor',value='black')
+            op.addParameter(name='snr_threshold',value=0.4)
+
+
 
             desc = {
                     'Data': {
