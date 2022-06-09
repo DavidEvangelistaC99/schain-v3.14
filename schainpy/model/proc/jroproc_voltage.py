@@ -1416,7 +1416,7 @@ class PulsePair(Operation):
         S                = lag_0-self.noise
 
         #---------------- Frecuencia Doppler promedio ---------------------
-        lag_1            = lag_1/(self.n-1)
+        lag_1            = lag_1/((self.n-1)*(pwcode))
         R1               = numpy.abs(lag_1)
 
         #---------------- Calculo del SNR----------------------------------
@@ -1638,7 +1638,7 @@ class PulsePair_vRF(Operation):
         #-------------------- Power --------------------------------------------------
         data_power       = lag_0/(self.n*self.nCohInt*pwcode)
         #--------------------CCF------------------------------------------------------
-        
+
         if len(self.__buffer)>1:
             data_ccf         =numpy.sum(cspc_pair01,axis=0)/(self.n*self.nCohInt)
         else:

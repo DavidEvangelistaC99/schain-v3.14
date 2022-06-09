@@ -1,10 +1,11 @@
+
 #!python
 '''
 '''
 
 import os, sys
 import datetime
-import time
+import time,json
 
 #path = os.path.dirname(os.getcwd())
 #path = os.path.dirname(path)
@@ -22,54 +23,22 @@ controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 #######################################################################
 ######PATH DE LECTURA, ESCRITURA, GRAFICOS Y ENVIO WEB#################
 #######################################################################
-#path = '/media/data/data/vientos/57.2063km/echoes/NCO_Woodman'
-#path = '/DATA_RM/TEST_INTEGRACION'
-#path = '/DATA_RM/PRUEBA_USRP_RP'
-#path = '/DATA_RM/PRUEBA_USRP_RP'
+path = '/home/soporte/Documents/EVENTO/HYO_PM@2022-05-31T12-00-17/rawdata'
+figpath = '/home/soporte/Documents/EVENTO/Pictures'
 
-path = '/DATA_RM/TEST_2M'
-path = '/DATA_RM/TEST_2M_UD'
-path = '/DATA_RM/2MHZ17022022'
-path = '/DATA_RM/10MHZTEST/'
-path = '/DATA_RM/10MHZDRONE/'
-
-
-path= '/home/soporte/TEST_500mVPP'
-path= '/home/soporte/TEST_1VPP+500mVDC'
-path = '/home/soporte/TEST_500mVPP+500mVDC'
-path = '/home/soporte/TEST_1.5VPP'
-path = '/home/soporte/TEST_2VPP'
-path= '/home/soporte/TEST_1VPP'
-path = '/home/soporte/Documents/HUANCAYO/TEST_HYO_PM@2022-05-14T11-28-19/rawdata'
-
-#HYO_PM@2022-05-28T00-00-17
-path = '/DATA_RM/DATA/HYO_PM@2022-05-28T00-00-17/rawdata'
-
-#figpath = '/home/soporte/Pictures/TEST_RP_0001'
-#figpath = '/home/soporte/Pictures/TEST_RP_6000'
-figpath = '/home/soporte/Pictures/USRP_TEST_2M'
-figpath = '/home/soporte/Pictures/USRP_TEST_2M_UD'
-figpath = '/home/soporte/Pictures/10MHZDRONE'
-figpath = '/home/soporte/Pictures/500mVPP'
-figpath = '/home/soporte/Pictures/1VPP+500mVDC'
-figpath = '/home/soporte/Pictures/TEST_500mVPP+500mVDC'
-figpath = '/home/soporte/Pictures/TEST_1.5VPP'
-figpath = '/home/soporte/Pictures/TEST_2VPP'
-figpath = '/home/soporte/Pictures/TEST_1VPP'
-
-
-
-
-#remotefolder = "/home/wmaster/graficos"
+PATH= '/home/soporte/Documents/EVENTO/'
+experiment= 'HYO_PM@2022-05-31T12-00-17'
+fp = open(os.path.join(PATH, experiment, 'experiment.conf'))
+conf = json.loads(fp.read())
 #######################################################################
 ################# RANGO DE PLOTEO######################################
 #######################################################################
-dBmin = '-60'#'-20'
-dBmax = '-5'#'-85'
+dBmin = '-25'#'-20'
+dBmax = '0'#'-85'
 xmin = '0'
 xmax ='24'
 ymin = '0'
-ymax = '10'
+ymax = '2'
 #######################################################################
 ########################FECHA##########################################
 #######################################################################
@@ -82,8 +51,8 @@ yesterday = str2.strftime("%Y/%m/%d")
 #######################################################################
 readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path,
-                                            startDate="2022/05/28",#today,
-                                            endDate="2022/05/28",#today,
+                                            startDate="2022/05/31",#today,
+                                            endDate="2022/05/31",#today,
                                             startTime='00:00:00',# inicio libre
                                             #startTime='00:00:00',
                                             endTime='23:59:59',
@@ -98,45 +67,54 @@ opObj11 = readUnitConfObj.addOperation(name='printInfo')
 #######################################################################
 ################ OPERACIONES DOMINIO DEL TIEMPO########################
 #######################################################################
-
 procUnitConfObjA = controllerObj.addProcUnit(datatype='VoltageProc', inputId=readUnitConfObj.getId())
+#------------------------
 
-op3 = procUnitConfObjA.addOperation(name='ProfileSelector', optype='other')
-op3.addParameter(name='profileRangeList', value='1,123')
+op = procUnitConfObjA.addOperation(name='ProfileSelector')
+op.addParameter(name='profileRangeList', value='{},{}'.format(conf['usrp_tx']['repetitions_1'], conf['usrp_tx']['repetitions_1']+conf['usrp_tx']['repetitions_2']-1))
 
+if conf['usrp_tx']['code_type_2']:
+    codes = [ c.strip() for c in conf['usrp_tx']['code_2'].split(',')]
+    code = []
+    for c in codes:
+        code.append([int(x) for x in c])
+    op = procUnitConfObjA.addOperation(name='Decoder', optype='other')
+    op.addParameter(name='code', value=code)
+    op.addParameter(name='nCode', value=len(code), format='int')
+    op.addParameter(name='nBaud', value=len(code[0]), format='int')
 
-code=[[1]]
+    op =procUnitConfObjA.addOperation(name='CohInt', optype='other') #Minimo integrar 2 perfiles por ser codigo complementario
+    op.addParameter(name='n', value=len(code), format='int')
+    ncode = len(code)
+else:
+    ncode = 1
 
-opObj11 = procUnitConfObjA.addOperation(name='Decoder', optype='other')
-opObj11.addParameter(name='code', value=code)
-opObj11.addParameter(name='nCode', value='1', format='int')
-opObj11.addParameter(name='nBaud', value='1', format='int')
+#------------------------
 
+#op3 = procUnitConfObjA.addOperation(name='ProfileSelector', optype='other')
+#op3.addParameter(name='profileRangeList', value='0,121')
+#code=[[1]]
+#opObj11 = procUnitConfObjA.addOperation(name='Decoder', optype='other')
+#opObj11.addParameter(name='code', value=code)
+#opObj11.addParameter(name='nCode', value='1', format='int')
+#opObj11.addParameter(name='nBaud', value='1', format='int')
 
-'''
-op3 = procUnitConfObjA.addOperation(name='ProfileSelector', optype='other')
-op3.addParameter(name='profileRangeList', value='122,249')
-code8=[[1,1,1,0,1,1,0,1],[1,1,1,0,0,0,1,0]]
+op = procUnitConfObjA.addOperation(name='setH0')
+op.addParameter(name='h0', value='-1.62')
 
-opObj11 = procUnitConfObjA.addOperation(name='Decoder', optype='other')
-opObj11.addParameter(name='code', value=code8)
-opObj11.addParameter(name='nCode', value='2', format='int')
-opObj11.addParameter(name='nBaud', value='8', format='int')
-'''
-op = procUnitConfObjA.addOperation(name='CohInt', optype='other') #Minimo integrar 2 perfiles por ser codigo complementario
-op.addParameter(name='n', value=2, format='int')
+#op = procUnitConfObjA.addOperation(name='CohInt', optype='other') #Minimo integrar 2 perfiles por ser codigo complementario
+#op.addParameter(name='n', value=2, format='int')
 
-
-'''
 
 # OJO SCOPE
+'''
 opObj10 = procUnitConfObjA.addOperation(name='ScopePlot', optype='external')
 opObj10.addParameter(name='id', value='10', format='int')
 opObj10.addParameter(name='xmin', value='0', format='int')
-opObj10.addParameter(name='xmax', value='60', format='int')
+opObj10.addParameter(name='xmax', value='10', format='int')
 opObj10.addParameter(name='type', value='iq')
-#opObj10.addParameter(name='ymin', value='-0.20000', format='int')
-#opObj10.addParameter(name='ymax', value='0.20000', format='int')
+opObj10.addParameter(name='ymin', value='-4', format='int')
+opObj10.addParameter(name='ymax', value='4', format='int')
 opObj10.addParameter(name='save', value=figpath, format='str')
 opObj10.addParameter(name='save_period', value=1, format='int')
 '''
@@ -146,12 +124,6 @@ opObj11.addParameter(name='minIndex', value='1', format='int')
 #    opObj11.addParameter(name='maxIndex', value='10000', format='int')
 opObj11.addParameter(name='maxIndex', value='200', format='int')
 '''
-#
-# codigo64='1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,0,1,1,1,0,1,1,0,1,0,0,0,1,1,1,0,1,1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,0,0,0,0,1,0,0,1,0,1,1,1,0,0,0,1,0,'+\
-#              '1,1,1,0,1,1,0,1,1,1,1,0,0,0,1,0,1,1,1,0,1,1,0,1,0,0,0,1,1,1,0,1,0,0,0,1,0,0,1,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,0,1,0,0,0,1,1,1,0,1'
-
-#opObj11 = procUnitConfObjA.addOperation(name='setRadarFrequency')
-#opObj11.addParameter(name='frequency', value='49920000')
 
 '''
 opObj11 = procUnitConfObjA.addOperation(name='PulsePair', optype='other')
@@ -184,57 +156,18 @@ opObj11 = procUnitConfObjA.addOperation(name='PulsepairSpecwidthPlot', optype='o
 #opObj11 =  procUnitConfObjA.addOperation(name='filterByHeights')
 #opObj11.addParameter(name='window', value='1', format='int')
 
-#codigo='1,1,-1,1,1,-1,1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,-1,-1,-1,1,1,1,1,-1,-1,-1'
-#opObj11 = procUnitConfObjSousy.addOperation(name='Decoder', optype='other')
-#opObj11.addParameter(name='code', value=codigo, format='floatlist')
-#opObj11.addParameter(name='nCode', value='1', format='int')
-#opObj11.addParameter(name='nBaud', value='28', format='int')
-
-#opObj11 = procUnitConfObjA.addOperation(name='CohInt', optype='other')
-#opObj11.addParameter(name='n', value='100', format='int')
-
-#######################################################################
-########## OPERACIONES ParametersProc########################
-#######################################################################
-###procUnitConfObjB= controllerObj.addProcUnit(datatype='ParametersProc',inputId=procUnitConfObjA.getId())
-'''
-
-opObj11 = procUnitConfObjA.addOperation(name='PedestalInformation')
-opObj11.addParameter(name='path_ped', value=path_ped)
-opObj11.addParameter(name='path_adq', value=path_adq)
-opObj11.addParameter(name='t_Interval_p', value='0.01', format='float')
-opObj11.addParameter(name='n_Muestras_p', value='100', format='float')
-opObj11.addParameter(name='blocksPerfile', value='100', format='int')
-opObj11.addParameter(name='f_a_p', value='25', format='int')
-opObj11.addParameter(name='online', value='0', format='int')
-
-opObj11 = procUnitConfObjA.addOperation(name='Block360')
-opObj11.addParameter(name='n', value='40', format='int')
-
-opObj11= procUnitConfObjA.addOperation(name='WeatherPlot',optype='other')
-opObj11.addParameter(name='save', value=figpath)
-opObj11.addParameter(name='save_period', value=1)
-
-8
-'''
-
-
-'''
-opObj11 = procUnitConfObjA.addOperation(name='CohInt', optype='other')
-opObj11.addParameter(name='n', value='250', format='int')
-'''
 #######################################################################
 ########## OPERACIONES DOMINIO DE LA FRECUENCIA########################
 #######################################################################
-'''
+
+#procUnitConfObjB = controllerObj.addProcUnit(datatype='SpectraProc', inputId=procUnitConfObjA.getId())
+#procUnitConfObjB.addParameter(name='nFFTPoints', value='64', format='int')
+#procUnitConfObjB.addParameter(name='nProfiles', value='64', format='int')
+
+
 procUnitConfObjB = controllerObj.addProcUnit(datatype='SpectraProc', inputId=procUnitConfObjA.getId())
 procUnitConfObjB.addParameter(name='nFFTPoints', value='64', format='int')
 procUnitConfObjB.addParameter(name='nProfiles', value='64', format='int')
-'''
-
-procUnitConfObjB = controllerObj.addProcUnit(datatype='SpectraProc', inputId=procUnitConfObjA.getId())
-procUnitConfObjB.addParameter(name='nFFTPoints', value='61', format='int')
-procUnitConfObjB.addParameter(name='nProfiles', value='61', format='int')
 
 '''
 procUnitConfObjC = controllerObj.addProcUnit(datatype='SpectraHeisProc', inputId=procUnitConfObjA.getId())
@@ -302,8 +235,6 @@ opObj11.addParameter(name='ymin', value=ymin, format='int')
 opObj11.addParameter(name='ymax', value=ymax, format='int')
 opObj11.addParameter(name='showprofile', value='1', format='int')
 opObj11.addParameter(name='save', value=figpath, format='str')
-opObj11.addParameter(name='save_period', value=10, format='int')
-
 
 #RTIPLOT
 '''
