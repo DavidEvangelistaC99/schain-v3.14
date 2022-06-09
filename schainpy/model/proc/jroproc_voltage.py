@@ -1663,7 +1663,7 @@ class PulsePair_vRF(Operation):
         S                = lag_0-self.noise
 
         #---------------- Frecuencia Doppler promedio ---------------------
-        lag_1            = lag_1/(self.n-1)
+        lag_1            = lag_1/((self.n-1)*(pwcode))
         R1               = numpy.abs(lag_1)
 
         #---------------- Calculo del SNR----------------------------------
