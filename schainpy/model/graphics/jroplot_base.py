@@ -596,9 +596,9 @@ class Plot(Operation):
                 if isinstance(value, (numpy.float32, numpy.float64)):
                     value = round(float(value), 2)
                 self.data.meta[attr] = value
-        if self.colormap == 'jet':
+        if self.colormap == 'jet' or self.colormap == 'sophy_w':
             self.data.meta['colormap'] = 'Jet'
-        elif 'RdBu' in self.colormap:
+        elif 'sophy_v' in self.colormap:
             self.data.meta['colormap'] = 'RdBu'
         else:
             self.data.meta['colormap'] = 'Viridis'
@@ -611,7 +611,7 @@ class Plot(Operation):
                 tm = self.sender_queue.popleft()
             except IndexError:
                 break
-            msg = self.data.jsonify(tm, self.save_code, self.plot_type)
+            msg = self.data.jsonify(tm, self.save_code, self.plot_type, key='var')
             self.socket.send_string(msg)
             socks = dict(self.poll.poll(2000))
             if socks.get(self.socket) == zmq.POLLIN:

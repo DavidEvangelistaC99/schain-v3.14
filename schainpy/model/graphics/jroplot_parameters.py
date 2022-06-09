@@ -6,8 +6,8 @@ from mpl_toolkits.axisartist.grid_finder import FixedLocator, DictFormatter
 from schainpy.model.graphics.jroplot_base import Plot, plt
 from schainpy.model.graphics.jroplot_spectra import SpectraPlot, RTIPlot, CoherencePlot, SpectraCutPlot
 from schainpy.utils import log
-# libreria wradlib
-#import wradlib as wrl
+
+import wradlib.georef as georef
 
 EARTH_RADIUS = 6.3710e3
 
@@ -372,7 +372,7 @@ class PolarMapPlot(Plot):
 class WeatherParamsPlot(Plot):
     #CODE = 'RHI'
     #plot_name = 'RHI'
-    #plot_type = 'rhistyle'
+    plot_type = 'scattermap'
     buffering = False
 
     def setup(self):
@@ -418,10 +418,20 @@ class WeatherParamsPlot(Plot):
 
         if 'pow' in self.attr_data[0].lower():
             # data['data'] = 10*numpy.log10(getattr(dataOut, self.attr_data[0])/(factor))
-            data['data'] = numpy.ma.masked_array(10*numpy.log10(getattr(dataOut, self.attr_data[0])/(factor)), mask=mask)
+            tmp = numpy.ma.masked_array(10*numpy.log10(getattr(dataOut, self.attr_data[0])/(factor)), mask=mask)
         else:
-            data['data'] = numpy.ma.masked_array(getattr(dataOut, self.attr_data[0]), mask=mask)
-            # data['data'] = getattr(dataOut, self.attr_data[0])
+            tmp = numpy.ma.masked_array(getattr(dataOut, self.attr_data[0]), mask=mask)
+            # tmp = getattr(dataOut, self.attr_data[0])
+
+        r = dataOut.heightList
+        delta_height = r[1]-r[0]
+        valid = numpy.where(r>=0)[0]
+        data['r'] = numpy.arange(len(valid))*delta_height
+
+        try:
+            data['data'] = tmp[self.channels[0]][:,valid]
+        except:
+            data['data'] = tmp[0][:,valid]
 
         if dataOut.mode_op == 'PPI':
             self.CODE = 'PPI'
@@ -430,25 +440,22 @@ class WeatherParamsPlot(Plot):
             self.CODE = 'RHI'
             self.title = self.CODE
 
-        data['azi']     = dataOut.data_azi
-        data['ele']     = dataOut.data_ele
+        data['azi'] = dataOut.data_azi
+        data['ele'] = dataOut.data_ele
         data['mode_op'] = dataOut.mode_op
-
+        var = data['data'].flatten()
+        r = numpy.tile(data['r'], data['data'].shape[0]).reshape(data['data'].shape)*1000
+        lla = georef.spherical_to_proj(r, data['azi'], data['ele'], (-75.295893, -12.040436, 3379.2147))
+        meta['lat'] = lla[:,:,1].flatten()[var.mask==False] 
+        meta['lon'] = lla[:,:,0].flatten()[var.mask==False]
+        data['var'] = numpy.array([var[var.mask==False]])
+        
         return data, meta
 
     def plot(self):
-        data         = self.data[-1]
-        r            = self.data.yrange
-        delta_height = r[1]-r[0]
-        r_mask       = numpy.where(r>=0)[0]
-        r            = numpy.arange(len(r_mask))*delta_height
-        self.y       = 2*r
-
-        try:
-            z = data['data'][self.channels[0]][:,r_mask]
-        except:
-            z = data['data'][0][:,r_mask]
-
+        data = self.data[-1]
+        z = data['data']
+        r = data['r']
         self.titles = []
 
         self.ymax = self.ymax if self.ymax else numpy.nanmax(r)

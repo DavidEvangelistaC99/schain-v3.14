@@ -907,8 +907,8 @@ class PlotterData(object):
     Object to hold data to be plotted
     '''
 
-    MAXNUMX = 200
-    MAXNUMY = 200
+    MAXNUMX = 1000
+    MAXNUMY = 1000
 
     def __init__(self, code, exp_code, localtime=True):
 
@@ -993,25 +993,28 @@ class PlotterData(object):
 
         self.__heights = [H for tm in self.times]
 
-    def jsonify(self, tm, plot_name, plot_type, decimate=False):
+    def jsonify(self, tm, plot_name, plot_type, key=None, decimate=False):
         '''
         Convert data to json
         '''
 
+        if key is None:
+            key = self.key
+
         meta = {}
         meta['xrange'] = []
         dy = int(len(self.yrange)/self.MAXNUMY) + 1
-        tmp = self.data[tm][self.key]
+        tmp = self.data[tm][key]
         shape = tmp.shape
         if len(shape) == 2:
-            data = self.roundFloats(self.data[tm][self.key][::, ::dy].tolist())
+            data = self.roundFloats(self.data[tm][key][::, ::dy].tolist())
         elif len(shape) == 3:
-            dx = int(self.data[tm][self.key].shape[1]/self.MAXNUMX) + 1
+            dx = int(self.data[tm][key].shape[1]/self.MAXNUMX) + 1
             data = self.roundFloats(
-                self.data[tm][self.key][::, ::dx, ::dy].tolist())
+                self.data[tm][key][::, ::dx, ::dy].tolist())
             meta['xrange'] = self.roundFloats(self.xrange[2][::dx].tolist())
         else:
-            data = self.roundFloats(self.data[tm][self.key].tolist())
+            data = self.roundFloats(self.data[tm][key].tolist())
 
         ret = {
             'plot': plot_name,
@@ -1022,7 +1025,9 @@ class PlotterData(object):
         meta['type'] = plot_type
         meta['interval'] = float(self.interval)
         meta['localtime'] = self.localtime
-        meta['yrange'] = self.roundFloats(self.yrange[::dy].tolist())
+        #meta['yrange'] = self.roundFloats(self.yrange[::dy].tolist())
+        meta['yrange'] = self.roundFloats(self.lat[::dy].tolist())
+        meta['xrange'] = self.roundFloats(self.lon[::dy].tolist())
         meta.update(self.meta)
         ret['metadata'] = meta
         return json.dumps(ret)
@@ -1066,4 +1071,4 @@ class PlotterData(object):
         if isinstance(obj, list):
             return list(map(PlotterData.roundFloats, obj))
         elif isinstance(obj, float):
-            return round(obj, 2)
+            return round(obj, 4)
