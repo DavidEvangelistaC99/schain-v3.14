@@ -33,12 +33,12 @@ conf = json.loads(fp.read())
 #######################################################################
 ################# RANGO DE PLOTEO######################################
 #######################################################################
-dBmin = '-25'#'-20'
-dBmax = '0'#'-85'
+dBmin = '-55'#'-20'
+dBmax = '-35'#'-85'
 xmin = '0'
 xmax ='24'
 ymin = '0'
-ymax = '2'
+ymax = '15'
 #######################################################################
 ########################FECHA##########################################
 #######################################################################
@@ -53,7 +53,7 @@ readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path,
                                             startDate="2022/05/31",#today,
                                             endDate="2022/05/31",#today,
-                                            startTime='00:00:00',# inicio libre
+                                            startTime='16:26:00',# inicio libre
                                             #startTime='00:00:00',
                                             endTime='23:59:59',
                                             delay=0,
@@ -221,9 +221,26 @@ opObj11.addParameter(name='showprofile', value='1', format='int')
 opObj11.addParameter(name='save', value=figpath, format='str')
 opObj11.addParameter(name='save_period', value=10, format='int')
 '''
+procUnitConfObjC= controllerObj.addProcUnit(datatype='ParametersProc',inputId=procUnitConfObjB.getId())
+procUnitConfObjC.addOperation(name='SpectralMoments')
+#opObj11 = procUnitConfObjC.addOperation(name='PowerPlot')
+
+'''
+opObj11 = procUnitConfObjC.addOperation(name='SpectralMomentsPlot')
+#opObj11.addParameter(name='xmin', value=14)
+#opObj11.addParameter(name='xmax', value=15)
+opObj11.addParameter(name='save', value=figpath)
+opObj11.addParameter(name='showprofile', value=1)
+opObj11.addParameter(name='save_period', value=10)
+
+'''
+opObj11 = procUnitConfObjC.addOperation(name='SpectralWidthPlot')
+opObj11.addParameter(name='showprofile', value=1)
+
+
 
 #SpectraPlot
-
+'''
 opObj11 = procUnitConfObjB.addOperation(name='SpectraPlot', optype='external')
 opObj11.addParameter(name='id', value='1', format='int')
 opObj11.addParameter(name='wintitle', value='Spectra', format='str')
@@ -235,7 +252,7 @@ opObj11.addParameter(name='ymin', value=ymin, format='int')
 opObj11.addParameter(name='ymax', value=ymax, format='int')
 opObj11.addParameter(name='showprofile', value='1', format='int')
 opObj11.addParameter(name='save', value=figpath, format='str')
-
+'''
 #RTIPLOT
 '''
 opObj11 = procUnitConfObjB.addOperation(name='RTIPlot', optype='external')

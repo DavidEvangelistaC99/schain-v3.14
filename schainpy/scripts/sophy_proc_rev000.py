@@ -50,8 +50,8 @@ def main(args):
     N = int(1/(speed_axis[0]*ipp))                                               # 1 GRADO DE RESOLUCION
     path = os.path.join(PATH, experiment, 'rawdata')
     path_ped = os.path.join(PATH, experiment, 'position')
-    path_plots = os.path.join(PATH, experiment, 'plots_R5km_M1.62km')
-    path_save = os.path.join(PATH, experiment, 'param')
+    path_plots = os.path.join(PATH, experiment, 'plotsC0_PM_R'+str(args.range)+'km')
+    path_save = os.path.join(PATH, experiment, 'paramC0_PM_R'+str(args.range)+'km_1.62km')
     RMIX = 1.62
 
     from schainpy.controller import Project
