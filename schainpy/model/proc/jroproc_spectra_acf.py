@@ -1,6 +1,6 @@
 import numpy
 
-from .jroproc_base import ProcessingUnit, Operation
+from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation
 from schainpy.model.data.jrodata import Spectra
 from schainpy.model.data.jrodata import hildebrand_sekhon
 
@@ -99,9 +99,7 @@ class SpectraAFCProc(ProcessingUnit):
         dc = fft_volt[:,0,:]
 
         #calculo de self-spectra
-#         fft_volt = numpy.fft.fftshift(fft_volt, axes=(1,))
         spc = fft_volt * numpy.conjugate(fft_volt)
-
         data = numpy.fft.ifft(spc, axis=1)
         data = numpy.fft.fftshift(data, axes=(1,))
 
@@ -136,9 +134,71 @@ class SpectraAFCProc(ProcessingUnit):
         self.dataOut.blockSize = blocksize
         self.dataOut.flagShiftFFT = True
 
-    def run(self, nProfiles=None, nFFTPoints=None, pairsList=[], code=None, nCode=1, nBaud=1):
+    def run(self, nProfiles=None, nFFTPoints=None, pairsList=[], code=None, nCode=1, nBaud=1,real= None, imag=None):
 
         self.dataOut.flagNoData = True
+
+        if self.dataIn.type == "Spectra":
+            self.dataOut.copy(self.dataIn)
+            spc         =  self.dataOut.data_spc
+            data        =  numpy.fft.fftshift( spc, axes=(1,))
+            data        =  numpy.fft.ifft(data, axis=1)
+            #data        =  numpy.fft.fftshift( data, axes=(1,))
+            #acf         =  numpy.abs(data)     #  Autocorrelacion LLAMAR A ESTE VALOR ACF
+            acf = data
+            #'''
+            if real:
+                acf     = data.real
+            if imag:
+                acf     = data.imag
+                #'''
+            shape       =  acf.shape            #  nchannels, nprofiles, nsamples //nchannles, lags , alturas
+
+            '''
+            for j in range(shape[0]):
+                for i in range(shape[2]):
+                   tmp = int(shape[1]/2)
+                   #print(i,j,tmp)
+                   value  = (acf[j,:,i][tmp-1]+acf[j,:,i][tmp+1])/2.0
+                   acf[j,:,i][tmp] = value
+            # Normalizando
+            for i in range(shape[0]):
+                for j in range(shape[2]):
+                    acf[i,:,j]= acf[i,:,j] / numpy.max(numpy.abs(acf[i,:,j]))
+                    '''
+            self.dataOut.data_acf = acf
+            self.dataOut.data_spc = acf
+            #print(self.dataOut.data_acf[0,:,0])
+            #exit(1)
+            '''
+            shape = self.dataOut.data_acf.shape
+            resFactor = 5
+            z = self.dataOut.data_acf.copy()
+            min = numpy.min(z[0,:,0])
+            max =numpy.max(z[0,:,0])
+            deltaHeight = self.dataOut.heightList[1]-self.dataOut.heightList[0]
+            for i in range(shape[0]):
+                for j in range(shape[2]):
+                    z[i,:,j]= (((z[i,:,j]-min)/(max-min))*deltaHeight*resFactor + j*deltaHeight)
+            #print(self.dataOut.data_spc.shape)
+            #print(self.dataOut.data_acf.shape)
+            '''
+            import matplotlib.pyplot as plt
+            hei = 10
+            #print(self.dataOut.heightList)
+            print(self.dataOut.heightList[hei])
+            #plt.plot(z[0,0,:],self.dataOut.heightList)
+            aux =  self.dataOut.data_acf[0,0,:]
+            power = aux*numpy.conjugate(aux)
+            print(power)
+            powerdb = numpy.log10(power)
+            plt.plot(powerdb,self.dataOut.heightList)
+            #plt.plot(self.dataOut.data_acf[0,:,1])
+            plt.ylim(0,1000)
+            plt.show()
+            exit(1)
+
+            return True
 
         if code is not None:
             self.code = numpy.array(code).reshape(nCode,nBaud)
@@ -435,7 +495,7 @@ class SpectraAFCProc(ProcessingUnit):
         ind_vel = numpy.array([-2,-1,1,2]) + freq_dc
 
         if ind_vel[0]<0:
-            ind_vel[list(range(0,1))] = ind_vel[list(range(0,1))] + self.num_prof
+            ind_vel[range(0,1)] = ind_vel[range(0,1)] + self.num_prof
 
         if mode == 1:
             jspectra[:,freq_dc,:] = (jspectra[:,ind_vel[1],:] + jspectra[:,ind_vel[2],:])/2 #CORRECCION
@@ -449,7 +509,7 @@ class SpectraAFCProc(ProcessingUnit):
             xx = numpy.zeros([4,4])
 
             for fil in range(4):
-                xx[fil,:] = vel[fil]**numpy.asarray(list(range(4)))
+                xx[fil,:] = vel[fil]**numpy.asarray(range(4))
 
             xx_inv = numpy.linalg.inv(xx)
             xx_aux = xx_inv[0,:]
@@ -489,7 +549,7 @@ class SpectraAFCProc(ProcessingUnit):
         #hei_interf
         if hei_interf is None:
             count_hei = num_hei/2   #Como es entero no importa
-            hei_interf = numpy.asmatrix(list(range(count_hei))) + num_hei - count_hei
+            hei_interf = numpy.asmatrix(range(count_hei)) + num_hei - count_hei
             hei_interf = numpy.asarray(hei_interf)[0]
         #nhei_interf
         if (nhei_interf == None):
@@ -501,10 +561,10 @@ class SpectraAFCProc(ProcessingUnit):
         if (offhei_interf == None):
             offhei_interf = 0
 
-        ind_hei = list(range(num_hei))
+        ind_hei = range(num_hei)
 #         mask_prof = numpy.asarray(range(num_prof - 2)) + 1
 #         mask_prof[range(num_prof/2 - 1,len(mask_prof))] += 1
-        mask_prof = numpy.asarray(list(range(num_prof)))
+        mask_prof = numpy.asarray(range(num_prof))
         num_mask_prof = mask_prof.size
         comp_mask_prof = [0, num_prof/2]
 
@@ -523,7 +583,7 @@ class SpectraAFCProc(ProcessingUnit):
             psort = power.ravel().argsort()
 
             #Se estima la interferencia promedio en los Espectros de Potencia empleando
-            junkspc_interf = jspectra[ich,:,hei_interf[psort[list(range(offhei_interf, nhei_interf + offhei_interf))]]]
+            junkspc_interf = jspectra[ich,:,hei_interf[psort[range(offhei_interf, nhei_interf + offhei_interf)]]]
 
             if noise_exist:
             #    tmp_noise = jnoise[ich] / num_prof
@@ -576,7 +636,7 @@ class SpectraAFCProc(ProcessingUnit):
                 xx = numpy.zeros([4,4])
 
                 for id1 in range(4):
-                    xx[:,id1] = ind[id1]**numpy.asarray(list(range(4)))
+                    xx[:,id1] = ind[id1]**numpy.asarray(range(4))
 
                 xx_inv = numpy.linalg.inv(xx)
                 xx = xx_inv[:,0]
@@ -602,14 +662,14 @@ class SpectraAFCProc(ProcessingUnit):
             cspower = cspower.sum(axis = 0)
 
             cspsort = cspower.ravel().argsort()
-            junkcspc_interf = jcspectra[ip,:,hei_interf[cspsort[list(range(offhei_interf, nhei_interf + offhei_interf))]]]
+            junkcspc_interf = jcspectra[ip,:,hei_interf[cspsort[range(offhei_interf, nhei_interf + offhei_interf)]]]
             junkcspc_interf = junkcspc_interf.transpose()
             jcspc_interf = junkcspc_interf.sum(axis = 1)/nhei_interf
 
             ind = numpy.abs(jcspc_interf[mask_prof]).ravel().argsort()
 
-            median_real = numpy.median(numpy.real(junkcspc_interf[mask_prof[ind[list(range(3*num_prof/4))]],:]))
-            median_imag = numpy.median(numpy.imag(junkcspc_interf[mask_prof[ind[list(range(3*num_prof/4))]],:]))
+            median_real = numpy.median(numpy.real(junkcspc_interf[mask_prof[ind[range(3*num_prof/4)]],:]))
+            median_imag = numpy.median(numpy.imag(junkcspc_interf[mask_prof[ind[range(3*num_prof/4)]],:]))
             junkcspc_interf[comp_mask_prof,:] = numpy.complex(median_real, median_imag)
 
             for iprof in range(num_prof):
@@ -626,7 +686,7 @@ class SpectraAFCProc(ProcessingUnit):
             xx = numpy.zeros([4,4])
 
             for id1 in range(4):
-                xx[:,id1] = ind[id1]**numpy.asarray(list(range(4)))
+                xx[:,id1] = ind[id1]**numpy.asarray(range(4))
 
             xx_inv = numpy.linalg.inv(xx)
             xx = xx_inv[:,0]

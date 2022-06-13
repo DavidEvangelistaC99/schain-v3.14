@@ -66,6 +66,11 @@ class SpectraLagProc(ProcessingUnit):
         self.dataOut.beam.codeList = self.dataIn.beam.codeList
         self.dataOut.beam.azimuthList = self.dataIn.beam.azimuthList
         self.dataOut.beam.zenithList = self.dataIn.beam.zenithList
+        self.dataOut.runNextUnit = self.dataIn.runNextUnit
+        try:
+            self.dataOut.final_noise = self.dataIn.final_noise
+        except:
+            self.dataOut.final_noise = None
 
     def __getFft(self):
         """
@@ -80,7 +85,8 @@ class SpectraLagProc(ProcessingUnit):
             self.buffer
             self.dataOut.flagNoData
         """
-
+        #print(self.buffer[1,:,0])
+        #exit(1)
         fft_volt = numpy.fft.fft(
             self.buffer, n=self.dataOut.nFFTPoints, axis=1)
         fft_volt = fft_volt.astype(numpy.dtype('complex'))
@@ -99,6 +105,7 @@ class SpectraLagProc(ProcessingUnit):
         pairIndex = 0
         if self.dataOut.pairsList != None:
             # calculo de cross-spectra
+            #print("HERE")
             cspc = numpy.zeros(
                 (self.dataOut.nPairs, self.dataOut.nFFTPoints, self.dataOut.nHeights), dtype='complex')
             for pair in self.dataOut.pairsList:
@@ -179,6 +186,7 @@ class SpectraLagProc(ProcessingUnit):
                 self.dataOut.pairsList = [pair for pair in itertools.combinations(self.dataOut.channelList, 2)]
             else:
                 self.dataOut.pairsList = pairsList
+            #print(self.dataOut.pairsList)
             self.__getFft()
             self.dataOut.flagNoData = False
             self.firstdatatime = None
@@ -194,9 +202,9 @@ class SpectraLagProc(ProcessingUnit):
                 '''
 
 
-    def run(self, nProfiles=None, nFFTPoints=None, pairsList=None, ippFactor=None, shift_fft=False, ByLags=False, LagPlot=0):
+    def run(self, nProfiles=None, nFFTPoints=None, pairsList=None, ippFactor=None, shift_fft=False, ByLags=False, LagPlot=0, nLags = None, runNextUnit = 0):
 
-
+        self.dataIn.runNextUnit = runNextUnit
         self.dataOut.ByLags=ByLags
         self.dataOut.LagPlot=LagPlot
 
@@ -218,6 +226,7 @@ class SpectraLagProc(ProcessingUnit):
             if not self.dataOut.ByLags:
                 self.VoltageType(nFFTPoints,nProfiles,ippFactor,pairsList)
             else:
+                self.dataOut.nLags = nLags
                 self.dataOut.DPL=self.dataIn.DPL
                 self.dataOut.datalags=self.dataIn.datalags
                 self.dataOut.dataLag_spc=[]
@@ -226,10 +235,10 @@ class SpectraLagProc(ProcessingUnit):
                 if self.buffer_Lag is None:
                     self.buffer_Lag = numpy.zeros((self.dataIn.nChannels,
                                                nProfiles,
-                                               self.dataIn.nHeights,self.dataOut.DPL),
+                                               self.dataIn.nHeights,self.dataOut.nLags),
                                               dtype='complex')
 
-                for i in range(self.dataIn.DPL):
+                for i in range(self.dataOut.nLags):
                     self.dataOut.data=self.dataIn.data=self.dataIn.datalags[:,:,:,i]
 
 
@@ -253,7 +262,7 @@ class SpectraLagProc(ProcessingUnit):
                     if not self.dataOut.flagNoData:
                         self.profIndex=nProfiles
                         self.firstdatatime = self.dataOut.utctime
-                        if i==self.dataIn.DPL-1:
+                        if i==self.dataOut.nLags-1:
                             self.profIndex=0
                             self.firstdatatime = None
                         self.dataOut.dataLag_spc.append(self.dataOut.data_spc)
@@ -275,11 +284,14 @@ class SpectraLagProc(ProcessingUnit):
 
                     self.dataOut.TimeBlockSeconds=self.dataIn.TimeBlockSeconds
                     self.dataOut.flagDataAsBlock=self.dataIn.flagDataAsBlock
-                    self.dataOut.FlipChannels=self.dataIn.FlipChannels
-
+                    try:
+                        self.dataOut.FlipChannels=self.dataIn.FlipChannels
+                    except: pass
         else:
             raise ValueError("The type of input object '%s' is not valid".format(
                 self.dataIn.type))
+
+        #print("after",self.dataOut.data_spc[0,:,20])
 
 class removeDCLag(Operation):
 
@@ -292,10 +304,11 @@ class removeDCLag(Operation):
 
 
         if jcspectra is not None:
-            jcspectraExist = True
+            self.jcspectraExist = jcspectraExist = True
             num_pairs = jcspectra.shape[0]
         else:
-            jcspectraExist = False
+            self.jcspectraExist = jcspectraExist = False
+        #print(jcspectraExist)
 
         freq_dc = int(jspectra.shape[1] / 2)
         ind_vel = numpy.array([-2, -1, 1, 2]) + freq_dc
@@ -328,6 +341,7 @@ class removeDCLag(Operation):
             for ich in range(num_chan):
                 yy = jspectra[ich, ind_vel, :]
                 jspectra[ich, freq_dc, :] = numpy.dot(xx_aux, yy)
+                #print(jspectra.shape)
 
                 junkid = jspectra[ich, freq_dc, :] <= 0
                 cjunkid = sum(junkid)
@@ -335,17 +349,21 @@ class removeDCLag(Operation):
                 if cjunkid.any():
                     jspectra[ich, freq_dc, junkid.nonzero()] = (
                         jspectra[ich, ind_vel[1], junkid] + jspectra[ich, ind_vel[2], junkid]) / 2
-
+            #print(jspectra.shape)
             if jcspectraExist:
                 for ip in range(num_pairs):
                     yy = jcspectra[ip, ind_vel, :]
                     jcspectra[ip, freq_dc, :] = numpy.dot(xx_aux, yy)
-
+        #print(jspectra.shape)
         if not self.dataOut.ByLags:
             self.dataOut.data_spc = jspectra
             self.dataOut.data_cspc = jcspectra
         else:
-            return jspectra,jcspectra
+            if jcspectraExist is True:
+                return jspectra,jcspectra
+            else:
+                #print(jspectra.shape)
+                return jspectra
 
 
     def run(self, dataOut, mode=2):
@@ -353,18 +371,26 @@ class removeDCLag(Operation):
         self.dataOut = dataOut
         if not dataOut.ByLags:
             self.remover(mode)
-        else:
 
-            for i in range(self.dataOut.DPL):
+        else:
+            for i in range(self.dataOut.nLags):
                 self.dataOut.data_spc=self.dataOut.dataLag_spc[:,:,:,i]
-                self.dataOut.data_cspc=self.dataOut.dataLag_cspc[:,:,:,i]
-                self.dataOut.data_dc=self.dataOut.dataLag_dc[:,:,i]
-                self.dataOut.dataLag_spc[:,:,:,i],self.dataOut.dataLag_cspc[:,:,:,i]=self.remover(mode)
+                if self.dataOut.dataLag_cspc is not None:
+                    self.dataOut.data_cspc=self.dataOut.dataLag_cspc[:,:,:,i]
+                else:
+                    self.dataOut.data_cspc = None
+                ##self.dataOut.data_dc=self.dataOut.dataLag_dc[:,:,i] Check!
+                #print("HERE")
+                if self.dataOut.dataLag_cspc is not None:
+                    self.dataOut.dataLag_spc[:,:,:,i],self.dataOut.dataLag_cspc[:,:,:,i]=self.remover(mode)
+                else:
+                    self.dataOut.dataLag_spc[:,:,:,i]=self.remover(mode)
 
             #exit()
             self.dataOut.data_spc=self.dataOut.dataLag_spc[:,:,:,self.dataOut.LagPlot]
-            self.dataOut.data_cspc=self.dataOut.dataLag_cspc[:,:,:,self.dataOut.LagPlot]
-            self.dataOut.data_dc=self.dataOut.dataLag_dc[:,:,self.dataOut.LagPlot]
+            if self.jcspectraExist is True:
+                self.dataOut.data_cspc=self.dataOut.dataLag_cspc[:,:,:,self.dataOut.LagPlot]
+            ##self.dataOut.data_dc=self.dataOut.dataLag_dc[:,:,self.dataOut.LagPlot] Check!
 
 
 
@@ -461,7 +487,9 @@ class removeDCLagFlip(Operation):
 
 
     def run(self, dataOut, mode=2):
-
+        #print("***********************************Remove DC***********************************")
+        ##print(dataOut.FlipChannels)
+        #exit(1)
         self.dataOut = dataOut
         if not dataOut.ByLags:
             self.remover(mode)
@@ -1350,7 +1378,7 @@ class IntegrationFaradaySpectra(Operation):
     def run(self, dataOut, n=None, timeInterval=None, overlapping=False):
         if n == 1:
             return dataOut
-
+        #print("holo")
         dataOut.flagNoData = True
 
         if not self.isConfig:
@@ -1391,6 +1419,1758 @@ class IntegrationFaradaySpectra(Operation):
             dataOut.nIncohInt *= self.n
             dataOut.utctime = avgdatatime
             dataOut.flagNoData = False
+
+        return dataOut
+
+
+
+class IntegrationFaradaySpectra2(Operation):
+
+    __profIndex = 0
+    __withOverapping = False
+
+    __byTime = False
+    __initime = None
+    __lastdatatime = None
+    __integrationtime = None
+
+    __buffer_spc = None
+    __buffer_cspc = None
+    __buffer_dc = None
+
+    __dataReady = False
+
+    __timeInterval = None
+
+    n = None
+
+    def __init__(self):
+
+        Operation.__init__(self)
+
+    def setup(self, n=None, timeInterval=None, overlapping=False):
+        """
+        Set the parameters of the integration class.
+
+        Inputs:
+
+            n        :    Number of coherent integrations
+            timeInterval   :    Time of integration. If the parameter "n" is selected this one does not work
+            overlapping    :
+
+        """
+
+        self.__initime = None
+        self.__lastdatatime = 0
+
+        self.__buffer_spc = None
+        self.__buffer_cspc = None
+        self.__buffer_dc = 0
+
+        self.__profIndex = 0
+        self.__dataReady = False
+        self.__byTime = False
+
+        if n is None and timeInterval is None:
+            raise ValueError("n or timeInterval should be specified ...")
+
+        if n is not None:
+            self.n = int(n)
+        else:
+
+            self.__integrationtime = int(timeInterval)
+            self.n = None
+            self.__byTime = True
+
+    def putData(self, data_spc, data_cspc, data_dc):
+        """
+        Add a profile to the __buffer_spc and increase in one the __profileIndex
+
+        """
+
+        #print(numpy.shape(self.__buffer_spc))
+        ##print(numpy.shape(data_spc))
+
+        #self.__buffer_spc = numpy.insert(self.__buffer_spc,[],data_spc,axis=0)
+        self.__buffer_spc[self.__profIndex,:]=data_spc[:]
+        ##self.__buffer_spc.append(data_spc)
+        #self.__buffer_spc = numpy.array(self.__buffer_spc)
+        #print(numpy.shape(self.__buffer_spc))
+        #print("bytes",sys.getsizeof(self.__buffer_spc))
+        #print("bytes",asizeof(self.__buffer_spc))
+        if data_cspc is None:
+            self.__buffer_cspc = None
+
+        else:
+            self.__buffer_cspc[self.__profIndex,:]=data_cspc[:]
+
+        if data_dc is None:
+            self.__buffer_dc = None
+        else:
+            self.__buffer_dc += data_dc
+
+        self.__profIndex += 1
+
+        return
+
+    def hildebrand_sekhon_Integration(self,data,navg):
+
+        sortdata = numpy.sort(data, axis=None)
+        sortID=data.argsort()
+        lenOfData = len(sortdata)
+        nums_min = lenOfData*0.75
+        if nums_min <= 5:
+            nums_min = 5
+        sump = 0.
+        sumq = 0.
+        j = 0
+        cont = 1
+        while((cont == 1)and(j < lenOfData)):
+            sump += sortdata[j]
+            sumq += sortdata[j]**2
+            if j > nums_min:
+                rtest = float(j)/(j-1) + 1.0/navg
+                if ((sumq*j) > (rtest*sump**2)):
+                    j = j - 1
+                    sump = sump - sortdata[j]
+                    sumq = sumq - sortdata[j]**2
+                    cont = 0
+            j += 1
+        #lnoise = sump / j
+
+        return j,sortID
+
+    def pushData_V0(self):
+        """
+        Return the sum of the last profiles and the profiles used in the sum.
+
+        Affected:
+
+        self.__profileIndex
+
+        """
+        bufferH=None
+        buffer=None
+        buffer1=None
+        buffer_cspc=None
+        self.__buffer_spc=numpy.array(self.__buffer_spc)
+        if self.__buffer_cspc is not None:
+            self.__buffer_cspc=numpy.array(self.__buffer_cspc)
+        freq_dc = int(self.__buffer_spc.shape[2] / 2)
+        #print("FREQ_DC",freq_dc)
+        #print(self.__buffer_spc[:,1,5,37,0])
+        #lag_array=[0,2,4,6,8,10,12,14,16,18,20]
+
+        if self.nLags == 11:
+            h0 = 7
+        elif self.nLags == 16:
+            h0 = 180
+
+
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(self.__buffer_spc[:,0,freq_dc,33,0],marker='*')
+        plt.ylim((0,700000))
+        plt.show()
+        import time
+        time.sleep(60)
+        exit(1)
+        '''
+        #'''
+        import matplotlib.pyplot as plt
+        #plt.plot(self.__buffer_spc[:,0,freq_dc-2,33,1],marker='*')
+        plt.plot(sorted(self.__buffer_spc[:,0,freq_dc-2,33,1]),marker='*')
+        plt.ylim((0,1.1*1.e6))
+        plt.show()
+        import time
+        time.sleep(60)
+        exit(1)
+        #'''
+
+        print(self.nLags)
+        '''
+        if self.nLags == 16:
+            self.nLags = 0
+            #exit(1)
+        '''
+
+        for l in range(self.nLags):#dataOut.DPL):
+            #breakFlag=False
+            for k in range(7,self.nHeights):
+                if self.__buffer_cspc is not None:
+                    buffer_cspc=numpy.copy(self.__buffer_cspc[:,0,:,k,l])
+                    outliers_IDs_cspc=[]
+                    cspc_outliers_exist=False
+                #indexmin_cspc=0
+                for i in range(2):
+                #for i in range(self.nChannels):#dataOut.nChannels):
+                    #if self.TrueLags:
+                        #print("HERE")
+                    if i==1 and k >= self.nHeights-2*l and self.TrueLags:
+                        #breakFlag=True
+                        continue
+
+                        #pass
+                    else:
+                        buffer1=numpy.copy(self.__buffer_spc[:,i,:,k,l])
+                        indexes=[]
+                        #sortIDs=[]
+                        outliers_IDs=[]
+                        for j in range(self.nProfiles):
+                            if i==0 and j==freq_dc: #NOT CONSIDERING DC PROFILE AT CHANNEL 0
+                                continue
+                            if self.FlipChannelsExist:
+                                if i==1 and j==0: #NOT CONSIDERING DC PROFILE AT CHANNEL 1
+                                    continue
+                            else:
+                                if i==1 and j==freq_dc: #NOT CONSIDERING DC PROFILE AT CHANNEL 1
+                                    continue
+                            #buffer=buffer1[:,j]
+                            buffer=(buffer1[:,j]).real
+                            '''
+                            if self.nLags ==16 and l!=0:
+                                print(buffer)
+                                exit(1)
+                                '''
+                            index,sortID=self.hildebrand_sekhon_Integration(buffer,1)
+
+                            indexes.append(index)
+                            #sortIDs.append(sortID)
+                            outliers_IDs=numpy.append(outliers_IDs,sortID[index:])
+
+                        outliers_IDs=numpy.array(outliers_IDs)
+                        outliers_IDs=outliers_IDs.ravel()
+                        outliers_IDs=numpy.unique(outliers_IDs)
+                        outliers_IDs=outliers_IDs.astype(numpy.dtype('int64'))
+                        indexes=numpy.array(indexes)
+                        indexmin=numpy.min(indexes)
+
+                        if indexmin != buffer1.shape[0]:
+                            cspc_outliers_exist=True
+                            ###sortdata=numpy.sort(buffer1,axis=0)
+                            ###avg2=numpy.mean(sortdata[:indexmin,:],axis=0)
+                            lt=outliers_IDs
+                            avg=numpy.mean(buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:],axis=0)
+
+
+                            for p in list(outliers_IDs):
+                                buffer1[p,:]=avg
+
+                        self.__buffer_spc[:,i,:,k,l]=numpy.copy(buffer1)
+                        ###cspc IDs
+                        #indexmin_cspc+=indexmin_cspc
+                        if self.__buffer_cspc is not None:
+                            outliers_IDs_cspc=numpy.append(outliers_IDs_cspc,outliers_IDs)
+
+                #if not breakFlag:
+                #print(outliers_IDs_cspc)
+                if self.__buffer_cspc is not None:
+                    outliers_IDs_cspc=outliers_IDs_cspc.astype(numpy.dtype('int64'))
+                    if cspc_outliers_exist:
+                        #sortdata=numpy.sort(buffer_cspc,axis=0)
+                        #avg=numpy.mean(sortdata[:indexmin_cpsc,:],axis=0)
+                        lt=outliers_IDs_cspc
+
+                        avg=numpy.mean(buffer_cspc[[t for t in range(buffer_cspc.shape[0]) if t not in lt],:],axis=0)
+                        for p in list(outliers_IDs_cspc):
+                            buffer_cspc[p,:]=avg
+
+                    self.__buffer_cspc[:,0,:,k,l]=numpy.copy(buffer_cspc)
+
+                #else:
+                    #break
+        #'''
+        import matplotlib.pyplot as plt
+        plt.plot(self.__buffer_spc[:,0,freq_dc-2,33,1],marker='*')
+        plt.ylim((0,1.1*1.e6))
+        plt.show()
+        import time
+        time.sleep(60)
+        exit(1)
+        #'''
+
+        buffer=None
+        bufferH=None
+        buffer1=None
+        buffer_cspc=None
+
+        #print("cpsc",self.__buffer_cspc[:,0,0,0,0])
+        #print(self.__profIndex)
+        #exit()
+        '''
+        if self.nLags == 16:
+            print(self.__buffer_spc[:,0,0,0,2])
+            exit(1)
+            '''
+
+        buffer=None
+        #print(self.__buffer_spc[:,1,3,20,0])
+        #print(self.__buffer_spc[:,1,5,37,0])
+        data_spc = numpy.sum(self.__buffer_spc,axis=0)
+
+        if self.__buffer_cspc is not None:
+            data_cspc = numpy.sum(self.__buffer_cspc,axis=0)
+        else:
+            data_cspc = None
+
+        #print(numpy.shape(data_spc))
+        #data_spc[1,4,20,0]=numpy.nan
+
+
+        data_dc = self.__buffer_dc
+
+        n = self.__profIndex
+
+        self.__buffer_spc = None
+        self.__buffer_cspc = None
+        self.__buffer_dc = 0
+        self.__profIndex = 0
+
+        return data_spc, data_cspc, data_dc, n
+
+    def pushData(self):
+        """
+        Return the sum of the last profiles and the profiles used in the sum.
+
+        Affected:
+
+        self.__profileIndex
+
+        """
+        bufferH=None
+        buffer=None
+        buffer1=None
+        buffer_cspc=None
+        self.__buffer_spc=numpy.array(self.__buffer_spc)
+        if self.__buffer_cspc is not None:
+            self.__buffer_cspc=numpy.array(self.__buffer_cspc)
+        freq_dc = int(self.__buffer_spc.shape[2] / 2)
+        #print("FREQ_DC",freq_dc)
+        #print(self.__buffer_spc[:,1,5,37,0])
+        #lag_array=[0,2,4,6,8,10,12,14,16,18,20]
+
+        if self.nLags == 11:
+            h0 = 7
+        elif self.nLags == 16:
+            h0 = 180
+
+
+
+        '''
+        import matplotlib.pyplot as plt
+        #plt.plot(self.__buffer_spc[:,0,freq_dc-2,33,1],marker='*')
+        aux = self.__buffer_spc[:,0,freq_dc-2,66,1]
+        a,b=self.hildebrand_sekhon_Integration(numpy.abs(aux),1)
+        print(a)
+        plt.plot(sorted(aux),marker='*')
+        plt.vlines(x=a,ymin=min(aux),ymax=max(aux))
+        #plt.ylim((-35000,65000))
+        plt.show()
+        import time
+        time.sleep(60)
+        exit(1)
+        '''
+
+        print(self.nLags)
+        '''
+        if self.nLags == 16:
+            self.nLags = 3
+            #exit(1)
+        '''
+        #print(self.nHeights)
+        #exit(1)
+        for l in range(self.nLags):#dataOut.DPL):
+            #breakFlag=False
+            for k in range(7,self.nHeights):
+                if self.__buffer_cspc is not None:
+                    buffer_cspc=numpy.copy(self.__buffer_cspc[:,0,:,k,l])
+                    outliers_IDs_cspc=[]
+                    cspc_outliers_exist=False
+                #indexmin_cspc=0
+                for i in range(2):
+                #for i in range(self.nChannels):#dataOut.nChannels):
+                    #if self.TrueLags:
+                        #print("HERE")
+                    '''
+                    if i==1 and k >= self.nHeights-2*l and self.TrueLags:
+                        #breakFlag=True
+                        print("here")
+                        exit(1)
+                        continue
+                        '''
+
+                        #pass
+                    #else:
+                    buffer1=numpy.copy(self.__buffer_spc[:,i,:,k,l])
+                    indexes=[]
+                    #sortIDs=[]
+                    outliers_IDs=[]
+                    for j in range(self.nProfiles):
+                        if i==0 and j==freq_dc: #NOT CONSIDERING DC PROFILE AT CHANNEL 0
+                            continue
+                        if self.FlipChannelsExist:
+                            if i==1 and j==0: #NOT CONSIDERING DC PROFILE AT CHANNEL 1
+                                continue
+                        else:
+                            if i==1 and j==freq_dc: #NOT CONSIDERING DC PROFILE AT CHANNEL 1
+                                continue
+                        #buffer=buffer1[:,j]
+                        buffer=(buffer1[:,j])
+                        '''
+                        if self.nLags ==16 and l!=0:
+                            print(buffer)
+                            exit(1)
+                            '''
+                        index,sortID=self.hildebrand_sekhon_Integration(numpy.abs(buffer),1)
+
+                        indexes.append(index)
+                        #sortIDs.append(sortID)
+                        outliers_IDs=numpy.append(outliers_IDs,sortID[index:])
+
+                        sortdata=numpy.sort(buffer,axis=0)
+                        avg=numpy.mean(sortdata[:index],axis=0)
+                        #lt=outliers_IDs
+                        #avg=numpy.mean(buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:],axis=0)
+
+                        if index != buffer.shape[0]:
+                            for p in list(sortID[index:]):
+                                buffer1[p,j]=avg
+
+
+                        self.__buffer_spc[:,i,j,k,l]=numpy.copy(buffer1[:,j])
+                        ###cspc IDs
+                        #indexmin_cspc+=indexmin_cspc
+                        if self.__buffer_cspc is not None:
+                            outliers_IDs_cspc=numpy.append(outliers_IDs_cspc,outliers_IDs)
+
+                #if not breakFlag:
+                #print(outliers_IDs_cspc)
+                if self.__buffer_cspc is not None:
+                    outliers_IDs_cspc=outliers_IDs_cspc.astype(numpy.dtype('int64'))
+                    if cspc_outliers_exist:
+                        #sortdata=numpy.sort(buffer_cspc,axis=0)
+                        #avg=numpy.mean(sortdata[:indexmin_cpsc,:],axis=0)
+                        lt=outliers_IDs_cspc
+
+                        avg=numpy.mean(buffer_cspc[[t for t in range(buffer_cspc.shape[0]) if t not in lt],:],axis=0)
+                        for p in list(outliers_IDs_cspc):
+                            buffer_cspc[p,:]=avg
+
+                    self.__buffer_cspc[:,0,:,k,l]=numpy.copy(buffer_cspc)
+
+                #else:
+                    #break
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(sorted(self.__buffer_spc[:,0,freq_dc-2,66,1]),marker='*')
+        #plt.ylim((0,1.1*1.e6))
+        plt.ylim((-30000,65000))
+        plt.show()
+        import time
+        time.sleep(60)
+        exit(1)
+        '''
+
+        buffer=None
+        bufferH=None
+        buffer1=None
+        buffer_cspc=None
+
+        #print("cpsc",self.__buffer_cspc[:,0,0,0,0])
+        #print(self.__profIndex)
+        #exit()
+        '''
+        if self.nLags == 16:
+            print(self.__buffer_spc[:,0,0,0,2])
+            exit(1)
+            '''
+
+        buffer=None
+        #print(self.__buffer_spc[:,1,3,20,0])
+        #print(self.__buffer_spc[:,1,5,37,0])
+        data_spc = numpy.sum(self.__buffer_spc,axis=0)
+
+        if self.__buffer_cspc is not None:
+            data_cspc = numpy.sum(self.__buffer_cspc,axis=0)
+        else:
+            data_cspc = None
+
+        #print(numpy.shape(data_spc))
+        #data_spc[1,4,20,0]=numpy.nan
+
+
+        data_dc = self.__buffer_dc
+
+        n = self.__profIndex
+
+        self.__buffer_spc = None
+        self.__buffer_cspc = None
+        self.__buffer_dc = 0
+        self.__profIndex = 0
+
+        return data_spc, data_cspc, data_dc, n
+
+    def byProfiles(self, data_spc, data_cspc, *args):
+
+        self.__dataReady = False
+        avgdata_spc = None
+        avgdata_cspc = None
+        avgdata_dc = None
+
+        self.putData(data_spc, data_cspc, *args)
+
+        if self.__profIndex == self.n:
+
+            avgdata_spc, avgdata_cspc, avgdata_dc, n = self.pushData()
+            self.n = n
+            self.__dataReady = True
+
+        return avgdata_spc, avgdata_cspc, avgdata_dc
+
+    def byTime(self, datatime, *args):
+
+        self.__dataReady = False
+        avgdata_spc = None
+        avgdata_cspc = None
+        avgdata_dc = None
+
+        self.putData(*args)
+
+        if (datatime - self.__initime) >= self.__integrationtime:
+            avgdata_spc, avgdata_cspc, avgdata_dc, n = self.pushData()
+            self.n = n
+            self.__dataReady = True
+
+        return avgdata_spc, avgdata_cspc, avgdata_dc
+
+    def integrate(self, datatime, data_spc, data_cspc, *args):
+
+        if self.__profIndex == 0:
+            self.__initime = datatime
+            #print(data_cspc.shape)
+
+            #self.__buffer_spc = numpy.empty_like(data_spc,shape=(self.n,self.nChannels,self.nProfiles,self.nHeights,self.nLags))
+            self.__buffer_spc = numpy.ones_like(data_spc,shape=(self.n,self.nChannels,self.nProfiles,self.nHeights,self.nLags))*numpy.NAN
+
+            #print(self.__buffer_spc[0])
+            #print(self.__buffer_spc.dtype)
+            #print(data_spc.dtype)
+
+            if data_cspc is not None:
+                nLags = numpy.shape(data_cspc)[-1]
+                nCrossChannels = numpy.shape(data_cspc)[0]
+
+            #self.__buffer_cspc = numpy.empty_like(data_cspc,shape=(self.n,crossChannels,self.nProfiles,self.nHeights,self.nLags))
+                self.__buffer_cspc = numpy.ones_like(data_cspc,shape=(self.n,nCrossChannels,self.nProfiles,self.nHeights,nLags))*numpy.NAN
+            else:
+                self.__buffer_cspc = None
+            #print("HEREEEE")
+            #print(self.__buffer_cspc.dtype)
+            #print(data_cspc.dtype)
+            #exit(1)
+        if self.__byTime:
+            avgdata_spc, avgdata_cspc, avgdata_dc = self.byTime(
+                datatime, *args)
+        else:
+            avgdata_spc, avgdata_cspc, avgdata_dc = self.byProfiles(data_spc, data_cspc, *args)
+
+        if not self.__dataReady:
+            return None, None, None, None
+
+        return self.__initime, avgdata_spc, avgdata_cspc, avgdata_dc
+
+    def run(self, dataOut, n=None, timeInterval=None, overlapping=False,TrueLags=True):
+        if n == 1:
+            return dataOut
+
+        dataOut.flagNoData = True
+
+        if not self.isConfig:
+            self.setup(n, timeInterval, overlapping)
+            try:
+                dataOut.FlipChannels
+                self.FlipChannelsExist=1
+            except:
+                self.FlipChannelsExist=0
+            self.isConfig = True
+
+        self.nProfiles=dataOut.nProfiles
+        self.nChannels=dataOut.nChannels
+        self.nHeights=dataOut.nHeights
+        if not dataOut.ByLags:
+            avgdatatime, avgdata_spc, avgdata_cspc, avgdata_dc = self.integrate(dataOut.utctime,
+                                                                                dataOut.data_spc,
+                                                                                dataOut.data_cspc,
+                                                                                dataOut.data_dc)
+        else:
+            #self.nProfiles=dataOut.nProfiles
+            #self.nChannels=dataOut.nChannels
+            #self.nHeights=dataOut.nHeights
+            self.nLags=dataOut.nLags
+            self.TrueLags=TrueLags
+
+
+
+            avgdatatime, avgdata_spc, avgdata_cspc, avgdata_dc = self.integrate(dataOut.utctime,
+                                                                                dataOut.dataLag_spc,
+                                                                                dataOut.dataLag_cspc,
+                                                                                dataOut.dataLag_dc)
+
+        if self.__dataReady:
+
+            if not dataOut.ByLags:
+                dataOut.data_spc = avgdata_spc
+                dataOut.data_cspc = avgdata_cspc
+                dataOut.data_dc = avgdata_dc
+            else:
+                dataOut.dataLag_spc = avgdata_spc
+                dataOut.dataLag_cspc = avgdata_cspc
+                dataOut.dataLag_dc = avgdata_dc
+
+                dataOut.data_spc=dataOut.dataLag_spc[:,:,:,dataOut.LagPlot].real
+
+                if self.__buffer_cspc is not None:
+                    dataOut.data_cspc=dataOut.dataLag_cspc[:,:,:,dataOut.LagPlot]
+                dataOut.data_dc=dataOut.dataLag_dc[:,:,dataOut.LagPlot]
+
+
+            dataOut.nIncohInt *= self.n
+            dataOut.utctime = avgdatatime
+            dataOut.flagNoData = False
+
+        return dataOut
+
+class IntegrationFaradaySpectra3(Operation): #This class should manage data with no lags as well
+
+    __profIndex = 0
+    __withOverapping = False
+
+    __byTime = False
+    __initime = None
+    __lastdatatime = None
+    __integrationtime = None
+
+    __buffer_spc = None
+    __buffer_cspc = None
+    __buffer_dc = None
+
+    __dataReady = False
+
+    __timeInterval = None
+
+    n = None
+
+    def __init__(self):
+
+        Operation.__init__(self)
+
+    def setup(self, n=None, timeInterval=None, overlapping=False):
+        """
+        Set the parameters of the integration class.
+
+        Inputs:
+
+            n        :    Number of coherent integrations
+            timeInterval   :    Time of integration. If the parameter "n" is selected this one does not work
+            overlapping    :
+
+        """
+
+        self.__initime = None
+        self.__lastdatatime = 0
+
+        self.__buffer_spc = None
+        self.__buffer_cspc = None
+        self.__buffer_dc = 0
+
+        self.__profIndex = 0
+        self.__dataReady = False
+        self.__byTime = False
+
+        if n is None and timeInterval is None:
+            raise ValueError("n or timeInterval should be specified ...")
+
+        if n is not None:
+            self.n = int(n)
+        else:
+
+            self.__integrationtime = int(timeInterval)
+            self.n = None
+            self.__byTime = True
+
+    def putData(self, data_spc, data_cspc, data_dc):
+        """
+        Add a profile to the __buffer_spc and increase in one the __profileIndex
+
+        """
+
+        #print(numpy.shape(self.__buffer_spc))
+        ##print(numpy.shape(data_spc))
+
+        #self.__buffer_spc = numpy.insert(self.__buffer_spc,[],data_spc,axis=0)
+        self.__buffer_spc[self.__profIndex,:]=data_spc[:]
+        ##self.__buffer_spc.append(data_spc)
+        #self.__buffer_spc = numpy.array(self.__buffer_spc)
+        #print(numpy.shape(self.__buffer_spc))
+        #print("bytes",sys.getsizeof(self.__buffer_spc))
+        #print("bytes",asizeof(self.__buffer_spc))
+        if self.clean_cspc:
+            if data_cspc is None:
+                self.__buffer_cspc = None
+
+            else:
+                self.__buffer_cspc[self.__profIndex,:]=data_cspc[:]
+        else:
+            self.__buffer_cspc += data_cspc
+
+        if data_dc is None:
+            self.__buffer_dc = None
+        else:
+            self.__buffer_dc += data_dc
+
+        self.__profIndex += 1
+
+        return
+
+    def hildebrand_sekhon_Integration(self,data,navg):
+
+        sortdata = numpy.sort(data, axis=None)
+        sortID=data.argsort()
+        lenOfData = len(sortdata)
+        nums_min = lenOfData*0.75
+        if nums_min <= 5:
+            nums_min = 5
+        sump = 0.
+        sumq = 0.
+        j = 0
+        cont = 1
+        while((cont == 1)and(j < lenOfData)):
+            sump += sortdata[j]
+            sumq += sortdata[j]**2
+            if j > nums_min:
+                rtest = float(j)/(j-1) + 1.0/navg
+                if ((sumq*j) > (rtest*sump**2)):
+                    j = j - 1
+                    sump = sump - sortdata[j]
+                    sumq = sumq - sortdata[j]**2
+                    cont = 0
+            j += 1
+        #lnoise = sump / j
+
+        return j,sortID
+
+    def pushData_V0(self):
+        """
+        Return the sum of the last profiles and the profiles used in the sum.
+
+        Affected:
+
+        self.__profileIndex
+
+        """
+        bufferH=None
+        buffer=None
+        buffer1=None
+        buffer_cspc=None
+        self.__buffer_spc=numpy.array(self.__buffer_spc)
+        if self.__buffer_cspc is not None:
+            self.__buffer_cspc=numpy.array(self.__buffer_cspc)
+        freq_dc = int(self.__buffer_spc.shape[2] / 2)
+        #print("FREQ_DC",freq_dc)
+        #print(self.__buffer_spc[:,1,5,37,0])
+        #lag_array=[0,2,4,6,8,10,12,14,16,18,20]
+
+        if self.nLags == 11:
+            h0 = 7
+        elif self.nLags == 16:
+            h0 = 180
+
+
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(self.__buffer_spc[:,0,freq_dc,33,0],marker='*')
+        plt.ylim((0,700000))
+        plt.show()
+        import time
+        time.sleep(60)
+        exit(1)
+        '''
+        #'''
+        import matplotlib.pyplot as plt
+        #plt.plot(self.__buffer_spc[:,0,freq_dc-2,33,1],marker='*')
+        plt.plot(sorted(self.__buffer_spc[:,0,freq_dc-2,33,1]),marker='*')
+        plt.ylim((0,1.1*1.e6))
+        plt.show()
+        import time
+        time.sleep(60)
+        exit(1)
+        #'''
+
+        print(self.nLags)
+        '''
+        if self.nLags == 16:
+            self.nLags = 0
+            #exit(1)
+        '''
+
+        for l in range(self.nLags):#dataOut.DPL):
+            #breakFlag=False
+            for k in range(7,self.nHeights):
+                if self.__buffer_cspc is not None:
+                    buffer_cspc=numpy.copy(self.__buffer_cspc[:,0,:,k,l])
+                    outliers_IDs_cspc=[]
+                    cspc_outliers_exist=False
+                #indexmin_cspc=0
+                for i in range(2):
+                #for i in range(self.nChannels):#dataOut.nChannels):
+                    #if self.TrueLags:
+                        #print("HERE")
+                    if i==1 and k >= self.nHeights-2*l and self.TrueLags:
+                        #breakFlag=True
+                        continue
+
+                        #pass
+                    else:
+                        buffer1=numpy.copy(self.__buffer_spc[:,i,:,k,l])
+                        indexes=[]
+                        #sortIDs=[]
+                        outliers_IDs=[]
+                        for j in range(self.nProfiles):
+                            if i==0 and j==freq_dc: #NOT CONSIDERING DC PROFILE AT CHANNEL 0
+                                continue
+                            if self.FlipChannelsExist:
+                                if i==1 and j==0: #NOT CONSIDERING DC PROFILE AT CHANNEL 1
+                                    continue
+                            else:
+                                if i==1 and j==freq_dc: #NOT CONSIDERING DC PROFILE AT CHANNEL 1
+                                    continue
+                            #buffer=buffer1[:,j]
+                            buffer=(buffer1[:,j]).real
+                            '''
+                            if self.nLags ==16 and l!=0:
+                                print(buffer)
+                                exit(1)
+                                '''
+                            index,sortID=self.hildebrand_sekhon_Integration(buffer,1)
+
+                            indexes.append(index)
+                            #sortIDs.append(sortID)
+                            outliers_IDs=numpy.append(outliers_IDs,sortID[index:])
+
+                        outliers_IDs=numpy.array(outliers_IDs)
+                        outliers_IDs=outliers_IDs.ravel()
+                        outliers_IDs=numpy.unique(outliers_IDs)
+                        outliers_IDs=outliers_IDs.astype(numpy.dtype('int64'))
+                        indexes=numpy.array(indexes)
+                        indexmin=numpy.min(indexes)
+
+                        if indexmin != buffer1.shape[0]:
+                            cspc_outliers_exist=True
+                            ###sortdata=numpy.sort(buffer1,axis=0)
+                            ###avg2=numpy.mean(sortdata[:indexmin,:],axis=0)
+                            lt=outliers_IDs
+                            avg=numpy.mean(buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:],axis=0)
+
+
+                            for p in list(outliers_IDs):
+                                buffer1[p,:]=avg
+
+                        self.__buffer_spc[:,i,:,k,l]=numpy.copy(buffer1)
+                        ###cspc IDs
+                        #indexmin_cspc+=indexmin_cspc
+                        if self.__buffer_cspc is not None:
+                            outliers_IDs_cspc=numpy.append(outliers_IDs_cspc,outliers_IDs)
+
+                #if not breakFlag:
+                #print(outliers_IDs_cspc)
+                if self.__buffer_cspc is not None:
+                    outliers_IDs_cspc=outliers_IDs_cspc.astype(numpy.dtype('int64'))
+                    if cspc_outliers_exist:
+                        #sortdata=numpy.sort(buffer_cspc,axis=0)
+                        #avg=numpy.mean(sortdata[:indexmin_cpsc,:],axis=0)
+                        lt=outliers_IDs_cspc
+
+                        avg=numpy.mean(buffer_cspc[[t for t in range(buffer_cspc.shape[0]) if t not in lt],:],axis=0)
+                        for p in list(outliers_IDs_cspc):
+                            buffer_cspc[p,:]=avg
+
+                    self.__buffer_cspc[:,0,:,k,l]=numpy.copy(buffer_cspc)
+
+                #else:
+                    #break
+        #'''
+        import matplotlib.pyplot as plt
+        plt.plot(self.__buffer_spc[:,0,freq_dc-2,33,1],marker='*')
+        plt.ylim((0,1.1*1.e6))
+        plt.show()
+        import time
+        time.sleep(60)
+        exit(1)
+        #'''
+
+        buffer=None
+        bufferH=None
+        buffer1=None
+        buffer_cspc=None
+
+        #print("cpsc",self.__buffer_cspc[:,0,0,0,0])
+        #print(self.__profIndex)
+        #exit()
+        '''
+        if self.nLags == 16:
+            print(self.__buffer_spc[:,0,0,0,2])
+            exit(1)
+            '''
+
+        buffer=None
+        #print(self.__buffer_spc[:,1,3,20,0])
+        #print(self.__buffer_spc[:,1,5,37,0])
+        data_spc = numpy.sum(self.__buffer_spc,axis=0)
+
+        if self.__buffer_cspc is not None:
+            data_cspc = numpy.sum(self.__buffer_cspc,axis=0)
+        else:
+            data_cspc = None
+
+        #print(numpy.shape(data_spc))
+        #data_spc[1,4,20,0]=numpy.nan
+
+
+        data_dc = self.__buffer_dc
+
+        n = self.__profIndex
+
+        self.__buffer_spc = None
+        self.__buffer_cspc = None
+        self.__buffer_dc = 0
+        self.__profIndex = 0
+
+        return data_spc, data_cspc, data_dc, n
+
+    def pushData_ByLags(self):
+        """
+        Return the sum of the last profiles and the profiles used in the sum.
+
+        Affected:
+
+        self.__profileIndex
+
+        """
+        bufferH=None
+        buffer=None
+        buffer1=None
+        buffer_cspc=None
+        self.__buffer_spc=numpy.array(self.__buffer_spc)
+        if self.__buffer_cspc is not None:
+            self.__buffer_cspc=numpy.array(self.__buffer_cspc)
+        freq_dc = int(self.__buffer_spc.shape[2] / 2)
+        #print("FREQ_DC",freq_dc)
+        #print(self.__buffer_spc[:,1,5,37,0])
+        #lag_array=[0,2,4,6,8,10,12,14,16,18,20]
+
+        if self.nLags == 11:
+            h0 = 7
+        elif self.nLags == 16:
+            h0 = 180
+
+
+
+        '''
+        import matplotlib.pyplot as plt
+        #plt.plot(self.__buffer_spc[:,0,freq_dc-2,33,1],marker='*')
+        aux = self.__buffer_spc[:,0,freq_dc-2,66,1]
+        a,b=self.hildebrand_sekhon_Integration(numpy.abs(aux),1)
+        print(a)
+        plt.plot(sorted(aux),marker='*')
+        plt.vlines(x=a,ymin=min(aux),ymax=max(aux))
+        #plt.ylim((-35000,65000))
+        plt.show()
+        import time
+        time.sleep(60)
+        exit(1)
+        '''
+
+        print(self.nLags)
+        '''
+        if self.nLags == 16:
+            self.nLags = 3
+            #exit(1)
+        '''
+        #print(self.nHeights)
+        #exit(1)
+        for l in range(self.nLags):#dataOut.DPL):
+            #breakFlag=False
+            for k in range(7,self.nHeights):
+                if self.__buffer_cspc is not None:
+                    buffer_cspc=numpy.copy(self.__buffer_cspc[:,0,:,k,l])
+                    outliers_IDs_cspc=[]
+                    cspc_outliers_exist=False
+                #indexmin_cspc=0
+                for i in range(2):
+                #for i in range(self.nChannels):#dataOut.nChannels):
+                    #if self.TrueLags:
+                        #print("HERE")
+                    '''
+                    if i==1 and k >= self.nHeights-2*l and self.TrueLags:
+                        #breakFlag=True
+                        print("here")
+                        exit(1)
+                        continue
+                        '''
+
+                        #pass
+                    #else:
+                    buffer1=numpy.copy(self.__buffer_spc[:,i,:,k,l])
+                    indexes=[]
+                    #sortIDs=[]
+                    outliers_IDs=[]
+                    for j in range(self.nProfiles):
+                        if i==0 and j==freq_dc: #NOT CONSIDERING DC PROFILE AT CHANNEL 0
+                            continue
+                        if self.FlipChannelsExist:
+                            if i==1 and j==0: #NOT CONSIDERING DC PROFILE AT CHANNEL 1
+                                continue
+                        else:
+                            if i==1 and j==freq_dc: #NOT CONSIDERING DC PROFILE AT CHANNEL 1
+                                continue
+                        #buffer=buffer1[:,j]
+                        buffer=(buffer1[:,j])
+                        '''
+                        if self.nLags ==16 and l!=0:
+                            print(buffer)
+                            exit(1)
+                            '''
+                        index,sortID=self.hildebrand_sekhon_Integration(numpy.abs(buffer),1)
+
+                        indexes.append(index)
+                        #sortIDs.append(sortID)
+                        outliers_IDs=numpy.append(outliers_IDs,sortID[index:])
+
+                        sortdata=numpy.sort(buffer,axis=0)
+                        avg=numpy.mean(sortdata[:index],axis=0)
+                        #lt=outliers_IDs
+                        #avg=numpy.mean(buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:],axis=0)
+
+                        if index != buffer.shape[0]:
+                            for p in list(sortID[index:]):
+                                buffer1[p,j]=avg
+
+
+                        self.__buffer_spc[:,i,j,k,l]=numpy.copy(buffer1[:,j])
+                        ###cspc IDs
+                        #indexmin_cspc+=indexmin_cspc
+                        if self.__buffer_cspc is not None:
+                            outliers_IDs_cspc=numpy.append(outliers_IDs_cspc,outliers_IDs)
+
+                #if not breakFlag:
+                #print(outliers_IDs_cspc)
+                if self.__buffer_cspc is not None:
+                    outliers_IDs_cspc=outliers_IDs_cspc.astype(numpy.dtype('int64'))
+                    if cspc_outliers_exist:
+                        #sortdata=numpy.sort(buffer_cspc,axis=0)
+                        #avg=numpy.mean(sortdata[:indexmin_cpsc,:],axis=0)
+                        lt=outliers_IDs_cspc
+
+                        avg=numpy.mean(buffer_cspc[[t for t in range(buffer_cspc.shape[0]) if t not in lt],:],axis=0)
+                        for p in list(outliers_IDs_cspc):
+                            buffer_cspc[p,:]=avg
+
+                    self.__buffer_cspc[:,0,:,k,l]=numpy.copy(buffer_cspc)
+
+                #else:
+                    #break
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(sorted(self.__buffer_spc[:,0,freq_dc-2,66,1]),marker='*')
+        #plt.ylim((0,1.1*1.e6))
+        plt.ylim((-30000,65000))
+        plt.show()
+        import time
+        time.sleep(60)
+        exit(1)
+        '''
+
+        buffer=None
+        bufferH=None
+        buffer1=None
+        buffer_cspc=None
+
+        #print("cpsc",self.__buffer_cspc[:,0,0,0,0])
+        #print(self.__profIndex)
+        #exit()
+        '''
+        if self.nLags == 16:
+            print(self.__buffer_spc[:,0,0,0,2])
+            exit(1)
+            '''
+
+        buffer=None
+        #print(self.__buffer_spc[:,1,3,20,0])
+        #print(self.__buffer_spc[:,1,5,37,0])
+        data_spc = numpy.sum(self.__buffer_spc,axis=0)
+
+        if self.__buffer_cspc is not None:
+            data_cspc = numpy.sum(self.__buffer_cspc,axis=0)
+        else:
+            data_cspc = None
+
+        #print(numpy.shape(data_spc))
+        #data_spc[1,4,20,0]=numpy.nan
+
+
+        data_dc = self.__buffer_dc
+
+        n = self.__profIndex
+
+        self.__buffer_spc = None
+        self.__buffer_cspc = None
+        self.__buffer_dc = 0
+        self.__profIndex = 0
+
+        return data_spc, data_cspc, data_dc, n
+
+    def pushData(self):
+        """
+        Return the sum of the last profiles and the profiles used in the sum.
+
+        Affected:
+
+        self.__profileIndex
+
+        """
+        bufferH=None
+        buffer=None
+        buffer1=None
+        buffer_cspc=None
+        self.__buffer_spc=numpy.array(self.__buffer_spc)
+        if self.__buffer_cspc is not None and self.clean_cspc:
+            self.__buffer_cspc=numpy.array(self.__buffer_cspc)
+        freq_dc = int(self.__buffer_spc.shape[2] / 2)
+
+        for k in range(7,self.nHeights):
+            if self.__buffer_cspc is not None and self.clean_cspc:
+                buffer_cspc=numpy.copy(self.__buffer_cspc[:,0,:,k])
+                outliers_IDs_cspc=[]
+                cspc_outliers_exist=False
+
+            for i in range(2):
+
+                #else:
+                buffer1=numpy.copy(self.__buffer_spc[:,i,:,k])
+                indexes=[]
+                #sortIDs=[]
+                outliers_IDs=[]
+                for j in range(self.nProfiles):
+                    if i==0 and j==freq_dc: #NOT CONSIDERING DC PROFILE AT CHANNEL 0
+                        continue
+                    if self.FlipChannelsExist:
+                        if i==1 and j==0: #NOT CONSIDERING DC PROFILE AT CHANNEL 1
+                            continue
+                    else:
+                        if i==1 and j==freq_dc: #NOT CONSIDERING DC PROFILE AT CHANNEL 1
+                            continue
+                    #buffer=buffer1[:,j]
+                    buffer=(buffer1[:,j])
+
+                    index,sortID=self.hildebrand_sekhon_Integration(numpy.abs(buffer),1)
+
+                    indexes.append(index)
+                    #sortIDs.append(sortID)
+                    outliers_IDs=numpy.append(outliers_IDs,sortID[index:])
+
+                    sortdata=numpy.sort(buffer,axis=0)
+                    avg=numpy.mean(sortdata[:index],axis=0)
+                    #lt=outliers_IDs
+                    #avg=numpy.mean(buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:],axis=0)
+
+                    if index != buffer.shape[0]:
+                        for p in list(sortID[index:]):
+                            buffer1[p,j]=avg
+
+
+                    self.__buffer_spc[:,i,j,k]=numpy.copy(buffer1[:,j])
+                    ###cspc IDs
+                    #indexmin_cspc+=indexmin_cspc
+                    if self.__buffer_cspc is not None and self.clean_cspc:
+                        outliers_IDs_cspc=numpy.append(outliers_IDs_cspc,outliers_IDs)
+
+            #if not breakFlag:
+            #print(outliers_IDs_cspc)
+            if self.__buffer_cspc is not None and self.clean_cspc:
+                outliers_IDs_cspc=outliers_IDs_cspc.astype(numpy.dtype('int64'))
+                if cspc_outliers_exist:
+                    #sortdata=numpy.sort(buffer_cspc,axis=0)
+                    #avg=numpy.mean(sortdata[:indexmin_cpsc,:],axis=0)
+                    lt=outliers_IDs_cspc
+
+                    avg=numpy.mean(buffer_cspc[[t for t in range(buffer_cspc.shape[0]) if t not in lt],:],axis=0)
+                    for p in list(outliers_IDs_cspc):
+                        buffer_cspc[p,:]=avg
+
+                self.__buffer_cspc[:,0,:,k]=numpy.copy(buffer_cspc)
+
+
+        buffer=None
+        bufferH=None
+        buffer1=None
+        buffer_cspc=None
+
+        buffer=None
+        #print(self.__buffer_spc[:,1,3,20,0])
+        #print(self.__buffer_spc[:,1,5,37,0])
+        data_spc = numpy.sum(self.__buffer_spc,axis=0)
+
+        if self.clean_cspc:
+            if self.__buffer_cspc is not None:
+                data_cspc = numpy.sum(self.__buffer_cspc,axis=0)
+            else:
+                data_cspc = None
+        else:
+            data_cspc = self.__buffer_cspc
+
+        #print(numpy.shape(data_spc))
+        #data_spc[1,4,20,0]=numpy.nan
+
+
+        data_dc = self.__buffer_dc
+
+        n = self.__profIndex
+
+        self.__buffer_spc = None
+        if self.clean_cspc:
+            self.__buffer_cspc = None
+        else:
+            self.__buffer_cspc = 0
+        self.__buffer_dc = 0
+        self.__profIndex = 0
+
+        return data_spc, data_cspc, data_dc, n
+
+    def byProfiles(self, data_spc, data_cspc, *args):
+
+        self.__dataReady = False
+        avgdata_spc = None
+        avgdata_cspc = None
+        avgdata_dc = None
+
+        self.putData(data_spc, data_cspc, *args)
+
+        if self.__profIndex == self.n:
+            if self.ByLags:
+                avgdata_spc, avgdata_cspc, avgdata_dc, n = self.pushData_ByLags()
+            else:
+                avgdata_spc, avgdata_cspc, avgdata_dc, n = self.pushData()
+            self.n = n
+            self.__dataReady = True
+
+        return avgdata_spc, avgdata_cspc, avgdata_dc
+
+    def byTime(self, datatime, *args):
+
+        self.__dataReady = False
+        avgdata_spc = None
+        avgdata_cspc = None
+        avgdata_dc = None
+
+        self.putData(*args)
+
+        if (datatime - self.__initime) >= self.__integrationtime:
+            avgdata_spc, avgdata_cspc, avgdata_dc, n = self.pushData()
+            self.n = n
+            self.__dataReady = True
+
+        return avgdata_spc, avgdata_cspc, avgdata_dc
+
+    def integrate(self, datatime, data_spc, data_cspc, *args):
+
+        if self.__profIndex == 0:
+            self.__initime = datatime
+            #print(data_cspc.shape)
+
+            #self.__buffer_spc = numpy.empty_like(data_spc,shape=(self.n,self.nChannels,self.nProfiles,self.nHeights,self.nLags))
+            if self.ByLags:
+                self.__buffer_spc = numpy.ones_like(data_spc,shape=(self.n,self.nChannels,self.nProfiles,self.nHeights,self.nLags))*numpy.NAN
+            else:
+                self.__buffer_spc = numpy.ones_like(data_spc,shape=(self.n,self.nChannels,self.nProfiles,self.nHeights))*numpy.NAN
+
+            #print(self.__buffer_spc[0])
+            #print(self.__buffer_spc.dtype)
+            #print(data_spc.dtype)
+
+            if data_cspc is not None:
+                nCrossChannels = numpy.shape(data_cspc)[0]
+                if self.ByLags:
+                    nLags = numpy.shape(data_cspc)[-1]
+
+                    self.__buffer_cspc = numpy.ones_like(data_cspc,shape=(self.n,nCrossChannels,self.nProfiles,self.nHeights,nLags))*numpy.NAN
+                else:
+                    if self.clean_cspc:
+                        self.__buffer_cspc = numpy.ones_like(data_cspc,shape=(self.n,nCrossChannels,self.nProfiles,self.nHeights))*numpy.NAN
+                    else:
+                        self.__buffer_cspc = 0
+            else:
+                self.__buffer_cspc = None
+            #print("HEREEEE")
+            #print(self.__buffer_cspc.dtype)
+            #print(data_cspc.dtype)
+            #exit(1)
+        if self.__byTime:
+            avgdata_spc, avgdata_cspc, avgdata_dc = self.byTime(
+                datatime, *args)
+        else:
+            avgdata_spc, avgdata_cspc, avgdata_dc = self.byProfiles(data_spc, data_cspc, *args)
+
+        if not self.__dataReady:
+            return None, None, None, None
+
+        return self.__initime, avgdata_spc, avgdata_cspc, avgdata_dc
+
+    def run(self, dataOut, n=None, timeInterval=None, overlapping=False,TrueLags=True,clean_cspc=True):
+        if n == 1:
+            return dataOut
+
+        dataOut.flagNoData = True
+        self.clean_cspc = clean_cspc
+
+        if not self.isConfig:
+            self.setup(n, timeInterval, overlapping)
+            try:
+                dataOut.FlipChannels
+                self.FlipChannelsExist=1
+            except:
+                self.FlipChannelsExist=0
+            self.isConfig = True
+
+        self.nProfiles=dataOut.nProfiles
+        self.nChannels=dataOut.nChannels
+        self.nHeights=dataOut.nHeights
+        self.ByLags = dataOut.ByLags
+        if not dataOut.ByLags:
+            avgdatatime, avgdata_spc, avgdata_cspc, avgdata_dc = self.integrate(dataOut.utctime,
+                                                                                dataOut.data_spc,
+                                                                                dataOut.data_cspc,
+                                                                                dataOut.data_dc)
+        else:
+            #self.nProfiles=dataOut.nProfiles
+            #self.nChannels=dataOut.nChannels
+            #self.nHeights=dataOut.nHeights
+            self.nLags=dataOut.nLags
+            self.TrueLags=TrueLags
+
+
+
+            avgdatatime, avgdata_spc, avgdata_cspc, avgdata_dc = self.integrate(dataOut.utctime,
+                                                                                dataOut.dataLag_spc,
+                                                                                dataOut.dataLag_cspc,
+                                                                                dataOut.dataLag_dc)
+
+        if self.__dataReady:
+
+            if not dataOut.ByLags:
+                dataOut.data_spc = avgdata_spc
+                dataOut.data_cspc = avgdata_cspc
+                dataOut.data_dc = avgdata_dc
+            else:
+                dataOut.dataLag_spc = avgdata_spc
+                dataOut.dataLag_cspc = avgdata_cspc
+                dataOut.dataLag_dc = avgdata_dc
+
+                dataOut.data_spc=dataOut.dataLag_spc[:,:,:,dataOut.LagPlot].real
+
+                if self.__buffer_cspc is not None:
+                    dataOut.data_cspc=dataOut.dataLag_cspc[:,:,:,dataOut.LagPlot]
+                dataOut.data_dc=dataOut.dataLag_dc[:,:,dataOut.LagPlot]
+
+
+            dataOut.nIncohInt *= self.n
+            dataOut.utctime = avgdatatime
+            dataOut.flagNoData = False
+
+        return dataOut
+
+class IntegrationFaradaySpectraNoLags(Operation):
+
+    __profIndex = 0
+    __withOverapping = False
+
+    __byTime = False
+    __initime = None
+    __lastdatatime = None
+    __integrationtime = None
+
+    __buffer_spc = None
+    __buffer_cspc = None
+    __buffer_dc = None
+
+    __dataReady = False
+
+    __timeInterval = None
+
+    n = None
+
+    def __init__(self):
+
+        Operation.__init__(self)
+
+    def setup(self, dataOut,n=None, timeInterval=None, overlapping=False, DPL=None):
+        """
+        Set the parameters of the integration class.
+
+        Inputs:
+
+            n        :    Number of coherent integrations
+            timeInterval   :    Time of integration. If the parameter "n" is selected this one does not work
+            overlapping    :
+
+        """
+
+        self.__initime = None
+        self.__lastdatatime = 0
+
+        self.__buffer_spc = []
+        self.__buffer_cspc = []
+        self.__buffer_dc = 0
+
+        self.__profIndex = 0
+        self.__dataReady = False
+        self.__byTime = False
+
+        #self.ByLags = dataOut.ByLags   ###REDEFINIR
+        self.ByLags = False
+
+        if DPL != None:
+            self.DPL=DPL
+        else:
+            #self.DPL=dataOut.DPL    ###REDEFINIR
+            self.DPL=0
+
+        if n is None and timeInterval is None:
+            raise ValueError("n or timeInterval should be specified ...")
+
+        if n is not None:
+            self.n = int(n)
+        else:
+
+            self.__integrationtime = int(timeInterval)
+            self.n = None
+            self.__byTime = True
+
+    def putData(self, data_spc, data_cspc, data_dc):
+        """
+        Add a profile to the __buffer_spc and increase in one the __profileIndex
+
+        """
+
+        self.__buffer_spc.append(data_spc)
+
+        if data_cspc is None:
+            self.__buffer_cspc = None
+        else:
+            self.__buffer_cspc.append(data_cspc)
+
+        if data_dc is None:
+            self.__buffer_dc = None
+        else:
+            self.__buffer_dc += data_dc
+
+        self.__profIndex += 1
+
+        return
+
+    def hildebrand_sekhon_Integration(self,data,navg):
+
+        sortdata = numpy.sort(data, axis=None)
+        sortID=data.argsort()
+        lenOfData = len(sortdata)
+        nums_min = lenOfData*0.75
+        if nums_min <= 5:
+            nums_min = 5
+        sump = 0.
+        sumq = 0.
+        j = 0
+        cont = 1
+        while((cont == 1)and(j < lenOfData)):
+            sump += sortdata[j]
+            sumq += sortdata[j]**2
+            if j > nums_min:
+                rtest = float(j)/(j-1) + 1.0/navg
+                if ((sumq*j) > (rtest*sump**2)):
+                    j = j - 1
+                    sump = sump - sortdata[j]
+                    sumq = sumq - sortdata[j]**2
+                    cont = 0
+            j += 1
+        #lnoise = sump / j
+
+        return j,sortID
+
+    def pushData(self):
+        """
+        Return the sum of the last profiles and the profiles used in the sum.
+
+        Affected:
+
+        self.__profileIndex
+
+        """
+        bufferH=None
+        buffer=None
+        buffer1=None
+        buffer_cspc=None
+        self.__buffer_spc=numpy.array(self.__buffer_spc)
+        self.__buffer_cspc=numpy.array(self.__buffer_cspc)
+        freq_dc = int(self.__buffer_spc.shape[2] / 2)
+        #print("FREQ_DC",freq_dc,self.__buffer_spc.shape,self.nHeights)
+        for k in range(7,self.nHeights):
+            buffer_cspc=numpy.copy(self.__buffer_cspc[:,:,:,k])
+            outliers_IDs_cspc=[]
+            cspc_outliers_exist=False
+            for i in range(self.nChannels):#dataOut.nChannels):
+
+                buffer1=numpy.copy(self.__buffer_spc[:,i,:,k])
+                indexes=[]
+                #sortIDs=[]
+                outliers_IDs=[]
+
+                for j in range(self.nProfiles):
+                    if i==0 and j==freq_dc: #NOT CONSIDERING DC PROFILE AT CHANNEL 0
+                         continue
+                    if i==1 and j==0: #NOT CONSIDERING DC PROFILE AT CHANNEL 1
+                         continue
+                    buffer=buffer1[:,j]
+                    index,sortID=self.hildebrand_sekhon_Integration(buffer,1)
+
+                    indexes.append(index)
+                    #sortIDs.append(sortID)
+                    outliers_IDs=numpy.append(outliers_IDs,sortID[index:])
+
+                outliers_IDs=numpy.array(outliers_IDs)
+                outliers_IDs=outliers_IDs.ravel()
+                outliers_IDs=numpy.unique(outliers_IDs)
+                outliers_IDs=outliers_IDs.astype(numpy.dtype('int64'))
+                indexes=numpy.array(indexes)
+                indexmin=numpy.min(indexes)
+
+                if indexmin != buffer1.shape[0]:
+                    cspc_outliers_exist=True
+                    ###sortdata=numpy.sort(buffer1,axis=0)
+                    ###avg2=numpy.mean(sortdata[:indexmin,:],axis=0)
+                    lt=outliers_IDs
+                    avg=numpy.mean(buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:],axis=0)
+
+                    for p in list(outliers_IDs):
+                        buffer1[p,:]=avg
+
+                self.__buffer_spc[:,i,:,k]=numpy.copy(buffer1)
+                ###cspc IDs
+                #indexmin_cspc+=indexmin_cspc
+                outliers_IDs_cspc=numpy.append(outliers_IDs_cspc,outliers_IDs)
+
+            #if not breakFlag:
+            outliers_IDs_cspc=outliers_IDs_cspc.astype(numpy.dtype('int64'))
+            if cspc_outliers_exist:
+                #sortdata=numpy.sort(buffer_cspc,axis=0)
+                #avg=numpy.mean(sortdata[:indexmin_cpsc,:],axis=0)
+                lt=outliers_IDs_cspc
+
+                avg=numpy.mean(buffer_cspc[[t for t in range(buffer_cspc.shape[0]) if t not in lt],:],axis=0)
+                for p in list(outliers_IDs_cspc):
+                    buffer_cspc[p,:]=avg
+
+            self.__buffer_cspc[:,:,:,k]=numpy.copy(buffer_cspc)
+            #else:
+                #break
+
+
+
+
+        buffer=None
+        bufferH=None
+        buffer1=None
+        buffer_cspc=None
+
+        #print("cpsc",self.__buffer_cspc[:,0,0,0,0])
+        #print(self.__profIndex)
+        #exit()
+
+        buffer=None
+        #print(self.__buffer_spc[:,1,3,20,0])
+        #print(self.__buffer_spc[:,1,5,37,0])
+        data_spc = numpy.sum(self.__buffer_spc,axis=0)
+        data_cspc = numpy.sum(self.__buffer_cspc,axis=0)
+
+        #print(numpy.shape(data_spc))
+        #data_spc[1,4,20,0]=numpy.nan
+
+        #data_cspc = self.__buffer_cspc
+        data_dc = self.__buffer_dc
+        n = self.__profIndex
+
+        self.__buffer_spc = []
+        self.__buffer_cspc = []
+        self.__buffer_dc = 0
+        self.__profIndex = 0
+
+        return data_spc, data_cspc, data_dc, n
+
+    def byProfiles(self, *args):
+
+        self.__dataReady = False
+        avgdata_spc = None
+        avgdata_cspc = None
+        avgdata_dc = None
+
+        self.putData(*args)
+
+        if self.__profIndex == self.n:
+
+            avgdata_spc, avgdata_cspc, avgdata_dc, n = self.pushData()
+            self.n = n
+            self.__dataReady = True
+
+        return avgdata_spc, avgdata_cspc, avgdata_dc
+
+    def byTime(self, datatime, *args):
+
+        self.__dataReady = False
+        avgdata_spc = None
+        avgdata_cspc = None
+        avgdata_dc = None
+
+        self.putData(*args)
+
+        if (datatime - self.__initime) >= self.__integrationtime:
+            avgdata_spc, avgdata_cspc, avgdata_dc, n = self.pushData()
+            self.n = n
+            self.__dataReady = True
+
+        return avgdata_spc, avgdata_cspc, avgdata_dc
+
+    def integrate(self, datatime, *args):
+
+        if self.__profIndex == 0:
+            self.__initime = datatime
+
+        if self.__byTime:
+            avgdata_spc, avgdata_cspc, avgdata_dc = self.byTime(
+                datatime, *args)
+        else:
+            avgdata_spc, avgdata_cspc, avgdata_dc = self.byProfiles(*args)
+
+        if not self.__dataReady:
+            return None, None, None, None
+
+        return self.__initime, avgdata_spc, avgdata_cspc, avgdata_dc
+
+    def run(self, dataOut, n=None, DPL = None,timeInterval=None, overlapping=False):
+        if n == 1:
+            return dataOut
+
+        dataOut.flagNoData = True
+
+        if not self.isConfig:
+            self.setup(dataOut, n, timeInterval, overlapping,DPL )
+            self.isConfig = True
+
+        if not self.ByLags:
+            self.nProfiles=dataOut.nProfiles
+            self.nChannels=dataOut.nChannels
+            self.nHeights=dataOut.nHeights
+            avgdatatime, avgdata_spc, avgdata_cspc, avgdata_dc = self.integrate(dataOut.utctime,
+                                                                                dataOut.data_spc,
+                                                                                dataOut.data_cspc,
+                                                                                dataOut.data_dc)
+        else:
+            self.nProfiles=dataOut.nProfiles
+            self.nChannels=dataOut.nChannels
+            self.nHeights=dataOut.nHeights
+            avgdatatime, avgdata_spc, avgdata_cspc, avgdata_dc = self.integrate(dataOut.utctime,
+                                                                                dataOut.dataLag_spc,
+                                                                                dataOut.dataLag_cspc,
+                                                                                dataOut.dataLag_dc)
+
+        if self.__dataReady:
+
+            if not self.ByLags:
+
+                dataOut.data_spc = numpy.squeeze(avgdata_spc)
+                dataOut.data_cspc = numpy.squeeze(avgdata_cspc)
+                dataOut.data_dc = avgdata_dc
+            else:
+                dataOut.dataLag_spc = avgdata_spc
+                dataOut.dataLag_cspc = avgdata_cspc
+                dataOut.dataLag_dc = avgdata_dc
+
+                dataOut.data_spc=dataOut.dataLag_spc[:,:,:,dataOut.LagPlot]
+                dataOut.data_cspc=dataOut.dataLag_cspc[:,:,:,dataOut.LagPlot]
+                dataOut.data_dc=dataOut.dataLag_dc[:,:,dataOut.LagPlot]
+
+
+            dataOut.nIncohInt *= self.n
+            dataOut.utctime = avgdatatime
+            dataOut.flagNoData = False
+
+        return dataOut
+
+class HybridSelectSpectra(Operation):
+    """Operation to rearange and use selected channels of spectra data and pairs of cross-spectra data for Hybrid Experiment.
+
+    Parameters:
+    -----------
+    spc_channs : list
+        Selected channels.
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='SelectSpectra', optype='other')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+
+        self.dataLag_spc=None
+        self.dataLag_cspc=None
+        self.dataLag_dc=None
+
+    def select_spc(self,spc,spc_channs):
+
+        buffer = spc[spc_channs]
+
+        return buffer
+
+
+    def run(self,dataOut,spc_channs=None,cspc_pairs=None):
+        #print("HERE")
+        if spc_channs != None:
+            channelIndexList = []
+            for channel in spc_channs:
+                if channel not in dataOut.channelList:
+                    raise ValueError("Channel %d is not in %s" %(channel, str(dataOut.channelList)))
+
+                index = dataOut.channelList.index(channel)
+                channelIndexList.append(index)
+            #print(dataOut.dataLag_spc.shape)
+            dataOut.dataLag_spc = self.select_spc(dataOut.dataLag_spc,channelIndexList)
+            aux = dataOut.nChannels
+            dataOut.channelList = range(dataOut.nLags)
+            dataOut.nLags = aux
+            #dataOut.nLags = len(spc_channs)
+            dataOut.dataLag_spc = numpy.transpose(dataOut.dataLag_spc,(3,1,2,0))
+            #print(dataOut.dataLag_spc.shape)
+            #exit(1)
+        dataOut.dataLag_cspc = numpy.transpose(dataOut.dataLag_cspc,(3,1,2,0))
+
+        dataOut.dataLag_spc = numpy.concatenate((dataOut.dataLag_spc,dataOut.dataLag_cspc),axis=-1)
+        dataOut.dataLag_cspc = None
+
+        dataOut.data_spc = dataOut.dataLag_spc[0].real
+        #print(dataOut.getNoise())
+        #print(dataOut.data_spc)
+        #exit(1)
+        dataOut.data_cspc = None
 
         return dataOut
 
@@ -1563,6 +3343,11 @@ class IncohIntLag(Operation):
                                                                                 dataOut.data_cspc,
                                                                                 dataOut.data_dc)
         else:
+            '''
+            print(numpy.sum(dataOut.dataLag_cspc[0,:,20,0].real)/32)
+            print(numpy.sum(dataOut.dataLag_cspc[0,:,20,0].imag)/32)
+            exit(1)
+            '''
             avgdatatime, avgdata_spc, avgdata_cspc, avgdata_dc = self.integrate(dataOut.utctime,
                                                                                 dataOut.dataLag_spc,
                                                                                 dataOut.dataLag_cspc,
@@ -1578,16 +3363,29 @@ class IncohIntLag(Operation):
                 dataOut.dataLag_spc = avgdata_spc
                 dataOut.dataLag_cspc = avgdata_cspc
                 dataOut.dataLag_dc = avgdata_dc
-                '''
-                print(dataOut.LagPlot)
-                print(dataOut.dataLag_spc[0,0,12,:])
-                exit()
-                '''
 
-                dataOut.data_spc=dataOut.dataLag_spc[:,:,:,dataOut.LagPlot]#*numpy.NaN
+                #print(dataOut.LagPlot)
+                #print(dataOut.dataLag_spc[1,:,100,2])
+                #print(numpy.sum(dataOut.dataLag_spc[1,:,100,2]))
+                #exit(1)
+
+                #print("HERE")
+                '''
+                print(numpy.sum(dataOut.dataLag_spc[0,:,20,10])/32)
+                print(numpy.sum(dataOut.dataLag_spc[1,:,20,10])/32)
+                #exit(1)
+                '''
+                '''
+                print(numpy.sum(dataOut.dataLag_cspc[0,:,20,0].real)/32)
+                print(numpy.sum(dataOut.dataLag_cspc[0,:,20,0].imag)/32)
+                exit(1)
+                '''
+                dataOut.data_spc=dataOut.dataLag_spc[:,:,:,dataOut.LagPlot].real#*numpy.NaN
+
                 #print("done")
                 #print(dataOut.dataLag_spc[0,0,0,2])
-                dataOut.data_cspc=dataOut.dataLag_cspc[:,:,:,dataOut.LagPlot]
+                if dataOut.dataLag_cspc is not None:
+                    dataOut.data_cspc=dataOut.dataLag_cspc[:,:,:,dataOut.LagPlot]
                 dataOut.data_dc=dataOut.dataLag_dc[:,:,dataOut.LagPlot]
 
 
@@ -1664,9 +3462,12 @@ class IncohInt(Operation):
         Add a profile to the __buffer_spc and increase in one the __profileIndex
 
         """
-
+        #import sys#
+        #from pympler.asizeof import asizeof
         self.__buffer_spc += data_spc
-
+        #print(numpy.shape(self.__buffer_spc))
+        #print("bytes",sys.getsizeof(self.__buffer_spc))
+        #print("bytes",asizeof(self.__buffer_spc))
         if data_cspc is None:
             self.__buffer_cspc = None
         else:
@@ -1754,7 +3555,8 @@ class IncohInt(Operation):
 
     def run(self, dataOut, n=None, timeInterval=None, overlapping=False):
 
-
+        #print(dataOut.getFreqRange(1)/1000.)
+        #exit(1)
 
         if n == 1:
             return dataOut
@@ -1771,13 +3573,23 @@ class IncohInt(Operation):
                                                                             dataOut.data_dc)
 
         if self.__dataReady:
-
+            #print(numpy.sum(avgdata_spc))
             dataOut.data_spc = avgdata_spc
             dataOut.data_cspc = avgdata_cspc
             dataOut.data_dc = avgdata_dc
             dataOut.nIncohInt *= self.n
             dataOut.utctime = avgdatatime
             dataOut.flagNoData = False
+            #exit(1)
+            #print(numpy.sum(dataOut.data_spc[0,:,53]*numpy.conjugate(dataOut.data_spc[0,:,53])))
+            #print(numpy.sum(dataOut.data_spc[1,:,53]*numpy.conjugate(dataOut.data_spc[1,:,53])))
+            #print(numpy.sum(dataOut.data_spc[0,:,53]))
+            #print(numpy.sum(dataOut.data_spc[1,:,53]))
+
+            #import matplotlib.pyplot as plt
+            #plt.plot(numpy.log10(dataOut.data_spc[1,:,53]/dataOut.normFactor))
+            #plt.show()
+            #exit(1)
 
             #print(dataOut.data_spc.shape)
             #print(dataOut.data_spc[0,0,0])
@@ -1821,6 +3633,51 @@ class IncohInt(Operation):
             '''
 
             #exit(1)
+        #print("Incoh", dataOut.flagNoData)
+        return dataOut
+
+class SnrFaraday(Operation):
+    """Operation to use get SNR in Faraday processing.
+
+    Parameters:
+    -----------
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='SnrFaraday', optype='other')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+
+
+    def run(self,dataOut):
+
+        noise = dataOut.getNoise()
+        maxdB = 16
+
+        #dataOut.data_snr = (dataOut.data_spc.sum(axis=1)-noise[:,None])/(noise[:,None]*dataOut.normFactor)
+        print("normFactor: ",dataOut.normFactor)
+        print("nFFTPoints: ",dataOut.nFFTPoints)
+        normFactor = 24
+        print("Power: ",dataOut.data_spc.sum(axis=1)/dataOut.nFFTPoints)
+        print("Noise: ",noise)
+        print("Power dB: ",10*numpy.log10(dataOut.data_spc.sum(axis=1)/dataOut.nFFTPoints))
+        print("Noise dB: ",10*numpy.log10(noise))
+        #dataOut.data_snr = (dataOut.data_spc.sum(axis=1))/(noise[:,None]*dataOut.normFactor)
+        dataOut.data_snr = (dataOut.data_spc.sum(axis=1))/(noise[:,None]*dataOut.nFFTPoints)
+        snr_dB = 10*numpy.log10(dataOut.data_snr)
+        print("Snr: ",snr_dB)
+        '''
+        for nch in range(dataOut.data_snr.shape[0]):
+            for i in range(dataOut.data_snr.shape[1]):
+                if snr_dB[nch,i] > maxdB:
+                    dataOut.data_spc[nch,:,i] = numpy.nan
+                    dataOut.data_snr[nch,i] = numpy.nan
+                    '''
 
         return dataOut
 
@@ -1863,17 +3720,27 @@ class SpectraDataToFaraday(Operation):
         tmpx_abr=numpy.zeros((dataOut.nHeights,dataOut.DPL,2),'float32')
         tmpx_abi=numpy.zeros((dataOut.nHeights,dataOut.DPL,2),'float32')
         dataOut.kabxys_integrated=[tmpx,tmpx,tmpx,tmpx,tmpx_a2,tmpx,tmpx_b2,tmpx,tmpx_abr,tmpx,tmpx_abi,tmpx,tmpx,tmpx]
-
+        '''
         dataOut.rnint2=numpy.zeros(dataOut.DPL,'float32')
         for l in range(dataOut.DPL):
-            dataOut.rnint2[l]=1.0/(dataOut.nIncohInt*dataOut.nProfiles)#*dataOut.nProfiles
-
+            if(l==0 or (l>=3 and l <=6)):
+                dataOut.rnint2[l]=1.0/(dataOut.nIncohInt*dataOut.nProfiles)
+            else:
+                dataOut.rnint2[l]=2*(1.0/(dataOut.nIncohInt*dataOut.nProfiles))
+                '''
+        #for l in range(dataOut.DPL):
+            #dataOut.rnint2[l]=1.0/(dataOut.nIncohInt*dataOut.nProfiles)#*dataOut.nProfiles
 
 
         self.dataLag_spc=(dataOut.dataLag_spc.sum(axis=1))*(dataOut.rnint2[0]/dataOut.nProfiles)
         self.dataLag_cspc=(dataOut.dataLag_cspc.sum(axis=1))*(dataOut.rnint2[0]/dataOut.nProfiles)
-        #self.dataLag_dc=dataOut.dataLag_dc.sum(axis=1)/dataOut.rnint2[0]
 
+
+        '''
+        self.dataLag_spc=(dataOut.dataLag_spc.sum(axis=1))*(dataOut.rnint2[0]/dataOut.nProfiles)
+        self.dataLag_cspc=(dataOut.dataLag_cspc.sum(axis=1))*(dataOut.rnint2[0]/dataOut.nProfiles)
+        #self.dataLag_dc=dataOut.dataLag_dc.sum(axis=1)/dataOut.rnint2[0]
+        '''
 
         dataOut.kabxys_integrated[4][:,:,0]=self.dataLag_spc[0,:,:].real
         #dataOut.kabxys_integrated[5][:,:,0]+=self.dataLag_spc[0,:,:].imag
@@ -1893,10 +3760,175 @@ class SpectraDataToFaraday(Operation):
         input()
         '''
 
+    def normFactor(self,dataOut):
+        dataOut.rnint2=numpy.zeros(dataOut.DPL,'float32')
+        for l in range(dataOut.DPL):
+            dataOut.rnint2[l]=1.0/(dataOut.nIncohInt*dataOut.nProfiles)
+
+
+    def run(self,dataOut):
+        #print(dataOut.nIncohInt)
+        #exit(1)
+        dataOut.paramInterval=dataOut.nIncohInt*2*2#nIncohInt*numero de fft/nprofiles*segundos de cada muestra
+        dataOut.lat=-11.95
+        dataOut.lon=-76.87
+
+
+        self.normFactor(dataOut)
+
+        dataOut.NDP=dataOut.nHeights
+        dataOut.NR=len(dataOut.channelList)
+        dataOut.DH=dataOut.heightList[1]-dataOut.heightList[0]
+        dataOut.H0=int(dataOut.heightList[0])
+
+        self.ConvertData(dataOut)
+
+        dataOut.NAVG=16#dataOut.rnint2[0] #CHECK THIS!
+        dataOut.MAXNRANGENDT=dataOut.NDP
+
+        dataOut.noise_lag = numpy.zeros((dataOut.nChannels,dataOut.DPL),'float32')
+        #print("Lags")
+        '''
+        for lag in range(dataOut.DPL):
+            #print(lag)
+            dataOut.data_spc = dataOut.dataLag_spc[:,:,:,lag]
+            dataOut.noise_lag[:,lag] = dataOut.getNoise(ymin_index=46)
+            #dataOut.noise_lag[:,lag] = dataOut.getNoise(ymin_index=33,ymax_index=46)
+            '''
+        #print(dataOut.NDP)
+        #exit(1)
+        #Channel B
+        for lag in range(dataOut.DPL):
+            #print(lag)
+            dataOut.data_spc = dataOut.dataLag_spc[:,:,:,lag]
+            max_hei_id = dataOut.NDP - 2*lag
+            #if lag < 6:
+            dataOut.noise_lag[1,lag] = dataOut.getNoise(ymin_index=53,ymax_index=max_hei_id)[1]
+            #else:
+                #dataOut.noise_lag[1,lag] = numpy.mean(dataOut.noise_lag[1,:6])
+            #dataOut.noise_lag[:,lag] = dataOut.getNoise(ymin_index=33,ymax_index=46)
+        #Channel A
+        for lag in range(dataOut.DPL):
+            #print(lag)
+            dataOut.data_spc = dataOut.dataLag_spc[:,:,:,lag]
+            dataOut.noise_lag[0,lag] = dataOut.getNoise(ymin_index=53)[0]
+
+        nanindex = numpy.argwhere(numpy.isnan(numpy.log10(dataOut.noise_lag[1,:])))
+        i1 = nanindex[0][0]
+        dataOut.noise_lag[1,i1:] = numpy.mean(dataOut.noise_lag[1,:i1]) #El ruido de lags contaminados se
+                                                                        #determina a partir del promedio del
+                                                                        #ruido de los lags limpios
+        '''
+        dataOut.noise_lag[1,:] = dataOut.noise_lag[1,0] #El ruido de los lags diferentes de cero para
+                                                        #el canal B es contaminado por el Tx y EEJ
+                                                        #del siguiente perfil, por ello se asigna el ruido
+                                                        #del lag 0 a todos los lags
+                                                        '''
+        #print("Noise lag: ", 10*numpy.log10(dataOut.noise_lag/dataOut.normFactor))
+        #exit(1)
+        '''
+        dataOut.tnoise = dataOut.getNoise(ymin_index=46)
+        dataOut.tnoise /= float(dataOut.nProfiles*dataOut.nIncohInt)
+        dataOut.pan = dataOut.tnoise[0]
+        dataOut.pbn = dataOut.tnoise[1]
+        '''
+
+        dataOut.tnoise = dataOut.noise_lag/float(dataOut.nProfiles*dataOut.nIncohInt)
+        #dataOut.tnoise /= float(dataOut.nProfiles*dataOut.nIncohInt)
+        dataOut.pan = dataOut.tnoise[0]
+        dataOut.pbn = dataOut.tnoise[1]
+
+        #dataOut.pan = numpy.mean(dataOut.pan)
+        #dataOut.pbn = numpy.mean(dataOut.pbn)
+        #print(dataOut.pan)
+        #print(dataOut.pbn)
+        #exit(1)
+
+        #print("Noise: ",dataOut.tnoise)
+        #print("Noise dB: ",10*numpy.log10(dataOut.tnoise))
+        #exit(1)
+        #dataOut.pan=dataOut.tnoise[0]/float(dataOut.nProfiles_LP*dataOut.nIncohInt)
+
+        return dataOut
 
 
 
+class SpectraDataToHybrid(SpectraDataToFaraday):
+    """Operation to use spectra data in Faraday processing.
 
+    Parameters:
+    -----------
+    nint : int
+        Number of integrations.
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='SpectraDataToFaraday', optype='other')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+
+        self.dataLag_spc=None
+        self.dataLag_cspc=None
+        self.dataLag_dc=None
+        self.dataLag_spc_LP=None
+        self.dataLag_cspc_LP=None
+        self.dataLag_dc_LP=None
+
+    def noise(self,dataOut):
+        '''
+        for i in range(dataOut.NR):
+            dataOut.pnoise[i]=0.0
+            for k in range(dataOut.DPL):
+                dataOut.pnoise[i]+= dataOut.getNoise()
+                '''
+        #print(dataOut.dataLag_spc_LP[:,:,:,0])
+        dataOut.data_spc = dataOut.dataLag_spc_LP[:,:,:,0].real
+        dataOut.tnoise = dataOut.getNoise()
+        #print(dataOut.tnoise)
+        #exit(1)
+        dataOut.tnoise[0]*=0.995#0.976
+        dataOut.tnoise[1]*=0.995
+        #print(dataOut.nProfiles)
+        dataOut.pan=dataOut.tnoise[0]/float(dataOut.nProfiles_LP*dataOut.nIncohInt)
+        dataOut.pbn=dataOut.tnoise[1]/float(dataOut.nProfiles_LP*dataOut.nIncohInt)
+        #print("pan: ",dataOut.pan)
+        #print("pbn: ",dataOut.pbn)
+        #print(numpy.shape(dataOut.pnoise))
+        #exit(1)
+
+
+
+    def ConvertDataLP(self,dataOut):
+
+        #print(dataOut.dataLag_spc[:,:,:,1]/dataOut.data_spc)
+        #exit(1)
+        normfactor=1.0/(dataOut.nIncohInt_LP*dataOut.nProfiles_LP)#*dataOut.nProfiles
+
+        buffer = self.dataLag_spc_LP=(dataOut.dataLag_spc_LP.sum(axis=1))*(1./dataOut.nProfiles_LP)
+        ##self.dataLag_cspc_LP=(dataOut.dataLag_cspc_LP.sum(axis=1))*(1./dataOut.nProfiles_LP)
+        #self.dataLag_dc=dataOut.dataLag_dc.sum(axis=1)/dataOut.rnint2[0]
+        #aux=numpy.expand_dims(self.dataLag_spc_LP, axis=2)
+        #print(aux.shape)
+        ##buffer = numpy.concatenate((numpy.expand_dims(self.dataLag_spc_LP, axis=2),self.dataLag_cspc_LP),axis=2)
+        dataOut.output_LP_integrated = numpy.transpose(buffer,(2,1,0))
+        #print("lP",numpy.shape(dataOut.output_LP_integrated))
+        #exit(1)
+        #print(numpy.shape(dataOut.output_LP_integrated))
+
+        #exit(1)
+
+    def normFactor(self,dataOut):
+        dataOut.rnint2=numpy.zeros(dataOut.DPL,'float32')
+        for l in range(dataOut.DPL):
+            if(l==0 or (l>=3 and l <=6)):
+                dataOut.rnint2[l]=1.0/(dataOut.nIncohInt*dataOut.nProfiles)
+            else:
+                dataOut.rnint2[l]=2*(1.0/(dataOut.nIncohInt*dataOut.nProfiles))
 
     def run(self,dataOut):
 
@@ -1908,10 +3940,74 @@ class SpectraDataToFaraday(Operation):
         dataOut.NR=len(dataOut.channelList)
         dataOut.DH=dataOut.heightList[1]-dataOut.heightList[0]
         dataOut.H0=int(dataOut.heightList[0])
+        #print(numpy.shape(dataOut.dataLag_spc))
+        #print("a",numpy.sum(dataOut.dataLag_spc[0,:,20,10]))
+        #print(numpy.sum(dataOut.dataLag_spc[1,:,20,10]))
+        self.normFactor(dataOut)
+
+        self.ConvertDataLP(dataOut)
+
+        dataOut.output_LP_integrated[:,:,3] *= float(dataOut.NSCAN/22)#(dataOut.nNoiseProfiles) #Corrects the zero padding
+
+        dataOut.nis=dataOut.NSCAN*dataOut.nIncohInt_LP*10
+
+        #print(dataOut.output_LP_integrated[0,30,1])
+        #exit(1)
 
         self.ConvertData(dataOut)
 
-        dataOut.NAVG=16#dataOut.rnint2[0] #CHECK THIS!
-        dataOut.MAXNRANGENDT=dataOut.NDP
+        dataOut.kabxys_integrated[4][:,(1,2,7,8,9,10),0] *= 2 #Corrects the zero padding
+        dataOut.kabxys_integrated[6][:,(1,2,7,8,9,10),0] *= 2 #Corrects the zero padding
+        dataOut.kabxys_integrated[8][:,(1,2,7,8,9,10),0] *= 2 #Corrects the zero padding
+        dataOut.kabxys_integrated[10][:,(1,2,7,8,9,10),0] *= 2 #Corrects the zero padding
+        hei = 2
+        '''
+        for hei in range(67):
+            print("hei",hei)
+            print(dataOut.kabxys_integrated[8][hei,:,0])#+dataOut.kabxys_integrated[11][53,6,0])
+            print(dataOut.kabxys_integrated[10][hei,:,0])#+dataOut.kabxys_integrated[11][53,9,0])
+
+        exit(1)
+        '''
+        #print(dataOut.dataLag_spc_LP.shape)
+        #exit(1)
+        #[:,:,:,0]
+
+        self.noise(dataOut)
+
+
+        hei = 53
+        lag = 0
+        '''
+        print("b",dataOut.kabxys_integrated[4][hei,lag,0])
+        print(dataOut.kabxys_integrated[6][hei,lag,0])
+
+        print("c",dataOut.kabxys_integrated[8][hei,lag,0])
+        print(dataOut.kabxys_integrated[10][hei,lag,0])
+        exit(1)
+        '''
+        #'''
+        #print(dataOut.tnoise)
+        #print(dataOut.pbn)
+        #exit(1)
+        #'''
+        #'''
+
+        #print(dataOut.pan)
+        #print(dataOut.pbn)
+        #print(dataOut.tnoise[0])
+        #dataOut.pan = 143.91122436523438
+        #dataOut.pbn = 249.5623575846354
+
+        #dataOut.tnoise[0] = 8.8419056e+05
+
+
+        #'''
+
+        dataOut.NAVG=1#dataOut.rnint2[0] #CHECK THIS!
+        dataOut.nint=dataOut.nIncohInt
+        dataOut.MAXNRANGENDT=dataOut.NRANGE
+
+        #exit(1)
 
         return dataOut

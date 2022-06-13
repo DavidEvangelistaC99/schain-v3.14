@@ -108,6 +108,8 @@ def hildebrand_sekhon(data, navg):
         j += 1
 
     lnoise = sump / j
+
+    return lnoise
     '''
     return _noise.hildebrand_sekhon(sortdata, navg)
 
@@ -375,7 +377,7 @@ class Voltage(JROData):
         self.metadata_list = ['type', 'heightList', 'timeZone', 'nProfiles', 'channelList', 'nCohInt',
             'code', 'nCode', 'nBaud', 'ippSeconds', 'ipp']
 
-    def getNoisebyHildebrand(self, channel=None):
+    def getNoisebyHildebrand(self, channel=None, Profmin_index=None, Profmax_index=None):
         """
         Determino el nivel de ruido usando el metodo Hildebrand-Sekhon
 
@@ -397,15 +399,17 @@ class Voltage(JROData):
             if nChannels == 1:
                 daux = power[:].real
             else:
-                daux = power[thisChannel, :].real
+                #print(power.shape)
+                daux = power[thisChannel, Profmin_index:Profmax_index, :].real
+                #print(daux.shape)
             noise[thisChannel] = hildebrand_sekhon(daux, self.nCohInt)
 
         return noise
 
-    def getNoise(self, type=1, channel=None):
+    def getNoise(self, type=1, channel=None, Profmin_index=None, Profmax_index=None):
 
         if type == 1:
-            noise = self.getNoisebyHildebrand(channel)
+            noise = self.getNoisebyHildebrand(channel, Profmin_index, Profmax_index)
 
         return noise
 
@@ -477,6 +481,8 @@ class Spectra(JROData):
         noise = numpy.zeros(self.nChannels)
 
         for channel in range(self.nChannels):
+            #print(self.data_spc[0])
+            #exit(1)
             daux = self.data_spc[channel,
                                  xmin_index:xmax_index, ymin_index:ymax_index]
             noise[channel] = hildebrand_sekhon(daux, self.nIncohInt)
@@ -489,6 +495,7 @@ class Spectra(JROData):
             # this was estimated by getNoise Operation defined in jroproc_spectra.py
             return self.noise_estimation
         else:
+
             noise = self.getNoisebyHildebrand(
                 xmin_index, xmax_index, ymin_index, ymax_index)
             return noise

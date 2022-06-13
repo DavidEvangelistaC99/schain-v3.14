@@ -33,8 +33,8 @@ class SpectraHeisPlot(Plot):
         meta = {}
         spc = 10*numpy.log10(dataOut.data_spc / dataOut.normFactor)
         data['spc_heis'] = spc
-    
-        return data, meta 
+
+        return data, meta
 
     def plot(self):
 
@@ -43,6 +43,7 @@ class SpectraHeisPlot(Plot):
         x = numpy.arange(-1*len(self.data.yrange)/2., len(self.data.yrange)/2.)*(c/(2*deltaHeight*len(self.data.yrange)*1000))
         self.y = self.data[-1]['spc_heis']
         self.titles = []
+        print("x: ",x)
 
         for n, ax in enumerate(self.axes):
             ychannel = self.y[n,:]
@@ -80,8 +81,8 @@ class RTIHeisPlot(Plot):
         spc = dataOut.data_spc / dataOut.normFactor
         spc = 10*numpy.log10(numpy.average(spc, axis=1))
         data['rti_heis'] = spc
-    
-        return data, meta 
+
+        return data, meta
 
     def plot(self):
 

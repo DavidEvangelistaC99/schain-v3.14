@@ -623,9 +623,13 @@ class VoltageWriter(JRODataWriter, Operation):
         if self.profileIndex == 0:
             self.setBasicHeader()
 
-        self.datablock[:, self.profileIndex, :] = self.dataOut.data
+        if not self.dataOut.flagDataAsBlock:
+            self.datablock[:, self.profileIndex, :] = self.dataOut.data
 
-        self.profileIndex += 1
+            self.profileIndex += 1
+        else:
+            self.datablock[:,:,:] = self.dataOut.data
+            self.profileIndex = self.processingHeaderObj.profilesPerBlock
 
         if self.hasAllDataInBuffer():
             # if self.flagIsNewFile:

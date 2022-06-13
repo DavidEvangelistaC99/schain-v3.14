@@ -64,6 +64,7 @@ class SpectraProc(ProcessingUnit):
         self.dataOut.beam.codeList = self.dataIn.beam.codeList
         self.dataOut.beam.azimuthList = self.dataIn.beam.azimuthList
         self.dataOut.beam.zenithList = self.dataIn.beam.zenithList
+        self.dataOut.runNextUnit = self.dataIn.runNextUnit
         try:
             self.dataOut.step = self.dataIn.step
         except:
@@ -121,8 +122,9 @@ class SpectraProc(ProcessingUnit):
         self.dataOut.blockSize = blocksize
         self.dataOut.flagShiftFFT = False
 
-    def run(self, nProfiles=None, nFFTPoints=None, pairsList=None, ippFactor=None, shift_fft=False):
-
+    def run(self, nProfiles=None, nFFTPoints=None, pairsList=None, ippFactor=None, shift_fft=False, runNextUnit = 0):
+        
+        self.dataIn.runNextUnit = runNextUnit
         if self.dataIn.type == "Spectra":
             self.dataOut.copy(self.dataIn)
             if shift_fft:
@@ -169,7 +171,9 @@ class SpectraProc(ProcessingUnit):
                     if self.profIndex == 0:
                         self.id_min = 0
                         self.id_max = nVoltProfiles
-
+                    #print(self.id_min)
+                    #print(self.id_max)
+                    #print(numpy.shape(self.buffer))
                     self.buffer[:, self.id_min:self.id_max,
                                 :] = self.dataIn.data
                     self.profIndex += nVoltProfiles
@@ -199,6 +203,7 @@ class SpectraProc(ProcessingUnit):
         else:
             raise ValueError("The type of input object '%s' is not valid".format(
                 self.dataIn.type))
+
 
     def __selectPairs(self, pairsList):
 
@@ -331,6 +336,7 @@ class SpectraProc(ProcessingUnit):
 
     def getNoise(self, minHei=None, maxHei=None, minVel=None, maxVel=None):
         # validacion de rango
+        print("NOISeeee")
         if minHei == None:
             minHei = self.dataOut.heightList[0]
 
@@ -856,7 +862,7 @@ class IncohInt(Operation):
     def run(self, dataOut, n=None, timeInterval=None, overlapping=False):
         if n == 1:
             return dataOut
-
+        print("JERE")
         dataOut.flagNoData = True
 
         if not self.isConfig:
@@ -871,6 +877,8 @@ class IncohInt(Operation):
         if self.__dataReady:
 
             dataOut.data_spc = avgdata_spc
+            print(numpy.sum(dataOut.data_spc))
+            exit(1)
             dataOut.data_cspc = avgdata_cspc
             dataOut.data_dc = avgdata_dc
             dataOut.nIncohInt *= self.n

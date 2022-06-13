@@ -650,6 +650,7 @@ class EDensityPlot(Plot):
         data['den_power'] = dataOut.ph2[:dataOut.NSHTS]
         data['den_Faraday'] = dataOut.dphi[:dataOut.NSHTS]
         data['den_error'] = dataOut.sdp2[:dataOut.NSHTS]
+        #data['err_Faraday'] = dataOut.sdn1[:dataOut.NSHTS]
 
         data['NSHTS'] = dataOut.NSHTS
 
@@ -671,6 +672,7 @@ class EDensityPlot(Plot):
         DenPow = data['den_power']
         DenFar = data['den_Faraday']
         errDenPow = data['den_error']
+        #errFaraday = data['err_Faraday']
 
         NSHTS = data['NSHTS']
 
@@ -681,13 +683,16 @@ class EDensityPlot(Plot):
 
         if ax.firsttime:
             self.autoxticks=False
-            ax.errorbar(DenFar, y[:NSHTS], xerr=1, fmt='h-',elinewidth=1.0,color='g',linewidth=1.0, label='Faraday Profile',markersize=2)
-            ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power Profile',markersize=2)
+            #ax.errorbar(DenFar, y[:NSHTS], xerr=1, fmt='h-',elinewidth=1.0,color='g',linewidth=1.0, label='Faraday Profile',markersize=2)
+            ax.errorbar(DenFar, y[:NSHTS], xerr=1, fmt='h-',elinewidth=1.0,color='g',linewidth=1.0, label='Faraday',markersize=2)
+            #ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power Profile',markersize=2)
+            ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power',markersize=2)
 
             if self.CODE=='denLP':
                 ax.errorbar(DenPowLP[cut:], y[cut:], xerr=errDenPowLP[cut:], fmt='r^-',elinewidth=1.0,color='r',linewidth=1.0, label='LP Profile',markersize=2)
 
-            plt.legend(loc='upper right')
+            plt.legend(loc='upper left',fontsize=8.5)
+            #plt.legend(loc='lower left',fontsize=8.5)
             ax.set_xscale("log", nonposx='clip')
             grid_y_ticks=numpy.arange(numpy.nanmin(y),numpy.nanmax(y),50)
             self.ystep_given=100
@@ -700,8 +705,10 @@ class EDensityPlot(Plot):
             dataBefore = self.data[-2]
             DenPowBefore = dataBefore['den_power']
             self.clear_figures()
-            ax.errorbar(DenFar, y[:NSHTS], xerr=1, fmt='h-',elinewidth=1.0,color='g',linewidth=1.0, label='Faraday Profile',markersize=2)
-            ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power Profile',markersize=2)
+            #ax.errorbar(DenFar, y[:NSHTS], xerr=1, fmt='h-',elinewidth=1.0,color='g',linewidth=1.0, label='Faraday Profile',markersize=2)
+            ax.errorbar(DenFar, y[:NSHTS], xerr=1, fmt='h-',elinewidth=1.0,color='g',linewidth=1.0, label='Faraday',markersize=2)
+            #ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power Profile',markersize=2)
+            ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power',markersize=2)
             ax.errorbar(DenPowBefore, y[:NSHTS], elinewidth=1.0,color='r',linewidth=0.5,linestyle="dashed")
 
             if self.CODE=='denLP':
@@ -711,17 +718,17 @@ class EDensityPlot(Plot):
             grid_y_ticks=numpy.arange(numpy.nanmin(y),numpy.nanmax(y),50)
             ax.set_yticks(grid_y_ticks,minor=True)
             ax.grid(which='minor')
-            plt.legend(loc='upper right')
+            plt.legend(loc='upper left',fontsize=8.5)
+            #plt.legend(loc='lower left',fontsize=8.5)
 
 class FaradayAnglePlot(Plot):
     '''
     Plot for electron density
     '''
 
-    CODE = 'FaradayAngle'
+    CODE = 'angle'
     plot_name = 'Faraday Angle'
     plot_type = 'scatterbuffer'
-
 
     def setup(self):
 
@@ -730,26 +737,46 @@ class FaradayAnglePlot(Plot):
         self.nplots = 1
         self.ylabel = 'Range [km]'
         self.xlabel = 'Faraday Angle (º)'
-        self.width = 4
-        self.height = 6.5
+        self.titles = ['Electron Density']
+        self.width = 3.5
+        self.height = 5.5
         self.colorbar = False
-        if not self.titles:
-            self.titles = self.data.parameters \
-                if self.data.parameters else ['{}'.format(self.CODE.upper())]
+        self.plots_adjust.update({'left': 0.17, 'right': 0.88, 'bottom': 0.1})
+
+    def update(self, dataOut):
+        data = {}
+        meta = {}
+
+        data['angle'] = numpy.degrees(dataOut.phi)
+        #'''
+        print(dataOut.phi_uwrp)
+        print(data['angle'])
+        exit(1)
+        #'''
+        data['dphi'] = dataOut.dphi_uc*10
+        #print(dataOut.dphi)
+
+        #data['NSHTS'] = dataOut.NSHTS
+
+        #meta['yrange'] = dataOut.heightList[0:dataOut.NSHTS]
+
+        return data, meta
 
     def plot(self):
 
-
-        self.x = self.data[self.CODE]
-        self.y = self.data.heights
-        self.xmin = -180
-        self.xmax = 180
+        data = self.data[-1]
+        self.x = data[self.CODE]
+        dphi = data['dphi']
+        self.y = self.data.yrange
+        self.xmin = -360#-180
+        self.xmax = 360#180
         ax = self.axes[0]
 
         if ax.firsttime:
             self.autoxticks=False
             #if self.CODE=='den':
             ax.plot(self.x, self.y,marker='o',color='g',linewidth=1.0,markersize=2)
+            ax.plot(dphi, self.y,marker='o',color='blue',linewidth=1.0,markersize=2)
 
             grid_y_ticks=numpy.arange(numpy.nanmin(self.y),numpy.nanmax(self.y),50)
             self.ystep_given=100
@@ -763,7 +790,8 @@ class FaradayAnglePlot(Plot):
             self.clear_figures()
             #if self.CODE=='den':
             #print(numpy.shape(self.x))
-            ax.plot(self.x[:,-1], self.y, marker='o',color='g',linewidth=1.0, markersize=2)
+            ax.plot(self.x, self.y, marker='o',color='g',linewidth=1.0, markersize=2)
+            ax.plot(dphi, self.y,marker='o',color='blue',linewidth=1.0,markersize=2)
 
             grid_y_ticks=numpy.arange(numpy.nanmin(self.y),numpy.nanmax(self.y),50)
             ax.set_yticks(grid_y_ticks,minor=True)
@@ -1135,8 +1163,8 @@ class CrossProductsLPPlot(Plot):
 
         for n, ax in enumerate(self.axes):
 
-            self.xmin=30
-            self.xmax=70
+            self.xmin=28#30
+            self.xmax=70#70
             #self.xmin=numpy.min(numpy.concatenate((self.x[0,:,n],self.x[1,:,n])))
             #self.xmax=numpy.max(numpy.concatenate((self.x[0,:,n],self.x[1,:,n])))
 

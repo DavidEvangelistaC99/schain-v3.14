@@ -427,7 +427,7 @@ class Plot(Operation):
                 ax.firsttime = False
                 if self.grid:
                     ax.grid(True)
-            if not self.polar:                
+            if not self.polar:
                 ax.set_title('{} {} {}'.format(
                     self.titles[n],
                     self.getDateTime(self.data.max_time).strftime(
@@ -527,7 +527,7 @@ class Plot(Operation):
 
         figname = os.path.join(
             self.save,
-            self.save_code,
+            #self.save_code,
             '{}_{}.png'.format(
                 self.save_code,
                 self.getDateTime(self.data.min_time).strftime(

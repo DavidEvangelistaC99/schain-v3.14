@@ -11,7 +11,6 @@ import numpy
 
 from schainpy.model.graphics.jroplot_base import Plot, plt, log
 
-
 class SpectraPlot(Plot):
     '''
     Plot for Spectra data
@@ -43,7 +42,17 @@ class SpectraPlot(Plot):
         spc = 10*numpy.log10(dataOut.data_spc/dataOut.normFactor)
         data['spc'] = spc
         data['rti'] = dataOut.getPower()
-        data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
+        #data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
+        if hasattr(dataOut, 'LagPlot'): #Double Pulse
+            max_hei_id = dataOut.nHeights - 2*dataOut.LagPlot
+            #data['noise'] = 10*numpy.log10(dataOut.getNoise(ymin_index=46,ymax_index=max_hei_id)/dataOut.normFactor)
+            #data['noise'] = 10*numpy.log10(dataOut.getNoise(ymin_index=40,ymax_index=max_hei_id)/dataOut.normFactor)
+            data['noise'] = 10*numpy.log10(dataOut.getNoise(ymin_index=53,ymax_index=max_hei_id)/dataOut.normFactor)
+            data['noise'][0] = 10*numpy.log10(dataOut.getNoise(ymin_index=53)[0]/dataOut.normFactor)
+            #data['noise'][1] = 22.035507
+        else:
+            data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
+        #data['noise'] = 10*numpy.log10(dataOut.getNoise(ymin_index=26,ymax_index=44)/dataOut.normFactor)
         meta['xrange'] = (dataOut.getFreqRange(1)/1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
 
         if self.CODE == 'spc_moments':
@@ -89,7 +98,7 @@ class SpectraPlot(Plot):
                 gau1 = data['gaussfit'][n][2,:,1]
             if ax.firsttime:
                 self.xmax = self.xmax if self.xmax else numpy.nanmax(x)
-                self.xmin = self.xmin if self.xmin else -self.xmax
+                self.xmin = self.xmin if self.xmin else numpy.nanmin(x)#-self.xmax
                 self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
                 self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
@@ -660,11 +669,13 @@ class RTIPlot(Plot):
         data = {}
         meta = {}
         data['rti'] = dataOut.getPower()
+
         data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
 
         return data, meta
 
     def plot(self):
+
         self.x = self.data.times
         self.y = self.data.yrange
         self.z = self.data[self.CODE]
@@ -708,7 +719,7 @@ class SpectrogramPlot(Plot):
     Plot for Spectrogram data
     '''
 
-    CODE = 'spectrogram'
+    CODE = 'Spectrogram_Profile'
     colormap = 'binary'
     plot_type = 'pcolorbuffer'
 
@@ -718,33 +729,53 @@ class SpectrogramPlot(Plot):
         self.nrows = len(self.data.channels)
         self.nplots = len(self.data.channels)
         self.xlabel = 'Time'
-        self.cb_label = 'dB'
+        #self.cb_label = 'dB'
         self.plots_adjust.update({'hspace':1.2, 'left': 0.1, 'bottom': 0.12, 'right':0.95})
-        self.titles = ['{} Channel {} \n H = {} km ({} - {})'.format(
-            self.CODE.upper(), x, self.data.heightList[self.data.hei], self.data.heightList[self.data.hei],self.data.heightList[self.data.hei]+(self.data.DH*self.data.nProfiles)) for x in range(self.nrows)]
+        self.titles = []
+
+        #self.titles = ['{} Channel {} \n H = {} km ({} - {})'.format(
+            #self.CODE.upper(), x, self.data.heightList[self.data.hei], self.data.heightList[self.data.hei],self.data.heightList[self.data.hei]+(self.data.DH*self.data.nProfiles)) for x in range(self.nrows)]
+
+        self.titles = ['{} Channel {}'.format(
+            self.CODE.upper(), x) for x in range(self.nrows)]
+
 
     def update(self, dataOut):
         data = {}
         meta = {}
 
-        maxHei = 1350
+        maxHei = 1620#+12000
         indb = numpy.where(dataOut.heightList <= maxHei)
         hei = indb[0][-1]
+        #print(dataOut.heightList)
 
         factor = dataOut.nIncohInt
         z = dataOut.data_spc[:,:,hei] / factor
         z = numpy.where(numpy.isfinite(z), z, numpy.NAN)
         #buffer = 10 * numpy.log10(z)
 
-        self.hei = hei
-        self.heightList = dataOut.heightList
-        self.DH = (dataOut.heightList[1] - dataOut.heightList[0])/dataOut.step
-        self.nProfiles = dataOut.nProfiles
+        meta['xrange'] = (dataOut.getFreqRange(1)/1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
+
+
+        #self.hei = hei
+        #self.heightList = dataOut.heightList
+        #self.DH = (dataOut.heightList[1] - dataOut.heightList[0])/dataOut.step
+        #self.nProfiles = dataOut.nProfiles
 
         data['Spectrogram_Profile'] = 10 * numpy.log10(z)
 
-        meta['yrange'] = dataOut.heightList[0:dataOut.NSHTS]
+        data['hei'] = hei
+        data['DH'] = (dataOut.heightList[1] - dataOut.heightList[0])/dataOut.step
+        data['nProfiles'] = dataOut.nProfiles
+        #meta['yrange'] = dataOut.heightList[0:dataOut.NSHTS]
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(10 * numpy.log10(z[0,:]))
+        plt.show()
 
+        from time import sleep
+        sleep(10)
+        '''
         return data, meta
 
     def plot(self):
@@ -752,6 +783,10 @@ class SpectrogramPlot(Plot):
         self.x = self.data.times
         self.z = self.data[self.CODE]
         self.y = self.data.xrange[0]
+
+        hei = self.data['hei'][-1]
+        DH = self.data['DH'][-1]
+        nProfiles = self.data['nProfiles'][-1]
 
         self.ylabel = "Frequency (kHz)"
 
@@ -772,11 +807,6 @@ class SpectrogramPlot(Plot):
                                        vmax=self.zmax,
                                        cmap=plt.get_cmap(self.colormap)
                                        )
-                if self.showprofile:
-                    ax.plot_profile = self.pf_axes[n].plot(
-                        data['rti'][n], self.y)[0]
-                    ax.plot_noise = self.pf_axes[n].plot(numpy.repeat(data['noise'][n], len(self.y)), self.y,
-                                                         color="k", linestyle="dashed", lw=1)[0]
             else:
                 ax.collections.remove(ax.collections[0])
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
@@ -784,10 +814,13 @@ class SpectrogramPlot(Plot):
                                        vmax=self.zmax,
                                        cmap=plt.get_cmap(self.colormap)
                                        )
-                if self.showprofile:
-                    ax.plot_profile.set_data(data['rti'][n], self.y)
-                    ax.plot_noise.set_data(numpy.repeat(
-                        data['noise'][n], len(self.y)), self.y)
+
+        #self.titles.append('Spectrogram')
+
+        #self.titles.append('{} Channel {} \n H = {} km ({} - {})'.format(
+            #self.CODE.upper(), x, y[hei], y[hei],y[hei]+(DH*nProfiles)))
+
+
 
 
 class CoherencePlot(RTIPlot):
@@ -956,7 +989,7 @@ class SpectraCutPlot(Plot):
 
         data = {}
         meta = {}
-        spc = 10*numpy.log10(dataOut.data_pre[0]/dataOut.normFactor)
+        spc = 10*numpy.log10(dataOut.data_spc/dataOut.normFactor)
         data['spc'] = spc
         meta['xrange'] = (dataOut.getFreqRange(1)/1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
         if self.CODE == 'cut_gaussian_fit':
@@ -997,8 +1030,10 @@ class SpectraCutPlot(Plot):
             if ax.firsttime:
                 self.xmax = self.xmax if self.xmax else numpy.nanmax(x)
                 self.xmin = self.xmin if self.xmin else -self.xmax
-                self.ymin = self.ymin if self.ymin else numpy.nanmin(z)
-                self.ymax = self.ymax if self.ymax else numpy.nanmax(z)
+                self.ymin = self.ymin if self.ymin else numpy.nanmin(z[:,:,index])
+                self.ymax = self.ymax if self.ymax else numpy.nanmax(z[:,:,index])
+                #print(self.ymax)
+                #print(z[n, :, index])
                 ax.plt = ax.plot(x, z[n, :, index].T, lw=0.25)
                 if self.CODE == 'cut_gaussian_fit':
                     ax.plt_gau0 = ax.plot(x, gau0[n, :, index].T, lw=1, linestyle='-.')

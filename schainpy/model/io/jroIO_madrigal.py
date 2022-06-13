@@ -498,7 +498,8 @@ Inputs:
         #print("2: ",startTime)
         #print(endTime)
         heights = self.dataOut.heightList
-
+        #print(heights)
+        #exit(1)
         #print(self.blocks)
         #print(startTime)
         #print(endTime)
