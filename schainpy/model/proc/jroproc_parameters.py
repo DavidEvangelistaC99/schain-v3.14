@@ -3967,7 +3967,7 @@ class WeatherRadar(Operation):
         data_param = numpy.zeros((nCh,4,nHeis))
         if type == "Voltage":
             factor            = 1
-            data_param[:,0,:] = dataOut.dataPP_POWER/(factor)
+            data_param[:,0,:] = dataOut.dataPP_POW/(factor)#dataOut.dataPP_POWER/(factor)
             data_param[:,1,:] = dataOut.dataPP_DOP
             data_param[:,2,:] = dataOut.dataPP_WIDTH
             data_param[:,3,:] = dataOut.dataPP_SNR
@@ -4041,9 +4041,9 @@ class WeatherRadar(Operation):
         #print("Pr last10",10*numpy.log10(Pr[0,-20:]))
         #print("LCTE",10*numpy.log10(self.lambda_**4/( numpy.pi**5 * self.Km**2)))
         if self.Pt<0.3:
-            factor=17
+            factor=-31
         else:
-            factor=30
+            factor=-18
 
         dBZeh = 10*numpy.log10(Zeh) + factor
         if type=='N':
