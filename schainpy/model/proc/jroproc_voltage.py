@@ -1644,7 +1644,7 @@ class PulsePair_vRF(Operation):
         else:
             data_ccf = 0
         #------------------  Senal  --------------------------------------------------
-        data_intensity   = pair0 - noise_buffer
+        data_intensity   = pair0/pwcode - noise_buffer
         data_intensity   = numpy.sum(data_intensity,axis=1)*(self.n*self.nCohInt)#*self.nCohInt)
         #data_intensity   = (lag_0-self.noise*self.n)*(self.n*self.nCohInt)
         for i in range(self.__nch):
