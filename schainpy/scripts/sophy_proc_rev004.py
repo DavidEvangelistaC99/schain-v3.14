@@ -52,6 +52,8 @@ def main(args):
     path_ped = os.path.join(PATH, experiment, 'position')
     path_plots = os.path.join(PATH, experiment, 'plotsC0_PL_R'+str(args.range)+'km_removeDC')
     path_save = os.path.join(PATH, experiment, 'paramC0_PL_R'+str(args.range)+'km_removeDC')
+    #path_plots = os.path.join(PATH, experiment, 'plotsC0_PL_R'+str(args.range)+'km')
+    #path_save = os.path.join(PATH, experiment, 'paramC0_PL_R'+str(args.range)+'km')
     RMIX = 1.62
 
     from schainpy.controller import Project
@@ -105,8 +107,8 @@ def main(args):
         op.addParameter(name='maxIndex', value=max_index(args.range, sample_rate, ipp), format='int')
 
     op = voltage.addOperation(name='PulsePair_vRF', optype='other')
-    op.addParameter(name='n', value=int(conf['usrp_tx']['repetitions_1'])/2, format='int')
-    op.addParameter(name='removeDC', value=1, format='int')
+    op.addParameter(name='n', value=int(conf['usrp_tx']['repetitions_2'])/2, format='int')
+    #op.addParameter(name='removeDC', value=1, format='int')
 
 
     proc = project.addProcUnit(datatype='ParametersProc', inputId=voltage.getId())
