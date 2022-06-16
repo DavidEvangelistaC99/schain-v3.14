@@ -64,6 +64,8 @@ class SpectraProc(ProcessingUnit):
         self.dataOut.beam.codeList = self.dataIn.beam.codeList
         self.dataOut.beam.azimuthList = self.dataIn.beam.azimuthList
         self.dataOut.beam.zenithList = self.dataIn.beam.zenithList
+        self.dataOut.h0 = self.dataIn.h0
+
 
     def __getFft(self):
         """
