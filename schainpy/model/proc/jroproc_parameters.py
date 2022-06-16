@@ -1255,7 +1255,7 @@ class SpectralMoments(Operation):
 
     '''
 
-    def run(self, dataOut):
+    def run(self, dataOut,wradar=False):
 
         data = dataOut.data_pre[0]
         absc = dataOut.abscissaList[:-1]
@@ -1264,7 +1264,7 @@ class SpectralMoments(Operation):
         data_param = numpy.zeros((nChannel, 4, data.shape[2]))
 
         for ind in range(nChannel):
-            data_param[ind,:,:] = self.__calculateMoments( data[ind,:,:] , absc , noise[ind] )
+            data_param[ind,:,:] = self.__calculateMoments( data[ind,:,:] , absc , noise[ind],wradar=wradar )
 
         dataOut.moments = data_param[:,1:,:]
         dataOut.data_snr = data_param[:,0]
@@ -1274,7 +1274,7 @@ class SpectralMoments(Operation):
         return dataOut
 
     def __calculateMoments(self, oldspec, oldfreq, n0,
-                           nicoh = None, graph = None, smooth = None, type1 = None, fwindow = None, snrth = None, dc = None, aliasing = None, oldfd = None, wwauto = None):
+                           nicoh = None, graph = None, smooth = None, type1 = None, fwindow = None, snrth = None, dc = None, aliasing = None, oldfd = None, wwauto = None,wradar=None):
 
         if (nicoh is None): nicoh = 1
         if (graph is None): graph = 0
@@ -1347,11 +1347,14 @@ class SpectralMoments(Operation):
                 snr = 1.e-20
 
             # vec_power[ind] = power    #D. Scipión replaced with the line below
-            vec_power[ind] = total_power
-            vec_fd[ind] = fd
-            vec_w[ind] = w
-            vec_snr[ind] = snr
+            if wradar ==False:
+                vec_power[ind] = total_power
+            else:
+                vec_power[ind] = signal_power
 
+            vec_fd[ind] = fd
+            vec_w[ind]  =  w
+            vec_snr[ind] = snr
         return numpy.vstack((vec_snr, vec_power, vec_fd, vec_w))
 
     #------------------    Get SA Parameters    --------------------------
@@ -3973,11 +3976,10 @@ class WeatherRadar(Operation):
             data_param[:,3,:] = dataOut.dataPP_SNR
         if type == "Spectra":
             factor = dataOut.normFactor
-            data_param[:,0,:] = dataOut.data_POW/(factor)
-            data_param[:,1,:] = dataOut.data_DOP
-            data_param[:,2,:] = dataOut.data_WIDTH
-            data_param[:,3,:] = dataOut.data_SNR
-
+            data_param[:,0,:] = dataOut.data_pow/(factor)
+            data_param[:,1,:] = dataOut.data_dop
+            data_param[:,2,:] = dataOut.data_width
+            data_param[:,3,:] = dataOut.data_snr
         return data_param
 
     def getCoeficienteCorrelacionROhv_R(self,dataOut):
@@ -3985,8 +3987,8 @@ class WeatherRadar(Operation):
         nHeis = dataOut.nHeights
         data_RhoHV_R = numpy.zeros((nHeis))
         if type == "Voltage":
-            powa  = dataOut.dataPP_POWER[0]
-            powb = dataOut.dataPP_POWER[1]
+            powa  = dataOut.data_param[0,0,:]
+            powb  = dataOut.data_param[1,0,:]
             ccf   = dataOut.dataPP_CCF
             avgcoherenceComplex = ccf / numpy.sqrt(powa * powb)
             data_RhoHV_R = numpy.abs(avgcoherenceComplex)
@@ -4000,8 +4002,8 @@ class WeatherRadar(Operation):
         nHeis = dataOut.nHeights
         data_PhiD_P = numpy.zeros((nHeis))
         if type == "Voltage":
-            powa  = dataOut.dataPP_POWER[0]
-            powb = dataOut.dataPP_POWER[1]
+            powa  = dataOut.data_param[0,0,:]
+            powb  = dataOut.data_param[1,0,:]
             ccf   = dataOut.dataPP_CCF
             avgcoherenceComplex = ccf / numpy.sqrt(powa * powb)
             if phase:
@@ -4041,9 +4043,9 @@ class WeatherRadar(Operation):
         #print("Pr last10",10*numpy.log10(Pr[0,-20:]))
         #print("LCTE",10*numpy.log10(self.lambda_**4/( numpy.pi**5 * self.Km**2)))
         if self.Pt<0.3:
-            factor=-31
+            factor=10.072
         else:
-            factor=-18
+            factor=23.072
 
         dBZeh = 10*numpy.log10(Zeh) + factor
         if type=='N':
