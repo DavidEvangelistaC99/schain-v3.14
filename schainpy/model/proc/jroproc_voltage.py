@@ -1527,11 +1527,12 @@ class PulsePair_vRF(Operation):
     removeDC       = False
     ipp            = None
     lambda_        = 0
+    wradar         = False
 
     def __init__(self,**kwargs):
         Operation.__init__(self,**kwargs)
 
-    def setup(self, dataOut, n = None, removeDC=False):
+    def setup(self, dataOut, n = None, removeDC=False,wradar=False):
         '''
         n= Numero de PRF's de entrada
         '''
@@ -1613,7 +1614,7 @@ class PulsePair_vRF(Operation):
             dc= numpy.tile(tmp,[1,self.__nProf,1])
             self.__buffer = self.__buffer -  dc
         #------------------Calculo de Potencia ------------------------
-        pair0       = self.__buffer*numpy.conj(self.__buffer) * 10.0
+        pair0       = self.__buffer*numpy.conj(self.__buffer)#* 10.0
         pair0       = pair0.real
         lag_0       = numpy.sum(pair0,1)
         #-----------------Calculo de Cscp------------------------------ New
@@ -1644,9 +1645,10 @@ class PulsePair_vRF(Operation):
         else:
             data_ccf = 0
         #------------------  Senal  --------------------------------------------------
-        data_intensity   = pair0/pwcode - noise_buffer
-        data_intensity   = numpy.sum(data_intensity,axis=1)*(self.n*self.nCohInt)#*self.nCohInt)
+        data_intensity   = pair0/(self.nCohInt*pwcode) - noise_buffer
+        data_intensity   = numpy.sum(data_intensity,axis=1)/(self.n)#*(self.n*self.nCohInt)
         #data_intensity   = (lag_0-self.noise*self.n)*(self.n*self.nCohInt)
+        #print("data_intensity",data_intensity)
         for i in range(self.__nch):
             for j in range(self.__nHeis):
                 if data_intensity[i][j]  < 0:
@@ -1663,7 +1665,7 @@ class PulsePair_vRF(Operation):
         S                = lag_0-self.noise
 
         #---------------- Frecuencia Doppler promedio ---------------------
-        lag_1            = lag_1/((self.n-1)*(pwcode))
+        lag_1            = lag_1/((self.n-1)*pwcode*self.nCohInt)
         R1               = numpy.abs(lag_1)
 
         #---------------- Calculo del SNR----------------------------------
@@ -1675,10 +1677,10 @@ class PulsePair_vRF(Operation):
 
         #----------------- Calculo del ancho espectral ----------------------
         L                = S/R1
-        L                = numpy.where(L<0,1,L)
+        L                = numpy.where(L<0,numpy.nan,L)
         L                = numpy.log(L)
         tmp              = numpy.sqrt(numpy.absolute(L))
-        data_specwidth   = (self.lambda_/(2*math.sqrt(2)*math.pi*self.ippSec*self.nCohInt))*tmp*numpy.sign(L)
+        data_specwidth   = (self.lambda_/(2*math.sqrt(2)*math.pi*self.ippSec*self.nCohInt))*tmp
         n                = self.__profIndex
 
         self.__buffer    = numpy.zeros((self.__nch, self.__nProf,self.__nHeis),  dtype='complex')
@@ -1723,27 +1725,23 @@ class PulsePair_vRF(Operation):
 
         return data_power, data_intensity, data_velocity, data_snrPP,data_specwidth,data_ccf, avgdatatime
 
-    def run(self, dataOut,n = None,removeDC= False, overlapping= False,**kwargs):
+    def run(self, dataOut,n = None,removeDC= False, overlapping= False,wradar=False,**kwargs):
 
         if dataOut.flagDataAsBlock:
             n = int(dataOut.nProfiles)
             #print("n",n)
 
         if not self.isConfig:
-            self.setup(dataOut = dataOut, n    = n , removeDC=removeDC , **kwargs)
+            self.setup(dataOut = dataOut, n    = n , removeDC=removeDC , wradar=wradar,**kwargs)
             self.isConfig   = True
 
-
         data_power, data_intensity, data_velocity,data_snrPP,data_specwidth,data_ccf, avgdatatime = self.pulsePairOp(dataOut, n, dataOut.utctime)
-
-
         dataOut.flagNoData                         = True
 
         if self.__dataReady:
-            ###print("READY ----------------------------------")
             dataOut.nCohInt        *= self.n
+            dataOut.dataPP_POWER    = data_power# P valor que corresponde a POTENCIA MOMENTO
             dataOut.dataPP_POW      = data_intensity # S
-            dataOut.dataPP_POWER    = data_power     # P valor que corresponde a POTENCIA MOMENTO
             dataOut.dataPP_DOP      = data_velocity
             dataOut.dataPP_SNR      = data_snrPP
             dataOut.dataPP_WIDTH    = data_specwidth
