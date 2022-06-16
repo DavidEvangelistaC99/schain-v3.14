@@ -413,12 +413,12 @@ class WeatherParamsPlot(Plot):
             factor = 1
         if hasattr(dataOut, 'nFFTPoints'):
             factor = dataOut.normFactor
-        
+
         mask = dataOut.data_snr<self.snr_threshold
 
         if 'pow' in self.attr_data[0].lower():
             # data['data'] = 10*numpy.log10(getattr(dataOut, self.attr_data[0])/(factor))
-            tmp = numpy.ma.masked_array(10*numpy.log10(getattr(dataOut, self.attr_data[0])/(factor)), mask=mask)
+            tmp = numpy.ma.masked_array(10*numpy.log10(10.0*getattr(dataOut, self.attr_data[0])/(factor)), mask=mask)
         else:
             tmp = numpy.ma.masked_array(getattr(dataOut, self.attr_data[0]), mask=mask)
             # tmp = getattr(dataOut, self.attr_data[0])
@@ -446,10 +446,10 @@ class WeatherParamsPlot(Plot):
         var = data['data'].flatten()
         r = numpy.tile(data['r'], data['data'].shape[0]).reshape(data['data'].shape)*1000
         lla = georef.spherical_to_proj(r, data['azi'], data['ele'], (-75.295893, -12.040436, 3379.2147))
-        meta['lat'] = lla[:,:,1].flatten()[var.mask==False] 
+        meta['lat'] = lla[:,:,1].flatten()[var.mask==False]
         meta['lon'] = lla[:,:,0].flatten()[var.mask==False]
         data['var'] = numpy.array([var[var.mask==False]])
-        
+
         return data, meta
 
     def plot(self):
