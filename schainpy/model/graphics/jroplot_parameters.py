@@ -426,14 +426,15 @@ class WeatherParamsPlot(Plot):
         else:
             factor = 1
 
-        mask = dataOut.data_param[:,3,:] < self.snr_threshold
-
-        if 'S' in self.attr_data[0]:
-            # data['data'] = 10*numpy.log10(getattr(dataOut, self.attr_data[0])/(factor))
-            tmp = numpy.ma.masked_array(10*numpy.log10(10.0*getattr(dataOut, 'data_param')[:,0,:]/(factor)), mask=mask)
+        if 'S' in self.attr_data[0]:            
+            tmp = 10*numpy.log10(10.0*getattr(dataOut, 'data_param')[:,0,:]/(factor))
         else:
-            tmp = numpy.ma.masked_array(getattr(dataOut, 'data_param')[:,vars[self.attr_data[0]],:], mask=mask)
-            # tmp = getattr(dataOut, self.attr_data[0])
+            tmp = getattr(dataOut, 'data_param')[:,vars[self.attr_data[0]],:]
+            
+
+        if self.mask:
+            mask = dataOut.data_param[:,3,:] < self.mask
+            tmp = numpy.ma.masked_array(tmp, mask=mask)
 
         r = dataOut.heightList
         delta_height = r[1]-r[0]
@@ -458,9 +459,14 @@ class WeatherParamsPlot(Plot):
         var = data['data'].flatten()
         r = numpy.tile(data['r'], data['data'].shape[0]).reshape(data['data'].shape)*1000
         lla = georef.spherical_to_proj(r, data['azi'], data['ele'], (-75.295893, -12.040436, 3379.2147))
-        meta['lat'] = lla[:,:,1].flatten()[var.mask==False]
-        meta['lon'] = lla[:,:,0].flatten()[var.mask==False]
-        data['var'] = numpy.array([var[var.mask==False]])
+        if self.mask:
+            meta['lat'] = lla[:,:,1].flatten()[var.mask==False]
+            meta['lon'] = lla[:,:,0].flatten()[var.mask==False]
+            data['var'] = numpy.array([var[var.mask==False]])
+        else:
+            meta['lat'] = lla[:,:,1].flatten()
+            meta['lon'] = lla[:,:,0].flatten()
+            data['var'] = numpy.array([var])
 
         return data, meta
 
