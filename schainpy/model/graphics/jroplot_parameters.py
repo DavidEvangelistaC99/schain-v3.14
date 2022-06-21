@@ -407,20 +407,32 @@ class WeatherParamsPlot(Plot):
 
     def update(self, dataOut):
 
+        vars = {
+            'S' : 0,
+            'V' : 1,
+            'W' : 2,
+            'SNR' : 3,
+            'Z' : 4,
+            'D' : 5,
+            'P' : 6,
+            'R' : 7,
+        }
+        
         data = {}
         meta = {}
-        if hasattr(dataOut, 'dataPP_POWER'):
-            factor = 1
+        
         if hasattr(dataOut, 'nFFTPoints'):
             factor = dataOut.normFactor
-
-        mask = dataOut.data_snr<self.snr_threshold
-
-        if 'pow' in self.attr_data[0].lower():
-            # data['data'] = 10*numpy.log10(getattr(dataOut, self.attr_data[0])/(factor))
-            tmp = numpy.ma.masked_array(10*numpy.log10(10.0*getattr(dataOut, self.attr_data[0])/(factor)), mask=mask)
         else:
-            tmp = numpy.ma.masked_array(getattr(dataOut, self.attr_data[0]), mask=mask)
+            factor = 1
+
+        mask = dataOut.data_param[:,3,:] < self.snr_threshold
+
+        if 'S' in self.attr_data[0]:
+            # data['data'] = 10*numpy.log10(getattr(dataOut, self.attr_data[0])/(factor))
+            tmp = numpy.ma.masked_array(10*numpy.log10(10.0*getattr(dataOut, 'data_param')[:,0,:]/(factor)), mask=mask)
+        else:
+            tmp = numpy.ma.masked_array(getattr(dataOut, 'data_param')[:,vars[self.attr_data[0]],:], mask=mask)
             # tmp = getattr(dataOut, self.attr_data[0])
 
         r = dataOut.heightList

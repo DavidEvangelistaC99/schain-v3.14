@@ -3928,6 +3928,10 @@ class WeatherRadar(Operation):
     Conversion Watt
     Referencia
     https://www.tek.com/en/blog/calculating-rf-power-iq-samples
+    
+    data_param = (nCh, 8, nHeis) 
+    S, V, W, SNR, Z, D, P, R
+    Power, Velocity, Spectral width, SNR, Reflectivity, Differential reflectivity, PHI DP, RHO HV 
     '''
     isConfig  = False
     variableList = None
@@ -3960,14 +3964,14 @@ class WeatherRadar(Operation):
         self.RadarConstant = Numerator/Denominator
         self.variableList  = variableList
         if self.variableList== None:
-            self.variableList= ['Reflectividad','ReflectividadDiferencial','CoeficienteCorrelacion','FaseDiferencial','VelocidadRadial','AnchoEspectral']
+            self.variableList= ['Z','D','R','P']
 
     def setMoments(self, dataOut):
-
+        # S, V, W, SNR, Z, D, P, R
         type  = dataOut.inputUnit
         nCh   = dataOut.nChannels
         nHeis = dataOut.nHeights
-        data_param = numpy.zeros((nCh,4,nHeis))
+        data_param = numpy.zeros((nCh, 8, nHeis))
         if type == "Voltage":
             factor            = 1
             data_param[:,0,:] = dataOut.dataPP_POW/(factor)#dataOut.dataPP_POWER/(factor)
@@ -4063,30 +4067,26 @@ class WeatherRadar(Operation):
         return Sigmav_W
 
 
-    def run(self,dataOut,variableList=variableList,Pt=1.58,Gt=38.5,Gr=38.5,Glna=70.0,lambda_=0.032, aL=1,
+    def run(self,dataOut,variableList=None,Pt=1.58,Gt=38.5,Gr=38.5,Glna=70.0,lambda_=0.032, aL=1,
                 tauW= 0.2,thetaT=0.0314,thetaR=0.0314,Km =0.93):
 
         if not self.isConfig:
-            self.setup(dataOut= dataOut,variableList=variableList,Pt=Pt,Gt=Gt,Gr=Gr,Glna=Glna,lambda_=lambda_, aL=aL,
+            self.setup(dataOut= dataOut, variableList=variableList,Pt=Pt,Gt=Gt,Gr=Gr,Glna=Glna,lambda_=lambda_, aL=aL,
                         tauW= tauW,thetaT=thetaT,thetaR=thetaR,Km =Km)
             self.isConfig = True
 
         dataOut.data_param = self.setMoments(dataOut)
 
         for i in range(len(self.variableList)):
-            if self.variableList[i]=='Reflectividad':
-                dataOut.Zdb =self.getReflectividad_D(dataOut=dataOut,type='N')
-            if self.variableList[i]=='ReflectividadDiferencial':
-                dataOut.Zdb_D =self.getReflectividad_D(dataOut=dataOut,type='D')
-            if self.variableList[i]=='FaseDiferencial':
-                dataOut.PhiD_P =self.getFasediferencialPhiD_P(dataOut=dataOut, phase=True)
-            if self.variableList[i] == "CoeficienteCorrelacion":
-                dataOut.RhoHV_R = self.getCoeficienteCorrelacionROhv_R(dataOut)
-            if self.variableList[i] =="VelocidadRadial":
-                dataOut.velRadial_V = self.getRadialVelocity_V(dataOut)
-            if self.variableList[i] =="AnchoEspectral":
-                dataOut.Sigmav_W = self.getAnchoEspectral_W(dataOut)
-        dataOut.data_snr = dataOut.data_param[:,3,:]
+            if self.variableList[i] == 'Z':
+                dataOut.data_param[:,4,:] =self.getReflectividad_D(dataOut=dataOut,type='N')
+            if self.variableList[i] == 'D' and dataOut.nChannels>1:
+                dataOut.data_param[:,5,:] =self.getReflectividad_D(dataOut=dataOut,type='D')
+            if self.variableList[i] == 'P' and dataOut.nChannels>1:
+                dataOut.data_param[:,6,:] =self.getFasediferencialPhiD_P(dataOut=dataOut, phase=True)
+            if self.variableList[i] == 'R' and dataOut.nChannels>1:
+                dataOut.data_param[:,7,:] = self.getCoeficienteCorrelacionROhv_R(dataOut)
+                    
         return dataOut
 
 class PedestalInformation(Operation):
@@ -4096,6 +4096,7 @@ class PedestalInformation(Operation):
         self.filename = False
         self.delay = 32
         self.nTries = 3
+        self.flagAskMode = False
 
     def find_file(self, timestamp):
 
@@ -4185,23 +4186,16 @@ class PedestalInformation(Operation):
             else:
               flag_mode = 'RHI'
               break
-          elif sigma_ele<.5:
-            #print(sigma_ele)
-            #print(round(numpy.nanmean(ele[start:start+sample_max]),1))
-            #print(start)
-            #print(ele[start:start+sample_max])
+          elif sigma_ele < .5:
             flag_mode = 'PPI'
             break
-          elif sigma_azi<.5:
-            #print(sigma_azi)
-            #print(azi[start:start+sample_max])
-            #print("round",round(numpy.nanmean(azi[start:start+sample_max]),1))
+          elif sigma_azi < .5:            
             flag_mode = 'RHI'
             break
-          #else:
-            #print("STD mayor que .5")
+          
           start += sample_max
         print("MODE: ",flag_mode)
+        
         return flag_mode
 
     def get_values(self):
@@ -4228,6 +4222,9 @@ class PedestalInformation(Operation):
         self.samples = samples
         self.interval = interval
         self.mode = mode
+        if mode is None:
+            self.flagAskMode = True
+            
         filelist = self.find_file(dataOut.utctime)
 
         if not filelist:
@@ -4246,11 +4243,6 @@ class PedestalInformation(Operation):
             self.isConfig   = True
 
         self.utctime = dataOut.utctime + time_offset
-
-        if hasattr(dataOut, 'flagAskMode'):
-            self.flagAskMode = dataOut.flagAskMode
-        else:
-            self.flagAskMode = True
 
         self.find_next_file()
 
@@ -4295,7 +4287,6 @@ class Block360(Operation):
         self.__lastdatatime   = 0
         self.__dataReady      = False
         self.__buffer         = 0
-        self.__buffer_1D      = 0
         self.index            = 0
         self.__nch            = dataOut.nChannels
         self.__nHeis          = dataOut.nHeights
@@ -4316,7 +4307,6 @@ class Block360(Operation):
         self.__buffer.append(tmp)
         self.__buffer2.append(data.azimuth)
         self.__buffer3.append(data.elevation)
-        self.__buffer4.append(data.data_snr)
         self.__profIndex  += 1
 
         if flagMode == 1: #'AZI'
@@ -4330,8 +4320,7 @@ class Block360(Operation):
         Affected :  self.__profileIndex
         '''
 
-        data_360 = numpy.array(self.__buffer).transpose(1, 0, 2)
-        data_snr = numpy.array(self.__buffer4).transpose(1, 0, 2)
+        data_360 = numpy.array(self.__buffer).transpose(1, 2, 0, 3)
         data_p   = numpy.array(self.__buffer2)
         data_e   = numpy.array(self.__buffer3)
         n   = self.__profIndex
@@ -4345,18 +4334,16 @@ class Block360(Operation):
         if flagMode == 1 and case_flag == 0: #'AZI' y ha girado
             self.putData(data=data, attr = self.attr, flagMode=flagMode)
 
-        return data_360, data_snr, n, data_p, data_e
+        return data_360, n, data_p, data_e
 
     def byProfiles(self,dataOut,flagMode):
 
         self.__dataReady     =  False
         data_360 =  []
-        data_snr =  []
         data_p             = None
         data_e             = None
 
         angles = self.putData(data=dataOut, attr = self.attr, flagMode=flagMode)
-        #print("ANGLES",angles)
         if self.__profIndex > 1:
             case_flag = self.checkcase(angles,flagMode)
 
@@ -4365,8 +4352,7 @@ class Block360(Operation):
                     self.__buffer.pop() #Erase last data
                     self.__buffer2.pop()
                     self.__buffer3.pop()
-                    self.__buffer4.pop()
-                    data_360, data_snr ,n,data_p,data_e  = self.pushData(data=dataOut,flagMode=flagMode,case_flag=case_flag)
+                    data_360 ,n,data_p,data_e  = self.pushData(data=dataOut,flagMode=flagMode,case_flag=case_flag)
                     self.__dataReady = True
 
             elif flagMode == 0: #'ELE'
@@ -4377,25 +4363,23 @@ class Block360(Operation):
                         #Se borra el dato anterior para liberar buffer y comparar el dato actual con el siguiente
                         self.__buffer.pop(0) #Erase first data
                         self.__buffer2.pop(0)
-                        self.__buffer3.pop(0)
-                        self.__buffer4.pop(0)
+                        self.__buffer3.pop(0)                        
                         self.__profIndex -= 1
                     else: #Cuando ha estado de bajada y ha vuelto a subir
                         #Se borra el último dato
                         self.__buffer.pop() #Erase last data
                         self.__buffer2.pop()
-                        self.__buffer3.pop()
-                        self.__buffer4.pop()
-                        data_360, data_snr, n, data_p, data_e  = self.pushData(data=dataOut,flagMode=flagMode,case_flag=case_flag)
+                        self.__buffer3.pop()                        
+                        data_360, n, data_p, data_e  = self.pushData(data=dataOut,flagMode=flagMode,case_flag=case_flag)
                         self.__dataReady = True
 
-        return data_360, data_snr, data_p, data_e
+        return data_360, data_p, data_e
 
 
     def blockOp(self, dataOut, flagMode, datatime= None):
         if self.__initime == None:
             self.__initime = datatime
-        data_360, data_snr, data_p, data_e = self.byProfiles(dataOut,flagMode)
+        data_360, data_p, data_e = self.byProfiles(dataOut,flagMode)
         self.__lastdatatime           = datatime
 
         avgdatatime    = self.__initime
@@ -4403,7 +4387,7 @@ class Block360(Operation):
             avgdatatime = datatime
         deltatime      = datatime - self.__lastdatatime
         self.__initime = datatime
-        return data_360, data_snr, avgdatatime, data_p, data_e
+        return data_360, avgdatatime, data_p, data_e
 
     def checkcase(self, angles, flagMode):
 
@@ -4439,13 +4423,12 @@ class Block360(Operation):
             self.setup(dataOut = dataOut, attr = attr_data ,**kwargs)
             self.isConfig   = True
 
-        data_360, data_snr, avgdatatime, data_p, data_e = self.blockOp(dataOut, dataOut.flagMode, dataOut.utctime)
+        data_360, avgdatatime, data_p, data_e = self.blockOp(dataOut, dataOut.flagMode, dataOut.utctime)
 
         dataOut.flagNoData = True
 
         if self.__dataReady:
-            setattr(dataOut, attr_data, data_360 )
-            dataOut.data_snr = data_snr
+            setattr(dataOut, attr_data, data_360 )            
             dataOut.data_azi  = data_p + 26.2
             dataOut.data_azi[dataOut.data_azi>360] = dataOut.data_azi[dataOut.data_azi>360] - 360
             dataOut.data_ele  = data_e
@@ -4527,11 +4510,11 @@ class MergeProc(ProcessingUnit):
 
             f = [getattr(data, attr_data) for data in data_inputs][0]
             g = [getattr(data, attr_data) for data in data_inputs][1]
-            data = numpy.concatenate((f,g),axis=2)
+            data = numpy.concatenate((f,g),axis=3)
             setattr(self.dataOut, attr_data, data)
 
             # snr
-            self.dataOut.data_snr = numpy.concatenate((data_inputs[0].data_snr, data_inputs[1].data_snr), axis=2)
+            # self.dataOut.data_snr = numpy.concatenate((data_inputs[0].data_snr, data_inputs[1].data_snr), axis=2)
 
             # ranges
             dh = self.dataOut.heightList[1]-self.dataOut.heightList[0]

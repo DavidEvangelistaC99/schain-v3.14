@@ -359,14 +359,12 @@ class HDFWriter(Operation):
     mode       = None
     #-----------------------
     Typename = None
-
-
+    mask = False
 
     def __init__(self):
 
         Operation.__init__(self)
         return
-
 
     def set_kwargs(self, **kwargs):
 
@@ -378,32 +376,6 @@ class HDFWriter(Operation):
         for key, value in kwargs.items():
             setattr(obj, key, value)
 
-    def generalFlag(self):
-        ####rint("GENERALFLAG")
-        if self.mode== "weather":
-            if self.last_Azipos == None:
-                tmp = self.dataOut.azimuth
-                ####print("ang azimuth writer",tmp)
-                self.last_Azipos = tmp
-                flag = False
-                return flag
-            ####print("ang_azimuth writer",self.dataOut.azimuth)
-            result = self.dataOut.azimuth - self.last_Azipos
-            self.last_Azipos = self.dataOut.azimuth
-            if result<0:
-                flag = True
-                return flag
-
-    def generalFlag_vRF(self):
-        ####rint("GENERALFLAG")
-
-        try:
-            self.dataOut.flagBlock360Done
-            return self.dataOut.flagBlock360Done
-        except:
-            return 0
-
-
     def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None,type_data=None,**kwargs):
         self.path = path
         self.blocksPerFile = blocksPerFile
@@ -413,6 +385,16 @@ class HDFWriter(Operation):
         if self.setType == "weather":
             self.set_kwargs(**kwargs)
             self.set_kwargs_obj(self.dataOut,**kwargs)
+            self.weather_vars = {
+                'S' : 0,
+                'V' : 1,
+                'W' : 2,
+                'SNR' : 3,
+                'Z' : 4,
+                'D' : 5,
+                'P' : 6,
+                'R' : 7,
+            }
 
 
         self.description = description
@@ -423,14 +405,16 @@ class HDFWriter(Operation):
 
         tableList = []
         dsList = []
-
+        
         for i in range(len(self.dataList)):
             dsDict = {}
             if hasattr(self.dataOut, self.dataList[i]):
                 dataAux = getattr(self.dataOut, self.dataList[i])
+                if self.setType == 'weather' and self.dataList[i] == 'data_param':
+                    dataAux = dataAux[:,self.weather_vars[self.weather_var],:]
                 dsDict['variable'] = self.dataList[i]
             else:
-                log.warning('Attribute {} not found in dataOut', self.name)
+                log.warning('Attribute {} not found in dataOut'.format(self.dataList[i]), self.name)
                 continue
 
             if dataAux is None:
@@ -482,7 +466,6 @@ class HDFWriter(Operation):
 
         self.dataOut = dataOut
         self.mode    = mode
-        self.var = dataList[0]
 
         if not(self.isConfig):
             self.setup(path=path, blocksPerFile=blocksPerFile,
@@ -534,7 +517,6 @@ class HDFWriter(Operation):
             os.makedirs(fullpath)
             setFile = -1 #inicializo mi contador de seteo
 
-        ###print("**************************",self.setType)
         if self.setType is None:
             setFile += 1
             file = '%s%4.4d%3.3d%03d%s' % (self.optchar,
@@ -543,24 +525,6 @@ class HDFWriter(Operation):
                                            setFile,
                                            ext )
         elif self.setType == "weather":
-
-            if self.var.lower() == 'Zdb'.lower():
-                wr_type = 'Z'
-            elif self.var.lower() == 'Zdb_D'.lower():
-                wr_type = 'D'
-            elif self.var.lower() == 'PhiD_P'.lower():
-                wr_type = 'P'
-            elif self.var.lower() == 'RhoHV_R'.lower():
-                wr_type = 'R'
-            elif self.var.lower() == 'velRadial_V'.lower():
-                wr_type = 'V'
-            elif self.var.lower() == 'Sigmav_W'.lower():
-                wr_type = 'W'
-            elif self.var.lower() == 'dataPP_POWER'.lower():
-                wr_type = 'S'
-            elif self.var.lower() == 'dataPP_DOP'.lower():
-                wr_type = 'V'
-
 
             #SOPHY_20200505_140215_E10.0_Z.h5
             #SOPHY_20200505_140215_A40.0_Z.h5
@@ -585,7 +549,7 @@ class HDFWriter(Operation):
                                            timeTuple.tm_sec,
                                            ang_type,
                                            ang_,
-                                           wr_type,
+                                           self.weather_var,
                                            ext )
 
         else:
@@ -598,8 +562,6 @@ class HDFWriter(Operation):
 
         self.filename = os.path.join( path, subfolder, file )
 
-        #Setting HDF5 File
-        #print("filename",self.filename)
         self.fp = h5py.File(self.filename, 'w')
         #write metadata
         self.writeMetadata(self.fp)
@@ -703,7 +665,9 @@ class HDFWriter(Operation):
                         self.getLabel(dsInfo['variable'], i),
                         shape,
                         chunks=True,
-                        dtype=dsInfo['dtype'])
+                        dtype=dsInfo['dtype'],
+                        compression='gzip',
+                        )
                     dtsets.append(ds)
                     data.append((dsInfo['variable'], i))
         fp.flush()
@@ -717,8 +681,8 @@ class HDFWriter(Operation):
         return
 
     def putData(self):
-
-        if (self.blockIndex == self.blocksPerFile) or self.timeFlag():# or self.generalFlag_vRF():
+        
+        if (self.blockIndex == self.blocksPerFile) or self.timeFlag():
             self.closeFile()
             self.setNextFile()
 
@@ -728,7 +692,11 @@ class HDFWriter(Operation):
                 ds[self.blockIndex] = getattr(self.dataOut, attr)
             else:
                 if self.blocksPerFile == 1:
-                    ds[:] = getattr(self.dataOut, attr)[ch]
+                    mask = self.dataOut.data_param[:,3,:][ch] < self.mask
+                    tmp = getattr(self.dataOut, attr)[:,self.weather_vars[self.weather_var],:][ch]
+                    if self.mask:
+                        tmp[mask] = numpy.nan
+                    ds[:] = tmp 
                 else:
                     ds[self.blockIndex] = getattr(self.dataOut, attr)[ch]
 
