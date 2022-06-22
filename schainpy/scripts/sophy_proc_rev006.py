@@ -215,4 +215,7 @@ test= read_and_overview(filename)
 # informacion de los ruidos
 # informacion de los SNR ¿?
 # Aumentar la amplitud de la USRP
+LAST_UPDATE
+---- Noise
+---- Mapas
 '''
