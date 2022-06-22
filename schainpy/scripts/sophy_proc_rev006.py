@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+# Ing. AVP
+# 22/06/2022
+# ARCHIVO DE LECTURA y PLOT
 import matplotlib.pyplot as pl
 import matplotlib
 import wradlib
