@@ -116,8 +116,6 @@ class Readsophy():
 
             if self.range==0:
                 self.range == heightList[-1]
-            else:
-                print(self.range)
             new_heightList,minIndex,maxIndex = self.selectHeights(heightList,0.06,self.range)
 
 
@@ -129,7 +127,7 @@ class Readsophy():
                 fig = pl.figure(figsize=(10,8))
                 cgax, pm = wradlib.vis.plot_ppi(data_arr[:,minIndex:maxIndex],r=new_heightList,az=data_azi,rf=1,fig=fig, ax=111,proj='cg',cmap=cmap,vmin=vmin, vmax=vmax)
                 caax  = cgax.parasites[0]
-                title = 'Simple PPI'+"-"+ my_time
+                title = 'Simple PPI'+"-"+ my_time+"  E."+self.grado
                 t = pl.title(title, fontsize=12,y=1.05)
                 cbar = pl.gcf().colorbar(pm, pad=0.075)
                 pl.text(1.0, 1.05, 'azimuth', transform=caax.transAxes, va='bottom',ha='right')
@@ -138,7 +136,7 @@ class Readsophy():
             else:
                 cgax, pm = wradlib.vis.plot_ppi(data_arr[:,minIndex:maxIndex],r=new_heightList,az=data_azi,rf=1,fig=fig, ax=111,proj='cg',cmap=cmap,vmin=vmin, vmax=vmax)
                 caax  = cgax.parasites[0]
-                title = 'Simple PPI'+"-"+my_time
+                title = 'Simple PPI'+"-"+my_time+"  E."+self.grado
                 t = pl.title(title, fontsize=12,y=1.05)
                 cbar = pl.gcf().colorbar(pm, pad=0.075)
                 pl.text(1.0, 1.05, 'azimuth', transform=caax.transAxes, va='bottom',ha='right')
@@ -164,7 +162,7 @@ class Readsophy():
         pl.show()
 
 PATH = "/home/soporte/Documents/EVENTO/HYO_PM@2022-06-09T15-05-12/paramC0N36.0/2022-06-09T18-00-00/"
-PATH = "/home/soporte/Documents/EVENTO/HYO_PM@2022-06-09T15-05-12/paramC0N36.0/2022-06-09T19-00-00/"
+#PATH = "/home/soporte/Documents/EVENTO/HYO_PM@2022-06-09T15-05-12/paramC0N36.0/2022-06-09T19-00-00/"
 
 #PATH = "/home/soporte/Documents/EVENTO/HYO_PM@2022-05-31T12-00-17/paramC0N36.0/2022-05-31T16-00-00/"
 
