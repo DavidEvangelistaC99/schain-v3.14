@@ -16,10 +16,10 @@ for name, cb_table in sophy_cb_tables:
 #LINUX bash: export WRADLIB_DATA=/path/to/wradlib-data
 warnings.filterwarnings('ignore')
 PARAM = {
-    'S': {'var': 'dataPP_POWER','vmin': -45, 'vmax': -15, 'cmap': 'jet', 'label': 'Power','unit': 'dBm'},
-    'V': {'var': 'velRadial_V', 'vmin': -10, 'vmax': 10 , 'cmap': 'sophy_v', 'label': 'Velocity','unit': 'm/s'},
-    'Z': {'var': 'Zdb',         'vmin': -30, 'vmax': 80 , 'cmap': 'sophy_r','label': 'Reflectivity','unit': 'dBZ'},
-    'W': {'var': 'Sigmav_W',    'vmin': 0  , 'vmax': 12 , 'cmap': 'sophy_w','label': 'Spectral Width','unit': 'hz'}
+    'S': {'var': 'power','vmin': -45, 'vmax': -15, 'cmap': 'jet', 'label': 'Power','unit': 'dBm'},
+    'V': {'var': 'velocity', 'vmin': -10, 'vmax': 10 , 'cmap': 'sophy_v', 'label': 'Velocity','unit': 'm/s'},
+    'Z': {'var': 'reflectivity','vmin': -30, 'vmax': 80 , 'cmap': 'sophy_r','label': 'Reflectivity','unit': 'dBZ'},
+    'W': {'var': 'spectral_width',    'vmin': 0  , 'vmax': 12 , 'cmap': 'sophy_w','label': 'Spectral Width','unit': 'hz'}
     }
 class Readsophy():
     def __init__(self):
@@ -27,6 +27,7 @@ class Readsophy():
         self.grado     = None
         self.variable  = None
         self.save      = None
+        self.range     = None
 
     def read_files(self,path_file,grado=None, variable=None):
         filter= "_E"+str(grado)+".0_"+variable
@@ -40,12 +41,52 @@ class Readsophy():
             validFilelist.sort()
         return validFilelist
 
-    def setup(self, path_file,grado,variable,save):
+    def setup(self, path_file,grado,range,variable,save):
         self.path_file = path_file
+        self.range     = range
         self.grado     = grado
         self.variable  = variable
         self.save      = save
         self.list_file = self.read_files(path_file=self.path_file,grado=self.grado, variable=self.variable)
+
+    def selectHeights(self,heightList,minHei,maxHei):
+
+        if minHei and maxHei:
+            if (minHei < heightList[0]):
+                minHei = heightList[0]
+            if (maxHei > heightList[-1]):
+                maxHei = heightList[-1]
+            minIndex = 0
+            maxIndex = 0
+            heights = heightList
+
+            inda = numpy.where(heights >= minHei)
+            indb = numpy.where(heights <= maxHei)
+
+            try:
+                minIndex = inda[0][0]
+            except:
+                minIndex = 0
+
+            try:
+                maxIndex = indb[0][-1]
+            except:
+                maxIndex = len(heights)
+
+            new_heightList= self.selectHeightsByIndex(heightList=heightList,minIndex=minIndex, maxIndex=maxIndex)
+
+        return new_heightList, minIndex,maxIndex
+
+    def selectHeightsByIndex(self,heightList,minIndex, maxIndex):
+
+        if (minIndex < 0) or (minIndex > maxIndex):
+            raise ValueError("Height index range (%d,%d) is not valid" % (minIndex, maxIndex))
+
+        if (maxIndex >= len(heightList)):
+            maxIndex = len(heightList)
+
+        new_h = heightList[minIndex:maxIndex]
+        return new_h
 
     def run(self):
         count= 0
@@ -63,19 +104,27 @@ class Readsophy():
             vmin   = PARAM[self.variable]['vmin']
             vmax   = PARAM[self.variable]['vmax']
             label  = PARAM[self.variable]['label']
-            var_    = 'Data/'+var+'/channel00'
+            var_    = 'Data/'+var+'/H'
             data_arr   = numpy.array(test_hdf5[var_]['data']) # data
-            utc_time   = numpy.array(test_hdf5['Data/utctime']['data'])
-            data_azi   = numpy.array(test_hdf5['Metadata/data_azi']['data']) # th
-            data_ele   = numpy.array(test_hdf5["Metadata/data_ele"]['data'])
-            heightList = numpy.array(test_hdf5["Metadata/heightList"]['data']) # r
+            utc_time   = numpy.array(test_hdf5['Data/time']['data'])
+            data_azi   = numpy.array(test_hdf5['Metadata/azimuth']['data']) # th
+            data_ele   = numpy.array(test_hdf5["Metadata/elevation"]['data'])
+            heightList = numpy.array(test_hdf5["Metadata/range"]['data']) # r
+
+            if self.range==0:
+                self.range == heightList[-1]
+            else:
+                print(self.range)
+            new_heightList,minIndex,maxIndex = self.selectHeights(heightList,0.06,self.range)
+
+
             my_time    = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(utc_time[0]))
             time_save  = time.strftime('%Y%m%d_%H%M%S',time.localtime(utc_time[0]))
 
             # PLOT DATA WITH ANNOTATION
             if count ==1:
                 fig = pl.figure(figsize=(10,8))
-                cgax, pm = wradlib.vis.plot_ppi(data_arr,r=heightList,az=data_azi,rf=1e3,fig=fig, ax=111,proj='cg',cmap=cmap,vmin=vmin, vmax=vmax)
+                cgax, pm = wradlib.vis.plot_ppi(data_arr[:,minIndex:maxIndex],r=new_heightList,az=data_azi,rf=1,fig=fig, ax=111,proj='cg',cmap=cmap,vmin=vmin, vmax=vmax)
                 caax  = cgax.parasites[0]
                 title = 'Simple PPI'+"-"+ my_time
                 t = pl.title(title, fontsize=12,y=1.05)
@@ -84,7 +133,7 @@ class Readsophy():
                 cbar.set_label(label+'[' + unit + ']')
                 gh = cgax.get_grid_helper()
             else:
-                cgax, pm = wradlib.vis.plot_ppi(data_arr,r=heightList,az=data_azi,rf=1e3,fig=fig, ax=111,proj='cg',cmap=cmap,vmin=vmin, vmax=vmax)
+                cgax, pm = wradlib.vis.plot_ppi(data_arr[:,minIndex:maxIndex],r=new_heightList,az=data_azi,rf=1,fig=fig, ax=111,proj='cg',cmap=cmap,vmin=vmin, vmax=vmax)
                 caax  = cgax.parasites[0]
                 title = 'Simple PPI'+"-"+my_time
                 t = pl.title(title, fontsize=12,y=1.05)
@@ -97,26 +146,33 @@ class Readsophy():
                     filename     = "SOPHY"+"_"+time_save+"_"+"E."+self.grado+"_"+self.variable+".png"
                     dir =self.variable+"_"+"E."+self.grado+"CH0/"
                     filesavepath = os.path.join(self.path_file,dir)
-                    os.mkdir(filesavepath)
+                    try:
+                        os.mkdir(filesavepath)
+                    except:
+                        pass
                 else:
                     filename     = "SOPHY"+"_"+time_save+"_"+"E."+self.grado+"_"+self.variable+".png"
                 pl.savefig(filesavepath+filename)
 
-            pl.pause(2)
+            pl.pause(1)
             pl.clf()
         if count==len_files:
             pl.close()
         pl.show()
 
-PATH = "/home/soporte/Documents/EVENTO/HYO_PM@2022-06-09T15-05-12/paramC0_FD_PL_R15.0km/2022-06-09T18-00-00/"
+PATH = "/home/soporte/Documents/EVENTO/HYO_PM@2022-06-09T15-05-12/paramC0N36.0/2022-06-09T18-00-00/"
+PATH = "/home/soporte/Documents/EVENTO/HYO_PM@2022-06-09T15-05-12/paramC0N36.0/2022-06-09T19-00-00/"
+
+#PATH = "/home/soporte/Documents/EVENTO/HYO_PM@2022-05-31T12-00-17/paramC0N36.0/2022-05-31T16-00-00/"
 
 def main(args):
     grado      = args.grado
     parameters = args.parameters
     save       = args.save
+    range      = args.range
     obj        = Readsophy()
     for param in parameters:
-        obj.setup(path_file = PATH,grado = grado, variable=param,save=int(save))
+        obj.setup(path_file = PATH,grado = grado,range=range, variable=param,save=int(save))
         obj.run()
 
 if __name__ == '__main__':
@@ -128,11 +184,13 @@ if __name__ == '__main__':
                         help='Angle in Elev to plot')
     parser.add_argument('--save', default=0,
                         help='Save plot')
+    parser.add_argument('--range', default=0, type=float,
+                        help='Max range to plot')
     args = parser.parse_args()
 
     main(args)
 
-
+#python sophy_proc_rev006.py  --parameters Z --grado 8 --save 1 --range 28
 '''
 def read_and_overview(filename):
     """Read HDF5 using read_generic_hdf5 and print upper level dictionary keys

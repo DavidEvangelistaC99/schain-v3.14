@@ -6,6 +6,7 @@ import time
 PATH = '/DATA_RM/DATA'
 PATH = '/media/jespinoza/Elements'
 PATH = '/media/jespinoza/data/SOPHY'
+PATH = '/home/soporte/Documents/EVENTO'
 
 PARAM = {
     'S': {'zmin': -45, 'zmax': -25, 'colormap': 'jet', 'label': 'Power', 'wrname': 'power','cb_label': 'dBm', 'ch':0},
@@ -46,8 +47,8 @@ def main(args):
     N = int(1/(speed_axis[0]*ipp))                                               # 1 GRADO DE RESOLUCION
     path = os.path.join(PATH, experiment, 'rawdata')
     path_ped = os.path.join(PATH, experiment, 'position')
-    path_plots = os.path.join(PATH, experiment, 'plots')
-    path_save = os.path.join(PATH, experiment, 'param')
+    path_plots = os.path.join(PATH, experiment, 'plotsC0N'+str(args.range))
+    path_save = os.path.join(PATH, experiment, 'paramC0N'+str(args.range))
     RMIX = 1.62
     H0 = -1.68
     MASK = 0.3
@@ -101,6 +102,8 @@ def main(args):
 
         op = voltage.addOperation(name='PulsePair_vRF', optype='other')
         op.addParameter(name='n', value=int(N)/ncode, format='int')
+        #op.addParameter(name='removeDC', value=1, format='int')
+
 
         proc = project.addProcUnit(datatype='ParametersProc', inputId=voltage.getId())
 
@@ -203,6 +206,8 @@ def main(args):
 
         op = voltage1.addOperation(name='PulsePair_vRF', optype='other')
         op.addParameter(name='n', value=int(conf['usrp_tx']['repetitions_1'])/2, format='int')
+        #op.addParameter(name='removeDC', value=1, format='int')
+
 
         proc1 = project.addProcUnit(datatype='ParametersProc', inputId=voltage1.getId())
         proc1.addParameter(name='runNextUnit', value=True)
@@ -253,6 +258,8 @@ def main(args):
 
         op = voltage2.addOperation(name='PulsePair_vRF', optype='other')
         op.addParameter(name='n', value=int(conf['usrp_tx']['repetitions_2'])/ncode, format='int')
+        #op.addParameter(name='removeDC', value=1, format='int')
+
 
         proc2 = project.addProcUnit(datatype='ParametersProc', inputId=voltage2.getId())
         proc2.addParameter(name='runNextUnit', value=True)
@@ -364,3 +371,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main(args)
+
+# python sophy_proc.py  HYO_PM@2022-06-09T15-05-12  --parameters V --plot --save --show --range 36
