@@ -1619,7 +1619,7 @@ class PulsePair_vRF(Operation):
         lag_0       = numpy.sum(pair0,1)
         #-----------------Calculo de Cscp------------------------------ New
         if len(self.__buffer)>1:
-            cspc_pair01 = self.__buffer[0]*self.__buffer[1]
+            cspc_pair01 = self.__buffer[0]*numpy.conjugate(self.__buffer[1])
         #------------------  Data Decodificada------------------------
         pwcode =  1
         if dataOut.flagDecodeData == True:
