@@ -1630,6 +1630,7 @@ class PulsePair_vRF(Operation):
             daux         = numpy.sort(pair0[i,:,:],axis= None)
             self.noise[i]=hildebrand_sekhon( daux/pwcode ,self.nCohInt)
 
+        data_noise       = self.noise
         self.noise       = self.noise.reshape(self.__nch,1)
         self.noise       = numpy.tile(self.noise,[1,self.__nHeis])
         noise_buffer     = self.noise.reshape(self.__nch,1,self.__nHeis)
@@ -1663,7 +1664,6 @@ class PulsePair_vRF(Operation):
         #---------------- Potencia promedio estimada de la Senal-----------
         lag_0            = data_power
         S                = lag_0-self.noise
-
         #---------------- Frecuencia Doppler promedio ---------------------
         lag_1            = lag_1/((self.n-1)*pwcode*self.nCohInt)
         R1               = numpy.abs(lag_1)
@@ -1685,7 +1685,7 @@ class PulsePair_vRF(Operation):
 
         self.__buffer    = numpy.zeros((self.__nch, self.__nProf,self.__nHeis),  dtype='complex')
         self.__profIndex = 0
-        return data_power,data_intensity,data_velocity,data_snrPP,data_specwidth,data_ccf,n
+        return data_power,data_intensity,data_velocity,data_snrPP,data_specwidth,data_ccf,data_noise,n
 
 
     def pulsePairbyProfiles(self,dataOut,n):
@@ -1697,33 +1697,34 @@ class PulsePair_vRF(Operation):
         data_specwidth       =  None
         data_snrPP           =  None
         data_ccf             =  None
+        data_noise           =  None
 
         if dataOut.flagDataAsBlock:
             self.putDataByBlock(data=dataOut.data,n=n)
         else:
             self.putData(data=dataOut.data)
         if self.__profIndex  == self.n:
-            data_power,data_intensity, data_velocity,data_snrPP,data_specwidth,data_ccf, n   = self.pushData(dataOut=dataOut)
+            data_power,data_intensity, data_velocity,data_snrPP,data_specwidth,data_ccf,data_noise, n   = self.pushData(dataOut=dataOut)
             self.__dataReady                   = True
 
-        return data_power, data_intensity, data_velocity, data_snrPP,data_specwidth,data_ccf
+        return data_power, data_intensity, data_velocity, data_snrPP,data_specwidth,data_ccf,data_noise
 
 
     def pulsePairOp(self, dataOut, n, datatime= None):
 
         if self.__initime == None:
             self.__initime = datatime
-        data_power, data_intensity, data_velocity, data_snrPP,data_specwidth,data_ccf = self.pulsePairbyProfiles(dataOut,n)
+        data_power, data_intensity, data_velocity, data_snrPP,data_specwidth,data_ccf,data_noise = self.pulsePairbyProfiles(dataOut,n)
         self.__lastdatatime           = datatime
 
         if data_power is None:
-            return None, None, None,None,None,None,None
+            return None, None, None,None,None,None,None,None
 
         avgdatatime    = self.__initime
         deltatime      = datatime - self.__lastdatatime
         self.__initime = datatime
 
-        return data_power, data_intensity, data_velocity, data_snrPP,data_specwidth,data_ccf, avgdatatime
+        return data_power, data_intensity, data_velocity, data_snrPP,data_specwidth,data_ccf, data_noise, avgdatatime
 
     def run(self, dataOut,n = None,removeDC= False, overlapping= False,wradar=False,**kwargs):
 
@@ -1735,7 +1736,7 @@ class PulsePair_vRF(Operation):
             self.setup(dataOut = dataOut, n    = n , removeDC=removeDC , wradar=wradar,**kwargs)
             self.isConfig   = True
 
-        data_power, data_intensity, data_velocity,data_snrPP,data_specwidth,data_ccf, avgdatatime = self.pulsePairOp(dataOut, n, dataOut.utctime)
+        data_power, data_intensity, data_velocity,data_snrPP,data_specwidth,data_ccf, data_noise,avgdatatime = self.pulsePairOp(dataOut, n, dataOut.utctime)
         dataOut.flagNoData                         = True
 
         if self.__dataReady:
@@ -1746,6 +1747,7 @@ class PulsePair_vRF(Operation):
             dataOut.dataPP_SNR      = data_snrPP
             dataOut.dataPP_WIDTH    = data_specwidth
             dataOut.dataPP_CCF      = data_ccf
+            dataOut.dataPP_NOISE    = data_noise
             dataOut.PRFbyAngle      = self.n         #numero de PRF*cada angulo rotado que equivale a un tiempo.
             dataOut.nProfiles       = int(dataOut.nProfiles/n)
             dataOut.utctime         = avgdatatime

@@ -144,6 +144,10 @@ class ParametersProc(ProcessingUnit):
 
             if hasattr(self.dataIn, 'dataPP_CCF'):
                 self.dataOut.dataPP_CCF = self.dataIn.dataPP_CCF
+
+            if hasattr(self.dataIn, 'dataPP_NOISE'):
+                self.dataOut.dataPP_NOISE = self.dataIn.dataPP_NOISE
+
             if hasattr(self.dataIn, 'flagAskMode'):
                 self.dataOut.flagAskMode = self.dataIn.flagAskMode
 
@@ -3928,10 +3932,10 @@ class WeatherRadar(Operation):
     Conversion Watt
     Referencia
     https://www.tek.com/en/blog/calculating-rf-power-iq-samples
-    
-    data_param = (nCh, 8, nHeis) 
+
+    data_param = (nCh, 8, nHeis)
     S, V, W, SNR, Z, D, P, R
-    Power, Velocity, Spectral width, SNR, Reflectivity, Differential reflectivity, PHI DP, RHO HV 
+    Power, Velocity, Spectral width, SNR, Reflectivity, Differential reflectivity, PHI DP, RHO HV
     '''
     isConfig  = False
     variableList = None
@@ -4086,7 +4090,7 @@ class WeatherRadar(Operation):
                 dataOut.data_param[:,6,:] =self.getFasediferencialPhiD_P(dataOut=dataOut, phase=True)
             if self.variableList[i] == 'R' and dataOut.nChannels>1:
                 dataOut.data_param[:,7,:] = self.getCoeficienteCorrelacionROhv_R(dataOut)
-                    
+
         return dataOut
 
 class PedestalInformation(Operation):
@@ -4189,13 +4193,13 @@ class PedestalInformation(Operation):
           elif sigma_ele < .5:
             flag_mode = 'PPI'
             break
-          elif sigma_azi < .5:            
+          elif sigma_azi < .5:
             flag_mode = 'RHI'
             break
-          
+
           start += sample_max
         print("MODE: ",flag_mode)
-        
+
         return flag_mode
 
     def get_values(self):
@@ -4224,7 +4228,7 @@ class PedestalInformation(Operation):
         self.mode = mode
         if mode is None:
             self.flagAskMode = True
-            
+
         filelist = self.find_file(dataOut.utctime)
 
         if not filelist:
@@ -4363,13 +4367,13 @@ class Block360(Operation):
                         #Se borra el dato anterior para liberar buffer y comparar el dato actual con el siguiente
                         self.__buffer.pop(0) #Erase first data
                         self.__buffer2.pop(0)
-                        self.__buffer3.pop(0)                        
+                        self.__buffer3.pop(0)
                         self.__profIndex -= 1
                     else: #Cuando ha estado de bajada y ha vuelto a subir
                         #Se borra el último dato
                         self.__buffer.pop() #Erase last data
                         self.__buffer2.pop()
-                        self.__buffer3.pop()                        
+                        self.__buffer3.pop()
                         data_360, n, data_p, data_e  = self.pushData(data=dataOut,flagMode=flagMode,case_flag=case_flag)
                         self.__dataReady = True
 
@@ -4428,7 +4432,7 @@ class Block360(Operation):
         dataOut.flagNoData = True
 
         if self.__dataReady:
-            setattr(dataOut, attr_data, data_360 )            
+            setattr(dataOut, attr_data, data_360 )
             dataOut.data_azi  = data_p + 26.2
             dataOut.data_azi[dataOut.data_azi>360] = dataOut.data_azi[dataOut.data_azi>360] - 360
             dataOut.data_ele  = data_e
