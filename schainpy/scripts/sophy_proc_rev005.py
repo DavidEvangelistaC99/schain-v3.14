@@ -138,7 +138,7 @@ def main(args):
 
     for param in parameters:
         op = proc.addOperation(name='Block360')
-        op.addParameter(name='attr_data', value=PARAM[param]['name'])
+        op.addParameter(name='attr_data', value='data_param')
         op.addParameter(name='runNextOp', value=True)
 
         op= proc.addOperation(name='WeatherParamsPlot')
@@ -148,7 +148,7 @@ def main(args):
         op.addParameter(name='channels', value='0,')
         op.addParameter(name='zmin', value=PARAM[param]['zmin'])
         op.addParameter(name='zmax', value=PARAM[param]['zmax'])
-        op.addParameter(name='attr_data', value=PARAM[param]['name'], format='str')
+        op.addParameter(name='attr_data', value=param, format='str')
         op.addParameter(name='labels', value=[PARAM[param]['label']])
         op.addParameter(name='save_code', value=param)
         op.addParameter(name='cb_label', value=PARAM[param]['cb_label'])
@@ -158,7 +158,7 @@ def main(args):
 
         desc = {
                 'Data': {
-                    PARAM[param]['name']: PARAM[param]['wrname'],
+                    'data_param': PARAM[param]['wrname'],
                     'utctime': 'time'
                 },
                  'Metadata': {

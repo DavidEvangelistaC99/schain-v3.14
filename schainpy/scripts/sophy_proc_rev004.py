@@ -11,14 +11,14 @@ PATH = '/home/soporte/Documents/EVENTO/'
 
 
 PARAM = {
-    'S': {'name': 'dataPP_POWER', 'zmin': -45, 'zmax': -15, 'colormap': 'jet', 'label': 'Power', 'wrname': 'power','cb_label': 'dBm', 'ch':0},
-    #'V': {'name': 'dataPP_DOP', 'zmin': -10, 'zmax': 10, 'colormap': 'sophy_v', 'label': 'Velocity', 'wrname': 'velocity', 'cb_label': 'm/s', 'ch':0},
-    'V': {'name': 'velRadial_V', 'zmin': -10, 'zmax': 10, 'colormap': 'sophy_v', 'label': 'Velocity', 'wrname': 'velocity', 'cb_label': 'm/s', 'ch':0},
-    'R': {'name': 'RhoHV_R', 'zmin': 0,   'zmax': 1,  'colormap': 'jet',    'label': 'RhoHV', 'wrname':'rhoHV', 'cb_label': '*',  'ch':0},
-    'P': {'name': 'PhiD_P', 'zmin': -180,'zmax': 180,'colormap': 'RdBu_r', 'label': 'PhiDP', 'wrname':'phiDP' , 'cb_label': 'º',  'ch':0},
-    'D': {'name': 'Zdb_D', 'zmin': -20, 'zmax': 80, 'colormap': 'gist_ncar','label': 'ZDR','wrname':'differential_reflectivity' , 'cb_label': 'dBz','ch':0},
-    'Z':  {'name': 'Zdb', 'zmin': -30, 'zmax': 80, 'colormap': 'sophy_r','label': 'Reflectivity',  'wrname':'reflectivity', 'cb_label': 'dBz','ch':1},
-    'W':  {'name': 'Sigmav_W', 'zmin': 0, 'zmax': 12, 'colormap': 'sophy_w','label': 'Spectral Width', 'wrname':'spectral_width', 'cb_label': 'hz', 'ch':1}
+    'S': {'zmin': -45, 'zmax': -15, 'colormap': 'jet', 'label': 'Power', 'wrname': 'power','cb_label': 'dBm', 'ch':0},
+   #'V': {'name': 'dataPP_DOP', 'zmin': -10, 'zmax': 10, 'colormap': 'sophy_v', 'label': 'Velocity', 'wrname': 'velocity', 'cb_label': 'm/s', 'ch':0},
+    'V': {'zmin': -10, 'zmax': 10, 'colormap': 'sophy_v', 'label': 'Velocity', 'wrname': 'velocity', 'cb_label': 'm/s', 'ch':0},
+    'R': {'zmin': 0,   'zmax': 1,  'colormap': 'jet',    'label': 'RhoHV', 'wrname':'rhoHV', 'cb_label': '*',  'ch':0},
+    'P': {'zmin': -180,'zmax': 180,'colormap': 'RdBu_r', 'label': 'PhiDP', 'wrname':'phiDP' , 'cb_label': 'º',  'ch':0},
+    'D': {'zmin': -20, 'zmax': 80, 'colormap': 'gist_ncar','label': 'ZDR','wrname':'differential_reflectivity' , 'cb_label': 'dBz','ch':0},
+    'Z': {'zmin': -30, 'zmax': 80, 'colormap': 'sophy_r','label': 'Reflectivity',  'wrname':'reflectivity', 'cb_label': 'dBz','ch':1},
+    'W': {'zmin': 0, 'zmax': 12, 'colormap': 'sophy_w','label': 'Spectral Width', 'wrname':'spectral_width', 'cb_label': 'hz', 'ch':1}
     }
 
 def max_index(r, sample_rate, ipp):
@@ -129,7 +129,7 @@ def main(args):
 
     for param in parameters:
         op = proc.addOperation(name='Block360')
-        op.addParameter(name='attr_data', value=PARAM[param]['name'])
+        op.addParameter(name='attr_data', value='data_param')
         op.addParameter(name='runNextOp', value=True)
 
         op= proc.addOperation(name='WeatherParamsPlot')
@@ -139,7 +139,7 @@ def main(args):
         op.addParameter(name='channels', value='0,')
         op.addParameter(name='zmin', value=PARAM[param]['zmin'])
         op.addParameter(name='zmax', value=PARAM[param]['zmax'])
-        op.addParameter(name='attr_data', value=PARAM[param]['name'], format='str')
+        op.addParameter(name='attr_data', value=param, format='str')
         op.addParameter(name='labels', value=[PARAM[param]['label']])
         op.addParameter(name='save_code', value=param)
         op.addParameter(name='cb_label', value=PARAM[param]['cb_label'])
@@ -149,7 +149,7 @@ def main(args):
 
         desc = {
                 'Data': {
-                    PARAM[param]['name']: PARAM[param]['wrname'],
+                    'data_param': PARAM[param]['wrname'],
                     'utctime': 'time'
                 },
                  'Metadata': {
