@@ -1642,7 +1642,7 @@ class PulsePair_vRF(Operation):
         #--------------------CCF------------------------------------------------------
 
         if len(self.__buffer)>1:
-            data_ccf         =numpy.sum(cspc_pair01,axis=0)/(self.n*self.nCohInt)
+            data_ccf         =numpy.sum(cspc_pair01,axis=0)/(self.n*self.nCohInt*pwcode)
         else:
             data_ccf = 0
         #------------------  Senal  --------------------------------------------------
