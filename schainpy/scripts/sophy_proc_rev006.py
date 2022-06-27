@@ -17,6 +17,8 @@ for name, cb_table in sophy_cb_tables:
     ncmap = matplotlib.colors.ListedColormap(cb_table, name=name)
     matplotlib.pyplot.register_cmap(cmap=ncmap)
 #LINUX bash: export WRADLIB_DATA=/path/to/wradlib-data
+#example
+#export WRADLIB_DATA="/home/soporte/Documents/EVENTO/HYO_PM@2022-06-09T15-05-12/paramC0N36.0/2022-06-09T18-00-00/"
 warnings.filterwarnings('ignore')
 PARAM = {
     'S': {'var': 'power','vmin': -45, 'vmax': -15, 'cmap': 'jet', 'label': 'Power','unit': 'dBm'},
@@ -91,6 +93,22 @@ class Readsophy():
         new_h = heightList[minIndex:maxIndex]
         return new_h
 
+    def readAttributes(self,obj,variable):
+        var    = PARAM[variable]['var']
+        unit   = PARAM[variable]['unit']
+        cmap   = PARAM[variable]['cmap']
+        vmin   = PARAM[variable]['vmin']
+        vmax   = PARAM[variable]['vmax']
+        label  = PARAM[variable]['label']
+        var_    = 'Data/'+var+'/H'
+        data_arr   = numpy.array(obj[var_]['data']) # data
+        utc_time   = numpy.array(obj['Data/time']['data'])
+        data_azi   = numpy.array(obj['Metadata/azimuth']['data']) # th
+        data_ele   = numpy.array(obj["Metadata/elevation"]['data'])
+        heightList = numpy.array(obj["Metadata/range"]['data']) # r
+
+        return data_arr, utc_time, data_azi,data_ele, heightList,unit,cmap,vmin,vmax,label
+
     def run(self):
         count= 0
         len_files = len(self.list_file)
@@ -101,24 +119,14 @@ class Readsophy():
             filename   = get_wradlib_data_file(fullpathfile)
             test_hdf5  = read_generic_hdf5(filename)
 
-            var    = PARAM[self.variable]['var']
-            unit   = PARAM[self.variable]['unit']
-            cmap   = PARAM[self.variable]['cmap']
-            vmin   = PARAM[self.variable]['vmin']
-            vmax   = PARAM[self.variable]['vmax']
-            label  = PARAM[self.variable]['label']
-            var_    = 'Data/'+var+'/H'
-            data_arr   = numpy.array(test_hdf5[var_]['data']) # data
-            utc_time   = numpy.array(test_hdf5['Data/time']['data'])
-            data_azi   = numpy.array(test_hdf5['Metadata/azimuth']['data']) # th
-            data_ele   = numpy.array(test_hdf5["Metadata/elevation"]['data'])
-            heightList = numpy.array(test_hdf5["Metadata/range"]['data']) # r
+            # LECTURA
+            data_arr, utc_time, data_azi,data_ele, heightList,unit,cmap,vmin,vmax,label = self.readAttributes(obj= test_hdf5,variable=self.variable)
 
             if self.range==0:
                 self.range == heightList[-1]
             new_heightList,minIndex,maxIndex = self.selectHeights(heightList,0.06,self.range)
 
-
+            # TIEMPO
             my_time    = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(utc_time[0]))
             time_save  = time.strftime('%Y%m%d_%H%M%S',time.localtime(utc_time[0]))
 
