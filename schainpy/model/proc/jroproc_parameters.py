@@ -4146,7 +4146,6 @@ class PedestalInformation(Operation):
                         ok = True
                         break
                     except Exception as e:
-                        print(e)
                         log.warning('Waiting {}s for position file to be ready...'.format(self.delay), self.name)
                         time.sleep(self.delay)
                         continue
@@ -4168,8 +4167,7 @@ class PedestalInformation(Operation):
         flag_mode = None
         azi = self.fp['Data']['azi_pos'][:]
         ele = self.fp['Data']['ele_pos'][:]
-        #print("az: ",az)
-        #exit(1)
+        
         while True:
           if start+sample_max > numpy.shape(ele)[0]:
             print("CANNOT KNOW IF MODE IS PPI OR RHI, ANALIZE NEXT FILE")
@@ -4219,7 +4217,7 @@ class PedestalInformation(Operation):
             else:
                 return numpy.nan, numpy.nan, numpy.nan
 
-    def setup(self, dataOut, path, conf, samples, interval, mode):
+    def setup(self, dataOut, path, conf, samples, interval, mode, online):
 
         self.path = path
         self.conf = conf
@@ -4235,15 +4233,26 @@ class PedestalInformation(Operation):
             log.error('No position files found in {}'.format(path), self.name)
             raise IOError('No position files found in {}'.format(path))
         else:
-            self.filename = filelist[0]
-            self.utcfile = int(self.filename.split('/')[-1][4:14])
-            log.log('Opening file: {}'.format(self.filename), self.name)
-            self.fp = h5py.File(self.filename, 'r')
+            if self.online:
+                self.filename = filelist[-1]
+                self.utcfile = int(self.filename.split('/')[-1][4:14])
+                log.log('Opening file: {}'.format(self.filename), self.name)
+                for i in range(self.nTries):
+                    try:        
+                        self.fp = h5py.File(self.filename, 'r')
+                    except:
+                        log.warning('Waiting {}s for position file to be ready...'.format(self.delay), self.name)
+                        time.sleep(self.delay)
+            else:
+                self.filename = filelist[0]
+                self.utcfile = int(self.filename.split('/')[-1][4:14])
+                log.log('Opening file: {}'.format(self.filename), self.name)
+                self.fp = h5py.File(self.filename, 'r')
 
-    def run(self, dataOut, path, conf=None, samples=1500, interval=0.04, az_offset=0, time_offset=0, mode=None):
+    def run(self, dataOut, path, conf=None, samples=1500, interval=0.04, time_offset=0, mode=None, online=False):
 
         if not self.isConfig:
-            self.setup(dataOut, path, conf, samples, interval, mode)
+            self.setup(dataOut, path, conf, samples, interval, mode, online)
             self.isConfig   = True
 
         self.utctime = dataOut.utctime + time_offset
@@ -4256,10 +4265,8 @@ class PedestalInformation(Operation):
             dataOut.flagNoData = True
             return dataOut
 
-        dataOut.azimuth = az + az_offset
-        if dataOut.azimuth < 0:
-            dataOut.azimuth += 360
-        dataOut.elevation = el
+        dataOut.azimuth = round(az, 2)
+        dataOut.elevation = round(el, 2)
         dataOut.mode_op = scan
 
         return dataOut
@@ -4307,7 +4314,6 @@ class Block360(Operation):
         Add a profile to he __buffer and increase in one the __profiel Index
         '''
         tmp= getattr(data, attr)
-
         self.__buffer.append(tmp)
         self.__buffer2.append(data.azimuth)
         self.__buffer3.append(data.elevation)

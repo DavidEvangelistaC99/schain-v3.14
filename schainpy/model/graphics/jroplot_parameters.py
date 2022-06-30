@@ -1,5 +1,6 @@
 import os
 import datetime
+import warnings
 import numpy
 from mpl_toolkits.axisartist.grid_finder import FixedLocator, DictFormatter
 
@@ -7,10 +8,149 @@ from schainpy.model.graphics.jroplot_base import Plot, plt
 from schainpy.model.graphics.jroplot_spectra import SpectraPlot, RTIPlot, CoherencePlot, SpectraCutPlot
 from schainpy.utils import log
 
-import wradlib.georef as georef
 
 EARTH_RADIUS = 6.3710e3
 
+
+def antenna_to_cartesian(ranges, azimuths, elevations):
+    """
+    Return Cartesian coordinates from antenna coordinates.
+
+    Parameters
+    ----------
+    ranges : array
+        Distances to the center of the radar gates (bins) in kilometers.
+    azimuths : array
+        Azimuth angle of the radar in degrees.
+    elevations : array
+        Elevation angle of the radar in degrees.
+
+    Returns
+    -------
+    x, y, z : array
+        Cartesian coordinates in meters from the radar.
+
+    Notes
+    -----
+    The calculation for Cartesian coordinate is adapted from equations
+    2.28(b) and 2.28(c) of Doviak and Zrnic [1]_ assuming a
+    standard atmosphere (4/3 Earth's radius model).
+
+    .. math::
+
+        z = \\sqrt{r^2+R^2+2*r*R*sin(\\theta_e)} - R
+
+        s = R * arcsin(\\frac{r*cos(\\theta_e)}{R+z})
+
+        x = s * sin(\\theta_a)
+
+        y = s * cos(\\theta_a)
+
+    Where r is the distance from the radar to the center of the gate,
+    :math:`\\theta_a` is the azimuth angle, :math:`\\theta_e` is the
+    elevation angle, s is the arc length, and R is the effective radius
+    of the earth, taken to be 4/3 the mean radius of earth (6371 km).
+
+    References
+    ----------
+    .. [1] Doviak and Zrnic, Doppler Radar and Weather Observations, Second
+        Edition, 1993, p. 21.
+
+    """
+    theta_e = numpy.deg2rad(elevations) # elevation angle in radians.
+    theta_a = numpy.deg2rad(azimuths) # azimuth angle in radians.
+    R = 6371.0 * 1000.0 * 4.0 / 3.0     # effective radius of earth in meters.
+    r = ranges * 1000.0                 # distances to gates in meters.
+
+    z = (r ** 2 + R ** 2 + 2.0 * r * R * numpy.sin(theta_e)) ** 0.5 - R
+    s = R * numpy.arcsin(r * numpy.cos(theta_e) / (R + z))  # arc length in m.
+    x = s * numpy.sin(theta_a)
+    y = s * numpy.cos(theta_a)
+    return x, y, z
+
+def cartesian_to_geographic_aeqd(x, y, lon_0, lat_0, R=EARTH_RADIUS):
+    """
+    Azimuthal equidistant Cartesian to geographic coordinate transform.
+
+    Transform a set of Cartesian/Cartographic coordinates (x, y) to
+    geographic coordinate system (lat, lon) using a azimuthal equidistant
+    map projection [1]_.
+
+    .. math::
+
+        lat = \\arcsin(\\cos(c) * \\sin(lat_0) +
+                       (y * \\sin(c) * \\cos(lat_0) / \\rho))
+
+        lon = lon_0 + \\arctan2(
+            x * \\sin(c),
+            \\rho * \\cos(lat_0) * \\cos(c) - y * \\sin(lat_0) * \\sin(c))
+
+        \\rho = \\sqrt(x^2 + y^2)
+
+        c = \\rho / R
+
+    Where x, y are the Cartesian position from the center of projection;
+    lat, lon the corresponding latitude and longitude; lat_0, lon_0 are the
+    latitude and longitude of the center of the projection; R is the radius of
+    the earth (defaults to ~6371 km). lon is adjusted to be between -180 and
+    180.
+
+    Parameters
+    ----------
+    x, y : array-like
+        Cartesian coordinates in the same units as R, typically meters.
+    lon_0, lat_0 : float
+        Longitude and latitude, in degrees, of the center of the projection.
+    R : float, optional
+        Earth radius in the same units as x and y. The default value is in
+        units of meters.
+
+    Returns
+    -------
+    lon, lat : array
+        Longitude and latitude of Cartesian coordinates in degrees.
+
+    References
+    ----------
+    .. [1] Snyder, J. P. Map Projections--A Working Manual. U. S. Geological
+        Survey Professional Paper 1395, 1987, pp. 191-202.
+
+    """
+    x = numpy.atleast_1d(numpy.asarray(x))
+    y = numpy.atleast_1d(numpy.asarray(y))
+
+    lat_0_rad = numpy.deg2rad(lat_0)
+    lon_0_rad = numpy.deg2rad(lon_0)
+
+    rho = numpy.sqrt(x*x + y*y)
+    c = rho / R
+
+    with warnings.catch_warnings():
+        # division by zero may occur here but is properly addressed below so
+        # the warnings can be ignored
+        warnings.simplefilter("ignore", RuntimeWarning)
+        lat_rad = numpy.arcsin(numpy.cos(c) * numpy.sin(lat_0_rad) +
+                            y * numpy.sin(c) * numpy.cos(lat_0_rad) / rho)
+    lat_deg = numpy.rad2deg(lat_rad)
+    # fix cases where the distance from the center of the projection is zero
+    lat_deg[rho == 0] = lat_0
+
+    x1 = x * numpy.sin(c)
+    x2 = rho*numpy.cos(lat_0_rad)*numpy.cos(c) - y*numpy.sin(lat_0_rad)*numpy.sin(c)
+    lon_rad = lon_0_rad + numpy.arctan2(x1, x2)
+    lon_deg = numpy.rad2deg(lon_rad)
+    # Longitudes should be from -180 to 180 degrees
+    lon_deg[lon_deg > 180] -= 360.
+    lon_deg[lon_deg < -180] += 360.
+
+    return lon_deg, lat_deg
+
+def antenna_to_geographic(ranges, azimuths, elevations, site):
+
+    x, y, z = antenna_to_cartesian(numpy.array(ranges), numpy.array(azimuths), numpy.array(elevations))
+    lon, lat = cartesian_to_geographic_aeqd(x, y, site[0], site[1], R=6370997.)
+
+    return lon, lat
 
 def ll2xy(lat1, lon1, lat2, lon2):
 
@@ -457,15 +597,21 @@ class WeatherParamsPlot(Plot):
         data['ele'] = dataOut.data_ele
         data['mode_op'] = dataOut.mode_op
         var = data['data'].flatten()
-        r = numpy.tile(data['r'], data['data'].shape[0]).reshape(data['data'].shape)*1000
-        lla = georef.spherical_to_proj(r, data['azi'], data['ele'], (-75.295893, -12.040436, 3379.2147))
+        r = numpy.tile(data['r'], data['data'].shape[0])
+        az = numpy.repeat(data['azi'], data['data'].shape[1])
+        el = numpy.repeat(data['ele'], data['data'].shape[1])
+
+        # lla = georef.spherical_to_proj(r, data['azi'], data['ele'], (-75.295893, -12.040436, 3379.2147))
+        
+        latlon = antenna_to_geographic(r, az, el, (-75.295893, -12.040436))
+
         if self.mask:
-            meta['lat'] = lla[:,:,1].flatten()[var.mask==False]
-            meta['lon'] = lla[:,:,0].flatten()[var.mask==False]
+            meta['lat'] = latlon[1][var.mask==False]
+            meta['lon'] = latlon[0][var.mask==False]
             data['var'] = numpy.array([var[var.mask==False]])
         else:
-            meta['lat'] = lla[:,:,1].flatten()
-            meta['lon'] = lla[:,:,0].flatten()
+            meta['lat'] = latlon[1]
+            meta['lon'] = latlon[0]
             data['var'] = numpy.array([var])
 
         return data, meta
