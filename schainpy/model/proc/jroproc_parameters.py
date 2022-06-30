@@ -4224,6 +4224,7 @@ class PedestalInformation(Operation):
         self.samples = samples
         self.interval = interval
         self.mode = mode
+        self.online = online
         if mode is None:
             self.flagAskMode = True
 
