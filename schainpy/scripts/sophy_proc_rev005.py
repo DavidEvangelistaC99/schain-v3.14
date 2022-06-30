@@ -19,7 +19,7 @@ PARAM = {
     'P': {'name': 'PhiD_P', 'zmin': -180,'zmax': 180,'colormap': 'RdBu_r', 'label': 'PhiDP', 'wrname':'phiDP' , 'cb_label': 'º',  'ch':0},
     'D': {'name': 'Zdb_D', 'zmin': -20, 'zmax': 80, 'colormap': 'gist_ncar','label': 'ZDR','wrname':'differential_reflectivity' , 'cb_label': 'dBz','ch':0},
     'Z':  {'name': 'Zdb', 'zmin': -30, 'zmax': 80, 'colormap': 'sophy_r','label': 'Reflectivity',  'wrname':'reflectivity', 'cb_label': 'dBz','ch':1},
-    'W':  {'name': 'Sigmav_W', 'zmin': 0, 'zmax': 12, 'colormap': 'sophy_w','label': 'Spectral Width', 'wrname':'spectral_width', 'cb_label': 'hz', 'ch':1}
+    'W':  {'name': 'Sigmav_W', 'zmin': 0, 'zmax': 12, 'colormap': 'sophy_w','label': 'Spectral Width', 'wrname':'spectral_width', 'cb_label': 'm/s', 'ch':1}
     }
 
 def max_index(r, sample_rate, ipp):
@@ -51,11 +51,12 @@ def main(args):
     N = int(1/(speed_axis[0]*ipp))                                               # 1 GRADO DE RESOLUCION
     path = os.path.join(PATH, experiment, 'rawdata')
     path_ped = os.path.join(PATH, experiment, 'position')
-    #path_plots = os.path.join(PATH, experiment, 'plotsC0_FD_PL_R'+str(args.range)+'km_removeDC')
-    #path_save = os.path.join(PATH, experiment, 'paramC0_FD_PL_R'+str(args.range)+'km_removeDC')
-    path_plots = os.path.join(PATH, experiment, 'plotsC0_FD_PL_R'+str(args.range)+'km')
-    path_save = os.path.join(PATH, experiment, 'paramC0_FD_PL_R'+str(args.range)+'km')
+    path_plots = os.path.join(PATH, experiment, 'plotsC0_FD_PL_R'+str(args.range)+'km_removeDC')
+    path_save = os.path.join(PATH, experiment, 'paramC0_FD_PL_R'+str(args.range)+'km_removeDC')
+    #path_plots = os.path.join(PATH, experiment, 'plotsC0_FD_PL_R'+str(args.range)+'km')
+    #path_save = os.path.join(PATH, experiment, 'paramC0_FD_PL_R'+str(args.range)+'km')
     RMIX = 1.62
+    MASK =0.3
 
     from schainpy.controller import Project
 
@@ -112,8 +113,8 @@ def main(args):
     procB.addParameter(name='nFFTPoints', value=int(conf['usrp_tx']['repetitions_2'])/2, format='int')
     procB.addParameter(name='nProfiles', value=int(conf['usrp_tx']['repetitions_2'])/2, format='int')
 
-    #opObj11 = procB.addOperation(name='removeDC')
-    #opObj11.addParameter(name='mode', value=2)
+    opObj11 = procB.addOperation(name='removeDC')
+    opObj11.addParameter(name='mode', value=2)
 
     proc= project.addProcUnit(datatype='ParametersProc',inputId=procB.getId())
 
@@ -123,7 +124,7 @@ def main(args):
     #---------------------------------------NEW PROCESSING -----------------------------------------------------
 
     opObj10 = proc.addOperation(name="WeatherRadar")
-    opObj10.addParameter(name='variableList',value='Reflectividad,VelocidadRadial,AnchoEspectral')
+    #opObj10.addParameter(name='variableList',value='Reflectividad,VelocidadRadial,AnchoEspectral')
     opObj10.addParameter(name='tauW',value=(1e-6/sample_rate)*len(code[0]))
     opObj10.addParameter(name='Pt',value=((1e-6/sample_rate)*len(code[0])/ipp)*200)
 
@@ -156,27 +157,44 @@ def main(args):
         op.addParameter(name='bgcolor',value='black')
         op.addParameter(name='snr_threshold',value=0.4)
 
+        if MASK: op.addParameter(name='mask', value=MASK, format='float')
+
         desc = {
                 'Data': {
-                    'data_param': PARAM[param]['wrname'],
+                    'data_param': {PARAM[param]['wrname']: ['H', 'V']},
                     'utctime': 'time'
                 },
                  'Metadata': {
                     'heightList': 'range',
                     'data_azi': 'azimuth',
                     'data_ele': 'elevation',
+                    'mode_op': 'scan_type',
+                    'h0': 'range_correction',
                 }
             }
 
         if args.save:
-            opObj10 = proc.addOperation(name='HDFWriter')
-            opObj10.addParameter(name='path', value=path_save, format='str')
-            opObj10.addParameter(name='Reset', value=True)
-            opObj10.addParameter(name='setType', value='weather')
-            opObj10.addParameter(name='    description', value=json.dumps(desc))
-            opObj10.addParameter(name='blocksPerFile', value='1',format='int')
-            opObj10.addParameter(name='metadataList', value='heightList,data_azi,data_ele')
-            opObj10.addParameter(name='dataList', value='{},utctime'.format(PARAM[param]['name']))
+            writer = proc.addOperation(name='HDFWriter')
+            writer.addParameter(name='path', value=path_save, format='str')
+            writer.addParameter(name='Reset', value=True)
+            writer.addParameter(name='setType', value='weather')
+            writer.addParameter(name='description', value=json.dumps(desc))
+            writer.addParameter(name='blocksPerFile', value='1',format='int')
+            writer.addParameter(name='metadataList', value='heightList,data_azi,data_ele,mode_op,latitude,longitude,altitude,heading,radar_name,institution,contact,h0,range_unit')
+            writer.addParameter(name='dataList', value='data_param,utctime')
+            writer.addParameter(name='weather_var', value=param)
+            writer.addParameter(name='mask', value=MASK, format='float')
+            # meta
+            writer.addParameter(name='latitude', value='-12.040436')
+            writer.addParameter(name='longitude', value='-75.295893')
+            writer.addParameter(name='altitude', value='3379.2147')
+            writer.addParameter(name='heading', value='0')
+            writer.addParameter(name='radar_name', value='SOPHy')
+            writer.addParameter(name='institution', value='IGP')
+            writer.addParameter(name='contact', value='dscipion@igp.gob.pe')
+            writer.addParameter(name='created_by', value='Signal Chain (https://pypi.org/project/schainpy/)')
+            writer.addParameter(name='range_unit', value='km')
+
     project.start()
 
 
@@ -204,4 +222,4 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    main(args)
+    main(args) # Operator#ñ8

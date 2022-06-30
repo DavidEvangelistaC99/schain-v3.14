@@ -24,7 +24,7 @@ PARAM = {
     'S': {'var': 'power','vmin': -45, 'vmax': -15, 'cmap': 'jet', 'label': 'Power','unit': 'dBm'},
     'V': {'var': 'velocity', 'vmin': -10, 'vmax': 10 , 'cmap': 'sophy_v', 'label': 'Velocity','unit': 'm/s'},
     'Z': {'var': 'reflectivity','vmin': -30, 'vmax': 80 , 'cmap': 'sophy_r','label': 'Reflectivity','unit': 'dBZ'},
-    'W': {'var': 'spectral_width',    'vmin': 0  , 'vmax': 12 , 'cmap': 'sophy_w','label': 'Spectral Width','unit': 'hz'}
+    'W': {'var': 'spectral_width',    'vmin': 0  , 'vmax': 12 , 'cmap': 'sophy_w','label': 'Spectral Width','unit': 'm/s'}
     }
 class Readsophy():
     def __init__(self):

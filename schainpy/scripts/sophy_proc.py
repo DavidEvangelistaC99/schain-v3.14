@@ -16,7 +16,7 @@ PARAM = {
     'P': {'zmin': -180,'zmax': 180,'colormap': 'RdBu_r', 'label': 'PhiDP', 'wrname':'phiDP' , 'cb_label': 'º',  'ch':0},
     'D': {'zmin': -30, 'zmax': 80, 'colormap': 'sophy_r','label': 'ZDR','wrname':'differential_reflectivity' , 'cb_label': 'dBz','ch':0},
     'Z':  {'zmin': -30, 'zmax': 80, 'colormap': 'sophy_r','label': 'Reflectivity ',  'wrname':'reflectivity', 'cb_label': 'dBz','ch':0},
-    'W':  {'zmin': 0, 'zmax': 15, 'colormap': 'sophy_w','label': 'Spectral Width', 'wrname':'spectral_width', 'cb_label': 'hz', 'ch':0}
+    'W':  {'zmin': 0, 'zmax': 15, 'colormap': 'sophy_w','label': 'Spectral Width', 'wrname':'spectral_width', 'cb_label': 'm/s', 'ch':0}
     }
 
 def max_index(r, sample_rate, ipp):
@@ -372,4 +372,4 @@ if __name__ == '__main__':
 
     main(args)
 
-# python sophy_proc.py  HYO_PM@2022-06-09T15-05-12  --parameters V --plot --save --show --range 36
+# python sophy_proc.py  HYO_PM@2022-06-09T15-05-12  --parameters V --plot --save --show --range 36S
