@@ -14,7 +14,8 @@ import datetime
 import traceback
 import time
 import multiprocessing
-from multiprocessing import Process, Queue
+import signal as sig
+from multiprocessing import Process, Queue, active_children
 from threading import Thread
 from xml.etree.ElementTree import ElementTree, Element, SubElement
 
@@ -24,6 +25,15 @@ from schainpy.utils import log
 
 if 'darwin' in sys.platform and sys.version_info[0] == 3 and sys.version_info[1] > 7:
     multiprocessing.set_start_method('fork')
+
+def handler(sig, frame):
+    # get all active child processes
+    active = active_children()
+    # terminate all active children
+    for child in active:
+        child.terminate()
+    # terminate the process
+    sys.exit(0)
 
 class ConfBase():
 
@@ -659,6 +669,7 @@ class Project(Process):
         self.started = True
         self.start_time = time.time()
         self.createObjects()
+        sig.signal(sig.SIGTERM, handler)
         self.runProcs()
         log.success('{} Done (Time: {:4.2f}s)'.format(
             self.name,
