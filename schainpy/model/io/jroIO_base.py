@@ -481,6 +481,7 @@ class Reader(object):
     folderfmt = None
     open_file = open
     open_mode = 'rb'
+    filter =None
 
     def run(self):
 
@@ -519,11 +520,13 @@ class Reader(object):
         return
 
     def find_files(self, folders, ext, filefmt, startDate=None, endDate=None,
-                   expLabel='', last=False):
+                   expLabel='', filter=None,last=False):
 
         for path in folders:
             files = glob.glob1(path, '*{}'.format(ext))
             files.sort()
+            if filter is not None:
+                files= [ file for file in files if  os.path.splitext(file)[0][-len(filter):] == filter]
             if last:
                 if files:
                     fo = files[-1]
@@ -549,7 +552,7 @@ class Reader(object):
 
     def searchFilesOffLine(self, path, startDate, endDate,
                            expLabel, ext, walk,
-                           filefmt, folderfmt):
+                           filefmt, folderfmt,filter):
         """Search files in offline mode for the given arguments
 
         Return:
@@ -563,11 +566,11 @@ class Reader(object):
             folders = path.split(',')
 
         return self.find_files(
-            folders, ext, filefmt, startDate, endDate, expLabel)
+            folders, ext, filefmt, startDate, endDate, expLabel,filter)
 
     def searchFilesOnLine(self, path, startDate, endDate,
                           expLabel, ext, walk,
-                          filefmt, folderfmt):
+                          filefmt, folderfmt,filter):
         """Search for the last file of the last folder
 
         Arguments:
@@ -586,8 +589,7 @@ class Reader(object):
         else:
             folders = path.split(',')
 
-        return self.find_files(
-            folders, ext, filefmt, startDate, endDate, expLabel, last=True)
+        return self.find_files(folders, ext, filefmt, startDate, endDate, expLabel, filter,last=True)
 
     def setNextFile(self):
         """Set the next file to be readed open it and parse de file header"""

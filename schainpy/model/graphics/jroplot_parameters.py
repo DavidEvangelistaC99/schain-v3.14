@@ -557,20 +557,23 @@ class WeatherParamsPlot(Plot):
             'P' : 6,
             'R' : 7,
         }
-        
+
         data = {}
         meta = {}
-        
+
         if hasattr(dataOut, 'nFFTPoints'):
             factor = dataOut.normFactor
         else:
             factor = 1
 
-        if 'S' in self.attr_data[0]:            
-            tmp = 10*numpy.log10(10.0*getattr(dataOut, 'data_param')[:,0,:]/(factor))
+        if hasattr(dataOut, 'dparam'):
+            tmp = getattr(dataOut, 'data_param')
         else:
-            tmp = getattr(dataOut, 'data_param')[:,vars[self.attr_data[0]],:]
-            
+
+            if 'S' in self.attr_data[0]:
+                tmp = 10*numpy.log10(10.0*getattr(dataOut, 'data_param')[:,0,:]/(factor))
+            else:
+                tmp = getattr(dataOut, 'data_param')[:,vars[self.attr_data[0]],:]
 
         if self.mask:
             mask = dataOut.data_param[:,3,:] < self.mask
@@ -602,7 +605,7 @@ class WeatherParamsPlot(Plot):
         el = numpy.repeat(data['ele'], data['data'].shape[1])
 
         # lla = georef.spherical_to_proj(r, data['azi'], data['ele'], (-75.295893, -12.040436, 3379.2147))
-        
+
         latlon = antenna_to_geographic(r, az, el, (-75.295893, -12.040436))
 
         if self.mask:
@@ -626,6 +629,9 @@ class WeatherParamsPlot(Plot):
         self.ymin = self.ymin if self.ymin else numpy.nanmin(r)
         self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
         self.zmin = self.zmin if self.zmin is not None else numpy.nanmin(z)
+
+        if isinstance(data['mode_op'], bytes):
+            data['mode_op'] = data['mode_op'].decode()
 
         if data['mode_op'] == 'RHI':
             try:
