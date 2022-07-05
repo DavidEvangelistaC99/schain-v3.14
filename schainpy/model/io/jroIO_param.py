@@ -95,6 +95,8 @@ class HDFReader(Reader, ProcessingUnit):
         self.filefmt = "*%Y%j***"
         self.folderfmt = "*%Y%j"
         self.utcoffset = 0
+        self.filter  = None
+        self.dparam  = None
 
     def setup(self, **kwargs):
 
@@ -108,7 +110,7 @@ class HDFReader(Reader, ProcessingUnit):
             for nTries in range(self.nTries):
                 fullpath = self.searchFilesOnLine(self.path, self.startDate,
                     self.endDate, self.expLabel, self.ext, self.walk,
-                    self.filefmt, self.folderfmt)
+                    self.filefmt, self.folderfmt,self.filter)
                 try:
                     fullpath = next(fullpath)
                 except:
@@ -134,7 +136,7 @@ class HDFReader(Reader, ProcessingUnit):
         else:
             log.log("Searching files in {}".format(self.path), self.name)
             self.filenameList = self.searchFilesOffLine(self.path, self.startDate,
-                self.endDate, self.expLabel, self.ext, self.walk, self.filefmt, self.folderfmt)
+                self.endDate, self.expLabel, self.ext, self.walk, self.filefmt, self.folderfmt,self.filter)
 
         self.setNextFile()
 
@@ -149,6 +151,9 @@ class HDFReader(Reader, ProcessingUnit):
 
         if 'type' in self.meta:
             self.dataOut = eval(self.meta['type'])()
+
+        if self.dparam:
+            setattr(self.dataOut, "dparam", 1)
 
         for attr in self.meta:
             setattr(self.dataOut, attr, self.meta[attr])
@@ -172,7 +177,10 @@ class HDFReader(Reader, ProcessingUnit):
         startTime = self.startTime
         endTime = self.endTime
         thisUtcTime = self.data['utctime'] + self.utcoffset
-        self.interval = numpy.min(thisUtcTime[1:] - thisUtcTime[:-1])
+        try:
+            self.interval = numpy.min(thisUtcTime[1:] - thisUtcTime[:-1])
+        except:
+            self.interval = 0
         thisDatetime = datetime.datetime.utcfromtimestamp(thisUtcTime[0])
 
         thisDate = thisDatetime.date()
@@ -256,7 +264,10 @@ class HDFReader(Reader, ProcessingUnit):
             if self.data[attr].ndim == 1:
                 setattr(self.dataOut, attr, self.data[attr][self.blockIndex])
             else:
-                setattr(self.dataOut, attr, self.data[attr][:, self.blockIndex])
+                if self.dparam:
+                    setattr(self.dataOut, attr, self.data[attr])
+                else:
+                    setattr(self.dataOut, attr, self.data[attr][:, self.blockIndex])
 
         self.dataOut.flagNoData = False
         self.blockIndex += 1
@@ -409,7 +420,7 @@ class HDFWriter(Operation):
             self.metadataList = self.dataOut.metadata_list
 
         dsList = []
-        
+
         for i in range(len(self.dataList)):
             dsDict = {}
             if hasattr(self.dataOut, self.dataList[i]):
@@ -682,7 +693,7 @@ class HDFWriter(Operation):
         return
 
     def putData(self):
-        
+
         if (self.blockIndex == self.blocksPerFile) or self.timeFlag():
             self.closeFile()
             self.setNextFile()
@@ -697,7 +708,7 @@ class HDFWriter(Operation):
                     tmp = getattr(self.dataOut, attr)[:,self.weather_vars[self.weather_var],:][ch]
                     if self.mask:
                         tmp[mask] = numpy.nan
-                    ds[:] = tmp 
+                    ds[:] = tmp
                 else:
                     ds[self.blockIndex] = getattr(self.dataOut, attr)[ch]
 
