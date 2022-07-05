@@ -4100,13 +4100,14 @@ class PedestalInformation(Operation):
         self.filename = False
         self.delay = 32
         self.nTries = 3
+        self.nFiles = 5
         self.flagAskMode = False
 
     def find_file(self, timestamp):
 
         dt = datetime.datetime.utcfromtimestamp(timestamp)
         path = os.path.join(self.path, dt.strftime('%Y-%m-%dT%H-00-00'))
-
+        
         if not os.path.exists(path):
             return False
         fileList = glob.glob(os.path.join(path, '*.h5'))
@@ -4131,14 +4132,14 @@ class PedestalInformation(Operation):
             path = os.path.join(self.path, dt.strftime('%Y-%m-%dT%H-00-00'))
             self.filename = os.path.join(path, 'pos@{}.000.h5'.format(int(self.utcfile)))
 
-            for i in range(20):
+            for i in range(self.nFiles):
                 ok = False
                 for j in range(self.nTries):
                     ok = False
                     try:
                         if not os.path.exists(self.filename):
                             log.warning('Waiting {}s for position files...'.format(self.delay), self.name)
-                            time.sleep(2)
+                            time.sleep(1)
                             continue
                         self.fp.close()
                         self.fp = h5py.File(self.filename, 'r')
@@ -4172,7 +4173,7 @@ class PedestalInformation(Operation):
           if start+sample_max > numpy.shape(ele)[0]:
             print("CANNOT KNOW IF MODE IS PPI OR RHI, ANALIZE NEXT FILE")
             print("ele",ele[start-sample_max:start+sample_max])
-            print("azi",ele[start-sample_max:start+sample_max])
+            print("azi",azi[start-sample_max:start+sample_max])
             if  sample_max == 10:
                 break
             else:
@@ -4196,7 +4197,6 @@ class PedestalInformation(Operation):
             break
 
           start += sample_max
-        print("MODE: ",flag_mode)
 
         return flag_mode
 
@@ -4217,43 +4217,40 @@ class PedestalInformation(Operation):
             else:
                 return numpy.nan, numpy.nan, numpy.nan
 
-    def setup(self, dataOut, path, conf, samples, interval, mode, online):
+    def setup(self, dataOut, path, conf, samples, interval, mode):
 
         self.path = path
         self.conf = conf
         self.samples = samples
         self.interval = interval
         self.mode = mode
-        self.online = online
         if mode is None:
             self.flagAskMode = True
-
-        filelist = self.find_file(dataOut.utctime)
-
-        if not filelist:
-            log.error('No position files found in {}'.format(path), self.name)
-            raise IOError('No position files found in {}'.format(path))
-        else:
-            if self.online:
-                self.filename = filelist[-1]
-                self.utcfile = int(self.filename.split('/')[-1][4:14])
-                log.log('Opening file: {}'.format(self.filename), self.name)
-                for i in range(self.nTries):
-                    try:        
-                        self.fp = h5py.File(self.filename, 'r')
-                    except:
-                        log.warning('Waiting {}s for position file to be ready...'.format(self.delay), self.name)
-                        time.sleep(self.delay)
-            else:
-                self.filename = filelist[0]
-                self.utcfile = int(self.filename.split('/')[-1][4:14])
-                log.log('Opening file: {}'.format(self.filename), self.name)
+        N = 0
+        while True:            
+            if N == self.nTries+1:
+                log.error('No position files found in {}'.format(path), self.name)
+                raise IOError('No position files found in {}'.format(path))
+            filelist = self.find_file(dataOut.utctime)
+            
+            if filelist == 0:
+                N += 1
+                log.warning('Waiting {}s for position files...'.format(self.delay), self.name)
+                time.sleep(self.delay)
+                continue
+            self.filename = filelist[0]
+            try:
                 self.fp = h5py.File(self.filename, 'r')
+                self.utcfile = int(self.filename.split('/')[-1][4:14])
+                break
+            except:
+                log.warning('Waiting {}s for position file to be ready...'.format(self.delay), self.name)
+                time.sleep(self.delay)
 
-    def run(self, dataOut, path, conf=None, samples=1500, interval=0.04, time_offset=0, mode=None, online=False):
+    def run(self, dataOut, path, conf=None, samples=1500, interval=0.04, time_offset=0, mode=None):
 
         if not self.isConfig:
-            self.setup(dataOut, path, conf, samples, interval, mode, online)
+            self.setup(dataOut, path, conf, samples, interval, mode)
             self.isConfig   = True
 
         self.utctime = dataOut.utctime + time_offset
