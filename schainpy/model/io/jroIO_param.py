@@ -1,3 +1,4 @@
+from email.utils import localtime
 import os
 import time
 import datetime
@@ -376,7 +377,7 @@ class HDFWriter(Operation):
         for key, value in kwargs.items():
             setattr(obj, key, value)
 
-    def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None,type_data=None,**kwargs):
+    def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None,type_data=None, localtime=True, **kwargs):
         self.path = path
         self.blocksPerFile = blocksPerFile
         self.metadataList = metadataList
@@ -396,6 +397,10 @@ class HDFWriter(Operation):
                 'R' : 7,
             }
 
+        if localtime:
+            self.getDateTime = datetime.datetime.fromtimestamp
+        else:
+            self.getDateTime = datetime.datetime.utcfromtimestamp
 
         self.description = description
         self.type_data=type_data
@@ -403,7 +408,6 @@ class HDFWriter(Operation):
         if self.metadataList is None:
             self.metadataList = self.dataOut.metadata_list
 
-        tableList = []
         dsList = []
         
         for i in range(len(self.dataList)):
@@ -433,8 +437,9 @@ class HDFWriter(Operation):
 
     def timeFlag(self):
         currentTime = self.dataOut.utctime
-        timeTuple = time.localtime(currentTime)
-        dataDay = timeTuple.tm_yday
+        dt = self.getDateTime(currentTime)
+
+        dataDay = int(dt.strftime('%j'))
 
         if self.lastTime is None:
             self.lastTime = currentTime
@@ -456,7 +461,7 @@ class HDFWriter(Operation):
 
     def run(self, dataOut, path, blocksPerFile=10, metadataList=None,
             dataList=[], setType=None, description={}, mode= None, 
-            type_data=None, Reset = False,**kwargs):
+            type_data=None, Reset = False, localtime=True, **kwargs):
 
         if Reset:
             self.isConfig = False
@@ -470,7 +475,8 @@ class HDFWriter(Operation):
         if not(self.isConfig):
             self.setup(path=path, blocksPerFile=blocksPerFile,
                        metadataList=metadataList, dataList=dataList,
-                       setType=setType, description=description,type_data=type_data,**kwargs)
+                       setType=setType, description=description,type_data=type_data,
+                       localtime=localtime, **kwargs)
 
             self.isConfig = True
             self.setNextFile()
@@ -483,18 +489,13 @@ class HDFWriter(Operation):
         ext = self.ext
         path = self.path
         setFile = self.setFile
-        type_data = self.type_data
 
-        timeTuple = time.localtime(self.dataOut.utctime)
+        dt = self.getDateTime(self.dataOut.utctime)
         
         if self.setType == 'weather':
-            subfolder = '%4.4d-%2.2d-%2.2dT%2.2d-00-00' % (timeTuple.tm_year,
-                                           timeTuple.tm_mon,
-                                           timeTuple.tm_mday,
-                                           timeTuple.tm_hour,
-                                           )
+            subfolder = dt.strftime('%Y-%m-%dT%H-00-00')
         else: 
-            subfolder = 'd%4.4d%3.3d' % (timeTuple.tm_year,timeTuple.tm_yday)
+            subfolder = dt.strftime('d%Y%j')
         
         fullpath = os.path.join(path, subfolder)
 
@@ -520,8 +521,8 @@ class HDFWriter(Operation):
         if self.setType is None:
             setFile += 1
             file = '%s%4.4d%3.3d%03d%s' % (self.optchar,
-                                           timeTuple.tm_year,
-                                           timeTuple.tm_yday,
+                                           dt.year,
+                                           int(dt.strftime('%j')),
                                            setFile,
                                            ext )
         elif self.setType == "weather":
@@ -541,22 +542,22 @@ class HDFWriter(Operation):
 
             file = '%s_%2.2d%2.2d%2.2d_%2.2d%2.2d%2.2d_%s%2.1f_%s%s' % (
                 'SOPHY',
-                                           timeTuple.tm_year,
-                                           timeTuple.tm_mon,
-                                           timeTuple.tm_mday,
-                                           timeTuple.tm_hour,
-                                           timeTuple.tm_min,
-                                           timeTuple.tm_sec,
+                                           dt.year,
+                                           dt.month,
+                                           dt.day,
+                                           dt.hour,
+                                           dt.minute,
+                                           dt.second,
                                            ang_type,
                                            ang_,
                                            self.weather_var,
                                            ext )
 
         else:
-            setFile = timeTuple.tm_hour*60+timeTuple.tm_min
+            setFile = dt.hour*60+dt.minute
             file = '%s%4.4d%3.3d%04d%s' % (self.optchar,
-                                           timeTuple.tm_year,
-                                           timeTuple.tm_yday,
+                                           dt.year,
+                                           int(dt.strftime('%j')),
                                            setFile,
                                            ext )
 
