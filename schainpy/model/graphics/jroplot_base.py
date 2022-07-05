@@ -440,8 +440,11 @@ class Plot(Operation):
                     self.time_label),
                     size=8)
                 ax.set_ylim(0, self.ymax)
-                ax.set_yticks(ax.get_yticks(), labels=ax.get_yticks(), color='white')
-                ax.yaxis.labelpad = 28
+                if self.mode == 'PPI':
+                    ax.set_yticks(ax.get_yticks(), labels=ax.get_yticks(), color='white')
+                    ax.yaxis.labelpad = 28
+                elif self.mode == 'RHI':
+                    ax.xaxis.labelpad = 16
 
         if self.firsttime:
             for n, fig in enumerate(self.figures):
@@ -482,12 +485,11 @@ class Plot(Operation):
                 figpause(0.01)
 
             if self.save:
-                if self.CODE=="PPI" or self.CODE=="RHI":
-                  self.save_figure(n,stitle =self.titles)
-                else:
                   self.save_figure(n)
 
         if self.server:
+            if self.mode and self.mode == 'RHI':
+                return
             self.send_to_server()
 
     def __update(self, dataOut, timestamp):
@@ -504,12 +506,14 @@ class Plot(Operation):
         metadata.update(meta)
         self.data.update(data, timestamp, metadata)
 
-    def save_figure(self, n,stitle=None):
+    def save_figure(self, n):
         '''
         '''
-        if stitle is not None:
-            s_string = re.sub(r"[^A-Z0-9.]","",str(stitle))
-            new_string=s_string[:3]+"_"+s_string[4:6]+"_"+s_string[6:]
+        if self.mode is not None:
+            ang = 'AZ' if self.mode == 'RHI' else 'EL'    
+            label = '_{}_{}_{}'.format(self.mode, ang, self.mode_value)
+        else:
+            label = ''
 
         if self.oneFigure:
             if (self.data.max_time - self.save_time) <= self.save_period:
@@ -521,35 +525,22 @@ class Plot(Operation):
 
         if self.throttle == 0:
             if self.oneFigure:
-                if stitle is not None:
-                    figname = os.path.join(
-                        self.save,
-                        self.save_code + '_' + new_string,
-                        '{}_{}_{}.png'.format(
-                            self.save_code,
-                            new_string,
-                            self.getDateTime(self.data.max_time).strftime(
-                                '%Y%m%d_%H%M%S',
-                                ),
-                            )
+                figname = os.path.join(
+                    self.save,
+                    self.save_code + label,
+                    '{}_{}.png'.format(
+                        self.save_code + label,
+                        self.getDateTime(self.data.max_time).strftime(
+                            '%Y%m%d_%H%M%S'
+                            ),
                         )
-                else:
-                      figname = os.path.join(
-                      self.save,
-                      self.save_code,
-                      '{}_{}.png'.format(
-                          self.save_code,
-                          self.getDateTime(self.data.max_time).strftime(
-                              '%Y%m%d_%H%M%S'
-                               ),
-                           )
-                       )
+                    )
             else:
                 figname = os.path.join(
                     self.save,
                     self.save_code,
                     '{}_ch{}_{}.png'.format(
-                        self.save_code,n,
+                        self.save_code, n,
                         self.getDateTime(self.data.max_time).strftime(
                             '%Y%m%d_%H%M%S'
                             ),

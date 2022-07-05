@@ -596,6 +596,7 @@ class WeatherParamsPlot(Plot):
         data['azi'] = dataOut.data_azi
         data['ele'] = dataOut.data_ele
         data['mode_op'] = dataOut.mode_op
+        self.mode = dataOut.mode_op
         var = data['data'].flatten()
         r = numpy.tile(data['r'], data['data'].shape[0])
         az = numpy.repeat(data['azi'], data['data'].shape[1])
@@ -678,6 +679,7 @@ class WeatherParamsPlot(Plot):
                 len_aux = int(data['ele'].shape[0]/4)
                 mean = numpy.mean(data['ele'][len_aux:-len_aux])
                 if len(self.channels) !=1:
-                    self.titles = ['PPI {} at EL: {} CH {}'.format(self.self.labels[x], str(round(mean,1)), x) for x in range(self.nrows)]
+                    self.titles = ['PPI {} at EL: {} CH {}'.format(self.labels[x], str(round(mean,1)), x) for x in range(self.nrows)]
                 else:
                     self.titles = ['PPI {} at EL: {} CH {}'.format(self.labels[0], str(round(mean,1)), self.channels[0])]
+            self.mode_value = round(mean,1)
