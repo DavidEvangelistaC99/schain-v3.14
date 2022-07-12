@@ -1164,18 +1164,34 @@ class Oblique_Gauss_Fit(Operation):
         #popt = least_squares(lsq_func,[a1,b1,c1,a2,b2,c2,k2,d],x0=x0_value,x_scale=params_scale,bounds=bounds,verbose=1)
         popt = least_squares(lsq_func,x0=x0_value,x_scale=params_scale,bounds=bounds,verbose=0)
     #    popt = least_squares(lsq_func,[a1,b1,c1,a2,b2,c2,k2,d],x_scale=params_scale,verbose=1)
+        #print(popt)
+
+        J = popt.jac
+
+        try:
+            cov = numpy.linalg.inv(J.T.dot(J))
+            error = numpy.sqrt(numpy.diagonal(cov))
+        except:
+            error = numpy.ones((9))*numpy.NAN
+        #print("error_inside",error)
+        #exit(1)
 
         A1f = popt.x[0]; B1f = popt.x[1]; C1f = popt.x[2]; K1f = popt.x[3]
         A2f = popt.x[4]; B2f = popt.x[5]; C2f = popt.x[6]; K2f = popt.x[7]
         Df = popt.x[8]
-
+        '''
+        A1f_err = error.x[0]; B1f_err= error.x[1]; C1f_err = error.x[2]; K1f_err = error.x[3]
+        A2f_err = error.x[4]; B2f_err = error.x[5]; C2f_err = error.x[6]; K2f_err = error.x[7]
+        Df_err = error.x[8]
+        '''
         aux1 = self.gaussian_skew(freq, A1f, B1f, C1f, K1f, Df)
         doppler1 = freq[numpy.argmax(aux1)]
 
         aux2 = self.gaussian_skew(freq, A2f, B2f, C2f, K2f, Df)
         doppler2 = freq[numpy.argmax(aux2)]
-
-        return A1f, B1f, C1f, K1f, A2f, B2f, C2f, K2f, Df, doppler1, doppler2
+        #print("error",error)
+        #exit(1)
+        return A1f, B1f, C1f, K1f, A2f, B2f, C2f, K2f, Df, doppler1, doppler2, error
 
     def Double_Gauss_Double_Skew_fit_weight_bound_with_inputs(self, spc, freq, a1, b1, c1, a2, b2, c2, k2, d):
 
@@ -1276,6 +1292,7 @@ class Oblique_Gauss_Fit(Operation):
             dataOut.Oblique_params = numpy.ones((1,10,dataOut.nHeights))*numpy.NAN
         elif mode == 9:
             dataOut.Oblique_params = numpy.ones((1,11,dataOut.nHeights))*numpy.NAN
+            dataOut.Oblique_param_errors = numpy.ones((1,9,dataOut.nHeights))*numpy.NAN
 
         dataOut.VelRange = x
 
@@ -1303,6 +1320,7 @@ class Oblique_Gauss_Fit(Operation):
         else:
 
             for hei in itertools.chain(l1, l2):
+            #for hei in range(79,81):
 
                 try:
 
@@ -1322,11 +1340,14 @@ class Oblique_Gauss_Fit(Operation):
                         dataOut.dplr_2_u[0,0,hei] = dataOut.Oblique_params[0,9,hei]/numpy.sin(numpy.arccos(100./dataOut.heightList[hei]))
 
                     elif mode == 9: #Double Skewed Weighted Bounded no inputs
-                        dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_params[0,7,hei],dataOut.Oblique_params[0,8,hei],dataOut.Oblique_params[0,9,hei],dataOut.Oblique_params[0,10,hei] = self.Double_Gauss_Double_Skew_fit_weight_bound_no_inputs(spc,x)
+                        dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_params[0,7,hei],dataOut.Oblique_params[0,8,hei],dataOut.Oblique_params[0,9,hei],dataOut.Oblique_params[0,10,hei],dataOut.Oblique_param_errors[0,:,hei] = self.Double_Gauss_Double_Skew_fit_weight_bound_no_inputs(spc,x)
                         dataOut.dplr_2_u[0,0,hei] = dataOut.Oblique_params[0,10,hei]/numpy.sin(numpy.arccos(100./dataOut.heightList[hei]))
                         #print(hei)
                         #print(dataOut.Oblique_params[0,10,hei])
                         #print(dataOut.dplr_2_u[0,0,hei])
+                        #print("outside",dataOut.Oblique_param_errors[0,:,hei])
+                        #print("SUCCESSSSSSS")
+                        #exit(1)
 
                     else:
                         spc_fit, A1, B1, C1, D1 = self.Gauss_fit_2(spc,x,'first')
@@ -5575,7 +5596,7 @@ class MergeProc(ProcessingUnit):
     def __init__(self):
         ProcessingUnit.__init__(self)
 
-    def run(self, attr_data, attr_data_2 = None, mode=0):
+    def run(self, attr_data, attr_data_2 = None, attr_data_3 = None, attr_data_4 = None, attr_data_5 = None, mode=0):
 
         self.dataOut = getattr(self, self.inputs[0])
         data_inputs = [getattr(self, attr) for attr in self.inputs]
@@ -5634,5 +5655,64 @@ class MergeProc(ProcessingUnit):
             self.dataOut.nIncohInt *= 2
             #meta = self.dataOut.getFreqRange(1)/1000.
             self.dataOut.freqRange = self.dataOut.getFreqRange(1)/1000.
+
+            #exit(1)
+
+        if mode==4: #Hybrid LP-SSheightProfiles
+            #data = numpy.concatenate([getattr(data, attr_data) for data in data_inputs],axis=1)
+            #setattr(self.dataOut, attr_data, data)
+            setattr(self.dataOut, 'dataLag_spc', getattr(data_inputs[0], attr_data)) #DP
+            setattr(self.dataOut, 'dataLag_cspc', getattr(data_inputs[0], attr_data_2)) #DP
+            setattr(self.dataOut, 'dataLag_spc_LP', getattr(data_inputs[1], attr_data_3)) #LP
+            #setattr(self.dataOut, 'dataLag_cspc_LP', getattr(data_inputs[1], attr_data_4)) #LP
+            #setattr(self.dataOut, 'data_acf', getattr(data_inputs[1], attr_data_5)) #LP
+            setattr(self.dataOut, 'data_acf', getattr(data_inputs[1], attr_data_5)) #LP
+            #print("Merge data_acf: ",self.dataOut.data_acf.shape)
+            #exit(1)
+            #print(self.dataOut.data_spc_LP.shape)
+            #print("Exit")
+            #exit(1)
+            #setattr(self.dataOut, 'dataLag_cspc', [getattr(data, attr_data_2) for data in data_inputs][0])
+            #setattr(self.dataOut, 'dataLag_cspc_LP', [getattr(data, attr_data_2) for data in data_inputs][1])
+            #setattr(self.dataOut, 'nIncohInt', [getattr(data, attr_data_3) for data in data_inputs][0])
+            #setattr(self.dataOut, 'nIncohInt_LP', [getattr(data, attr_data_3) for data in data_inputs][1])
+            '''
+            print(self.dataOut.dataLag_spc_LP.shape)
+            print(self.dataOut.dataLag_cspc_LP.shape)
+            exit(1)
+            '''
+            '''
+            print(self.dataOut.dataLag_spc_LP[0,:,100])
+            print(self.dataOut.dataLag_spc_LP[1,:,100])
+            exit(1)
+            '''
+            #self.dataOut.dataLag_spc_LP = numpy.transpose(self.dataOut.dataLag_spc_LP[0],(2,0,1))
+            #self.dataOut.dataLag_cspc_LP = numpy.transpose(self.dataOut.dataLag_cspc_LP,(3,1,2,0))
+            '''
+            print("Merge")
+            print(numpy.shape(self.dataOut.dataLag_spc))
+            print(numpy.shape(self.dataOut.dataLag_spc_LP))
+            print(numpy.shape(self.dataOut.dataLag_cspc))
+            print(numpy.shape(self.dataOut.dataLag_cspc_LP))
+            exit(1)
+            '''
+            #print(numpy.sum(self.dataOut.dataLag_spc_LP[2,:,164])/128)
+            #print(numpy.sum(self.dataOut.dataLag_cspc_LP[0,:,30,1])/128)
+            #exit(1)
+            #print(self.dataOut.NDP)
+            #print(self.dataOut.nNoiseProfiles)
+
+            #self.dataOut.nIncohInt_LP = 128
+            #self.dataOut.nProfiles_LP = 128#self.dataOut.nIncohInt_LP
+            self.dataOut.nProfiles_LP = 16#28#self.dataOut.nIncohInt_LP
+            self.dataOut.nProfiles_LP = self.dataOut.data_acf.shape[1]#28#self.dataOut.nIncohInt_LP
+            self.dataOut.NSCAN = 128
+            self.dataOut.nIncohInt_LP = self.dataOut.nIncohInt*self.dataOut.NSCAN
+            #print("sahpi",self.dataOut.nIncohInt_LP)
+            #exit(1)
+            self.dataOut.NLAG = 16
+            self.dataOut.NRANGE = self.dataOut.data_acf.shape[-1]
+
+            #print(numpy.shape(self.dataOut.data_spc))
 
             #exit(1)

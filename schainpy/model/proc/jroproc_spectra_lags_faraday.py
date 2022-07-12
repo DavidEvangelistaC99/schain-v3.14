@@ -17,6 +17,7 @@ from schainpy.model.proc.jroproc_base import ProcessingUnit, MPDecorator, Operat
 from schainpy.model.data.jrodata import Spectra
 from schainpy.model.data.jrodata import hildebrand_sekhon
 from schainpy.utils import log
+from schainpy.model.data import _HS_algorithm
 
 from time import time, mktime, strptime, gmtime, ctime
 
@@ -87,6 +88,7 @@ class SpectraLagProc(ProcessingUnit):
         """
         #print(self.buffer[1,:,0])
         #exit(1)
+        #print("buffer shape",self.buffer.shape)
         fft_volt = numpy.fft.fft(
             self.buffer, n=self.dataOut.nFFTPoints, axis=1)
         fft_volt = fft_volt.astype(numpy.dtype('complex'))
@@ -208,6 +210,17 @@ class SpectraLagProc(ProcessingUnit):
         self.dataOut.ByLags=ByLags
         self.dataOut.LagPlot=LagPlot
 
+        #print(self.dataIn.data.shape)
+        '''
+        try:
+            print(self.dataIn.data.shape)
+        except:
+            print("datalags",self.dataIn.datalags.shape)
+        try:
+            print("datalags",self.dataIn.datalags.shape)
+        except:
+            pass
+            '''
         if self.dataIn.type == "Spectra":
             self.dataOut.copy(self.dataIn)
             if shift_fft:
@@ -224,6 +237,7 @@ class SpectraLagProc(ProcessingUnit):
         elif self.dataIn.type == "Voltage":
 
             if not self.dataOut.ByLags:
+                #self.dataOut.data = self.dataIn.data
                 self.VoltageType(nFFTPoints,nProfiles,ippFactor,pairsList)
             else:
                 self.dataOut.nLags = nLags
@@ -1232,7 +1246,9 @@ class IntegrationFaradaySpectra(Operation):
                             if i==1 and j==0: #NOT CONSIDERING DC PROFILE AT CHANNEL 1
                                 continue
                             buffer=buffer1[:,j]
-                            index,sortID=self.hildebrand_sekhon_Integration(buffer,1)
+                            #index,sortID=self.hildebrand_sekhon_Integration(buffer,1)
+                            index=int(_HS_algorithm.HS_algorithm(numpy.sort(buffer, axis=None),1))
+                            sortID = buffer.argsort()
                             '''
                             if i==1 and l==0 and k==37:
                                 print("j",j)
@@ -1632,7 +1648,9 @@ class IntegrationFaradaySpectra2(Operation):
                                 print(buffer)
                                 exit(1)
                                 '''
-                            index,sortID=self.hildebrand_sekhon_Integration(buffer,1)
+                            #index,sortID=self.hildebrand_sekhon_Integration(buffer,1)
+                            index=int(_HS_algorithm.HS_algorithm(numpy.sort(buffer, axis=None),1))
+                            sortID = buffer.argsort()
 
                             indexes.append(index)
                             #sortIDs.append(sortID)
@@ -1771,7 +1789,7 @@ class IntegrationFaradaySpectra2(Operation):
         exit(1)
         '''
 
-        print(self.nLags)
+        #print(self.nLags)
         '''
         if self.nLags == 16:
             self.nLags = 3
@@ -1821,7 +1839,9 @@ class IntegrationFaradaySpectra2(Operation):
                             print(buffer)
                             exit(1)
                             '''
-                        index,sortID=self.hildebrand_sekhon_Integration(numpy.abs(buffer),1)
+                        #index,sortID=self.hildebrand_sekhon_Integration(numpy.abs(buffer),1)
+                        index=int(_HS_algorithm.HS_algorithm(numpy.sort(buffer, axis=None),1))
+                        sortID = buffer.argsort()
 
                         indexes.append(index)
                         #sortIDs.append(sortID)
@@ -2251,7 +2271,9 @@ class IntegrationFaradaySpectra3(Operation): #This class should manage data with
                                 print(buffer)
                                 exit(1)
                                 '''
-                            index,sortID=self.hildebrand_sekhon_Integration(buffer,1)
+                            #index,sortID=self.hildebrand_sekhon_Integration(buffer,1)
+                            index=int(_HS_algorithm.HS_algorithm(numpy.sort(buffer, axis=None),1))
+                            sortID = buffer.argsort()
 
                             indexes.append(index)
                             #sortIDs.append(sortID)
@@ -2440,7 +2462,9 @@ class IntegrationFaradaySpectra3(Operation): #This class should manage data with
                             print(buffer)
                             exit(1)
                             '''
-                        index,sortID=self.hildebrand_sekhon_Integration(numpy.abs(buffer),1)
+                        #index,sortID=self.hildebrand_sekhon_Integration(numpy.abs(buffer),1)
+                        index=int(_HS_algorithm.HS_algorithm(numpy.sort(buffer, axis=None),1))
+                        sortID = buffer.argsort()
 
                         indexes.append(index)
                         #sortIDs.append(sortID)
@@ -2572,7 +2596,9 @@ class IntegrationFaradaySpectra3(Operation): #This class should manage data with
                     #buffer=buffer1[:,j]
                     buffer=(buffer1[:,j])
 
-                    index,sortID=self.hildebrand_sekhon_Integration(numpy.abs(buffer),1)
+                    #index,sortID=self.hildebrand_sekhon_Integration(numpy.abs(buffer),1)
+                    index=int(_HS_algorithm.HS_algorithm(numpy.sort(buffer, axis=None),1))
+                    sortID = buffer.argsort()
 
                     indexes.append(index)
                     #sortIDs.append(sortID)
@@ -2876,7 +2902,7 @@ class IntegrationFaradaySpectraNoLags(Operation):
         self.__profIndex += 1
 
         return
-
+    #'''
     def hildebrand_sekhon_Integration(self,data,navg):
 
         sortdata = numpy.sort(data, axis=None)
@@ -2894,6 +2920,8 @@ class IntegrationFaradaySpectraNoLags(Operation):
             sumq += sortdata[j]**2
             if j > nums_min:
                 rtest = float(j)/(j-1) + 1.0/navg
+                #print(rtest)
+                #print(sump)
                 if ((sumq*j) > (rtest*sump**2)):
                     j = j - 1
                     sump = sump - sortdata[j]
@@ -2903,7 +2931,7 @@ class IntegrationFaradaySpectraNoLags(Operation):
         #lnoise = sump / j
 
         return j,sortID
-
+        #'''
     def pushData(self):
         """
         Return the sum of the last profiles and the profiles used in the sum.
@@ -2938,12 +2966,20 @@ class IntegrationFaradaySpectraNoLags(Operation):
                     if i==1 and j==0: #NOT CONSIDERING DC PROFILE AT CHANNEL 1
                          continue
                     buffer=buffer1[:,j]
-                    index,sortID=self.hildebrand_sekhon_Integration(buffer,1)
+                    #if k != 100:
+                    index=int(_HS_algorithm.HS_algorithm(numpy.sort(buffer, axis=None),1))
+                    sortID = buffer.argsort()
+                    #else:
+                        #index,sortID=self.hildebrand_sekhon_Integration(buffer,1)
+                    #if k == 100:
+                    #    print(k,index,sortID)
+                    #    exit(1)
 
                     indexes.append(index)
                     #sortIDs.append(sortID)
                     outliers_IDs=numpy.append(outliers_IDs,sortID[index:])
-
+                #if k == 100:
+                #    exit(1)
                 outliers_IDs=numpy.array(outliers_IDs)
                 outliers_IDs=outliers_IDs.ravel()
                 outliers_IDs=numpy.unique(outliers_IDs)
@@ -3332,7 +3368,9 @@ class IncohIntLag(Operation):
             return dataOut
 
         dataOut.flagNoData = True
-
+        #print("incohint")
+        #print("IncohInt",dataOut.data_spc.shape)
+        #print("IncohInt",dataOut.data_cspc.shape)
         if not self.isConfig:
             self.setup(n, timeInterval, overlapping)
             self.isConfig = True
@@ -3352,7 +3390,7 @@ class IncohIntLag(Operation):
                                                                                 dataOut.dataLag_spc,
                                                                                 dataOut.dataLag_cspc,
                                                                                 dataOut.dataLag_dc)
-
+        #print("Incoh Int: ",self.__profIndex,n)
         if self.__dataReady:
 
             if not dataOut.ByLags:
@@ -3369,7 +3407,8 @@ class IncohIntLag(Operation):
                 #print(numpy.sum(dataOut.dataLag_spc[1,:,100,2]))
                 #exit(1)
 
-                #print("HERE")
+                #print("INCOH INT DONE")
+                #exit(1)
                 '''
                 print(numpy.sum(dataOut.dataLag_spc[0,:,20,10])/32)
                 print(numpy.sum(dataOut.dataLag_spc[1,:,20,10])/32)
@@ -3580,6 +3619,8 @@ class IncohInt(Operation):
             dataOut.nIncohInt *= self.n
             dataOut.utctime = avgdatatime
             dataOut.flagNoData = False
+            #print("Power",numpy.sum(dataOut.data_spc[0,:,20:30],axis=0))
+            #print("Power",numpy.sum(dataOut.data_spc[0,100:110,:],axis=1))
             #exit(1)
             #print(numpy.sum(dataOut.data_spc[0,:,53]*numpy.conjugate(dataOut.data_spc[0,:,53])))
             #print(numpy.sum(dataOut.data_spc[1,:,53]*numpy.conjugate(dataOut.data_spc[1,:,53])))
@@ -3773,7 +3814,6 @@ class SpectraDataToFaraday(Operation):
         dataOut.lat=-11.95
         dataOut.lon=-76.87
 
-
         self.normFactor(dataOut)
 
         dataOut.NDP=dataOut.nHeights
@@ -3848,7 +3888,7 @@ class SpectraDataToFaraday(Operation):
         #print("Noise dB: ",10*numpy.log10(dataOut.tnoise))
         #exit(1)
         #dataOut.pan=dataOut.tnoise[0]/float(dataOut.nProfiles_LP*dataOut.nIncohInt)
-
+        print("done")
         return dataOut
 
 
@@ -3903,7 +3943,7 @@ class SpectraDataToHybrid(SpectraDataToFaraday):
 
 
 
-    def ConvertDataLP(self,dataOut):
+    def ConvertDataLP_V0(self,dataOut):
 
         #print(dataOut.dataLag_spc[:,:,:,1]/dataOut.data_spc)
         #exit(1)
@@ -3921,6 +3961,20 @@ class SpectraDataToHybrid(SpectraDataToFaraday):
         #print(numpy.shape(dataOut.output_LP_integrated))
 
         #exit(1)
+
+    def ConvertDataLP(self,dataOut):
+
+        #print(dataOut.dataLag_spc[:,:,:,1]/dataOut.data_spc)
+        #exit(1)
+        normfactor=1.0/(dataOut.nIncohInt_LP*dataOut.nProfiles_LP)#*dataOut.nProfiles
+
+        buffer = self.dataLag_spc_LP=dataOut.dataLag_spc_LP
+        ##self.dataLag_cspc_LP=(dataOut.dataLag_cspc_LP.sum(axis=1))*(1./dataOut.nProfiles_LP)
+        #self.dataLag_dc=dataOut.dataLag_dc.sum(axis=1)/dataOut.rnint2[0]
+        #aux=numpy.expand_dims(self.dataLag_spc_LP, axis=2)
+        #print(aux.shape)
+        ##buffer = numpy.concatenate((numpy.expand_dims(self.dataLag_spc_LP, axis=2),self.dataLag_cspc_LP),axis=2)
+        dataOut.output_LP_integrated = numpy.transpose(buffer,(1,2,0))
 
     def normFactor(self,dataOut):
         dataOut.rnint2=numpy.zeros(dataOut.DPL,'float32')
@@ -4009,5 +4063,117 @@ class SpectraDataToHybrid(SpectraDataToFaraday):
         dataOut.MAXNRANGENDT=dataOut.NRANGE
 
         #exit(1)
+
+        return dataOut
+
+class SpectraDataToHybrid_V2(SpectraDataToFaraday):
+    """Operation to use spectra data in Faraday processing.
+
+    Parameters:
+    -----------
+    nint : int
+        Number of integrations.
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='SpectraDataToFaraday', optype='other')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+
+        self.dataLag_spc=None
+        self.dataLag_cspc=None
+        self.dataLag_dc=None
+        self.dataLag_spc_LP=None
+        self.dataLag_cspc_LP=None
+        self.dataLag_dc_LP=None
+
+    def noise(self,dataOut):
+
+        dataOut.data_spc = dataOut.dataLag_spc_LP.real
+        #print(dataOut.dataLag_spc.shape)
+        #exit(1)
+        #dataOut.data_spc = dataOut.dataLag_spc[:,:,:,0].real
+        #print("spc noise shape: ",dataOut.data_spc.shape)
+        dataOut.tnoise = dataOut.getNoise(ymin_index=100,ymax_index=166)
+        #print("Noise LP: ",10*numpy.log10(dataOut.tnoise))
+        #exit(1)
+        #dataOut.tnoise[0]*=0.995#0.976
+        #dataOut.tnoise[1]*=0.995
+        #print(dataOut.nProfiles)
+        #dataOut.pan=dataOut.tnoise[0]/float(dataOut.nProfiles_LP*dataOut.nIncohInt)
+        #dataOut.pbn=dataOut.tnoise[1]/float(dataOut.nProfiles_LP*dataOut.nIncohInt)
+        dataOut.pan=dataOut.tnoise[0]/float(dataOut.nProfiles_LP*dataOut.nIncohInt_LP)
+        dataOut.pbn=dataOut.tnoise[1]/float(dataOut.nProfiles_LP*dataOut.nIncohInt_LP)
+        ##dataOut.pan=dataOut.tnoise[0]*float(self.normfactor_LP)
+        ##dataOut.pbn=dataOut.tnoise[1]*float(self.normfactor_LP)
+        #print("pan: ",10*numpy.log10(dataOut.pan))
+        #print("pbn: ",dataOut.pbn)
+        #print(numpy.shape(dataOut.pnoise))
+        #exit(1)
+        #print("pan: ",numpy.sum(dataOut.pan))
+        #exit(1)
+
+    def ConvertDataLP(self,dataOut):
+
+        #print(dataOut.dataLag_spc[:,:,:,1]/dataOut.data_spc)
+        #exit(1)
+        self.normfactor_LP=1.0/(dataOut.nIncohInt_LP*dataOut.nProfiles_LP)#*dataOut.nProfiles
+        #print("acf: ",dataOut.data_acf[0,0,100])
+        #print("Power: ",numpy.mean(dataOut.dataLag_spc_LP[0,:,100]))
+        #buffer = dataOut.data_acf*(1./(normfactor*dataOut.nProfiles_LP))
+        #buffer = dataOut.data_acf*(1./(normfactor))
+        buffer = dataOut.data_acf#*(self.normfactor_LP)
+        #print("acf: ",numpy.sum(buffer))
+
+        dataOut.output_LP_integrated = numpy.transpose(buffer,(1,2,0))
+
+    def normFactor(self,dataOut):
+        dataOut.rnint2=numpy.zeros(dataOut.DPL,'float32')
+        for l in range(dataOut.DPL):
+            if(l==0 or (l>=3 and l <=6)):
+                dataOut.rnint2[l]=1.0/(dataOut.nIncohInt*dataOut.nProfiles)
+            else:
+                dataOut.rnint2[l]=2*(1.0/(dataOut.nIncohInt*dataOut.nProfiles))
+
+    def run(self,dataOut):
+
+        dataOut.paramInterval=0#int(dataOut.nint*dataOut.header[7][0]*2 )
+        dataOut.lat=-11.95
+        dataOut.lon=-76.87
+
+        dataOut.NDP=dataOut.nHeights
+        dataOut.NR=len(dataOut.channelList)
+        dataOut.DH=dataOut.heightList[1]-dataOut.heightList[0]
+        dataOut.H0=int(dataOut.heightList[0])
+
+        self.normFactor(dataOut)
+
+        #Probar sin comentar lo siguiente y comentando
+        #dataOut.data_acf *= 16 #Corrects the zero padding
+        #dataOut.dataLag_spc_LP *= 16 #Corrects the zero padding
+        self.ConvertDataLP(dataOut)
+        #dataOut.dataLag_spc_LP *= 2
+        #dataOut.output_LP_integrated[:,:,3] *= float(dataOut.NSCAN/22)#(dataOut.nNoiseProfiles) #Corrects the zero padding
+
+        dataOut.nis=dataOut.NSCAN*dataOut.nIncohInt_LP*10
+
+        self.ConvertData(dataOut)
+
+        dataOut.kabxys_integrated[4][:,(1,2,7,8,9,10),0] *= 2 #Corrects the zero padding
+        dataOut.kabxys_integrated[6][:,(1,2,7,8,9,10),0] *= 2 #Corrects the zero padding
+        dataOut.kabxys_integrated[8][:,(1,2,7,8,9,10),0] *= 2 #Corrects the zero padding
+        dataOut.kabxys_integrated[10][:,(1,2,7,8,9,10),0] *= 2 #Corrects the zero padding
+        hei = 2
+
+        self.noise(dataOut)
+
+        dataOut.NAVG=1#dataOut.rnint2[0] #CHECK THIS!
+        dataOut.nint=dataOut.nIncohInt
+        dataOut.MAXNRANGENDT=dataOut.output_LP_integrated.shape[1]
 
         return dataOut

@@ -70,14 +70,16 @@ class ProcessingUnit(object):
     def call(self, **kwargs):
         '''
         '''
-
+        #print("call")
         try:
-            #print("try")
             if self.dataIn is not None and self.dataIn.flagNoData and not self.dataIn.error:
-                #print("Try")
-                #print(self.dataIn)
-                #print(self.dataIn.flagNoData)
-                return self.dataIn.isReady()
+            #if self.dataIn is not None and self.dataIn.flagNoData and not self.dataIn.error and not self.dataIn.runNextUnit:
+                if self.dataIn.runNextUnit:
+                    #print("SUCCESSSSSSS")
+                    #exit(1)
+                    return not self.dataIn.isReady()
+                else:
+                    return self.dataIn.isReady()
             elif self.dataIn is None or not self.dataIn.error:
                 #print([getattr(self, at) for at in self.inputs])
                 #print("Elif 1")
@@ -112,6 +114,7 @@ class ProcessingUnit(object):
             #elif optype == 'external' and self.dataOut.isReady():
                 #op.queue.put(copy.deepcopy(self.dataOut))
         #print(not self.dataOut.isReady())
+
         try:
             if self.dataOut.runNextUnit:
                 runNextUnit = self.dataOut.runNextUnit
@@ -125,6 +128,7 @@ class ProcessingUnit(object):
         #if  not self.dataOut.isReady():
             #return 'Error' if self.dataOut.error else input()
         #print("NexT",runNextUnit)
+        #print("error: ",self.dataOut.error)
         return 'Error' if self.dataOut.error else runNextUnit# self.dataOut.isReady()
 
     def setup(self):

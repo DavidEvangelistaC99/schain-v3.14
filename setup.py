@@ -74,6 +74,7 @@ setup(
     cmdclass = {'build_ext': build_ext},
     ext_modules=[
         Extension("schainpy.model.data._noise", ["schainc/_noise.c"]),
+        Extension("schainpy.model.data._HS_algorithm", ["schainc/_HS_algorithm.c"]),
         ],
     setup_requires = ["numpy"],
     install_requires = [

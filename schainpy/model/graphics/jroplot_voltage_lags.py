@@ -263,8 +263,6 @@ class DenRTIPlot(RTIPlot):
                                        )
 
 
-
-
 class ETempRTIPlot(RTIPlot):
 
     '''
@@ -351,7 +349,6 @@ class ETempRTIPlot(RTIPlot):
                                        )
 
 
-
 class ITempRTIPlot(ETempRTIPlot):
 
     '''
@@ -370,7 +367,6 @@ class ITempRTIPlot(ETempRTIPlot):
         data['ITemp'] = dataOut.IonTempFinal
 
         return data, meta
-
 
 
 class HFracRTIPlot(ETempRTIPlot):
@@ -545,6 +541,8 @@ class TempsHPPlot(Plot):
             ax.errorbar(Ti, self.y, fmt='k^', xerr=errTi,elinewidth=1.0,color='b',linewidth=2.0, label='Ti')
             plt.legend(loc='lower right')
             ax.yaxis.set_minor_locator(MultipleLocator(15))
+            ax.grid(which='minor')
+
 
 class FracsHPPlot(Plot):
     '''

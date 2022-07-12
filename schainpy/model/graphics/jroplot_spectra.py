@@ -42,6 +42,7 @@ class SpectraPlot(Plot):
         spc = 10*numpy.log10(dataOut.data_spc/dataOut.normFactor)
         data['spc'] = spc
         data['rti'] = dataOut.getPower()
+        #print("NormFactor: ",dataOut.normFactor)
         #data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
         if hasattr(dataOut, 'LagPlot'): #Double Pulse
             max_hei_id = dataOut.nHeights - 2*dataOut.LagPlot
@@ -101,10 +102,11 @@ class SpectraPlot(Plot):
                 self.xmin = self.xmin if self.xmin else numpy.nanmin(x)#-self.xmax
                 self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
                 self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
+
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
-                                       cmap=plt.get_cmap(self.colormap)
+                                       cmap=plt.get_cmap(self.colormap),
                                        )
 
                 if self.showprofile:
