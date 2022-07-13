@@ -526,14 +526,17 @@ class WeatherParamsPlot(Plot):
         self.grid = True
         if self.channels is not None:
             self.nplots = len(self.channels)
-            self.nrows = len(self.channels)
+            self.ncols = len(self.channels)
         else:
             self.nplots = self.data.shape(self.CODE)[0]
-            self.nrows = self.nplots
+            self.ncols = self.nplots
             self.channels = list(range(self.nplots))
 
         self.colorbar=True
-        self.width   =8
+        if len(self.channels)>1:
+            self.width = 12
+        else:
+            self.width   =8
         self.height  =8
         self.ini     =0
         self.len_azi =0
@@ -584,10 +587,13 @@ class WeatherParamsPlot(Plot):
         valid = numpy.where(r>=0)[0]
         data['r'] = numpy.arange(len(valid))*delta_height
 
-        try:
-            data['data'] = tmp[self.channels[0]][:,valid]
-        except:
-            data['data'] = tmp[0][:,valid]
+        data['data'] = [0, 0]
+
+        #try:
+        data['data'][0] = tmp[0][:,valid]
+        data['data'][1] = tmp[1][:,valid]
+        #except:
+        #    data['data'] = tmp[0][:,valid]
 
         if dataOut.mode_op == 'PPI':
             self.CODE = 'PPI'
@@ -600,10 +606,10 @@ class WeatherParamsPlot(Plot):
         data['ele'] = dataOut.data_ele
         data['mode_op'] = dataOut.mode_op
         self.mode = dataOut.mode_op
-        var = data['data'].flatten()
-        r = numpy.tile(data['r'], data['data'].shape[0])
-        az = numpy.repeat(data['azi'], data['data'].shape[1])
-        el = numpy.repeat(data['ele'], data['data'].shape[1])
+        var = data['data'][0].flatten()
+        r = numpy.tile(data['r'], data['data'][0].shape[0])
+        az = numpy.repeat(data['azi'], data['data'][0].shape[1])
+        el = numpy.repeat(data['ele'], data['data'][0].shape[1])
 
         # lla = georef.spherical_to_proj(r, data['azi'], data['ele'], (-75.295893, -12.040436, 3379.2147))
 
@@ -661,14 +667,14 @@ class WeatherParamsPlot(Plot):
 
             if ax.firsttime:
                 ax.set_xlim(numpy.radians(self.ang_min),numpy.radians(self.ang_max))
-                ax.plt = ax.pcolormesh(theta, r, z, cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
+                ax.plt = ax.pcolormesh(theta, r, z[i], cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
                 if data['mode_op'] == 'PPI':
                     ax.set_theta_direction(-1)
                     ax.set_theta_offset(numpy.pi/2)
 
             else:
                 ax.set_xlim(numpy.radians(self.ang_min),numpy.radians(self.ang_max))
-                ax.plt = ax.pcolormesh(theta, r, z, cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
+                ax.plt = ax.pcolormesh(theta, r, z[i], cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
                 if data['mode_op'] == 'PPI':
                     ax.set_theta_direction(-1)
                     ax.set_theta_offset(numpy.pi/2)
@@ -678,14 +684,14 @@ class WeatherParamsPlot(Plot):
                 len_aux = int(data['azi'].shape[0]/4)
                 mean = numpy.mean(data['azi'][len_aux:-len_aux])
                 if len(self.channels) !=1:
-                    self.titles = ['RHI {} at AZ: {} CH {}'.format(self.labels[x], str(round(mean,1)), x) for x in range(self.nrows)]
+                    self.titles = ['RHI {} at AZ: {} CH {}'.format(self.labels[x], str(round(mean,1)), x) for x in self.channels]
                 else:
                     self.titles = ['RHI {} at AZ: {} CH {}'.format(self.labels[0], str(round(mean,1)), self.channels[0])]
             elif data['mode_op'] == 'PPI':
                 len_aux = int(data['ele'].shape[0]/4)
                 mean = numpy.mean(data['ele'][len_aux:-len_aux])
                 if len(self.channels) !=1:
-                    self.titles = ['PPI {} at EL: {} CH {}'.format(self.labels[x], str(round(mean,1)), x) for x in range(self.nrows)]
+                    self.titles = ['PPI {} at EL: {} CH {}'.format(self.labels[x], str(round(mean,1)), x) for x in self.channels]
                 else:
                     self.titles = ['PPI {} at EL: {} CH {}'.format(self.labels[0], str(round(mean,1)), self.channels[0])]
             self.mode_value = round(mean,1)
