@@ -4,6 +4,7 @@ import time
 import math
 import datetime
 import numpy
+import collections.abc
 from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecorator  #YONG
 
 from .jroplot_spectra import RTIPlot, NoisePlot
@@ -110,7 +111,7 @@ class RTILPPlot(RTIPlot):
     def setup(self):
         self.xaxis = 'time'
         self.ncols = 1
-        self.nrows = 4
+        self.nrows = 2
         self.nplots = self.nrows
 
         self.ylabel = 'Range [km]'
@@ -152,12 +153,24 @@ class RTILPPlot(RTIPlot):
         else:
             x, y, z = self.fill_gaps(*self.decimate())
 
+        if not isinstance(self.zmin, collections.abc.Sequence):
+            if not self.zmin:
+                self.zmin = [numpy.min(self.z)]*len(self.axes)
+            else:
+                self.zmin = [self.zmin]*len(self.axes)
+
+        if not isinstance(self.zmax, collections.abc.Sequence):
+            if not self.zmax:
+                self.zmax = [numpy.max(self.z)]*len(self.axes)
+            else:
+                self.zmax = [self.zmax]*len(self.axes)
+
         for n, ax in enumerate(self.axes):
 
-            self.zmax = self.zmax if self.zmax is not None else numpy.max(
-                self.z[1][0,12:40])
-            self.zmin = self.zmin if self.zmin is not None else numpy.min(
-                self.z[1][0,12:40])
+            #self.zmax = self.zmax if self.zmax is not None else numpy.max(
+                #self.z[1][0,12:40])
+            #self.zmin = self.zmin if self.zmin is not None else numpy.min(
+                #self.z[1][0,12:40])
 
             if ax.firsttime:
 
@@ -166,8 +179,8 @@ class RTILPPlot(RTIPlot):
 
 
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
-                                       vmin=self.zmin,
-                                       vmax=self.zmax,
+                                       vmin=self.zmin[n],
+                                       vmax=self.zmax[n],
                                        cmap=plt.get_cmap(self.colormap)
                                        )
 
@@ -176,8 +189,8 @@ class RTILPPlot(RTIPlot):
                     #self.zmin, self.zmax = self.zlimits[n]
                 ax.collections.remove(ax.collections[0])
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
-                                       vmin=self.zmin,
-                                       vmax=self.zmax,
+                                       vmin=self.zmin[n],
+                                       vmax=self.zmax[n],
                                        cmap=plt.get_cmap(self.colormap)
                                        )
 
@@ -618,6 +631,7 @@ class FracsHPPlot(Plot):
             ax.errorbar(phe, self.y[cut:], fmt='k^', xerr=ephe,elinewidth=1.0,color='b',linewidth=2.0, label='He+')
             plt.legend(loc='lower right')
             ax.yaxis.set_minor_locator(MultipleLocator(15))
+            ax.grid(which='minor')
 
 class EDensityPlot(Plot):
     '''

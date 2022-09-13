@@ -6745,5 +6745,5 @@ class MergeProc(ProcessingUnit):
             self.dataOut.NRANGE = self.dataOut.data_acf.shape[-1]
             '''
             #print(numpy.shape(self.dataOut.data_spc))
-            print("*************************GOOD*************************")
+            #print("*************************GOOD*************************")
             #exit(1)

@@ -510,7 +510,7 @@ class removeDCLagFlip(Operation):
 
 
     def run(self, dataOut, mode=2):
-        print("***********************************Remove DC***********************************")
+        #print("***********************************Remove DC***********************************")
         ##print(dataOut.FlipChannels)
         #exit(1)
         self.dataOut = dataOut

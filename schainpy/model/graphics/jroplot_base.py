@@ -407,7 +407,7 @@ class Plot(Operation):
                     ax.set_ylabel(self.ylabel)
                 if self.showprofile:
                     self.pf_axes[n].set_ylim(ymin, ymax)
-                    self.pf_axes[n].set_xlim(self.zmin, self.zmax)
+                    self.pf_axes[n].set_xlim(self.zmin[n], self.zmax[n])
                     self.pf_axes[n].set_xlabel('dB')
                     self.pf_axes[n].grid(b=True, axis='x')
                     [tick.set_visible(False)

@@ -8,6 +8,7 @@
 
 import os
 import numpy
+import collections.abc
 
 from schainpy.model.graphics.jroplot_base import Plot, plt, log
 
@@ -94,6 +95,17 @@ class SpectraPlot(Plot):
 
         self.CODE2 = 'spc_oblique'
 
+        if not isinstance(self.zmin, collections.abc.Sequence):
+            if not self.zmin:
+                self.zmin = [numpy.min(self.z)]*len(self.axes)
+            else:
+                self.zmin = [self.zmin]*len(self.axes)
+
+        if not isinstance(self.zmax, collections.abc.Sequence):
+            if not self.zmax:
+                self.zmax = [numpy.max(self.z)]*len(self.axes)
+            else:
+                self.zmax = [self.zmax]*len(self.axes)
 
         for n, ax in enumerate(self.axes):
             noise = data['noise'][n]
@@ -105,12 +117,12 @@ class SpectraPlot(Plot):
             if ax.firsttime:
                 self.xmax = self.xmax if self.xmax else numpy.nanmax(x)
                 self.xmin = self.xmin if self.xmin else numpy.nanmin(x)#-self.xmax
-                self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
-                self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
+                #self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
+                #self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
 
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
-                                       vmin=self.zmin,
-                                       vmax=self.zmax,
+                                       vmin=self.zmin[n],
+                                       vmax=self.zmax[n],
                                        cmap=plt.get_cmap(self.colormap),
                                        )
 
@@ -713,14 +725,28 @@ class RTIPlot(Plot):
         else:
             x, y, z = self.fill_gaps(*self.decimate())
 
+
+        if not isinstance(self.zmin, collections.abc.Sequence):
+            if not self.zmin:
+                self.zmin = [numpy.min(self.z)]*len(self.axes)
+            else:
+                self.zmin = [self.zmin]*len(self.axes)
+
+        if not isinstance(self.zmax, collections.abc.Sequence):
+            if not self.zmax:
+                self.zmax = [numpy.max(self.z)]*len(self.axes)
+            else:
+                self.zmax = [self.zmax]*len(self.axes)
+
         for n, ax in enumerate(self.axes):
-            self.zmin = self.zmin if self.zmin else numpy.min(self.z)
-            self.zmax = self.zmax if self.zmax else numpy.max(self.z)
+
+            #self.zmin = self.zmin if self.zmin else numpy.min(self.z)
+            #self.zmax = self.zmax if self.zmax else numpy.max(self.z)
 
             if ax.firsttime:
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
-                                       vmin=self.zmin,
-                                       vmax=self.zmax,
+                                       vmin=self.zmin[n],
+                                       vmax=self.zmax[n],
                                        cmap=plt.get_cmap(self.colormap)
                                        )
                 if self.showprofile:
@@ -731,8 +757,8 @@ class RTIPlot(Plot):
             else:
                 ax.collections.remove(ax.collections[0])
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
-                                       vmin=self.zmin,
-                                       vmax=self.zmax,
+                                       vmin=self.zmin[n],
+                                       vmax=self.zmax[n],
                                        cmap=plt.get_cmap(self.colormap)
                                        )
                 if self.showprofile:

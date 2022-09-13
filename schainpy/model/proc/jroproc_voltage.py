@@ -5089,6 +5089,9 @@ class DataSaveCleanerHP(Operation):
         dataOut.acfs_LP=dataOut.acfs_LP.transpose()
         dataOut.acfs_error_LP=dataOut.acfs_error_LP.transpose()
 
+        dataOut.DensityFinal *= 1.e6 #Convert units to m^⁻3
+        dataOut.EDensityFinal *= 1.e6 #Convert units to m^⁻3
+
         return dataOut
 
 
@@ -7255,7 +7258,7 @@ class IntegrationHP(IntegrationDP):
         #print(dataOut.kabxys_integrated[8][53,6,0]+dataOut.kabxys_integrated[11][53,6,0])
         #print(dataOut.kabxys_integrated[8][53,9,0]+dataOut.kabxys_integrated[11][53,9,0])
         #exit(1)
-        print(dataOut.flagNoData)
+        #print(dataOut.flagNoData)
         return dataOut
 
 class SumFlipsHP(SumFlips):
