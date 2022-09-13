@@ -19,10 +19,15 @@ from schainpy.model.data.jrodata import hildebrand_sekhon
 from schainpy.utils import log
 from schainpy.model.data import _HS_algorithm
 
+from schainpy.model.proc.jroproc_voltage import CleanCohEchoes
+
 from time import time, mktime, strptime, gmtime, ctime
 
 
 class SpectraLagProc(ProcessingUnit):
+    '''
+    Written by R. Flores
+    '''
     def __init__(self):
 
         ProcessingUnit.__init__(self)
@@ -308,7 +313,9 @@ class SpectraLagProc(ProcessingUnit):
         #print("after",self.dataOut.data_spc[0,:,20])
 
 class removeDCLag(Operation):
-
+    '''
+    Written by R. Flores
+    '''
     def remover(self,mode):
         jspectra = self.dataOut.data_spc
         jcspectra = self.dataOut.data_cspc
@@ -414,7 +421,9 @@ class removeDCLag(Operation):
 
 
 class removeDCLagFlip(Operation):
-
+    '''
+    Written by R. Flores
+    '''
     #CHANGES MADE ONLY FOR MODE 2 AND NOT CONSIDERING CSPC
 
     def remover(self,mode):
@@ -501,7 +510,7 @@ class removeDCLagFlip(Operation):
 
 
     def run(self, dataOut, mode=2):
-        #print("***********************************Remove DC***********************************")
+        print("***********************************Remove DC***********************************")
         ##print(dataOut.FlipChannels)
         #exit(1)
         self.dataOut = dataOut
@@ -1098,7 +1107,9 @@ class removeInterference(Operation):
 
 
 class IntegrationFaradaySpectra(Operation):
-
+    '''
+    Written by R. Flores
+    '''
     __profIndex = 0
     __withOverapping = False
 
@@ -1441,7 +1452,9 @@ class IntegrationFaradaySpectra(Operation):
 
 
 class IntegrationFaradaySpectra2(Operation):
-
+    '''
+    Written by R. Flores
+    '''
     __profIndex = 0
     __withOverapping = False
 
@@ -2061,7 +2074,9 @@ class IntegrationFaradaySpectra2(Operation):
         return dataOut
 
 class IntegrationFaradaySpectra3(Operation): #This class should manage data with no lags as well
-
+    '''
+    Written by R. Flores
+    '''
     __profIndex = 0
     __withOverapping = False
 
@@ -2815,7 +2830,9 @@ class IntegrationFaradaySpectra3(Operation): #This class should manage data with
         return dataOut
 
 class IntegrationFaradaySpectraNoLags(Operation):
-
+    '''
+    Written by R. Flores
+    '''
     __profIndex = 0
     __withOverapping = False
 
@@ -3149,6 +3166,9 @@ class IntegrationFaradaySpectraNoLags(Operation):
         return dataOut
 
 class HybridSelectSpectra(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to rearange and use selected channels of spectra data and pairs of cross-spectra data for Hybrid Experiment.
 
     Parameters:
@@ -3213,7 +3233,9 @@ class HybridSelectSpectra(Operation):
 
 
 class IncohIntLag(Operation):
-
+    '''
+    Written by R. Flores
+    '''
     __profIndex = 0
     __withOverapping = False
 
@@ -3598,6 +3620,7 @@ class IncohInt(Operation):
         #exit(1)
 
         if n == 1:
+            dataOut.VelRange = dataOut.getVelRange(0)
             return dataOut
 
         dataOut.flagNoData = True
@@ -3619,6 +3642,9 @@ class IncohInt(Operation):
             dataOut.nIncohInt *= self.n
             dataOut.utctime = avgdatatime
             dataOut.flagNoData = False
+
+            dataOut.VelRange = dataOut.getVelRange(0)
+
             #print("Power",numpy.sum(dataOut.data_spc[0,:,20:30],axis=0))
             #print("Power",numpy.sum(dataOut.data_spc[0,100:110,:],axis=1))
             #exit(1)
@@ -3678,6 +3704,9 @@ class IncohInt(Operation):
         return dataOut
 
 class SnrFaraday(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to use get SNR in Faraday processing.
 
     Parameters:
@@ -3723,6 +3752,9 @@ class SnrFaraday(Operation):
         return dataOut
 
 class SpectraDataToFaraday(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to use spectra data in Faraday processing.
 
     Parameters:
@@ -3754,12 +3786,19 @@ class SpectraDataToFaraday(Operation):
         dataOut.year=dataOut.bd_time.tm_year+(dataOut.bd_time.tm_yday-1)/364.0
         dataOut.ut_Faraday=dataOut.bd_time.tm_hour+dataOut.bd_time.tm_min/60.0+dataOut.bd_time.tm_sec/3600.0
 
-
+        '''
         tmpx=numpy.zeros((dataOut.nHeights,dataOut.DPL,2),'float32')
         tmpx_a2=numpy.zeros((dataOut.nHeights,dataOut.DPL,2),'float32')
         tmpx_b2=numpy.zeros((dataOut.nHeights,dataOut.DPL,2),'float32')
         tmpx_abr=numpy.zeros((dataOut.nHeights,dataOut.DPL,2),'float32')
         tmpx_abi=numpy.zeros((dataOut.nHeights,dataOut.DPL,2),'float32')
+        '''
+        #print("NDP",dataOut.NDP)
+        tmpx=numpy.zeros((dataOut.NDP,dataOut.DPL,2),'float32')
+        tmpx_a2=numpy.zeros((dataOut.NDP,dataOut.DPL,2),'float32')
+        tmpx_b2=numpy.zeros((dataOut.NDP,dataOut.DPL,2),'float32')
+        tmpx_abr=numpy.zeros((dataOut.NDP,dataOut.DPL,2),'float32')
+        tmpx_abi=numpy.zeros((dataOut.NDP,dataOut.DPL,2),'float32')
         dataOut.kabxys_integrated=[tmpx,tmpx,tmpx,tmpx,tmpx_a2,tmpx,tmpx_b2,tmpx,tmpx_abr,tmpx,tmpx_abi,tmpx,tmpx,tmpx]
         '''
         dataOut.rnint2=numpy.zeros(dataOut.DPL,'float32')
@@ -3806,25 +3845,7 @@ class SpectraDataToFaraday(Operation):
         for l in range(dataOut.DPL):
             dataOut.rnint2[l]=1.0/(dataOut.nIncohInt*dataOut.nProfiles)
 
-
-    def run(self,dataOut):
-        #print(dataOut.nIncohInt)
-        #exit(1)
-        dataOut.paramInterval=dataOut.nIncohInt*2*2#nIncohInt*numero de fft/nprofiles*segundos de cada muestra
-        dataOut.lat=-11.95
-        dataOut.lon=-76.87
-
-        self.normFactor(dataOut)
-
-        dataOut.NDP=dataOut.nHeights
-        dataOut.NR=len(dataOut.channelList)
-        dataOut.DH=dataOut.heightList[1]-dataOut.heightList[0]
-        dataOut.H0=int(dataOut.heightList[0])
-
-        self.ConvertData(dataOut)
-
-        dataOut.NAVG=16#dataOut.rnint2[0] #CHECK THIS!
-        dataOut.MAXNRANGENDT=dataOut.NDP
+    def noise(self,dataOut):
 
         dataOut.noise_lag = numpy.zeros((dataOut.nChannels,dataOut.DPL),'float32')
         #print("Lags")
@@ -3878,6 +3899,114 @@ class SpectraDataToFaraday(Operation):
         dataOut.pan = dataOut.tnoise[0]
         dataOut.pbn = dataOut.tnoise[1]
 
+    def get_eej_index_V0(self,data_to_remov_eej,dataOut):
+
+        dataOut.data_spc = data_to_remov_eej
+        #print(dataOut.data_spc)
+        data_eej = dataOut.getPower()[1]
+        print("data_eej: ", data_eej)
+        #exit(1)
+        index_eej = CleanCohEchoes.mad_based_outlier(self,data_eej[:20])
+        aux_eej = numpy.array(index_eej.nonzero()).ravel()
+
+        index2 = CleanCohEchoes.mad_based_outlier(self,data_eej[aux_eej[-1]+1:aux_eej[-1]+1+20])
+        aux2 = numpy.array(index2.nonzero()).ravel()
+        if aux2.size > 0:
+          #print(aux2)
+          #print(aux2[-1])
+          #print(arr[aux[-1]+aux2[-1]+1])
+            dataOut.min_id_eej = aux_eej[-1]+aux2[-1]+1
+        else:
+            dataOut.min_id_eej = aux_eej[-1]
+
+
+        print(dataOut.min_id_eej)
+        exit(1)
+
+    def get_eej_index_V1(self,data_to_remov_eej,dataOut):
+
+        dataOut.data_spc = data_to_remov_eej
+        outliers_IDs = []
+        #print(dataOut.data_spc)
+        for ich in range(dataOut.nChannels):
+
+            data_eej = dataOut.getPower()[ich]
+            #print("data_eej: ", data_eej)
+            #exit(1)
+            index_eej = CleanCohEchoes.mad_based_outlier(self,data_eej[:20])
+            aux_eej = numpy.array(index_eej.nonzero()).ravel()
+
+            #index2 = CleanCohEchoes.mad_based_outlier(self,data_eej[aux_eej[-1]+1:aux_eej[-1]+1+20])
+            index2 = CleanCohEchoes.mad_based_outlier(self,data_eej[aux_eej[-1]+1:aux_eej[-1]+1+10],thresh=1.)
+            aux2 = numpy.array(index2.nonzero()).ravel()
+            if aux2.size > 0:
+                #min_id_eej = aux_eej[-1]+aux2[-1]+1
+                ids = numpy.concatenate((aux_eej,aux2+aux_eej[-1]+1))
+            else:
+                ids = aux_eej
+
+            outliers_IDs=numpy.append(outliers_IDs,ids)
+
+        outliers_IDs=numpy.array(outliers_IDs)
+        outliers_IDs=outliers_IDs.astype(numpy.dtype('int64'))
+
+        (uniq, freq) = (numpy.unique(outliers_IDs, return_counts=True))
+        aux_arr = numpy.column_stack((uniq,freq))
+
+        final_index = []
+        for i in range(aux_arr.shape[0]):
+            if aux_arr[i,1] == 2:
+                final_index.append(aux_arr[i,0])
+
+        if final_index != []:
+            dataOut.min_id_eej = final_index[-1]
+        else:
+            print("CHECKKKKK!!!!!!!!!!!!!!!")
+
+        print(dataOut.min_id_eej)
+        exit(1)
+
+    def get_eej_index(self,data_to_remov_eej,dataOut):
+
+        dataOut.data_spc = data_to_remov_eej
+
+        data_eej = dataOut.getPower()[0]
+        #print(data_eej)
+        index_eej = CleanCohEchoes.mad_based_outlier(self,data_eej[:17])
+        aux_eej = numpy.array(index_eej.nonzero()).ravel()
+
+        dataOut.min_id_eej = aux_eej[-1]
+
+        print(dataOut.min_id_eej)
+        #exit(1)
+
+    def run(self,dataOut):
+        #print(dataOut.nIncohInt)
+        #exit(1)
+        dataOut.paramInterval=dataOut.nIncohInt*2*2#nIncohInt*numero de fft/nprofiles*segundos de cada muestra
+        dataOut.lat=-11.95
+        dataOut.lon=-76.87
+
+        data_to_remov_eej = dataOut.dataLag_spc[:,:,:,0]
+
+        self.normFactor(dataOut)
+
+        dataOut.NDP=dataOut.nHeights
+        dataOut.NR=len(dataOut.channelList)
+        dataOut.DH=dataOut.heightList[1]-dataOut.heightList[0]
+        dataOut.H0=int(dataOut.heightList[0])
+
+        self.ConvertData(dataOut)
+
+        dataOut.NAVG=16#dataOut.rnint2[0] #CHECK THIS!
+        if hasattr(dataOut, 'NRANGE'):
+            dataOut.MAXNRANGENDT = max(dataOut.NRANGE,dataOut.NDT)
+        else:
+            dataOut.MAXNRANGENDT = dataOut.NDP
+
+        if not hasattr(dataOut, 'tnoise'):
+            self.noise(dataOut)
+
         #dataOut.pan = numpy.mean(dataOut.pan)
         #dataOut.pbn = numpy.mean(dataOut.pbn)
         #print(dataOut.pan)
@@ -3888,12 +4017,18 @@ class SpectraDataToFaraday(Operation):
         #print("Noise dB: ",10*numpy.log10(dataOut.tnoise))
         #exit(1)
         #dataOut.pan=dataOut.tnoise[0]/float(dataOut.nProfiles_LP*dataOut.nIncohInt)
+        if gmtime(dataOut.utctime).tm_hour >= 22. or gmtime(dataOut.utctime).tm_hour < 12.:
+            self.get_eej_index(data_to_remov_eej,dataOut)
         print("done")
+        #exit(1)
         return dataOut
 
 
 
 class SpectraDataToHybrid(SpectraDataToFaraday):
+    '''
+    Written by R. Flores
+    '''
     """Operation to use spectra data in Faraday processing.
 
     Parameters:
@@ -4067,6 +4202,9 @@ class SpectraDataToHybrid(SpectraDataToFaraday):
         return dataOut
 
 class SpectraDataToHybrid_V2(SpectraDataToFaraday):
+    '''
+    Written by R. Flores
+    '''
     """Operation to use spectra data in Faraday processing.
 
     Parameters:
@@ -4092,7 +4230,7 @@ class SpectraDataToHybrid_V2(SpectraDataToFaraday):
         self.dataLag_cspc_LP=None
         self.dataLag_dc_LP=None
 
-    def noise(self,dataOut):
+    def noise_v0(self,dataOut):
 
         dataOut.data_spc = dataOut.dataLag_spc_LP.real
         #print(dataOut.dataLag_spc.shape)
@@ -4115,8 +4253,103 @@ class SpectraDataToHybrid_V2(SpectraDataToFaraday):
         #print("pbn: ",dataOut.pbn)
         #print(numpy.shape(dataOut.pnoise))
         #exit(1)
-        #print("pan: ",numpy.sum(dataOut.pan))
+        #print("pan: ",dataOut.pan)
+        #print("pbn: ",dataOut.pbn)
         #exit(1)
+
+    def noise_v0_aux(self,dataOut):
+
+        dataOut.data_spc = dataOut.dataLag_spc
+        #print(dataOut.dataLag_spc.shape)
+        #exit(1)
+        #dataOut.data_spc = dataOut.dataLag_spc[:,:,:,0].real
+        #print("spc noise shape: ",dataOut.data_spc.shape)
+        tnoise = dataOut.getNoise(ymin_index=100,ymax_index=166)
+        #print("Noise LP: ",10*numpy.log10(dataOut.tnoise))
+        #exit(1)
+        #dataOut.tnoise[0]*=0.995#0.976
+        #dataOut.tnoise[1]*=0.995
+        #print(dataOut.nProfiles)
+        #dataOut.pan=dataOut.tnoise[0]/float(dataOut.nProfiles_LP*dataOut.nIncohInt)
+        #dataOut.pbn=dataOut.tnoise[1]/float(dataOut.nProfiles_LP*dataOut.nIncohInt)
+        dataOut.pan=tnoise[0]/float(dataOut.nProfiles*dataOut.nIncohInt)
+        dataOut.pbn=tnoise[1]/float(dataOut.nProfiles*dataOut.nIncohInt)
+
+    def noise(self,dataOut):
+
+        dataOut.noise_lag = numpy.zeros((dataOut.nChannels,dataOut.DPL),'float32')
+        #print("Lags")
+        '''
+        for lag in range(dataOut.DPL):
+            #print(lag)
+            dataOut.data_spc = dataOut.dataLag_spc[:,:,:,lag]
+            dataOut.noise_lag[:,lag] = dataOut.getNoise(ymin_index=46)
+            #dataOut.noise_lag[:,lag] = dataOut.getNoise(ymin_index=33,ymax_index=46)
+            '''
+        #print(dataOut.NDP)
+        #exit(1)
+        #Channel B
+        for lag in range(dataOut.DPL):
+            #print(lag)
+            dataOut.data_spc = dataOut.dataLag_spc[:,:,:,lag]
+            max_hei_id = dataOut.NDP - 2*lag
+            #if lag < 6:
+            dataOut.noise_lag[1,lag] = dataOut.getNoise(ymin_index=53,ymax_index=max_hei_id)[1]
+            #else:
+                #dataOut.noise_lag[1,lag] = numpy.mean(dataOut.noise_lag[1,:6])
+            #dataOut.noise_lag[:,lag] = dataOut.getNoise(ymin_index=33,ymax_index=46)
+        #Channel A
+        for lag in range(dataOut.DPL):
+            #print(lag)
+            dataOut.data_spc = dataOut.dataLag_spc[:,:,:,lag]
+            dataOut.noise_lag[0,lag] = dataOut.getNoise(ymin_index=53)[0]
+
+        nanindex = numpy.argwhere(numpy.isnan(numpy.log10(dataOut.noise_lag[1,:])))
+        i1 = nanindex[0][0]
+        dataOut.noise_lag[1,(1,2,7,8,9,10)] *= 2 #Correction LP
+        dataOut.noise_lag[1,i1:] = numpy.mean(dataOut.noise_lag[1,:i1]) #El ruido de lags contaminados se
+                                                                        #determina a partir del promedio del
+                                                                        #ruido de los lags limpios
+        '''
+        dataOut.noise_lag[1,:] = dataOut.noise_lag[1,0] #El ruido de los lags diferentes de cero para
+                                                        #el canal B es contaminado por el Tx y EEJ
+                                                        #del siguiente perfil, por ello se asigna el ruido
+                                                        #del lag 0 a todos los lags
+                                                        '''
+        #print("Noise lag: ", 10*numpy.log10(dataOut.noise_lag/dataOut.normFactor))
+        #exit(1)
+        '''
+        dataOut.tnoise = dataOut.getNoise(ymin_index=46)
+        dataOut.tnoise /= float(dataOut.nProfiles*dataOut.nIncohInt)
+        dataOut.pan = dataOut.tnoise[0]
+        dataOut.pbn = dataOut.tnoise[1]
+        '''
+        #print("i1: ", i1)
+        #exit(1)
+        tnoise = dataOut.noise_lag/float(dataOut.nProfiles*dataOut.nIncohInt)
+        #dataOut.tnoise /= float(dataOut.nProfiles*dataOut.nIncohInt)
+        dataOut.pan = tnoise[0]
+        dataOut.pbn = tnoise[1]
+
+    def noise_LP(self,dataOut):
+
+        dataOut.data_spc = dataOut.dataLag_spc_LP.real
+        #print(dataOut.dataLag_spc.shape)
+        #exit(1)
+        #dataOut.data_spc = dataOut.dataLag_spc[:,:,:,0].real
+        #print("spc noise shape: ",dataOut.data_spc.shape)
+        dataOut.tnoise = dataOut.getNoise(ymin_index=100,ymax_index=166)
+        #print("Noise LP: ",10*numpy.log10(dataOut.tnoise))
+        #exit(1)
+        #dataOut.tnoise[0]*=0.995#0.976
+        #dataOut.tnoise[1]*=0.995
+        #print(dataOut.nProfiles)
+        #dataOut.pan=dataOut.tnoise[0]/float(dataOut.nProfiles_LP*dataOut.nIncohInt)
+        #dataOut.pbn=dataOut.tnoise[1]/float(dataOut.nProfiles_LP*dataOut.nIncohInt)
+        ######dataOut.pan=dataOut.tnoise[0]/float(dataOut.nProfiles_LP*dataOut.nIncohInt_LP)
+        ######dataOut.pbn=dataOut.tnoise[1]/float(dataOut.nProfiles_LP*dataOut.nIncohInt_LP)
+        dataOut.pan_LP=dataOut.tnoise[0]/float(dataOut.nProfiles_LP*dataOut.nIncohInt_LP)
+        dataOut.pbn_LP=dataOut.tnoise[1]/float(dataOut.nProfiles_LP*dataOut.nIncohInt_LP)
 
     def ConvertDataLP(self,dataOut):
 
@@ -4161,6 +4394,7 @@ class SpectraDataToHybrid_V2(SpectraDataToFaraday):
         #dataOut.output_LP_integrated[:,:,3] *= float(dataOut.NSCAN/22)#(dataOut.nNoiseProfiles) #Corrects the zero padding
 
         dataOut.nis=dataOut.NSCAN*dataOut.nIncohInt_LP*10
+        dataOut.nis=dataOut.NSCAN*dataOut.nIncohInt_LP*dataOut.nProfiles_LP*10
 
         self.ConvertData(dataOut)
 
@@ -4170,10 +4404,98 @@ class SpectraDataToHybrid_V2(SpectraDataToFaraday):
         dataOut.kabxys_integrated[10][:,(1,2,7,8,9,10),0] *= 2 #Corrects the zero padding
         hei = 2
 
-        self.noise(dataOut)
+        self.noise(dataOut) #Noise for DP Profiles
+        dataOut.pan[[1,2,7,8,9,10]] *= 2 #Corrects the zero padding
+        #dataOut.pbn[[1,2,7,8,9,10]] *= 2 #Corrects the zero padding #Chequear debido a que se están mezclando lags en self.noise()
+        self.noise_LP(dataOut) #Noise for LP Profiles
+
+        print("pan: , pan_LP: ",dataOut.pan,dataOut.pan_LP)
+        print("pbn: , pbn_LP: ",dataOut.pbn,dataOut.pbn_LP)
+
+
 
         dataOut.NAVG=1#dataOut.rnint2[0] #CHECK THIS!
         dataOut.nint=dataOut.nIncohInt
         dataOut.MAXNRANGENDT=dataOut.output_LP_integrated.shape[1]
 
+        '''
+        range_aux=numpy.zeros(dataOut.MAXNRANGENDT,order='F',dtype='float32')
+        range_aux_dp=numpy.zeros(dataOut.NDT,order='F',dtype='float32')
+        for i in range(dataOut.MAXNRANGENDT):
+            range_aux[i]=dataOut.H0 + i*dataOut.DH
+        for i in range(dataOut.NDT):
+            range_aux_dp[i]=dataOut.H0 + i*dataOut.DH
+        import matplotlib.pyplot as plt
+        #plt.plot(10*numpy.log10(dataOut.output_LP_integrated.real[0,:,0]),range_aux)
+        plt.plot(10*numpy.log10(dataOut.output_LP_integrated.real[0,:,0]),range_aux_dp)
+        #plt.plot(10*numpy.log10(dataOut.output_LP_integrated.real[0,:,0]/dataOut.nProfiles_LP),dataOut.range1)
+        plt.axvline(10*numpy.log10(dataOut.tnoise[0]),color='k',linestyle='dashed')
+        plt.grid()
+        plt.xlim(20,100)
+        plt.show()
+        exit(1)
+        '''
+        return dataOut
+
+class SpcVoltageDataToHybrid(SpectraDataToFaraday):
+    '''
+    Written by R. Flores
+    '''
+    """Operation to use spectra data in Faraday processing.
+
+    Parameters:
+    -----------
+    nint : int
+        Number of integrations.
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='SpcVoltageDataToHybrid', optype='other')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+
+        self.dataLag_spc=None
+        self.dataLag_cspc=None
+        self.dataLag_dc=None
+
+    def normFactor(self,dataOut):
+        dataOut.rnint2=numpy.zeros(dataOut.DPL,'float32')
+        #print(dataOut.nIncohInt,dataOut.nProfiles)
+        for l in range(dataOut.DPL):
+            if(l==0 or (l>=3 and l <=6)):
+                dataOut.rnint2[l]=1.0/(dataOut.nIncohInt*dataOut.nProfiles_DP)
+            else:
+                dataOut.rnint2[l]=2*(1.0/(dataOut.nIncohInt*dataOut.nProfiles_DP))
+
+    def run(self,dataOut):
+
+        dataOut.paramInterval=0#int(dataOut.nint*dataOut.header[7][0]*2 )
+        dataOut.lat=-11.95
+        dataOut.lon=-76.87
+
+        #dataOut.NDP=dataOut.nHeights
+        #dataOut.NR=len(dataOut.channelList)
+        #dataOut.DH=dataOut.heightList[1]-dataOut.heightList[0]
+        #dataOut.H0=int(dataOut.heightList[0])
+
+        self.normFactor(dataOut)
+
+        dataOut.nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint*10
+
+        self.ConvertData(dataOut)
+
+        dataOut.kabxys_integrated[4][:,(1,2,7,8,9,10),0] *= 2 #Corrects the zero padding
+        dataOut.kabxys_integrated[6][:,(1,2,7,8,9,10),0] *= 2 #Corrects the zero padding
+        dataOut.kabxys_integrated[8][:,(1,2,7,8,9,10),0] *= 2 #Corrects the zero padding
+        dataOut.kabxys_integrated[10][:,(1,2,7,8,9,10),0] *= 2 #Corrects the zero padding
+        #print(numpy.sum(dataOut.kabxys_integrated[4][:,1,0]))
+        dataOut.MAXNRANGENDT = max(dataOut.NRANGE,dataOut.NDP)
+        #print(dataOut.rnint2)
+        #print(dataOut.nis)
+        #exit(1)
         return dataOut

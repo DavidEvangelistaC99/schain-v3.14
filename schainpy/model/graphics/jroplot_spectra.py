@@ -39,9 +39,14 @@ class SpectraPlot(Plot):
 
         data = {}
         meta = {}
+
         spc = 10*numpy.log10(dataOut.data_spc/dataOut.normFactor)
+        #print("Spc: ",spc[0])
+        #exit(1)
         data['spc'] = spc
         data['rti'] = dataOut.getPower()
+        #print(data['rti'][0])
+        #exit(1)
         #print("NormFactor: ",dataOut.normFactor)
         #data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
         if hasattr(dataOut, 'LagPlot'): #Double Pulse
@@ -163,11 +168,22 @@ class SpectraObliquePlot(Plot):
         data['rti'] = dataOut.getPower()
         data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
         meta['xrange'] = (dataOut.getFreqRange(1)/1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
-
-        data['shift1'] = dataOut.Oblique_params[0][1]
-        data['shift2'] = dataOut.Oblique_params[0][4]
-        data['shift1_error'] = dataOut.Oblique_param_errors[0][1]
-        data['shift2_error'] = dataOut.Oblique_param_errors[0][4]
+        '''
+        data['shift1'] = dataOut.Oblique_params[0,-2,:]
+        data['shift2'] = dataOut.Oblique_params[0,-1,:]
+        data['shift1_error'] = dataOut.Oblique_param_errors[0,-2,:]
+        data['shift2_error'] = dataOut.Oblique_param_errors[0,-1,:]
+        '''
+        '''
+        data['shift1'] = dataOut.Oblique_params[0,1,:]
+        data['shift2'] = dataOut.Oblique_params[0,4,:]
+        data['shift1_error'] = dataOut.Oblique_param_errors[0,1,:]
+        data['shift2_error'] = dataOut.Oblique_param_errors[0,4,:]
+        '''
+        data['shift1'] = dataOut.Dop_EEJ_T1[0]
+        data['shift2'] = dataOut.Dop_EEJ_T2[0]
+        data['shift1_error'] = dataOut.Err_Dop_EEJ_T1[0]
+        data['shift2_error'] = dataOut.Err_Dop_EEJ_T2[0]
 
         return data, meta
 
@@ -187,15 +203,19 @@ class SpectraObliquePlot(Plot):
 
         y = self.data.yrange
         self.y = y
-        z = self.data['spc']
+
+        data = self.data[-1]
+        z = data['spc']
 
         for n, ax in enumerate(self.axes):
             noise = self.data['noise'][n][-1]
-            shift1 = self.data['shift1']
-            shift2 = self.data['shift2']
-            err1 = self.data['shift1_error']
-            err2 = self.data['shift2_error']
+            shift1 = data['shift1']
+            #print(shift1)
+            shift2 = data['shift2']
+            err1 = data['shift1_error']
+            err2 = data['shift2_error']
             if ax.firsttime:
+
                 self.xmax = self.xmax if self.xmax else numpy.nanmax(x)
                 self.xmin = self.xmin if self.xmin else -self.xmax
                 self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
@@ -212,17 +232,20 @@ class SpectraObliquePlot(Plot):
                     ax.plt_noise = self.pf_axes[n].plot(numpy.repeat(noise, len(y)), y,
                                                         color="k", linestyle="dashed", lw=1)[0]
 
-                self.ploterr1 = ax.errorbar(shift1, y, xerr=err1, fmt='k^', elinewidth=0.2, marker='x', linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
-                self.ploterr2 = ax.errorbar(shift2, y, xerr=err2, fmt='m^',elinewidth=0.2,marker='x',linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
+                self.ploterr1 = ax.errorbar(shift1, y, xerr=err1, fmt='k^', elinewidth=2.2, marker='o', linestyle='None',markersize=2.5,capsize=0.3,markeredgewidth=0.2)
+                self.ploterr2 = ax.errorbar(shift2, y, xerr=err2, fmt='m^',elinewidth=2.2,marker='o',linestyle='None',markersize=2.5,capsize=0.3,markeredgewidth=0.2)
+                #print("plotter1: ", self.ploterr1,shift1)
+
             else:
+                #print("else plotter1: ", self.ploterr1,shift1)
                 self.ploterr1.remove()
                 self.ploterr2.remove()
                 ax.plt.set_array(z[n].T.ravel())
                 if self.showprofile:
                     ax.plt_profile.set_data(self.data['rti'][n][-1], y)
                     ax.plt_noise.set_data(numpy.repeat(noise, len(y)), y)
-                    self.ploterr1 = ax.errorbar(shift1, y, xerr=err1, fmt='k^',elinewidth=0.2,marker='x',linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
-                    self.ploterr2 = ax.errorbar(shift2, y, xerr=err2, fmt='m^',elinewidth=0.2,marker='x',linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
+                self.ploterr1 = ax.errorbar(shift1, y, xerr=err1, fmt='k^', elinewidth=2.2, marker='o', linestyle='None',markersize=2.5,capsize=0.3,markeredgewidth=0.2)
+                self.ploterr2 = ax.errorbar(shift2, y, xerr=err2, fmt='m^',elinewidth=2.2,marker='o',linestyle='None',markersize=2.5,capsize=0.3,markeredgewidth=0.2)
 
             self.titles.append('CH {}: {:3.2f}dB'.format(n, noise))
 
@@ -671,6 +694,7 @@ class RTIPlot(Plot):
         data = {}
         meta = {}
         data['rti'] = dataOut.getPower()
+        #print(numpy.shape(data['rti']))
 
         data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
 
@@ -692,6 +716,7 @@ class RTIPlot(Plot):
         for n, ax in enumerate(self.axes):
             self.zmin = self.zmin if self.zmin else numpy.min(self.z)
             self.zmax = self.zmax if self.zmax else numpy.max(self.z)
+
             if ax.firsttime:
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,

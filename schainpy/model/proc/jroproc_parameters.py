@@ -2,6 +2,7 @@ import numpy
 import math
 from scipy import optimize, interpolate, signal, stats, ndimage
 import scipy
+from scipy.optimize import least_squares
 import re
 import datetime
 import copy
@@ -91,6 +92,7 @@ class ParametersProc(ProcessingUnit):
         self.dataOut.timeInterval1 = self.dataIn.timeInterval
         self.dataOut.heightList = self.dataIn.heightList
         self.dataOut.frequency = self.dataIn.frequency
+        #self.dataOut.runNextUnit = self.dataIn.runNextUnit
         #self.dataOut.noise = self.dataIn.noise
 
     def run(self):
@@ -156,6 +158,7 @@ class ParametersProc(ProcessingUnit):
             if hasattr(self.dataIn, 'COFA'): #COFA
                 self.dataOut.COFA = self.dataIn.COFA
 
+            #self.dataOut.runNextUnit = self.dataIn.runNextUnit
 
 
         #----------------------    Correlation Data    ---------------------------
@@ -668,7 +671,9 @@ class GaussianFit(Operation):
         return num_intg*sum((numpy.log(y_data)-numpy.log(self.y_model2(x,state)))**2)#/(64-9.)
 
 class Oblique_Gauss_Fit(Operation):
-
+    '''
+    Written by R. Flores
+    '''
     def __init__(self):
         Operation.__init__(self)
 
@@ -1060,6 +1065,17 @@ class Oblique_Gauss_Fit(Operation):
         val = a1 * numpy.exp(-z1**2/2) + a2 * numpy.exp(-y2**2/2)/(1-k2*z2) + d
         return val
 
+    def gaussian(self, x, a, b, c, d):
+        z = (x-b)/c
+        val = a * numpy.exp(-z**2/2) + d
+        return val
+
+    def double_gaussian(self, x, a1, b1, c1, a2, b2, c2, d):
+        z1 = (x-b1)/c1
+        z2 = (x-b2)/c2
+        val = a1 * numpy.exp(-z1**2/2) + a2 * numpy.exp(-z2**2/2) + d
+        return val
+
     def double_gaussian_double_skew(self,x, a1, b1, c1, k1, a2, b2, c2, k2, d):
 
         z1 = (x-b1)/c1
@@ -1136,7 +1152,7 @@ class Oblique_Gauss_Fit(Operation):
         #return A1f, B1f, C1f, A2f, B2f, C2f, K2f, Df, doppler
         return A1f, B1f, C1f, A2f, B2f, C2f, K2f, Df, doppler
 
-    def Double_Gauss_Double_Skew_fit_weight_bound_no_inputs(self,spc,freq):
+    def Double_Gauss_Double_Skew_fit_weight_bound_no_inputs(self,spc,freq,Nincoh):
 
         from scipy.optimize import least_squares
 
@@ -1146,6 +1162,7 @@ class Oblique_Gauss_Fit(Operation):
         from scipy.signal import medfilt
         Nincoh = 20
         Nincoh = 80
+        Nincoh = Nincoh
         spcm = medfilt(spc,11)/numpy.sqrt(Nincoh)
 
         # define a least squares function to optimize
@@ -1156,11 +1173,23 @@ class Oblique_Gauss_Fit(Operation):
     #    bounds=([0,-460,0,0,-400,120,0],[numpy.inf,-340,50,numpy.inf,0,250,numpy.inf])
     #    bounds=([0,-numpy.inf,0,0,-numpy.inf,0,-numpy.inf,0],[numpy.inf,-200,numpy.inf,numpy.inf,0,numpy.inf,0,numpy.inf])
         #print(a1,b1,c1,a2,b2,c2,k2,d)
-        bounds=([0,-numpy.inf,0,-numpy.inf,0,-400,0,0,0],[numpy.inf,-340,numpy.inf,0,numpy.inf,0,numpy.inf,numpy.inf,numpy.inf])
+        #bounds=([0,-numpy.inf,0,-numpy.inf,0,-400,0,0,0],[numpy.inf,-340,numpy.inf,0,numpy.inf,0,numpy.inf,numpy.inf,numpy.inf])
+        bounds=([0,-numpy.inf,0,-numpy.inf,0,-400,0,0,0],[numpy.inf,-140,numpy.inf,0,numpy.inf,0,numpy.inf,numpy.inf,numpy.inf])
         #print(bounds)
         #bounds=([0,-numpy.inf,0,0,-numpy.inf,0,0,0],[numpy.inf,-200,numpy.inf,numpy.inf,0,numpy.inf,numpy.inf,numpy.inf])
         params_scale = [spc_max,freq_max,freq_max,1,spc_max,freq_max,freq_max,1,spc_max]
-        x0_value = numpy.array([spc_max,-400,30,-.1,spc_max/4,-200,150,1,1.0e7])
+        ####################x0_value = numpy.array([spc_max,-400,30,-.1,spc_max/4,-200,150,1,1.0e7])
+
+        dop1_x0 = freq[numpy.argmax(spc)]
+        ####dop1_x0 = freq[numpy.argmax(spcm)]
+        if dop1_x0 < 0:
+          dop2_x0 = dop1_x0 + 100
+        if dop1_x0 > 0:
+          dop2_x0 = dop1_x0 - 100
+
+        ###########x0_value = numpy.array([spc_max,-200.5,30,-.1,spc_max/4,-100.5,150,1,1.0e7])
+        x0_value = numpy.array([spc_max,dop1_x0,30,-.1,spc_max/4, dop2_x0,150,1,1.0e7])
+        #x0_value = numpy.array([spc_max,-400.5,30,-.1,spc_max/4,-200.5,150,1,1.0e7])
         #popt = least_squares(lsq_func,[a1,b1,c1,a2,b2,c2,k2,d],x0=x0_value,x_scale=params_scale,bounds=bounds,verbose=1)
         popt = least_squares(lsq_func,x0=x0_value,x_scale=params_scale,bounds=bounds,verbose=0)
     #    popt = least_squares(lsq_func,[a1,b1,c1,a2,b2,c2,k2,d],x_scale=params_scale,verbose=1)
@@ -1192,6 +1221,65 @@ class Oblique_Gauss_Fit(Operation):
         #print("error",error)
         #exit(1)
         return A1f, B1f, C1f, K1f, A2f, B2f, C2f, K2f, Df, doppler1, doppler2, error
+
+    def Double_Gauss_fit_weight_bound_no_inputs(self,spc,freq,Nincoh):
+
+        from scipy.optimize import least_squares
+
+        freq_max = numpy.max(numpy.abs(freq))
+        spc_max = numpy.max(spc)
+
+        from scipy.signal import medfilt
+        Nincoh = 20
+        Nincoh = 80
+        Nincoh = Nincoh
+        spcm = medfilt(spc,11)/numpy.sqrt(Nincoh)
+
+        # define a least squares function to optimize
+        def lsq_func(params):
+            return (spc-self.double_gaussian(freq,params[0],params[1],params[2],params[3],params[4],params[5],params[6]))/spcm
+
+        # fit
+    #    bounds=([0,-460,0,0,-400,120,0],[numpy.inf,-340,50,numpy.inf,0,250,numpy.inf])
+    #    bounds=([0,-numpy.inf,0,0,-numpy.inf,0,-numpy.inf,0],[numpy.inf,-200,numpy.inf,numpy.inf,0,numpy.inf,0,numpy.inf])
+        #print(a1,b1,c1,a2,b2,c2,k2,d)
+
+        dop1_x0 = freq[numpy.argmax(spcm)]
+
+        #####bounds=([0,-numpy.inf,0,0,-400,0,0],[numpy.inf,-340,numpy.inf,numpy.inf,0,numpy.inf,numpy.inf])
+        #####bounds=([0,-numpy.inf,0,0,dop1_x0-50,0,0],[numpy.inf,-340,numpy.inf,numpy.inf,0,numpy.inf,numpy.inf])
+        bounds=([0,-numpy.inf,0,0,dop1_x0-50,0,0],[numpy.inf,-300,numpy.inf,numpy.inf,0,numpy.inf,numpy.inf])
+        #####bounds=([0,-numpy.inf,0,0,-500,0,0],[numpy.inf,-340,numpy.inf,numpy.inf,0,numpy.inf,numpy.inf])
+        #bounds=([0,-numpy.inf,0,-numpy.inf,0,-500,0,0,0],[numpy.inf,-240,numpy.inf,0,numpy.inf,0,numpy.inf,numpy.inf,numpy.inf])
+        #print(bounds)
+        #bounds=([0,-numpy.inf,0,0,-numpy.inf,0,0,0],[numpy.inf,-200,numpy.inf,numpy.inf,0,numpy.inf,numpy.inf,numpy.inf])
+        params_scale = [spc_max,freq_max,freq_max,spc_max,freq_max,freq_max,spc_max]
+        #x0_value = numpy.array([spc_max,-400.5,30,spc_max/4,-200.5,150,1.0e7])
+        x0_value = numpy.array([spc_max,-400.5,30,spc_max/4,dop1_x0,150,1.0e7])
+        #x0_value = numpy.array([spc_max,-420.5,30,-.1,spc_max/4,-50,150,.1,numpy.mean(spc[-50:])])
+        #print("before popt")
+        #print(x0_value)
+        #print("freq: ",freq)
+        #popt = least_squares(lsq_func,[a1,b1,c1,a2,b2,c2,k2,d],x0=x0_value,x_scale=params_scale,bounds=bounds,verbose=1)
+        popt = least_squares(lsq_func,x0=x0_value,x_scale=params_scale,bounds=bounds,verbose=0)
+    #    popt = least_squares(lsq_func,[a1,b1,c1,a2,b2,c2,k2,d],x_scale=params_scale,verbose=1)
+        #print("after popt")
+        J = popt.jac
+
+        try:
+            cov = numpy.linalg.inv(J.T.dot(J))
+            error = numpy.sqrt(numpy.diagonal(cov))
+        except:
+            error = numpy.ones((7))*numpy.NAN
+
+        A1f = popt.x[0]; B1f = popt.x[1]; C1f = popt.x[2]
+        A2f = popt.x[3]; B2f = popt.x[4]; C2f = popt.x[5]
+        Df = popt.x[6]
+        #print("before return")
+        return A1f, B1f, C1f, A2f, B2f, C2f, Df, error
+
+
+
 
     def Double_Gauss_Double_Skew_fit_weight_bound_with_inputs(self, spc, freq, a1, b1, c1, a2, b2, c2, k2, d):
 
@@ -1264,7 +1352,124 @@ class Oblique_Gauss_Fit(Operation):
 
         return A1f, B1f, C1f, A2f, B2f, C2f, K2f, A3f, B3f, C3f, K3f, Df, doppler
 
-    def run(self, dataOut, mode = 0):
+    def CEEJ_Skew_fit_weight_bound_no_inputs(self,spc,freq,Nincoh):
+
+        from scipy.optimize import least_squares
+
+        freq_max = numpy.max(numpy.abs(freq))
+        spc_max = numpy.max(spc)
+
+        from scipy.signal import medfilt
+        Nincoh = 20
+        Nincoh = 80
+        Nincoh = Nincoh
+        spcm = medfilt(spc,11)/numpy.sqrt(Nincoh)
+
+        # define a least squares function to optimize
+        def lsq_func(params):
+            return (spc-self.gaussian_skew(freq,params[0],params[1],params[2],params[3],params[4]))#/spcm
+
+
+        bounds=([0,0,0,-numpy.inf,0],[numpy.inf,numpy.inf,numpy.inf,0,numpy.inf])
+
+        params_scale = [spc_max,freq_max,freq_max,1,spc_max]
+
+        x0_value = numpy.array([spc_max,freq[numpy.argmax(spc)],30,-.1,numpy.mean(spc[:50])])
+
+        popt = least_squares(lsq_func,x0=x0_value,x_scale=params_scale,bounds=bounds,verbose=0)
+
+        J = popt.jac
+
+        try:
+            error = numpy.ones((9))*numpy.NAN
+            cov = numpy.linalg.inv(J.T.dot(J))
+            error[:4] = numpy.sqrt(numpy.diagonal(cov))[:4]
+            error[-1] = numpy.sqrt(numpy.diagonal(cov))[-1]
+        except:
+            error = numpy.ones((9))*numpy.NAN
+
+        A1f = popt.x[0]; B1f = popt.x[1]; C1f = popt.x[2]; K1f = popt.x[3]
+        Df = popt.x[4]
+
+        aux1 = self.gaussian_skew(freq, A1f, B1f, C1f, K1f, Df)
+        doppler1 = freq[numpy.argmax(aux1)]
+        #print("CEEJ ERROR:",error)
+
+        return A1f, B1f, C1f, K1f, numpy.NAN, numpy.NAN, numpy.NAN, numpy.NAN, Df, doppler1, numpy.NAN, error
+
+    def CEEJ_fit_weight_bound_no_inputs(self,spc,freq,Nincoh):
+
+        from scipy.optimize import least_squares
+
+        freq_max = numpy.max(numpy.abs(freq))
+        spc_max = numpy.max(spc)
+
+        from scipy.signal import medfilt
+        Nincoh = 20
+        Nincoh = 80
+        Nincoh = Nincoh
+        spcm = medfilt(spc,11)/numpy.sqrt(Nincoh)
+
+        # define a least squares function to optimize
+        def lsq_func(params):
+            return (spc-self.gaussian(freq,params[0],params[1],params[2],params[3]))#/spcm
+
+
+        bounds=([0,0,0,0],[numpy.inf,numpy.inf,numpy.inf,numpy.inf])
+
+        params_scale = [spc_max,freq_max,freq_max,spc_max]
+
+        x0_value = numpy.array([spc_max,freq[numpy.argmax(spcm)],30,numpy.mean(spc[:50])])
+
+        popt = least_squares(lsq_func,x0=x0_value,x_scale=params_scale,bounds=bounds,verbose=0)
+
+        J = popt.jac
+
+        try:
+            error = numpy.ones((4))*numpy.NAN
+            cov = numpy.linalg.inv(J.T.dot(J))
+            error = numpy.sqrt(numpy.diagonal(cov))
+        except:
+            error = numpy.ones((4))*numpy.NAN
+
+        A1f = popt.x[0]; B1f = popt.x[1]; C1f = popt.x[2]
+        Df = popt.x[3]
+
+        return A1f, B1f, C1f, Df, error
+
+    def Simple_fit_bound(self,spc,freq,Nincoh):
+
+        freq_max = numpy.max(numpy.abs(freq))
+        spc_max = numpy.max(spc)
+
+        Nincoh = Nincoh
+
+        def lsq_func(params):
+            return (spc-self.gaussian(freq,params[0],params[1],params[2],params[3]))
+
+        bounds=([0,-50,0,0],[numpy.inf,+50,numpy.inf,numpy.inf])
+
+        params_scale = [spc_max,freq_max,freq_max,spc_max]
+
+        x0_value = numpy.array([spc_max,-20.5,5,1.0e7])
+
+        popt = least_squares(lsq_func,x0=x0_value,x_scale=params_scale,bounds=bounds,verbose=0)
+
+        J = popt.jac
+
+        try:
+            cov = numpy.linalg.inv(J.T.dot(J))
+            error = numpy.sqrt(numpy.diagonal(cov))
+        except:
+            error = numpy.ones((4))*numpy.NAN
+
+        A1f = popt.x[0]; B1f = popt.x[1]; C1f = popt.x[2]
+        Df = popt.x[3]
+
+        return A1f, B1f, C1f, Df, error
+
+
+    def run(self, dataOut, mode = 0, Hmin1 = None, Hmax1 = None, Hmin2 = None, Hmax2 = None):
 
         pwcode = 1
 
@@ -1293,12 +1498,54 @@ class Oblique_Gauss_Fit(Operation):
         elif mode == 9:
             dataOut.Oblique_params = numpy.ones((1,11,dataOut.nHeights))*numpy.NAN
             dataOut.Oblique_param_errors = numpy.ones((1,9,dataOut.nHeights))*numpy.NAN
+        elif mode == 11:
+            dataOut.Oblique_params = numpy.ones((1,7,dataOut.nHeights))*numpy.NAN
+            dataOut.Oblique_param_errors = numpy.ones((1,7,dataOut.nHeights))*numpy.NAN
+        elif mode == 10: #150 km
+            dataOut.Oblique_params = numpy.ones((1,4,dataOut.nHeights))*numpy.NAN
+            dataOut.Oblique_param_errors = numpy.ones((1,4,dataOut.nHeights))*numpy.NAN
+            dataOut.snr_log10 = numpy.ones((1,dataOut.nHeights))*numpy.NAN
 
         dataOut.VelRange = x
 
-        l1=range(22,36)
+
+
+        #l1=range(22,36) #+62
         #l1=range(32,36)
-        l2=range(58,99)
+        #l2=range(58,99) #+62
+
+        #if Hmin1 == None or Hmax1 == None or Hmin2 == None or Hmax2 == None:
+
+        minHei1 = 105.
+        maxHei1 = 122.5
+        maxHei1 = 130.5
+
+        if mode == 10: #150 km
+            minHei1 = 100
+            maxHei1 = 100
+
+        inda1 = numpy.where(dataOut.heightList >= minHei1)
+        indb1 = numpy.where(dataOut.heightList <= maxHei1)
+
+        minIndex1 = inda1[0][0]
+        maxIndex1 = indb1[0][-1]
+
+        minHei2 = 150.
+        maxHei2 = 201.25
+        maxHei2 = 225.3
+
+        if mode == 10: #150 km
+            minHei2 = 110
+            maxHei2 = 165
+
+        inda2 = numpy.where(dataOut.heightList >= minHei2)
+        indb2 = numpy.where(dataOut.heightList <= maxHei2)
+
+        minIndex2 = inda2[0][0]
+        maxIndex2 = indb2[0][-1]
+
+        l1=range(minIndex1,maxIndex1)
+        l2=range(minIndex2,maxIndex2)
 
         if mode == 4:
             '''
@@ -1321,9 +1568,10 @@ class Oblique_Gauss_Fit(Operation):
 
             for hei in itertools.chain(l1, l2):
             #for hei in range(79,81):
+                if numpy.isnan(dataOut.data_snr[0,hei]):
+                    continue #Avoids the analysis when there is only noise
 
                 try:
-
                     spc = dataOut.data_spc[0,:,hei]
 
                     if mode == 6: #Skew Weighted Bounded
@@ -1340,14 +1588,39 @@ class Oblique_Gauss_Fit(Operation):
                         dataOut.dplr_2_u[0,0,hei] = dataOut.Oblique_params[0,9,hei]/numpy.sin(numpy.arccos(100./dataOut.heightList[hei]))
 
                     elif mode == 9: #Double Skewed Weighted Bounded no inputs
-                        dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_params[0,7,hei],dataOut.Oblique_params[0,8,hei],dataOut.Oblique_params[0,9,hei],dataOut.Oblique_params[0,10,hei],dataOut.Oblique_param_errors[0,:,hei] = self.Double_Gauss_Double_Skew_fit_weight_bound_no_inputs(spc,x)
-                        dataOut.dplr_2_u[0,0,hei] = dataOut.Oblique_params[0,10,hei]/numpy.sin(numpy.arccos(100./dataOut.heightList[hei]))
-                        #print(hei)
-                        #print(dataOut.Oblique_params[0,10,hei])
-                        #print(dataOut.dplr_2_u[0,0,hei])
-                        #print("outside",dataOut.Oblique_param_errors[0,:,hei])
-                        #print("SUCCESSSSSSS")
-                        #exit(1)
+                        #if numpy.max(spc) <= 0:
+                        if x[numpy.argmax(spc)] <= 0:
+                            #print("EEJ")
+                            dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_params[0,7,hei],dataOut.Oblique_params[0,8,hei],dataOut.Oblique_params[0,9,hei],dataOut.Oblique_params[0,10,hei],dataOut.Oblique_param_errors[0,:,hei] = self.Double_Gauss_Double_Skew_fit_weight_bound_no_inputs(spc,x,dataOut.nIncohInt)
+                            #if dataOut.Oblique_params[0,-2,hei] < -500 or dataOut.Oblique_params[0,-2,hei] > 500 or dataOut.Oblique_params[0,-1,hei] < -500 or dataOut.Oblique_params[0,-1,hei] > 500:
+                            #    dataOut.Oblique_params[0,:,hei] *= numpy.NAN
+                            dataOut.dplr_2_u[0,0,hei] = dataOut.Oblique_params[0,10,hei]/numpy.sin(numpy.arccos(100./dataOut.heightList[hei]))
+
+                        else:
+                            #print("CEEJ")
+                            dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_params[0,7,hei],dataOut.Oblique_params[0,8,hei],dataOut.Oblique_params[0,9,hei],dataOut.Oblique_params[0,10,hei],dataOut.Oblique_param_errors[0,:,hei] = self.CEEJ_Skew_fit_weight_bound_no_inputs(spc,x,dataOut.nIncohInt)
+                            #if dataOut.Oblique_params[0,-2,hei] < -500 or dataOut.Oblique_params[0,-2,hei] > 500 or dataOut.Oblique_params[0,-1,hei] < -500 or dataOut.Oblique_params[0,-1,hei] > 500:
+                            #    dataOut.Oblique_params[0,:,hei] *= numpy.NAN
+                            dataOut.dplr_2_u[0,0,hei] = dataOut.Oblique_params[0,10,hei]/numpy.sin(numpy.arccos(100./dataOut.heightList[hei]))
+                    elif mode == 11: #Double Weighted Bounded no inputs
+                        #if numpy.max(spc) <= 0:
+                        from scipy.signal import medfilt
+                        spcm = medfilt(spc,11)
+
+                        if x[numpy.argmax(spcm)] <= 0:
+                            #print("EEJ")
+                            #print("EEJ",dataOut.heightList[hei])
+                            dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_param_errors[0,:,hei] = self.Double_Gauss_fit_weight_bound_no_inputs(spc,x,dataOut.nIncohInt)
+                            #if dataOut.Oblique_params[0,-2,hei] < -500 or dataOut.Oblique_params[0,-2,hei] > 500 or dataOut.Oblique_params[0,-1,hei] < -500 or dataOut.Oblique_params[0,-1,hei] > 500:
+                            #    dataOut.Oblique_params[0,:,hei] *= numpy.NAN
+                        else:
+                            #print("CEEJ",dataOut.heightList[hei])
+                            dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_param_errors[0,:,hei] = self.CEEJ_fit_weight_bound_no_inputs(spc,x,dataOut.nIncohInt)
+
+                    elif mode == 10: #150km
+                        dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_param_errors[0,:,hei] = self.Simple_fit_bound(spc,x,dataOut.nIncohInt)
+                        snr = (dataOut.power[0,hei]*factor - dataOut.Oblique_params[0,3,hei])/dataOut.Oblique_params[0,3,hei]
+                        dataOut.snr_log10[0,hei] = numpy.log10(snr)
 
                     else:
                         spc_fit, A1, B1, C1, D1 = self.Gauss_fit_2(spc,x,'first')
@@ -1393,7 +1666,34 @@ class Oblique_Gauss_Fit(Operation):
                     ###dataOut.Oblique_params[0,:,hei] = dataOut.Oblique_params[0,:,hei]*numpy.NAN
                     pass
 
-            #exit(1)
+        #exit(1)
+        dataOut.paramInterval = dataOut.nProfiles*dataOut.nCohInt*dataOut.ippSeconds
+        dataOut.lat=-11.95
+        dataOut.lon=-76.87
+
+        if mode == 9: #Double Skew Gaussian
+            dataOut.Dop_EEJ_T1 = dataOut.Oblique_params[:,-2,:]
+            dataOut.Spec_W_T1 = dataOut.Oblique_params[:,2,:]
+            dataOut.Dop_EEJ_T2 = dataOut.Oblique_params[:,-1,:]
+            dataOut.Spec_W_T2 = dataOut.Oblique_params[:,6,:]
+
+            dataOut.Err_Dop_EEJ_T1 = dataOut.Oblique_param_errors[:,1,:] #En realidad este es el error?
+            dataOut.Err_Spec_W_T1 = dataOut.Oblique_param_errors[:,2,:]
+            dataOut.Err_Dop_EEJ_T2 = dataOut.Oblique_param_errors[:,5,:] #En realidad este es el error?
+            dataOut.Err_Spec_W_T2 = dataOut.Oblique_param_errors[:,6,:]
+
+        elif mode == 11: #Double Gaussian
+            dataOut.Dop_EEJ_T1 = dataOut.Oblique_params[:,1,:]
+            dataOut.Spec_W_T1 = dataOut.Oblique_params[:,2,:]
+            dataOut.Dop_EEJ_T2 = dataOut.Oblique_params[:,4,:]
+            dataOut.Spec_W_T2 = dataOut.Oblique_params[:,5,:]
+
+            dataOut.Err_Dop_EEJ_T1 = dataOut.Oblique_param_errors[:,1,:]
+            dataOut.Err_Spec_W_T1 = dataOut.Oblique_param_errors[:,2,:]
+            dataOut.Err_Dop_EEJ_T2 = dataOut.Oblique_param_errors[:,4,:]
+            dataOut.Err_Spec_W_T2 = dataOut.Oblique_param_errors[:,5,:]
+
+        dataOut.mode = mode
 
         return dataOut
 
@@ -3104,7 +3404,7 @@ class SpectralFitting(Operation):
         chisq=numpy.dot((dp-fmp).T,(dp-fmp))
         return chisq
 
-class WindProfiler(Operation):
+class WindProfiler_V0(Operation):
 
     __isConfig = False
 
@@ -3656,7 +3956,8 @@ class WindProfiler(Operation):
     def run(self, dataOut, technique, nHours=1, hmin=70, hmax=110, **kwargs):
 
         param = dataOut.data_param
-        if dataOut.abscissaList != None:
+        #if dataOut.abscissaList != None:
+        if numpy.any(dataOut.abscissaList):
             absc = dataOut.abscissaList[:-1]
         # noise = dataOut.noise
         heightList = dataOut.heightList
@@ -3820,6 +4121,725 @@ class WindProfiler(Operation):
                 self.__buffer = None
 
         return
+
+class WindProfiler(Operation):
+
+    __isConfig = False
+
+    __initime = None
+    __lastdatatime = None
+    __integrationtime = None
+
+    __buffer = None
+
+    __dataReady = False
+
+    __firstdata = None
+
+    n = None
+
+    def __init__(self):
+        Operation.__init__(self)
+
+    def __calculateCosDir(self, elev, azim):
+        zen = (90 - elev)*numpy.pi/180
+        azim = azim*numpy.pi/180
+        cosDirX = numpy.sqrt((1-numpy.cos(zen)**2)/((1+numpy.tan(azim)**2)))
+        cosDirY = numpy.sqrt(1-numpy.cos(zen)**2-cosDirX**2)
+
+        signX = numpy.sign(numpy.cos(azim))
+        signY = numpy.sign(numpy.sin(azim))
+
+        cosDirX = numpy.copysign(cosDirX, signX)
+        cosDirY = numpy.copysign(cosDirY, signY)
+        return cosDirX, cosDirY
+
+    def __calculateAngles(self, theta_x, theta_y, azimuth):
+
+        dir_cosw = numpy.sqrt(1-theta_x**2-theta_y**2)
+        zenith_arr = numpy.arccos(dir_cosw)
+        azimuth_arr = numpy.arctan2(theta_x,theta_y) + azimuth*math.pi/180
+
+        dir_cosu = numpy.sin(azimuth_arr)*numpy.sin(zenith_arr)
+        dir_cosv = numpy.cos(azimuth_arr)*numpy.sin(zenith_arr)
+
+        return azimuth_arr, zenith_arr, dir_cosu, dir_cosv, dir_cosw
+
+    def __calculateMatA(self, dir_cosu, dir_cosv, dir_cosw, horOnly):
+
+        if horOnly:
+            A = numpy.c_[dir_cosu,dir_cosv]
+        else:
+            A = numpy.c_[dir_cosu,dir_cosv,dir_cosw]
+        A = numpy.asmatrix(A)
+        A1 = numpy.linalg.inv(A.transpose()*A)*A.transpose()
+
+        return A1
+
+    def __correctValues(self, heiRang, phi, velRadial, SNR):
+        listPhi = phi.tolist()
+        maxid = listPhi.index(max(listPhi))
+        minid = listPhi.index(min(listPhi))
+
+        rango = list(range(len(phi)))
+   #     rango = numpy.delete(rango,maxid)
+
+        heiRang1 = heiRang*math.cos(phi[maxid])
+        heiRangAux = heiRang*math.cos(phi[minid])
+        indOut = (heiRang1 < heiRangAux[0]).nonzero()
+        heiRang1 = numpy.delete(heiRang1,indOut)
+
+        velRadial1 = numpy.zeros([len(phi),len(heiRang1)])
+        SNR1 = numpy.zeros([len(phi),len(heiRang1)])
+
+        for i in rango:
+            x = heiRang*math.cos(phi[i])
+            y1 = velRadial[i,:]
+            f1 = interpolate.interp1d(x,y1,kind = 'cubic')
+
+            x1 = heiRang1
+            y11 = f1(x1)
+
+            y2 = SNR[i,:]
+            f2 = interpolate.interp1d(x,y2,kind = 'cubic')
+            y21 = f2(x1)
+
+            velRadial1[i,:] = y11
+            SNR1[i,:] = y21
+
+        return heiRang1, velRadial1, SNR1
+
+    def __calculateVelUVW(self, A, velRadial):
+
+        #Operacion Matricial
+#         velUVW = numpy.zeros((velRadial.shape[1],3))
+#         for ind in range(velRadial.shape[1]):
+#             velUVW[ind,:] = numpy.dot(A,velRadial[:,ind])
+#         velUVW = velUVW.transpose()
+        velUVW = numpy.zeros((A.shape[0],velRadial.shape[1]))
+        velUVW[:,:] = numpy.dot(A,velRadial)
+
+
+        return velUVW
+
+#     def techniqueDBS(self, velRadial0, dirCosx, disrCosy, azimuth, correct, horizontalOnly, heiRang, SNR0):
+
+    def techniqueDBS(self, kwargs):
+        """
+        Function that implements Doppler Beam Swinging (DBS) technique.
+
+        Input:    Radial velocities, Direction cosines (x and y) of the Beam, Antenna azimuth,
+                    Direction correction (if necessary), Ranges and SNR
+
+        Output:    Winds estimation (Zonal, Meridional and Vertical)
+
+        Parameters affected:    Winds, height range, SNR
+        """
+        velRadial0 = kwargs['velRadial']
+        heiRang = kwargs['heightList']
+        SNR0 = kwargs['SNR']
+
+        if 'dirCosx' in kwargs and 'dirCosy' in kwargs:
+            theta_x = numpy.array(kwargs['dirCosx'])
+            theta_y = numpy.array(kwargs['dirCosy'])
+        else:
+            elev = numpy.array(kwargs['elevation'])
+            azim = numpy.array(kwargs['azimuth'])
+            theta_x, theta_y = self.__calculateCosDir(elev, azim)
+        azimuth = kwargs['correctAzimuth']
+        if 'horizontalOnly' in kwargs:
+            horizontalOnly = kwargs['horizontalOnly']
+        else:   horizontalOnly = False
+        if 'correctFactor' in kwargs:
+            correctFactor = kwargs['correctFactor']
+        else:   correctFactor = 1
+        if 'channelList' in kwargs:
+            channelList = kwargs['channelList']
+            if len(channelList) == 2:
+                horizontalOnly = True
+            arrayChannel = numpy.array(channelList)
+            param = param[arrayChannel,:,:]
+            theta_x = theta_x[arrayChannel]
+            theta_y = theta_y[arrayChannel]
+
+        azimuth_arr, zenith_arr, dir_cosu, dir_cosv, dir_cosw = self.__calculateAngles(theta_x, theta_y, azimuth)
+        heiRang1, velRadial1, SNR1 = self.__correctValues(heiRang, zenith_arr, correctFactor*velRadial0, SNR0)
+        A = self.__calculateMatA(dir_cosu, dir_cosv, dir_cosw, horizontalOnly)
+
+        #Calculo de Componentes de la velocidad con DBS
+        winds = self.__calculateVelUVW(A,velRadial1)
+
+        return winds, heiRang1, SNR1
+
+    def __calculateDistance(self, posx, posy, pairs_ccf, azimuth = None):
+
+        nPairs = len(pairs_ccf)
+        posx = numpy.asarray(posx)
+        posy = numpy.asarray(posy)
+
+        #Rotacion Inversa para alinear con el azimuth
+        if azimuth!= None:
+            azimuth = azimuth*math.pi/180
+            posx1 = posx*math.cos(azimuth) + posy*math.sin(azimuth)
+            posy1 = -posx*math.sin(azimuth) + posy*math.cos(azimuth)
+        else:
+            posx1 = posx
+            posy1 = posy
+
+        #Calculo de Distancias
+        distx = numpy.zeros(nPairs)
+        disty = numpy.zeros(nPairs)
+        dist = numpy.zeros(nPairs)
+        ang = numpy.zeros(nPairs)
+
+        for i in range(nPairs):
+            distx[i] = posx1[pairs_ccf[i][1]] - posx1[pairs_ccf[i][0]]
+            disty[i] = posy1[pairs_ccf[i][1]] - posy1[pairs_ccf[i][0]]
+            dist[i] = numpy.sqrt(distx[i]**2 + disty[i]**2)
+            ang[i] = numpy.arctan2(disty[i],distx[i])
+
+        return distx, disty, dist, ang
+        #Calculo de Matrices
+#         nPairs = len(pairs)
+#         ang1 = numpy.zeros((nPairs, 2, 1))
+#         dist1 = numpy.zeros((nPairs, 2, 1))
+#
+#         for j in range(nPairs):
+#             dist1[j,0,0] = dist[pairs[j][0]]
+#             dist1[j,1,0] = dist[pairs[j][1]]
+#             ang1[j,0,0] = ang[pairs[j][0]]
+#             ang1[j,1,0] = ang[pairs[j][1]]
+#
+#         return distx,disty, dist1,ang1
+
+
+    def __calculateVelVer(self, phase, lagTRange, _lambda):
+
+        Ts = lagTRange[1] - lagTRange[0]
+        velW = -_lambda*phase/(4*math.pi*Ts)
+
+        return velW
+
+    def __calculateVelHorDir(self, dist, tau1, tau2, ang):
+        nPairs = tau1.shape[0]
+        nHeights = tau1.shape[1]
+        vel = numpy.zeros((nPairs,3,nHeights))
+        dist1 = numpy.reshape(dist, (dist.size,1))
+
+        angCos = numpy.cos(ang)
+        angSin = numpy.sin(ang)
+
+        vel0 = dist1*tau1/(2*tau2**2)
+        vel[:,0,:] = (vel0*angCos).sum(axis = 1)
+        vel[:,1,:] = (vel0*angSin).sum(axis = 1)
+
+        ind = numpy.where(numpy.isinf(vel))
+        vel[ind] = numpy.nan
+
+        return vel
+
+#     def __getPairsAutoCorr(self, pairsList, nChannels):
+#
+#         pairsAutoCorr = numpy.zeros(nChannels, dtype = 'int')*numpy.nan
+#
+#         for l in range(len(pairsList)):
+#             firstChannel = pairsList[l][0]
+#             secondChannel = pairsList[l][1]
+#
+#             #Obteniendo pares de Autocorrelacion
+#             if firstChannel == secondChannel:
+#                 pairsAutoCorr[firstChannel] = int(l)
+#
+#         pairsAutoCorr = pairsAutoCorr.astype(int)
+#
+#         pairsCrossCorr = range(len(pairsList))
+#         pairsCrossCorr = numpy.delete(pairsCrossCorr,pairsAutoCorr)
+#
+#         return pairsAutoCorr, pairsCrossCorr
+
+#     def techniqueSA(self, pairsSelected, pairsList, nChannels, tau, azimuth, _lambda, position_x, position_y, lagTRange, correctFactor):
+    def techniqueSA(self, kwargs):
+
+        """
+        Function that implements Spaced Antenna (SA) technique.
+
+        Input:    Radial velocities, Direction cosines (x and y) of the Beam, Antenna azimuth,
+                    Direction correction (if necessary), Ranges and SNR
+
+        Output:    Winds estimation (Zonal, Meridional and Vertical)
+
+        Parameters affected:    Winds
+        """
+        position_x = kwargs['positionX']
+        position_y = kwargs['positionY']
+        azimuth = kwargs['azimuth']
+
+        if 'correctFactor' in kwargs:
+            correctFactor = kwargs['correctFactor']
+        else:
+            correctFactor = 1
+
+        groupList = kwargs['groupList']
+        pairs_ccf = groupList[1]
+        tau = kwargs['tau']
+        _lambda = kwargs['_lambda']
+
+        #Cross Correlation pairs obtained
+#         pairsAutoCorr, pairsCrossCorr = self.__getPairsAutoCorr(pairssList, nChannels)
+#         pairsArray = numpy.array(pairsList)[pairsCrossCorr]
+#         pairsSelArray = numpy.array(pairsSelected)
+#         pairs = []
+#
+#         #Wind estimation pairs obtained
+#         for i in range(pairsSelArray.shape[0]/2):
+#             ind1 = numpy.where(numpy.all(pairsArray == pairsSelArray[2*i], axis = 1))[0][0]
+#             ind2 = numpy.where(numpy.all(pairsArray == pairsSelArray[2*i + 1], axis = 1))[0][0]
+#             pairs.append((ind1,ind2))
+
+        indtau = tau.shape[0]/2
+        tau1 = tau[:indtau,:]
+        tau2 = tau[indtau:-1,:]
+#         tau1 = tau1[pairs,:]
+#         tau2 = tau2[pairs,:]
+        phase1 = tau[-1,:]
+
+        #---------------------------------------------------------------------
+        #Metodo Directo
+        distx, disty, dist, ang = self.__calculateDistance(position_x, position_y, pairs_ccf,azimuth)
+        winds = self.__calculateVelHorDir(dist, tau1, tau2, ang)
+        winds = stats.nanmean(winds, axis=0)
+        #---------------------------------------------------------------------
+        #Metodo General
+#         distx, disty, dist = self.calculateDistance(position_x,position_y,pairsCrossCorr, pairsList, azimuth)
+#         #Calculo Coeficientes de Funcion de Correlacion
+#         F,G,A,B,H = self.calculateCoef(tau1,tau2,distx,disty,n)
+#         #Calculo de Velocidades
+#         winds = self.calculateVelUV(F,G,A,B,H)
+
+        #---------------------------------------------------------------------
+        winds[2,:] = self.__calculateVelVer(phase1, lagTRange, _lambda)
+        winds = correctFactor*winds
+        return winds
+
+    def __checkTime(self, currentTime, paramInterval, outputInterval):
+
+        dataTime = currentTime + paramInterval
+        deltaTime = dataTime - self.__initime
+
+        if deltaTime >= outputInterval or deltaTime < 0:
+            self.__dataReady = True
+        return
+
+    def techniqueMeteors(self, arrayMeteor, meteorThresh, heightMin, heightMax):
+        '''
+        Function that implements winds estimation technique with detected meteors.
+
+        Input:    Detected meteors, Minimum meteor quantity to wind estimation
+
+        Output:    Winds estimation (Zonal and Meridional)
+
+        Parameters affected:    Winds
+        '''
+        #Settings
+        nInt = (heightMax - heightMin)/2
+        nInt = int(nInt)
+        winds = numpy.zeros((2,nInt))*numpy.nan
+
+        #Filter errors
+        error = numpy.where(arrayMeteor[:,-1] == 0)[0]
+        finalMeteor = arrayMeteor[error,:]
+
+        #Meteor Histogram
+        finalHeights = finalMeteor[:,2]
+        hist = numpy.histogram(finalHeights, bins = nInt, range = (heightMin,heightMax))
+        nMeteorsPerI = hist[0]
+        heightPerI = hist[1]
+
+        #Sort of meteors
+        indSort = finalHeights.argsort()
+        finalMeteor2 = finalMeteor[indSort,:]
+
+        #    Calculating winds
+        ind1 = 0
+        ind2 = 0
+
+        for i in range(nInt):
+            nMet = nMeteorsPerI[i]
+            ind1 = ind2
+            ind2 = ind1 + nMet
+
+            meteorAux = finalMeteor2[ind1:ind2,:]
+
+            if meteorAux.shape[0] >= meteorThresh:
+                vel = meteorAux[:, 6]
+                zen = meteorAux[:, 4]*numpy.pi/180
+                azim = meteorAux[:, 3]*numpy.pi/180
+
+                n = numpy.cos(zen)
+        #         m = (1 - n**2)/(1 - numpy.tan(azim)**2)
+        #         l = m*numpy.tan(azim)
+                l = numpy.sin(zen)*numpy.sin(azim)
+                m = numpy.sin(zen)*numpy.cos(azim)
+
+                A = numpy.vstack((l, m)).transpose()
+                A1 = numpy.dot(numpy.linalg.inv( numpy.dot(A.transpose(),A) ),A.transpose())
+                windsAux = numpy.dot(A1, vel)
+
+                winds[0,i] = windsAux[0]
+                winds[1,i] = windsAux[1]
+
+        return winds, heightPerI[:-1]
+
+    def techniqueNSM_SA(self, **kwargs):
+        metArray = kwargs['metArray']
+        heightList = kwargs['heightList']
+        timeList = kwargs['timeList']
+
+        rx_location = kwargs['rx_location']
+        groupList = kwargs['groupList']
+        azimuth = kwargs['azimuth']
+        dfactor = kwargs['dfactor']
+        k = kwargs['k']
+
+        azimuth1, dist = self.__calculateAzimuth1(rx_location, groupList, azimuth)
+        d = dist*dfactor
+        #Phase calculation
+        metArray1 = self.__getPhaseSlope(metArray, heightList, timeList)
+
+        metArray1[:,-2] = metArray1[:,-2]*metArray1[:,2]*1000/(k*d[metArray1[:,1].astype(int)]) #angles into velocities
+
+        velEst = numpy.zeros((heightList.size,2))*numpy.nan
+        azimuth1 = azimuth1*numpy.pi/180
+
+        for i in range(heightList.size):
+            h = heightList[i]
+            indH = numpy.where((metArray1[:,2] == h)&(numpy.abs(metArray1[:,-2]) < 100))[0]
+            metHeight = metArray1[indH,:]
+            if metHeight.shape[0] >= 2:
+                velAux = numpy.asmatrix(metHeight[:,-2]).T    #Radial Velocities
+                iazim = metHeight[:,1].astype(int)
+                azimAux = numpy.asmatrix(azimuth1[iazim]).T    #Azimuths
+                A = numpy.hstack((numpy.cos(azimAux),numpy.sin(azimAux)))
+                A = numpy.asmatrix(A)
+                A1 = numpy.linalg.pinv(A.transpose()*A)*A.transpose()
+                velHor = numpy.dot(A1,velAux)
+
+                velEst[i,:] = numpy.squeeze(velHor)
+        return velEst
+
+    def __getPhaseSlope(self, metArray, heightList, timeList):
+        meteorList = []
+        #utctime sec1 height SNR velRad ph0 ph1 ph2 coh0 coh1 coh2
+        #Putting back together the meteor matrix
+        utctime = metArray[:,0]
+        uniqueTime = numpy.unique(utctime)
+
+        phaseDerThresh = 0.5
+        ippSeconds = timeList[1] - timeList[0]
+        sec = numpy.where(timeList>1)[0][0]
+        nPairs = metArray.shape[1] - 6
+        nHeights = len(heightList)
+
+        for t in uniqueTime:
+            metArray1 = metArray[utctime==t,:]
+#         phaseDerThresh = numpy.pi/4 #reducir Phase thresh
+            tmet = metArray1[:,1].astype(int)
+            hmet = metArray1[:,2].astype(int)
+
+            metPhase = numpy.zeros((nPairs, heightList.size, timeList.size - 1))
+            metPhase[:,:] = numpy.nan
+            metPhase[:,hmet,tmet] = metArray1[:,6:].T
+
+            #Delete short trails
+            metBool = ~numpy.isnan(metPhase[0,:,:])
+            heightVect = numpy.sum(metBool, axis = 1)
+            metBool[heightVect<sec,:] = False
+            metPhase[:,heightVect<sec,:] = numpy.nan
+
+            #Derivative
+            metDer = numpy.abs(metPhase[:,:,1:] - metPhase[:,:,:-1])
+            phDerAux = numpy.dstack((numpy.full((nPairs,nHeights,1), False, dtype=bool),metDer > phaseDerThresh))
+            metPhase[phDerAux] = numpy.nan
+
+            #--------------------------METEOR DETECTION    -----------------------------------------
+            indMet = numpy.where(numpy.any(metBool,axis=1))[0]
+
+            for p in numpy.arange(nPairs):
+                phase = metPhase[p,:,:]
+                phDer = metDer[p,:,:]
+
+                for h in indMet:
+                    height = heightList[h]
+                    phase1 = phase[h,:] #82
+                    phDer1 = phDer[h,:]
+
+                    phase1[~numpy.isnan(phase1)] = numpy.unwrap(phase1[~numpy.isnan(phase1)])   #Unwrap
+
+                    indValid = numpy.where(~numpy.isnan(phase1))[0]
+                    initMet = indValid[0]
+                    endMet = 0
+
+                    for i in range(len(indValid)-1):
+
+                        #Time difference
+                        inow = indValid[i]
+                        inext = indValid[i+1]
+                        idiff = inext - inow
+                        #Phase difference
+                        phDiff = numpy.abs(phase1[inext] - phase1[inow])
+
+                        if idiff>sec or phDiff>numpy.pi/4 or inext==indValid[-1]:   #End of Meteor
+                            sizeTrail = inow - initMet + 1
+                            if sizeTrail>3*sec:  #Too short meteors
+                                x = numpy.arange(initMet,inow+1)*ippSeconds
+                                y = phase1[initMet:inow+1]
+                                ynnan = ~numpy.isnan(y)
+                                x = x[ynnan]
+                                y = y[ynnan]
+                                slope, intercept, r_value, p_value, std_err = stats.linregress(x,y)
+                                ylin = x*slope + intercept
+                                rsq = r_value**2
+                                if rsq > 0.5:
+                                    vel = slope#*height*1000/(k*d)
+                                    estAux = numpy.array([utctime,p,height, vel, rsq])
+                                    meteorList.append(estAux)
+                            initMet = inext
+        metArray2 = numpy.array(meteorList)
+
+        return metArray2
+
+    def __calculateAzimuth1(self, rx_location, pairslist, azimuth0):
+
+        azimuth1 = numpy.zeros(len(pairslist))
+        dist = numpy.zeros(len(pairslist))
+
+        for i in range(len(rx_location)):
+            ch0 = pairslist[i][0]
+            ch1 = pairslist[i][1]
+
+            diffX = rx_location[ch0][0] - rx_location[ch1][0]
+            diffY = rx_location[ch0][1] - rx_location[ch1][1]
+            azimuth1[i] = numpy.arctan2(diffY,diffX)*180/numpy.pi
+            dist[i] = numpy.sqrt(diffX**2 + diffY**2)
+
+        azimuth1 -= azimuth0
+        return azimuth1, dist
+
+    def techniqueNSM_DBS(self, **kwargs):
+        metArray = kwargs['metArray']
+        heightList = kwargs['heightList']
+        timeList = kwargs['timeList']
+        azimuth = kwargs['azimuth']
+        theta_x = numpy.array(kwargs['theta_x'])
+        theta_y = numpy.array(kwargs['theta_y'])
+
+        utctime = metArray[:,0]
+        cmet = metArray[:,1].astype(int)
+        hmet = metArray[:,3].astype(int)
+        SNRmet = metArray[:,4]
+        vmet = metArray[:,5]
+        spcmet = metArray[:,6]
+
+        nChan = numpy.max(cmet) + 1
+        nHeights = len(heightList)
+
+        azimuth_arr, zenith_arr, dir_cosu, dir_cosv, dir_cosw = self.__calculateAngles(theta_x, theta_y, azimuth)
+        hmet = heightList[hmet]
+        h1met = hmet*numpy.cos(zenith_arr[cmet])      #Corrected heights
+
+        velEst = numpy.zeros((heightList.size,2))*numpy.nan
+
+        for i in range(nHeights - 1):
+            hmin = heightList[i]
+            hmax = heightList[i + 1]
+
+            thisH = (h1met>=hmin) & (h1met<hmax) & (cmet!=2) & (SNRmet>8) & (vmet<50) & (spcmet<10)
+            indthisH = numpy.where(thisH)
+
+            if numpy.size(indthisH) > 3:
+
+                vel_aux = vmet[thisH]
+                chan_aux = cmet[thisH]
+                cosu_aux = dir_cosu[chan_aux]
+                cosv_aux = dir_cosv[chan_aux]
+                cosw_aux = dir_cosw[chan_aux]
+
+                nch = numpy.size(numpy.unique(chan_aux))
+                if  nch > 1:
+                    A = self.__calculateMatA(cosu_aux, cosv_aux, cosw_aux, True)
+                    velEst[i,:] = numpy.dot(A,vel_aux)
+
+        return velEst
+
+    def run(self, dataOut, technique, nHours=1, hmin=70, hmax=110, **kwargs):
+
+        param = dataOut.moments
+        #param = dataOut.data_param
+        #if dataOut.abscissaList != None:
+        if numpy.any(dataOut.abscissaList) :
+            absc = dataOut.abscissaList[:-1]
+        # noise = dataOut.noise
+        heightList = dataOut.heightList
+        SNR = dataOut.data_snr
+
+        if technique == 'DBS':
+
+            kwargs['velRadial'] = param[:,1,:] #Radial velocity
+            kwargs['heightList'] = heightList
+            kwargs['SNR'] = SNR
+
+            dataOut.data_output, dataOut.heightList, dataOut.data_snr = self.techniqueDBS(kwargs) #DBS Function
+            dataOut.utctimeInit = dataOut.utctime
+            dataOut.outputInterval = dataOut.paramInterval
+
+        elif technique == 'SA':
+
+            #Parameters
+#             position_x = kwargs['positionX']
+#             position_y = kwargs['positionY']
+#             azimuth = kwargs['azimuth']
+#
+#             if kwargs.has_key('crosspairsList'):
+#                 pairs = kwargs['crosspairsList']
+#             else:
+#                 pairs = None
+#
+#             if kwargs.has_key('correctFactor'):
+#                 correctFactor = kwargs['correctFactor']
+#             else:
+#                 correctFactor = 1
+
+#             tau = dataOut.data_param
+#             _lambda = dataOut.C/dataOut.frequency
+#             pairsList = dataOut.groupList
+#             nChannels = dataOut.nChannels
+
+            kwargs['groupList'] = dataOut.groupList
+            kwargs['tau'] = dataOut.data_param
+            kwargs['_lambda'] = dataOut.C/dataOut.frequency
+#             dataOut.data_output = self.techniqueSA(pairs, pairsList, nChannels, tau, azimuth, _lambda, position_x, position_y, absc, correctFactor)
+            dataOut.data_output = self.techniqueSA(kwargs)
+            dataOut.utctimeInit = dataOut.utctime
+            dataOut.outputInterval = dataOut.timeInterval
+
+        elif technique == 'Meteors':
+            dataOut.flagNoData = True
+            self.__dataReady = False
+
+            if 'nHours' in kwargs:
+                nHours = kwargs['nHours']
+            else:
+                nHours = 1
+
+            if 'meteorsPerBin' in kwargs:
+                meteorThresh = kwargs['meteorsPerBin']
+            else:
+                meteorThresh = 6
+
+            if 'hmin' in kwargs:
+                hmin = kwargs['hmin']
+            else:   hmin = 70
+            if 'hmax' in kwargs:
+                hmax = kwargs['hmax']
+            else:   hmax = 110
+
+            dataOut.outputInterval = nHours*3600
+
+            if self.__isConfig == False:
+#                 self.__initime = dataOut.datatime.replace(minute = 0, second = 0, microsecond = 03)
+                #Get Initial LTC time
+                self.__initime = datetime.datetime.utcfromtimestamp(dataOut.utctime)
+                self.__initime = (self.__initime.replace(minute = 0, second = 0, microsecond = 0) - datetime.datetime(1970, 1, 1)).total_seconds()
+
+                self.__isConfig = True
+
+            if self.__buffer is None:
+                self.__buffer = dataOut.data_param
+                self.__firstdata = copy.copy(dataOut)
+
+            else:
+                self.__buffer = numpy.vstack((self.__buffer, dataOut.data_param))
+
+            self.__checkTime(dataOut.utctime, dataOut.paramInterval, dataOut.outputInterval) #Check if the buffer is ready
+
+            if self.__dataReady:
+                dataOut.utctimeInit = self.__initime
+
+                self.__initime += dataOut.outputInterval #to erase time offset
+
+                dataOut.data_output, dataOut.heightList = self.techniqueMeteors(self.__buffer, meteorThresh, hmin, hmax)
+                dataOut.flagNoData = False
+                self.__buffer = None
+
+        elif technique == 'Meteors1':
+            dataOut.flagNoData = True
+            self.__dataReady = False
+
+            if 'nMins' in kwargs:
+                nMins = kwargs['nMins']
+            else: nMins = 20
+            if 'rx_location' in kwargs:
+                rx_location = kwargs['rx_location']
+            else: rx_location = [(0,1),(1,1),(1,0)]
+            if 'azimuth' in kwargs:
+                azimuth = kwargs['azimuth']
+            else: azimuth = 51.06
+            if 'dfactor' in kwargs:
+                dfactor = kwargs['dfactor']
+            if 'mode' in kwargs:
+                mode = kwargs['mode']
+            if 'theta_x' in kwargs:
+                theta_x = kwargs['theta_x']
+            if 'theta_y' in kwargs:
+                theta_y = kwargs['theta_y']
+            else: mode = 'SA'
+
+            #Borrar luego esto
+            if dataOut.groupList is None:
+                dataOut.groupList = [(0,1),(0,2),(1,2)]
+            groupList = dataOut.groupList
+            C = 3e8
+            freq = 50e6
+            lamb = C/freq
+            k = 2*numpy.pi/lamb
+
+            timeList = dataOut.abscissaList
+            heightList = dataOut.heightList
+
+            if self.__isConfig == False:
+                dataOut.outputInterval = nMins*60
+#                 self.__initime = dataOut.datatime.replace(minute = 0, second = 0, microsecond = 03)
+                #Get Initial LTC time
+                initime = datetime.datetime.utcfromtimestamp(dataOut.utctime)
+                minuteAux = initime.minute
+                minuteNew = int(numpy.floor(minuteAux/nMins)*nMins)
+                self.__initime = (initime.replace(minute = minuteNew, second = 0, microsecond = 0) - datetime.datetime(1970, 1, 1)).total_seconds()
+
+                self.__isConfig = True
+
+            if self.__buffer is None:
+                self.__buffer = dataOut.data_param
+                self.__firstdata = copy.copy(dataOut)
+
+            else:
+                self.__buffer = numpy.vstack((self.__buffer, dataOut.data_param))
+
+            self.__checkTime(dataOut.utctime, dataOut.paramInterval, dataOut.outputInterval) #Check if the buffer is ready
+
+            if self.__dataReady:
+                dataOut.utctimeInit = self.__initime
+                self.__initime += dataOut.outputInterval #to erase time offset
+
+                metArray = self.__buffer
+                if mode == 'SA':
+                    dataOut.data_output = self.techniqueNSM_SA(rx_location=rx_location, groupList=groupList, azimuth=azimuth, dfactor=dfactor, k=k,metArray=metArray, heightList=heightList,timeList=timeList)
+                elif mode == 'DBS':
+                    dataOut.data_output = self.techniqueNSM_DBS(metArray=metArray,heightList=heightList,timeList=timeList, azimuth=azimuth, theta_x=theta_x, theta_y=theta_y)
+                dataOut.data_output = dataOut.data_output.T
+                dataOut.flagNoData = False
+                self.__buffer = None
+        #print("ENDDD")
+        return dataOut
 
 class EWDriftsEstimation(Operation):
 
@@ -5542,6 +6562,9 @@ class SMOperations():
 
 
 class IGRFModel(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to calculate Geomagnetic parameters.
 
     Parameters:
@@ -5597,10 +6620,13 @@ class MergeProc(ProcessingUnit):
         ProcessingUnit.__init__(self)
 
     def run(self, attr_data, attr_data_2 = None, attr_data_3 = None, attr_data_4 = None, attr_data_5 = None, mode=0):
+        #print("*****************************Merge***************")
 
         self.dataOut = getattr(self, self.inputs[0])
         data_inputs = [getattr(self, attr) for attr in self.inputs]
         #print(data_inputs)
+        #print("Run: ",self.dataOut.runNextUnit)
+        #exit(1)
         #print(numpy.shape([getattr(data, attr_data) for data in data_inputs][1]))
         #exit(1)
         if mode==0:
@@ -5668,39 +6694,7 @@ class MergeProc(ProcessingUnit):
             #setattr(self.dataOut, 'data_acf', getattr(data_inputs[1], attr_data_5)) #LP
             setattr(self.dataOut, 'data_acf', getattr(data_inputs[1], attr_data_5)) #LP
             #print("Merge data_acf: ",self.dataOut.data_acf.shape)
-            #exit(1)
-            #print(self.dataOut.data_spc_LP.shape)
-            #print("Exit")
-            #exit(1)
-            #setattr(self.dataOut, 'dataLag_cspc', [getattr(data, attr_data_2) for data in data_inputs][0])
-            #setattr(self.dataOut, 'dataLag_cspc_LP', [getattr(data, attr_data_2) for data in data_inputs][1])
-            #setattr(self.dataOut, 'nIncohInt', [getattr(data, attr_data_3) for data in data_inputs][0])
-            #setattr(self.dataOut, 'nIncohInt_LP', [getattr(data, attr_data_3) for data in data_inputs][1])
-            '''
-            print(self.dataOut.dataLag_spc_LP.shape)
-            print(self.dataOut.dataLag_cspc_LP.shape)
-            exit(1)
-            '''
-            '''
-            print(self.dataOut.dataLag_spc_LP[0,:,100])
-            print(self.dataOut.dataLag_spc_LP[1,:,100])
-            exit(1)
-            '''
-            #self.dataOut.dataLag_spc_LP = numpy.transpose(self.dataOut.dataLag_spc_LP[0],(2,0,1))
-            #self.dataOut.dataLag_cspc_LP = numpy.transpose(self.dataOut.dataLag_cspc_LP,(3,1,2,0))
-            '''
-            print("Merge")
-            print(numpy.shape(self.dataOut.dataLag_spc))
-            print(numpy.shape(self.dataOut.dataLag_spc_LP))
-            print(numpy.shape(self.dataOut.dataLag_cspc))
-            print(numpy.shape(self.dataOut.dataLag_cspc_LP))
-            exit(1)
-            '''
-            #print(numpy.sum(self.dataOut.dataLag_spc_LP[2,:,164])/128)
-            #print(numpy.sum(self.dataOut.dataLag_cspc_LP[0,:,30,1])/128)
-            #exit(1)
-            #print(self.dataOut.NDP)
-            #print(self.dataOut.nNoiseProfiles)
+
 
             #self.dataOut.nIncohInt_LP = 128
             #self.dataOut.nProfiles_LP = 128#self.dataOut.nIncohInt_LP
@@ -5711,8 +6705,45 @@ class MergeProc(ProcessingUnit):
             #print("sahpi",self.dataOut.nIncohInt_LP)
             #exit(1)
             self.dataOut.NLAG = 16
+            self.dataOut.NLAG = self.dataOut.data_acf.shape[1]
             self.dataOut.NRANGE = self.dataOut.data_acf.shape[-1]
 
             #print(numpy.shape(self.dataOut.data_spc))
 
+            #exit(1)
+        if mode==5:
+            data = numpy.concatenate([getattr(data, attr_data) for data in data_inputs])
+            setattr(self.dataOut, attr_data, data)
+            data = numpy.concatenate([getattr(data, attr_data_2) for data in data_inputs])
+            setattr(self.dataOut, attr_data_2, data)
+
+        if mode==6: #Hybrid Spectra-Voltage
+            #data = numpy.concatenate([getattr(data, attr_data) for data in data_inputs],axis=1)
+            #setattr(self.dataOut, attr_data, data)
+            setattr(self.dataOut, 'dataLag_spc', getattr(data_inputs[1], attr_data)) #DP
+            setattr(self.dataOut, 'dataLag_cspc', getattr(data_inputs[1], attr_data_2)) #DP
+            setattr(self.dataOut, 'output_LP_integrated', getattr(data_inputs[0], attr_data_3)) #LP
+            #setattr(self.dataOut, 'dataLag_cspc_LP', getattr(data_inputs[1], attr_data_4)) #LP
+            #setattr(self.dataOut, 'data_acf', getattr(data_inputs[1], attr_data_5)) #LP
+            #setattr(self.dataOut, 'data_acf', getattr(data_inputs[1], attr_data_5)) #LP
+            #print("Merge data_acf: ",self.dataOut.data_acf.shape)
+            #print(self.dataOut.NSCAN)
+            self.dataOut.nIncohInt = int(self.dataOut.NAVG * self.dataOut.nint)
+            #print(self.dataOut.dataLag_spc.shape)
+            self.dataOut.nProfiles = self.dataOut.nProfiles_DP = self.dataOut.dataLag_spc.shape[1]
+            '''
+            #self.dataOut.nIncohInt_LP = 128
+            #self.dataOut.nProfiles_LP = 128#self.dataOut.nIncohInt_LP
+            self.dataOut.nProfiles_LP = 16#28#self.dataOut.nIncohInt_LP
+            self.dataOut.nProfiles_LP = self.dataOut.data_acf.shape[1]#28#self.dataOut.nIncohInt_LP
+            self.dataOut.NSCAN = 128
+            self.dataOut.nIncohInt_LP = self.dataOut.nIncohInt*self.dataOut.NSCAN
+            #print("sahpi",self.dataOut.nIncohInt_LP)
+            #exit(1)
+            self.dataOut.NLAG = 16
+            self.dataOut.NLAG = self.dataOut.data_acf.shape[1]
+            self.dataOut.NRANGE = self.dataOut.data_acf.shape[-1]
+            '''
+            #print(numpy.shape(self.dataOut.data_spc))
+            print("*************************GOOD*************************")
             #exit(1)

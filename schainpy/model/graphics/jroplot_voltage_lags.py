@@ -213,7 +213,7 @@ class DenRTIPlot(RTIPlot):
         data = {}
         meta = {}
 
-        data['denrti'] = dataOut.DensityFinal
+        data['denrti'] = dataOut.DensityFinal*1.e-6 #To Plot in cm^-3
 
         return data, meta
 

@@ -70,7 +70,7 @@ class ProcessingUnit(object):
     def call(self, **kwargs):
         '''
         '''
-        #print("call")
+
         try:
             if self.dataIn is not None and self.dataIn.flagNoData and not self.dataIn.error:
             #if self.dataIn is not None and self.dataIn.flagNoData and not self.dataIn.error and not self.dataIn.runNextUnit:
@@ -125,6 +125,7 @@ class ProcessingUnit(object):
                 runNextUnit = self.dataOut.isReady()
         except:
             runNextUnit = self.dataOut.isReady()
+            #exit(1)
         #if  not self.dataOut.isReady():
             #return 'Error' if self.dataOut.error else input()
         #print("NexT",runNextUnit)

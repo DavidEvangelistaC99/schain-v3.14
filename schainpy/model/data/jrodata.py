@@ -260,7 +260,7 @@ class JROData(GenericData):
 
     def getFmax(self):
         PRF = 1. / (self.ippSeconds * self.nCohInt)
-
+        #print("ippsec",self.ippSeconds)
         fmax = PRF
         return fmax
 

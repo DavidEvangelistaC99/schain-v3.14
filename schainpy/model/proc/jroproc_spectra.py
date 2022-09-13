@@ -123,9 +123,10 @@ class SpectraProc(ProcessingUnit):
         self.dataOut.flagShiftFFT = False
 
     def run(self, nProfiles=None, nFFTPoints=None, pairsList=None, ippFactor=None, shift_fft=False, runNextUnit = 0):
-        
+
         self.dataIn.runNextUnit = runNextUnit
         if self.dataIn.type == "Spectra":
+
             self.dataOut.copy(self.dataIn)
             if shift_fft:
                 #desplaza a la derecha en el eje 2 determinadas posiciones
@@ -147,9 +148,15 @@ class SpectraProc(ProcessingUnit):
 
             if nProfiles == None:
                 nProfiles = nFFTPoints
-
+            #print(self.dataOut.ipp)
+            #exit(1)
             if ippFactor == None:
                 self.dataOut.ippFactor = 1
+            #if ippFactor is not None:
+                #self.dataOut.ippFactor = ippFactor
+            #print(ippFactor)
+            #print(self.dataOut.ippFactor)
+            #exit(1)
 
             self.dataOut.nFFTPoints = nFFTPoints
 
@@ -424,6 +431,46 @@ class SpectraProc(ProcessingUnit):
         self.dataOut.noise_estimation = noise.copy()
 
         return 1
+
+class GetSNR(Operation):
+    '''
+    Written by R. Flores
+    '''
+    """Operation to get SNR.
+
+    Parameters:
+    -----------
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='GetSNR', optype='other')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+
+
+    def run(self,dataOut):
+
+        noise = dataOut.getNoise()
+        maxdB = 16
+
+        normFactor = 24
+
+        #dataOut.data_snr = (dataOut.data_spc.sum(axis=1))/(noise[:,None]*dataOut.normFactor)
+        dataOut.data_snr = (dataOut.data_spc.sum(axis=1))/(noise[:,None]*dataOut.nFFTPoints)
+
+        dataOut.data_snr = numpy.where(10*numpy.log10(dataOut.data_snr)<.5, numpy.nan, dataOut.data_snr)
+        #dataOut.data_snr = 10*numpy.log10(dataOut.data_snr)
+        #dataOut.data_snr = numpy.expand_dims(dataOut.data_snr,axis=0)
+        #print(dataOut.data_snr.shape)
+        #exit(1)
+
+
+        return dataOut
 
 class removeDC(Operation):
 

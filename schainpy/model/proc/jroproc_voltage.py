@@ -29,13 +29,15 @@ class VoltageProc(ProcessingUnit):
         self.flip = 1
         self.setupReq = False
 
-    def run(self):
+    def run(self, runNextUnit = 0):
 
         if self.dataIn.type == 'AMISR':
             self.__updateObjFromAmisrInput()
 
         if self.dataIn.type == 'Voltage':
             self.dataOut.copy(self.dataIn)
+            self.dataOut.runNextUnit = runNextUnit
+            #print(self.dataOut.data.shape)
 
     def __updateObjFromAmisrInput(self):
 
@@ -397,6 +399,9 @@ class deFlip(Operation):
         return dataOut
 
 class deFlipHP(Operation):
+    '''
+    Written by R. Flores
+    '''
     def __init__(self):
 
         self.flip = 1
@@ -530,6 +535,9 @@ class interpolateHeights(Operation):
 
 
 class LagsReshape(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to reshape input data into (Channels,Profiles(with same lag),Heights,Lags) and heights reconstruction.
 
     Parameters:
@@ -621,6 +629,9 @@ class LagsReshape(Operation):
         return dataOut
 
 class LagsReshape150(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to reshape input data into (Channels,Profiles(with same lag),Heights,Lags) and heights reconstruction.
 
     Parameters:
@@ -714,6 +725,9 @@ class LagsReshape150(Operation):
         return dataOut
 
 class LagsReshapeHP(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to reshape input data into (Channels,Profiles(with same lag),Heights,Lags) and heights reconstruction.
 
     Parameters:
@@ -805,6 +819,9 @@ class LagsReshapeHP(Operation):
         return dataOut
 
 class LagsReshapeDP(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to reshape input data into (Channels,Profiles(with same lag),Heights,Lags) and heights reconstruction.
 
     Parameters:
@@ -957,6 +974,9 @@ class LagsReshapeDP(Operation):
         return dataOut
 
 class LagsReshapeDP_V2(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to reshape input data into (Channels,Profiles(with same lag),Heights,Lags) and heights reconstruction.
 
     Parameters:
@@ -1156,6 +1176,9 @@ class LagsReshapeDP_V2(Operation):
         return dataOut
 
 class LagsReshapeLP(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to reshape input data into (Channels,Profiles(with same lag),Heights,Lags) and heights reconstruction.
 
     Parameters:
@@ -1322,6 +1345,9 @@ class LagsReshapeLP(Operation):
         return dataOut
 
 class LagsReshapeHP2(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to reshape input data into (Channels,Profiles(with same lag),Heights,Lags) and heights reconstruction.
 
     Parameters:
@@ -1499,6 +1525,9 @@ class LagsReshapeHP2(Operation):
         return dataOut
 
 class CrossProdDP(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to calculate cross products of the Double Pulse Experiment.
 
     Parameters:
@@ -1983,6 +2012,9 @@ class CrossProdDP(Operation):
 
 
 class IntegrationDP(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to integrate the Double Pulse data.
 
     Parameters:
@@ -2068,6 +2100,9 @@ class IntegrationDP(Operation):
 
 
 class SumFlips(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to sum the flip and unflip part of certain cross products of the Double Pulse.
 
     Parameters:
@@ -2128,6 +2163,9 @@ class SumFlips(Operation):
 
 
 class FlagBadHeights(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to flag bad heights (bad data) of the Double Pulse.
 
     Parameters:
@@ -2161,6 +2199,9 @@ class FlagBadHeights(Operation):
         return dataOut
 
 class FlagBadHeightsSpectra(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to flag bad heights (bad data) of the Double Pulse.
 
     Parameters:
@@ -2194,6 +2235,9 @@ class FlagBadHeightsSpectra(Operation):
         return dataOut
 
 class CleanCohEchoes(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to clean coherent echoes.
 
     Parameters:
@@ -2561,6 +2605,9 @@ class CleanCohEchoes(Operation):
         return dataOut
 
 class CleanCohEchoesHP(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to clean coherent echoes.
 
     Parameters:
@@ -2928,6 +2975,9 @@ class CleanCohEchoesHP(Operation):
         return dataOut
 
 class NoisePower(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to get noise power from the integrated data of the Double Pulse.
 
     Parameters:
@@ -3012,6 +3062,9 @@ class NoisePower(Operation):
 
 
 class DoublePulseACFs(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to get the ACFs of the Double Pulse.
 
     Parameters:
@@ -3066,7 +3119,7 @@ class DoublePulseACFs(Operation):
                     '''
                 #print("init 2.6",pa,dataOut.pan)
                 dataOut.p[i,j]=pa+pb-(dataOut.pan+dataOut.pbn)
-
+                #print(i,j,dataOut.p[i,j])
                 dataOut.sdp[i,j]=2*dataOut.rnint2[j]*((pa+pb)*(pa+pb))
                 ## ACF
 
@@ -3116,11 +3169,11 @@ class DoublePulseACFs(Operation):
                     '''
                 #'''
                 if ((pb/dataOut.pbn-1.0)>2.25*(pa/dataOut.pan-1.0)): #To flag bad points from the pulse and EEJ for lags != 0 for Channel B
-                    #print("EJJ")
+                    #print(dataOut.heightList[i],"EJJ")
                     dataOut.igcej[i,j]=1
 
                 elif ((pa/dataOut.pan-1.0)>2.25*(pb/dataOut.pbn-1.0)):
-                    #print("EJJ")
+                    #print(dataOut.heightList[i],"EJJ")
                     dataOut.igcej[i,j]=1
                     #'''
                 '''
@@ -3154,10 +3207,14 @@ class DoublePulseACFs(Operation):
         #print("p: ",dataOut.p[33,:])
         #exit(1)
         '''
-
+        #print(numpy.sum(dataOut.rhor))
+        #exit(1)
         return dataOut
 
 class DoublePulseACFs_PerLag(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to get the ACFs of the Double Pulse.
 
     Parameters:
@@ -3258,18 +3315,18 @@ class DoublePulseACFs_PerLag(Operation):
                     '''
                 #'''
                 if ((pb/dataOut.pbn[j]-1.0)>2.25*(pa/dataOut.pan[j]-1.0)): #To flag bad points from the pulse and EEJ for lags != 0 for Channel B
-                    #print("EJJ")
+                    #print(dataOut.heightList[i],j,"EJJ")
                     dataOut.igcej[i,j]=1
 
                 elif ((pa/dataOut.pan[j]-1.0)>2.25*(pb/dataOut.pbn[j]-1.0)):
-                    #print("EJJ")
+                    #print(dataOut.heightList[i],j,"EJJ")
                     dataOut.igcej[i,j]=1
                     #'''
                 '''
                 if ((pa/dataOut.pan-1.0)>2.25*(pb/dataOut.pbn-1.0)):
                     #print("EJJ")
                     dataOut.igcej[i,j]=1
-                    '''
+                    #'''
             '''
             if i == 4:
                 exit(1)
@@ -3299,6 +3356,9 @@ class DoublePulseACFs_PerLag(Operation):
         return dataOut
 
 class FaradayAngleAndDPPower(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to calculate Faraday angle and Double Pulse power.
 
     Parameters:
@@ -3345,6 +3405,7 @@ class FaradayAngleAndDPPower(Operation):
             st=0.# // total signal
             ibt=0# // bad lags
             ns=0#  // no. good lags
+            #print(dataOut.heightList[j])
             for l in range(dataOut.DPL):
                  #add in other lags if outside of e-jet contamination
                 if( (dataOut.igcej[j][l] == 0) and (dataOut.ibad[j][l] ==  0) ):
@@ -3352,8 +3413,8 @@ class FaradayAngleAndDPPower(Operation):
                     dataOut.ph2[j]+=dataOut.p[j][l]/dataOut.sdp[j][l]
                     dataOut.sdp2[j]=dataOut.sdp2[j]+1./dataOut.sdp[j][l]
                     ns+=1
-
-
+                #if dataOut.igcej[j][l] != 0:
+                    #print(l)
                 pt+=dataOut.p[j][l]/dataOut.sdp[j][l]
                 st+=1./dataOut.sdp[j][l]
                 ibt|=dataOut.ibad[j][l];
@@ -3387,6 +3448,9 @@ class FaradayAngleAndDPPower(Operation):
 
 
 class ElectronDensityFaraday(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to calculate electron density from Faraday angle.
 
     Parameters:
@@ -3433,6 +3497,7 @@ class ElectronDensityFaraday(Operation):
         ndphi=dataOut.NSHTS-4
         #print(dataOut.phi)
         #exit(1)
+        #'''
         if dataOut.flagSpreadF:
             nanindex = numpy.argwhere(numpy.isnan(dataOut.phi))
             i1 = nanindex[-1][0]
@@ -3443,6 +3508,7 @@ class ElectronDensityFaraday(Operation):
         else:
             #dataOut.phi_uwrp = dataOut.phi.copy()
             dataOut.phi[:]=numpy.unwrap(dataOut.phi[:]) #Better results
+            #'''
         #print(dataOut.phi)
         #print(dataOut.ph2)
         #exit(1)
@@ -3455,9 +3521,11 @@ class ElectronDensityFaraday(Operation):
         for i in range(2,dataOut.NSHTS-2):
             fact=(-0.5/(dataOut.RATE*dataOut.DH))*dataOut.bki[i]
             #four-point derivative, no phase unwrapping necessary
-            ####dataOut.dphi[i]=((((theta[i+1]-theta[i-1])+(2.0*(theta[i+2]-theta[i-2])))/thetai[i])).real/10.0
+            #####dataOut.dphi[i]=((((theta[i+1]-theta[i-1])+(2.0*(theta[i+2]-theta[i-2])))/thetai[i])).real/10.0 #Original from C program
+
             ##dataOut.dphi[i]=((((theta[i-2]-theta[i+2])+(8.0*(theta[i+1]-theta[i-1])))/thetai[i])).real/12.0
             dataOut.dphi[i]=((dataOut.phi[i+1]-dataOut.phi[i-1])+(2.0*(dataOut.phi[i+2]-dataOut.phi[i-2])))/10.0 #Better results
+
             #dataOut.dphi_uc[i] = abs(dataOut.phi[i]*dataOut.bki[i]*(-0.5)/dataOut.DH)
             dataOut.dphi[i]=abs(dataOut.dphi[i]*fact)
             dataOut.sdn1[i]=(4.*(dataOut.sdn2[i-2]+dataOut.sdn2[i+2])+dataOut.sdn2[i-1]+dataOut.sdn2[i+1])
@@ -3468,7 +3536,10 @@ class ElectronDensityFaraday(Operation):
 
 
 class NormalizeDPPower(Operation):
-    """Operation to normalize relative electron density from power with total electron density from Farday angle.
+    '''
+    Written by R. Flores
+    '''
+    """Operation to normalize relative electron density from power with total electron density from Faraday angle.
 
     Parameters:
     -----------
@@ -3602,6 +3673,9 @@ class NormalizeDPPower(Operation):
         return dataOut
 
 class NormalizeDPPowerRoberto(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to normalize relative electron density from power with total electron density from Farday angle.
 
     Parameters:
@@ -3738,6 +3812,9 @@ class NormalizeDPPowerRoberto(Operation):
         return dataOut
 
 class NormalizeDPPowerRoberto_V2(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to normalize relative electron density from power with total electron density from Farday angle.
 
     Parameters:
@@ -3799,7 +3876,7 @@ class NormalizeDPPowerRoberto_V2(Operation):
             self.aux=0
 
         night_first=250.0
-        night_first1= 400.0
+        night_first1= 350.0
         night_end= 450.0
         day_first=220.0
         day_end=400.0
@@ -3812,7 +3889,7 @@ class NormalizeDPPowerRoberto_V2(Operation):
             #print("EARLY")
             i2=(night_end-dataOut.range1[0])/dataOut.DH
             i1=(night_first -dataOut.range1[0])/dataOut.DH
-        elif (dataOut.ut_Faraday>=23.0 or dataOut.ut_Faraday<2.0):
+        elif (dataOut.ut_Faraday>=23.0 or dataOut.ut_Faraday<=2.0):
             #print("NIGHT")
             i2=(night_end-dataOut.range1[0])/dataOut.DH
             i1=(night_first1 -dataOut.range1[0])/dataOut.DH
@@ -3847,15 +3924,17 @@ class NormalizeDPPowerRoberto_V2(Operation):
         #print("Flag: ",dataOut.flagTeTiCorrection)
         #print(dataOut.dphi[i1::])
         #print(dataOut.ph2[:])
+
         if dataOut.flagTeTiCorrection:
             for i in range(dataOut.NSHTS):
                 dataOut.ph2[i]/=dataOut.cf
                 dataOut.sdp2[i]/=dataOut.cf
+
         #'''
         if dataOut.flagSpreadF:
             i2=int((620-dataOut.range1[0])/dataOut.DH)
             nanindex = numpy.argwhere(numpy.isnan(dataOut.ph2))
-            print(nanindex)
+            print("nanindex",nanindex)
             i1 = nanindex[-1][0] #VER CUANDO i1>i2
             i1 += 1+2 #Se suma uno para no tomar el nan, se suma 2 para no tomar datos nan de "phi" debido al calculo de la derivada
         #print("i1, i2",i1,i2)
@@ -3887,11 +3966,24 @@ class NormalizeDPPowerRoberto_V2(Operation):
             except:
                 pass
 
-        #time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime)
+        #print(dataOut.cf,dataOut.cflast[0])
+        time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime)
+        #'''
         #if (time_text.hour == 5 and time_text.minute == 32): #Year: 2022, DOY:104
         #if (time_text.hour == 0 and time_text.minute == 12): #Year: 2022, DOY:93
-            #dataOut.cf = dataOut.cflast[0]
-
+        #if (time_text.hour == 0 and time_text.minute == 22) or (time_text.hour == 0 and time_text.minute == 54) or (time_text.hour == 1 and time_text.minute == 48): #Year: 2022, DOY:242
+        #if (time_text.hour == 1 and time_text.minute == 23) or (time_text.hour == 1 and time_text.minute == 44): #Year: 2022, DOY:243
+        if (time_text.hour == 0 and time_text.minute == 4): #Year: 2022, DOY:244
+            dataOut.cf = dataOut.cflast[0]
+            #dataOut.cf = 0.08
+            #print("here")
+        if (time_text.hour == 2 and time_text.minute == 23): #Year: 2022, DOY:244
+            dataOut.cf = 0.08
+        if (time_text.hour == 2 and time_text.minute == 33): #Year: 2022, DOY:244
+            dataOut.cf = 0.09
+        if (time_text.hour == 3 and time_text.minute == 59) or (time_text.hour == 4 and time_text.minute == 20): #Year: 2022, DOY:244
+            dataOut.cf = 0.09
+            #'''
         dataOut.cflast[0]=dataOut.cf
         #print(dataOut.cf)
 
@@ -3953,6 +4045,9 @@ class suppress_stdout_stderr(object):
 
 
 class DPTemperaturesEstimation(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to estimate temperatures for Double Pulse data.
 
     Parameters:
@@ -4172,7 +4267,9 @@ class DPTemperaturesEstimation(Operation):
 
 
 class DenCorrection(NormalizeDPPowerRoberto_V2):
-
+    '''
+    Written by R. Flores
+    '''
     def __init__(self, **kwargs):
 
         Operation.__init__(self, **kwargs)
@@ -4199,42 +4296,109 @@ class DenCorrection(NormalizeDPPowerRoberto_V2):
         bline=0.0
         #bline=numpy.zeros(1,order='F',dtype='float32')
         my_aux = numpy.ones(dataOut.NSHTS,order='F',dtype='float32')
+        acf_Temps = numpy.ones(dataOut.NSHTS,order='F',dtype='float32')*numpy.nan
+        acf_no_Temps = numpy.ones(dataOut.NSHTS,order='F',dtype='float32')*numpy.nan
 
+        from scipy import signal
+
+
+        teti = numpy.ones(dataOut.NSHTS,order='F',dtype='float32')
+
+        for i in range(10,26):
+            teti[i] = dataOut.te2[i]/dataOut.ti2[i]
+
+        ratio2 = teti-1
+
+        ratio2 = signal.medfilt(ratio2)
+
+        def func(params):
+            return (ratio2-self.gaussian(dataOut.heightList[:dataOut.NSHTS],params[0],params[1],params[2]))
+        #print(ratio2)
+
+        #plt.show()
+        x0_value = numpy.array([.5,250,20])
+
+        popt = least_squares(func,x0=x0_value,verbose=0)
+
+        A = popt.x[0]; B = popt.x[1]; C = popt.x[2]
+
+        ratio2 = self.gaussian(dataOut.heightList[:dataOut.NSHTS], A, B, C) + 1 #Te/Ti + 1
+        '''
+        import matplotlib.pyplot as plt
+        plt.clf()
+        plt.plot(teti,dataOut.heightList[:dataOut.NSHTS])
+        plt.plot(ratio2,dataOut.heightList[:dataOut.NSHTS])
+        plt.title("{}".format(datetime.datetime.fromtimestamp(dataOut.utctime)))
+        plt.xlim(.99,3)
+        plt.grid()
+        plt.savefig("/home/roberto/Pictures/Density_Comparison/TeTi_from_temps/{}.png".format(dataOut.utctime))
+        '''
+
+        my_te2 = dataOut.ti2*ratio2
+        #'''
+        def func(params):
+            return (dataOut.te2-self.gaussian(dataOut.heightList[:dataOut.NSHTS],params[0],params[1],params[2]))
+        x0_value = numpy.array([2000,250,20])
+        popt = least_squares(func,x0=x0_value,verbose=0)
+        A = popt.x[0]; B = popt.x[1]; C = popt.x[2]
+        te2_smooth = self.gaussian(dataOut.heightList[:dataOut.NSHTS], A, B, C)
+        #'''
+
+        '''
+        import matplotlib.pyplot as plt
+        plt.clf()
+        plt.plot(te2_smooth,dataOut.heightList[:dataOut.NSHTS],'*-',label = 'My Te')
+        plt.plot(dataOut.te2,dataOut.heightList[:dataOut.NSHTS],'*-',label = 'Te')
+        #plt.plot(signal.medfilt(dataOut.te2),dataOut.heightList[:dataOut.NSHTS],'*-',label = 'Te')
+        plt.title("{}".format(datetime.datetime.fromtimestamp(dataOut.utctime)))
+        plt.xlim(-50,3000)
+        plt.grid()
+        plt.legend()
+        plt.savefig("/home/roberto/Pictures/Density_Comparison/Te/{}.png".format(dataOut.utctime))
+        '''
         #print("**** ACF2 WRAPPER ***** ",fitacf_acf2.acf2.__doc__ )
 
         for i in range(dataOut.NSHTS):
             if dataOut.info2[i]==1:
                 angle=dataOut.thb[i]*0.01745
                 nue=nui[0]=nui[1]=nui[2]=0.0#nui[3]=0.0
-                wion[0]=16
-                wion[1]=1
+                wion[0]=16 #O
+                wion[1]=1 #H
                 wion[2]=4
                 tion[0]=tion[1]=tion[2]=dataOut.ti2[i]
-                fion[0]=1.0-dataOut.phy2[i]
-                fion[1]=dataOut.phy2[i]
-                fion[2]=0.0
+                fion[0]=1.0-dataOut.phy2[i] #1
+                fion[1]=dataOut.phy2[i] #0
+                fion[2]=0.0 #0
                 for j in range(dataOut.DPL):
                     tau=dataOut.alag[j]*1.0e-3
 
                     with suppress_stdout_stderr():
                         y[j]=fitacf_acf2.acf2(wl,tau,dataOut.te2[i],tion,fion,nue,nui,wion,angle,dataOut.ph2[i],dataOut.bfm[i],y[j],three)
+                        #y[j]=fitacf_acf2.acf2(wl,tau,my_te2[i],tion,fion,nue,nui,wion,angle,dataOut.ph2[i],dataOut.bfm[i],y[j],three)
 
                 #if dataOut.ut_Faraday>11.0 and dataOut.range1[i]>150.0 and dataOut.range1[i]<400.0:
 
                 if dataOut.ut_Faraday>11.0 and dataOut.range1[i]>150.0 and dataOut.range1[i]<300.0:
+                #if dataOut.ut_Faraday>11.0 and dataOut.range1[i]>150.0 and dataOut.range1[i]<400.0:
                     tau=0.0
                     with suppress_stdout_stderr():
                         bline=fitacf_acf2.acf2(wl,tau,tion,tion,fion,nue,nui,wion,angle,dataOut.ph2[i],dataOut.bfm[i],bline,three)
-                    cf=min(1.2,max(1.0,bline/y[0]))
+                    cf=min(1.2,max(1.0,bline/y[0])) #FACTOR DE EFICIENCIA
+                    #cf = bline/y[0]
+                    #cf=min(2.,max(1.0,bline/y[0]))
                     my_aux[i] = cf
-                    #dataOut.ph2[i]=cf*dataOut.ph2[i] #Now we adjust the curve "cf" into a Gaussian,
+                    acf_Temps[i] = y[0]
+                    acf_no_Temps[i] = bline
+                    #dataOut.ph2[i]=cf*dataOut.ph2[i] #Instead we adjust the curve "cf" into a Gaussian,
                     #dataOut.sdp2[i]=cf*dataOut.sdp2[i] #in order to get smoother values of density
                 for j in range(1,dataOut.DPL):
-                    y[j]=(y[j]/y[0])*dataOut.DH+dataOut.range1[i]
+                    #y[j]=(y[j]/y[0])*dataOut.DH+dataOut.range1[i]
+                    y[j]=min(max((y[j]/y[0]),-1.0),1.0)*dataOut.DH+dataOut.range1[i]
                 y[0]=dataOut.range1[i]+dataOut.DH
 
 
         ratio = my_aux-1
+        #ratio = dataOut.te2[:dataOut.NSHTS]/dataOut.ti2[:dataOut.NSHTS]
         def lsq_func(params):
             return (ratio-self.gaussian(dataOut.heightList[:dataOut.NSHTS],params[0],params[1],params[2]))
 
@@ -4244,30 +4408,40 @@ class DenCorrection(NormalizeDPPowerRoberto_V2):
 
         A = popt.x[0]; B = popt.x[1]; C = popt.x[2]
 
-        aux = self.gaussian(dataOut.heightList[:dataOut.NSHTS], A, B, C) + 1
+        aux = self.gaussian(dataOut.heightList[:dataOut.NSHTS], A, B, C) + 1 #ratio + 1
 
         '''
         import matplotlib.pyplot as plt
         plt.clf()
-        plt.plot(aux,dataOut.heightList[:dataOut.NSHTS],label='Fitting')
-        plt.plot(my_aux,dataOut.heightList[:dataOut.NSHTS],label='Ratio')
+        plt.plot(aux,dataOut.heightList[:dataOut.NSHTS],'*:',label='Fitting')
+        plt.plot(my_aux,dataOut.heightList[:dataOut.NSHTS],'*:',label='Ratio')
+        #plt.plot(acf_Temps,dataOut.heightList[:dataOut.NSHTS],'b*:',label='Temps')
+        #plt.plot(acf_no_Temps,dataOut.heightList[:dataOut.NSHTS],'k*:',label='No Temps')
+        #plt.plot(dataOut.te2[:dataOut.NSHTS]/dataOut.ti2[:dataOut.NSHTS],dataOut.heightList[:dataOut.NSHTS],label='Ratio')
         #plt.ylim(180)
-        plt.title("{}".format(datetime.fromtimestamp(dataOut.utctime)))
+        plt.title("{}".format(datetime.datetime.fromtimestamp(dataOut.utctime)))
         plt.legend()
         plt.grid()
+        #plt.xlim(.99,1.25)
         #plt.show()
-        plt.savefig("/home/roberto/Pictures/Faraday_TeTi_Test/Ratio_at_400km/{}.png".format(dataOut.utctime))
+        #plt.savefig("/home/roberto/Pictures/Density_Comparison/FactorEf_NoLimits/{}.png".format(dataOut.utctime))
+        plt.savefig("/home/roberto/Pictures/Faraday/2022/08/Density_Comparison/FactorEf/{}.png".format(dataOut.utctime))
         #plt.savefig("/home/roberto/Pictures/Faraday_TeTi_Test/Ratio/{}.png".format(dataOut.utctime))
         '''
         #print("inside correction",dataOut.ph2)
+
+        #print("heeere",aux)
+        #exit(1)
         dataOut.ph2[:dataOut.NSHTS]*=aux
         dataOut.sdp2[:dataOut.NSHTS]*=aux
+        #dataOut.ph2[:26]*=aux[:26]
+        #dataOut.sdp2[:26]*=aux[:26]
         #print(aux)
         #print("inside correction",dataOut.ph2)
 
     def run(self,dataOut):
         #print("hour",gmtime(dataOut.utctime).tm_hour)
-        if gmtime(dataOut.utctime).tm_hour < 23. and gmtime(dataOut.utctime).tm_hour >= 11.:
+        if gmtime(dataOut.utctime).tm_hour < 24. and gmtime(dataOut.utctime).tm_hour >= 11.:
             #print("inside")
             self.TeTiEstimation(dataOut)
             dataOut.flagTeTiCorrection = True
@@ -4277,6 +4451,9 @@ class DenCorrection(NormalizeDPPowerRoberto_V2):
         return dataOut
 
 class DataPlotCleaner(Operation):
+    '''
+    Written by R. Flores
+    '''
     def __init__(self, **kwargs):
 
         Operation.__init__(self, **kwargs)
@@ -4341,6 +4518,9 @@ class DataPlotCleaner(Operation):
 
 
 class DataSaveCleaner(Operation):
+    '''
+    Written by R. Flores
+    '''
     def __init__(self, **kwargs):
 
         Operation.__init__(self, **kwargs)
@@ -4350,6 +4530,7 @@ class DataSaveCleaner(Operation):
         #print(dataOut.heightList)
         #exit(1)
         dataOut.DensityFinal=numpy.zeros((1,dataOut.NDP))
+        dataOut.dphiFinal=numpy.zeros((1,dataOut.NDP))
         dataOut.EDensityFinal=numpy.zeros((1,dataOut.NDP))
         dataOut.ElecTempFinal=numpy.zeros((1,dataOut.NDP))
         dataOut.EElecTempFinal=numpy.zeros((1,dataOut.NDP))
@@ -4359,6 +4540,7 @@ class DataSaveCleaner(Operation):
         dataOut.EPhyFinal=numpy.zeros((1,dataOut.NDP))
 
         dataOut.DensityFinal[0]=numpy.copy(dataOut.ph2)
+        dataOut.dphiFinal[0]=numpy.copy(dataOut.dphi)
         dataOut.EDensityFinal[0]=numpy.copy(dataOut.sdp2)
         dataOut.ElecTempFinal[0,:dataOut.NSHTS]=numpy.copy(dataOut.te2)
         dataOut.EElecTempFinal[0,:dataOut.NSHTS]=numpy.copy(dataOut.ete2)
@@ -4368,14 +4550,14 @@ class DataSaveCleaner(Operation):
         dataOut.EPhyFinal[0,:dataOut.NSHTS]=numpy.copy(dataOut.ephy2)
 
         missing=numpy.nan
-
+        #print("den1: ",dataOut.DensityFinal)
         temp_min=100.0
         temp_max=3000.0#6000.0e
         #print("Density: ",dataOut.DensityFinal[0])
         #print("Error: ",dataOut.EDensityFinal[0])
         #print(100*dataOut.EDensityFinal[0]/dataOut.DensityFinal[0])
         den_err_percent = 100*dataOut.EDensityFinal[0]/dataOut.DensityFinal[0]
-        max_den_err_per = 30#30 #Densidades con error mayor al 30% se setean en NaN
+        max_den_err_per = 35#30 #Densidades con error mayor al 30% se setean en NaN
         for i in range(dataOut.NSHTS):
 
             if den_err_percent[i] >= max_den_err_per:
@@ -4478,25 +4660,28 @@ class DataSaveCleaner(Operation):
         dataOut.EDensityFinal[0,i1:] = dataOut.DensityFinal[0,i1:] = missing
         '''
 
-        #'''
+        '''
+        #print("den2: ",dataOut.DensityFinal)
         if gmtime(dataOut.utctime).tm_hour >= 23. or gmtime(dataOut.utctime).tm_hour < 5.: #18-00 LT
             nanindex = numpy.argwhere(numpy.isnan(dataOut.DensityFinal[0,:33]))
             #print(nanindex)
             i1 = nanindex[-1][0]
             #print("i1",i1)
             dataOut.EDensityFinal[0,:i1] = dataOut.DensityFinal[0,:i1] = missing
+            #print("den3: ",dataOut.DensityFinal)
         elif gmtime(dataOut.utctime).tm_hour >= 6. or gmtime(dataOut.utctime).tm_hour < 11.: #18-00 LT
             nanindex = numpy.argwhere(numpy.isnan(dataOut.DensityFinal[0,:20]))
             #print(nanindex)
             i1 = nanindex[-1][0]
             #print("i1",i1)
             dataOut.EDensityFinal[0,:i1] = dataOut.DensityFinal[0,:i1] = missing
-            #'''
+            '''
         #print("den_nans: ",dataOut.DensityFinal[0,12:50])
         if numpy.count_nonzero(~numpy.isnan(dataOut.DensityFinal[0,12:50]))<=5:
             dataOut.DensityFinal[0,:]=dataOut.EDensityFinal[0,:]=missing
         #for i in range(dataOut.NSHTS,dataOut.NDP):
         #for i in range(40,dataOut.NDP):
+        #print("den2: ",dataOut.DensityFinal)
         dataOut.DensityFinal[0,dataOut.NSHTS:]=missing
         dataOut.EDensityFinal[0,dataOut.NSHTS:]=missing
         dataOut.ElecTempFinal[0,dataOut.NSHTS:]=missing
@@ -4510,6 +4695,7 @@ class DataSaveCleaner(Operation):
         '''
         nanindex = numpy.argwhere(numpy.isnan(dataOut.DensityFinal))
         i1 = nanindex[-1][0]
+        print("i1",i1)
         dataOut.DensityFinal[0,i1+1:]=missing
         dataOut.EDensityFinal[0,i1+1:]=missing
         dataOut.ElecTempFinal[0,i1+1:]=missing
@@ -4518,6 +4704,27 @@ class DataSaveCleaner(Operation):
         dataOut.EIonTempFinal[0,i1+1:]=missing
         dataOut.PhyFinal[0,i1+1:]=missing
         dataOut.EPhyFinal[0,i1+1:]=missing
+        '''
+        #'''
+        if gmtime(dataOut.utctime).tm_hour >= 12. and gmtime(dataOut.utctime).tm_hour < 22.: #07-17 LT
+            dataOut.DensityFinal[0,:13]=missing
+            dataOut.EDensityFinal[0,:13]=missing
+            dataOut.ElecTempFinal[0,:13]=missing
+            dataOut.EElecTempFinal[0,:13]=missing
+            dataOut.IonTempFinal[0,:13]=missing
+            dataOut.EIonTempFinal[0,:13]=missing
+            dataOut.PhyFinal[0,:13]=missing
+            dataOut.EPhyFinal[0,:13]=missing
+            #'''
+        else:
+            dataOut.DensityFinal[0,:dataOut.min_id_eej+1]=missing
+            dataOut.EDensityFinal[0,:dataOut.min_id_eej+1]=missing
+            dataOut.ElecTempFinal[0,:dataOut.min_id_eej+1]=missing
+            dataOut.EElecTempFinal[0,:dataOut.min_id_eej+1]=missing
+            dataOut.IonTempFinal[0,:dataOut.min_id_eej+1]=missing
+            dataOut.EIonTempFinal[0,:dataOut.min_id_eej+1]=missing
+            dataOut.PhyFinal[0,:dataOut.min_id_eej+1]=missing
+            dataOut.EPhyFinal[0,:dataOut.min_id_eej+1]=missing
         '''
         if gmtime(dataOut.utctime).tm_hour >= 11. or gmtime(dataOut.utctime).tm_hour < 23.: #06-18 LT
             dataOut.DensityFinal[0,:13]=missing
@@ -4538,6 +4745,7 @@ class DataSaveCleaner(Operation):
             dataOut.EIonTempFinal[0,:12]=missing
             dataOut.PhyFinal[0,:12]=missing
             dataOut.EPhyFinal[0,:12]=missing
+            '''
         #print(dataOut.EDensityFinal)
         #exit(1)
         '''
@@ -4545,9 +4753,8 @@ class DataSaveCleaner(Operation):
         print(dataOut.heightList)
         exit(1)
         '''
-
-        '''
         time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime)
+        #'''
         #Agregar año y mes para no estar comentando esta parte!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         #if (time_text.hour == 13 and time_text.minute == 20) or (time_text.hour == 0 and time_text.minute > 40) or (time_text.hour == 2 and time_text.minute == 8) or (time_text.hour == 2 and time_text.minute == 19): #Year: 2022, DOY:101
         #if (time_text.hour == 17 and time_text.minute == 5) or (time_text.hour == 8 and time_text.minute >= 22) or (time_text.hour == 9) or (time_text.hour == 11 and time_text.minute == 2): #Year: 2022, DOY:102
@@ -4558,7 +4765,14 @@ class DataSaveCleaner(Operation):
         #if (time_text.hour == 6 and time_text.minute>=34) or (time_text.hour >= 7 and time_text.hour<11) or (time_text.hour == 11 and time_text.minute<47): #Year: 2022, DOY:94
         #if (time_text.hour == 7 and time_text.minute>=18) or (time_text.hour >= 8 and time_text.hour<11) or (time_text.hour == 11 and time_text.minute==2) or (time_text.hour == 1) or (time_text.hour == 2 and time_text.minute<=20) or (time_text.hour >= 3 and time_text.hour<=4): #Year: 2022, DOY:92
         #if (time_text.hour < 11 and time_text.hour >=5 ) or (time_text.hour == 11 and time_text.minute<=34): #Year: 2022, DOY:93
-        if (time_text.hour == 7 and time_text.minute>=18) or (time_text.hour >= 8 and time_text.hour <=11 ): #Year: 2022, DOY:91
+        #if (time_text.hour == 7 and time_text.minute>=18) or (time_text.hour >= 8 and time_text.hour <=11 ): #Year: 2022, DOY:91
+
+        #print(time_text.hour,time_text.minute)
+        #if (time_text.hour == 16 and time_text.minute==48) or (time_text.hour == 19 and time_text.minute ==49 ) or (time_text.hour >= 0 and time_text.hour < 5): #Year: 2022, DOY:241
+        #if (time_text.hour == 5 and time_text.minute==21) or (time_text.hour == 19 and time_text.minute ==49 ) or (time_text.hour == 7 and time_text.minute==40) or (time_text.hour == 7 and time_text.minute==50) or (time_text.hour >= 8 and time_text.hour < 11) or (time_text.hour == 11 and time_text.minute==2) or (time_text.hour == 11 and time_text.minute==13): #Year: 2022, DOY:242
+        #if (time_text.hour >= 8 and time_text.hour < 11) or (time_text.hour == 11 and time_text.minute==2) or (time_text.hour == 11 and time_text.minute==13) or (time_text.hour == 11 and time_text.minute==24): #Year: 2022, DOY:243
+        #if (time_text.hour >= 9 and time_text.hour < 11) or (time_text.hour == 8 and time_text.minute==12) or (time_text.hour == 8 and time_text.minute==22) or (time_text.hour == 8 and time_text.minute==33) or (time_text.hour == 8 and time_text.minute==44) or (time_text.hour == 8 and time_text.minute==54) or (time_text.hour == 11 and time_text.minute==2) or (time_text.hour == 11 and time_text.minute==13): #Year: 2022, DOY:245
+        if (time_text.hour >= 8 and time_text.hour < 11) or (time_text.hour == 1) or (time_text.hour == 0 and time_text.minute==25) or (time_text.hour == 0 and time_text.minute==36) or (time_text.hour == 0 and time_text.minute==47) or (time_text.hour == 0 and time_text.minute==57) or (time_text.hour == 2 and time_text.minute==1) or (time_text.hour == 11 and time_text.minute==2) or (time_text.hour == 11 and time_text.minute==13) or (time_text.hour == 11 and time_text.minute==24) or (time_text.hour == 7 and time_text.minute==40) or (time_text.hour == 7 and time_text.minute==50) or (time_text.hour == 3 and time_text.minute==5): #Year: 2022, DOY:244
 
             dataOut.DensityFinal[0,:]=missing
             dataOut.EDensityFinal[0,:]=missing
@@ -4569,30 +4783,139 @@ class DataSaveCleaner(Operation):
             dataOut.PhyFinal[0,:]=missing
             dataOut.EPhyFinal[0,:]=missing
 
-            dataOut.flagNoData = True
-            '''
+            dataOut.flagNoData = True #Remueve todo el perfil
+            #'''
         '''
-        if (time_text.hour >= 7 and time_text.hour < 9): #Year: 2022, DOY:102
-            dataOut.DensityFinal[0,33:]=missing
-            dataOut.EDensityFinal[0,33:]=missing
-            dataOut.ElecTempFinal[0,33:]=missing
-            dataOut.EElecTempFinal[0,33:]=missing
-            dataOut.IonTempFinal[0,33:]=missing
-            dataOut.EIonTempFinal[0,33:]=missing
-            dataOut.PhyFinal[0,33:]=missing
-            dataOut.EPhyFinal[0,33:]=missing
-
-            #dataOut.flagNoData = True
+        #if (time_text.hour >= 7 and time_text.hour < 9): #Year: 2022, DOY:102
+        if (time_text.hour == 20 and time_text.minute == 8): #Year: 2022, DOY:243
+            id_aux = 35
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 20 and time_text.minute == 19): #Year: 2022, DOY:243
+            id_aux = 33
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 20 and time_text.minute == 29) or (time_text.hour == 20 and time_text.minute == 44): #Year: 2022, DOY:243
+            id_aux = 31
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
             '''
-
+        #'''
+        if (time_text.hour == 2 and time_text.minute == 23): #Year: 2022, DOY:244
+            id_aux = 12
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 20 and time_text.minute == 52): #Year: 2022, DOY:244
+            id_aux = 25
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 21 and time_text.minute == 3): #Year: 2022, DOY:244
+            id_aux = 38
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 21 and time_text.minute == 13): #Year: 2022, DOY:244
+            id_aux = 26
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 21 and time_text.minute == 24): #Year: 2022, DOY:244
+            id_aux = 37
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 21 and time_text.minute == 35): #Year: 2022, DOY:244
+            id_aux = 37
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 21 and time_text.minute == 45): #Year: 2022, DOY:244
+            id_aux = 36
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 3 and time_text.minute == 59): #Year: 2022, DOY:244
+            id_aux = 36
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+            #'''
         #print("den_final",dataOut.DensityFinal)
 
         dataOut.flagNoData = numpy.all(numpy.isnan(dataOut.DensityFinal)) #Si todos los valores son NaN no se prosigue
+
+        ####dataOut.flagNoData = False #Solo para ploteo
+
+        dataOut.DensityFinal *= 1.e6 #Convert units to m^⁻3
+        dataOut.EDensityFinal *= 1.e6 #Convert units to m^⁻3
         #print(dataOut.flagNoData)
         return dataOut
 
 
 class DataSaveCleanerHP(Operation):
+    '''
+    Written by R. Flores
+    '''
     def __init__(self, **kwargs):
 
         Operation.__init__(self, **kwargs)
@@ -4770,6 +5093,9 @@ class DataSaveCleanerHP(Operation):
 
 
 class ACFs(Operation):
+    '''
+    Written by R. Flores
+    '''
     def __init__(self, **kwargs):
 
         Operation.__init__(self, **kwargs)
@@ -5110,7 +5436,7 @@ class CohInt(Operation):
         if not self.isConfig:
             self.setup(n=n, stride=stride, timeInterval=timeInterval, overlapping=overlapping, byblock=byblock, **kwargs)
             self.isConfig = True
-        print("inside")
+        #print("inside")
         if dataOut.flagDataAsBlock:
             """
             Si la data es leida por bloques, dimension = [nChannels, nProfiles, nHeis]
@@ -5141,6 +5467,9 @@ class CohInt(Operation):
         return dataOut
 
 class TimesCode(Operation):
+    '''
+    Written by R. Flores
+    '''
     """
 
     """
@@ -5148,8 +5477,6 @@ class TimesCode(Operation):
     def __init__(self, **kwargs):
 
         Operation.__init__(self, **kwargs)
-
-
 
     def run(self,dataOut,code):
 
@@ -5214,44 +5541,11 @@ class TimesCode(Operation):
 
         return dataOut
 
-'''
-class Spectrogram(Operation):
-    """
-
-    """
-
-    def __init__(self, **kwargs):
-
-        Operation.__init__(self, **kwargs)
-
-
-
-    def run(self,dataOut):
-
-        import scipy
-
-
-
-        fs = 3200*1e-6
-        fs = fs/64
-        fs = 1/fs
-
-        nperseg=64
-        noverlap=48
-
-        f, t, Sxx = signal.spectrogram(x, fs, return_onesided=False, nperseg=nperseg, noverlap=noverlap, mode='complex')
-
-
-        for ich in range(dataOut.nChannels):
-            for ihe in range(nheicode):
-
-
-        return dataOut
-'''
-
 
 class RemoveDcHae(Operation):
-
+    '''
+    Written by R. Flores
+    '''
     def __init__(self, **kwargs):
 
         Operation.__init__(self, **kwargs)
@@ -5523,6 +5817,7 @@ class Decoder(Operation):
         profilesList = range(self.__nProfiles)
         #print(numpy.shape(self.datadecTime))
         #print(numpy.shape(data))
+        #print(profilesList)
         for i in range(self.__nChannels):
             for j in profilesList:
                 self.datadecTime[i,j,:] = numpy.correlate(data[i,j,:], code_block[j,:], mode='full')[self.nBaud-1:]
@@ -6693,9 +6988,9 @@ class CrossProdHybrid(CrossProdDP):
                 self.lag_products_LP_median_estimates_aux=0
 
 
-            #for i in range(dataOut.NLAG):
-            my_list = ([0,1,2,3,4,5,6,7]) #hasta 7 funciona, en 6 ya no
-            for i in my_list:
+            for i in range(dataOut.NLAG):
+            #my_list = ([0,1,2,3,4,5,6,7]) #hasta 7 funciona, en 6 ya no
+            #for i in my_list:
                 for j in range(dataOut.NRANGE):
                     for l in range(4): #four outputs
                         for k in range(dataOut.NAVG):
@@ -6709,6 +7004,7 @@ class CrossProdHybrid(CrossProdDP):
                                     self.lagp2[i,j,:]=sorted(self.lagp2[i,j,:], key=lambda x: x.real)  #sorted(self.lagp2[i,j,:].real)
                                 if l==3:
                                     self.lagp3[i,j,:]=sorted(self.lagp3[i,j,:], key=lambda x: x.real)  #sorted(self.lagp3[i,j,:].real)
+                            '''
                             x = 2
                             if k>=x and k<dataOut.NAVG-dataOut.nkill/2:
                                 if l==0:
@@ -6719,7 +7015,8 @@ class CrossProdHybrid(CrossProdDP):
                                     self.output[i,j,l]=self.output[i,j,l]+((float(dataOut.NAVG)/(float)(dataOut.NAVG-x-dataOut.nkill/2))*self.lagp2[i,j,k])
                                 if l==3:
                                     self.output[i,j,l]=self.output[i,j,l]+((float(dataOut.NAVG)/(float)(dataOut.NAVG-x-dataOut.nkill/2))*self.lagp3[i,j,k])
-                            '''
+                                    '''
+                            #'''
                             if k>=dataOut.nkill/2 and k<dataOut.NAVG-dataOut.nkill/2:
                                 if l==0:
                                     self.output[i,j,l]=self.output[i,j,l]+((float(dataOut.NAVG)/(float)(dataOut.NAVG-dataOut.nkill))*self.lagp0[i,j,k])
@@ -6729,7 +7026,7 @@ class CrossProdHybrid(CrossProdDP):
                                     self.output[i,j,l]=self.output[i,j,l]+((float(dataOut.NAVG)/(float)(dataOut.NAVG-dataOut.nkill))*self.lagp2[i,j,k])
                                 if l==3:
                                     self.output[i,j,l]=self.output[i,j,l]+((float(dataOut.NAVG)/(float)(dataOut.NAVG-dataOut.nkill))*self.lagp3[i,j,k])
-                                    '''
+                                    #'''
 
 
             dataOut.output_LP=self.output
@@ -6796,10 +7093,10 @@ class CrossProdHybrid(CrossProdDP):
                 #x02[i]=10.0*numpy.log10(x02[i])
         return x00,x01,x02,x03
 
-    def run(self, dataOut, NLAG=None, NRANGE=None, NCAL=None, DPL=None,
-        NDN=None, NDT=None, NDP=None, NSCAN=None,
-        lagind=None, lagfirst=None,
-        NAVG=None, nkill=None):
+    def run(self, dataOut, NLAG=16, NRANGE=200, NCAL=0, DPL=11,
+        NDN=0, NDT=67, NDP=67, NSCAN=128,
+        lagind=(0,1,2,3,4,5,6,7,0,3,4,5,6,8,9,10), lagfirst=(1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1),
+        NAVG=16, nkill=6):
         #print(dataOut.data[1,:12,200:200+15])
         #exit(1)
         dataOut.NLAG=NLAG
@@ -6958,6 +7255,7 @@ class IntegrationHP(IntegrationDP):
         #print(dataOut.kabxys_integrated[8][53,6,0]+dataOut.kabxys_integrated[11][53,6,0])
         #print(dataOut.kabxys_integrated[8][53,9,0]+dataOut.kabxys_integrated[11][53,9,0])
         #exit(1)
+        print(dataOut.flagNoData)
         return dataOut
 
 class SumFlipsHP(SumFlips):
@@ -6981,7 +7279,7 @@ class SumFlipsHP(SumFlips):
     def rint2HP(self,dataOut):
 
         dataOut.rnint2=numpy.zeros(dataOut.DPL,'float32')
-
+        #print(dataOut.nint,dataOut.NAVG)
         for l in range(dataOut.DPL):
             if(l==0 or (l>=3 and l <=6)):
                 dataOut.rnint2[l]=0.5/float(dataOut.nint*dataOut.NAVG*16.0)
@@ -7009,6 +7307,10 @@ class SumFlipsHP(SumFlips):
         print((dataOut.kabxys_integrated[10][hei,lag,0]-dataOut.kabxys_integrated[9][hei,lag,0]))
         exit(1)
         '''
+        #print(dataOut.rnint2)
+        #print(numpy.sum(dataOut.kabxys_integrated[4][:,1,0]+dataOut.kabxys_integrated[5][:,1,0]))
+        #print(dataOut.nis)
+        #exit(1)
         return dataOut
 
 

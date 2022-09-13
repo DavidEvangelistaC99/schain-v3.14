@@ -75,7 +75,7 @@ class SnrPlot(RTIPlot):
     def update(self, dataOut):
 
         data = {
-            'snr': 10*numpy.log10(dataOut.data_snr)    
+            'snr': 10*numpy.log10(dataOut.data_snr)
         }
 
         return data, {}
@@ -91,7 +91,120 @@ class DopplerPlot(RTIPlot):
     def update(self, dataOut):
 
         data = {
-            'dop': 10*numpy.log10(dataOut.data_dop)    
+            'dop': 10*numpy.log10(dataOut.data_dop)
+        }
+
+        return data, {}
+
+class DopplerEEJPlot_V0(RTIPlot):
+    '''
+    Written by R. Flores
+    '''
+    '''
+    Plot for EEJ
+    '''
+
+    CODE = 'dop'
+    colormap = 'RdBu_r'
+    colormap = 'jet'
+
+    def setup(self):
+
+        self.xaxis = 'time'
+        self.ncols = 1
+        self.nrows = len(self.data.channels)
+        self.nplots = len(self.data.channels)
+        self.ylabel = 'Range [km]'
+        self.xlabel = 'Time'
+        self.cb_label = '(m/s)'
+        self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.1, 'right':0.95})
+        self.titles = ['{} Channel {}'.format(
+            self.CODE.upper(), x) for x in range(self.nrows)]
+
+    def update(self, dataOut):
+        #print(self.EEJtype)
+
+        if self.EEJtype == 1:
+            data = {
+                'dop': dataOut.Oblique_params[:,-2,:]
+            }
+        elif self.EEJtype == 2:
+            data = {
+                'dop': dataOut.Oblique_params[:,-1,:]
+            }
+
+        return data, {}
+
+class DopplerEEJPlot(RTIPlot):
+    '''
+    Written by R. Flores
+    '''
+    '''
+    Plot for Doppler Shift EEJ
+    '''
+
+    CODE = 'dop'
+    colormap = 'RdBu_r'
+    #colormap = 'jet'
+
+    def setup(self):
+
+        self.xaxis = 'time'
+        self.ncols = 1
+        self.nrows = 2
+        self.nplots = 2
+        self.ylabel = 'Range [km]'
+        self.xlabel = 'Time'
+        self.cb_label = '(m/s)'
+        self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.1, 'right':0.95})
+        self.titles = ['{} EJJ Type {} /'.format(
+            self.CODE.upper(), x) for x in range(1,1+self.nrows)]
+
+    def update(self, dataOut):
+
+        if dataOut.mode == 11: #Double Gaussian
+            doppler = numpy.append(dataOut.Oblique_params[:,1,:],dataOut.Oblique_params[:,4,:],axis=0)
+        elif dataOut.mode == 9: #Double Skew Gaussian
+            doppler = numpy.append(dataOut.Oblique_params[:,-2,:],dataOut.Oblique_params[:,-1,:],axis=0)
+        data = {
+            'dop': doppler
+        }
+
+        return data, {}
+
+class SpcWidthEEJPlot(RTIPlot):
+    '''
+    Written by R. Flores
+    '''
+    '''
+    Plot for EEJ Spectral Width
+    '''
+
+    CODE = 'width'
+    colormap = 'RdBu_r'
+    colormap = 'jet'
+
+    def setup(self):
+
+        self.xaxis = 'time'
+        self.ncols = 1
+        self.nrows = 2
+        self.nplots = 2
+        self.ylabel = 'Range [km]'
+        self.xlabel = 'Time'
+        self.cb_label = '(m/s)'
+        self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.1, 'right':0.95})
+        self.titles = ['{} EJJ Type {} /'.format(
+            self.CODE.upper(), x) for x in range(1,1+self.nrows)]
+
+    def update(self, dataOut):
+
+        if dataOut.mode == 11: #Double Gaussian
+            width = numpy.append(dataOut.Oblique_params[:,2,:],dataOut.Oblique_params[:,5,:],axis=0)
+        elif dataOut.mode == 9: #Double Skew Gaussian
+            width = numpy.append(dataOut.Oblique_params[:,2,:],dataOut.Oblique_params[:,6,:],axis=0)
+        data = {
+            'width': width
         }
 
         return data, {}
@@ -107,7 +220,7 @@ class PowerPlot(RTIPlot):
     def update(self, dataOut):
 
         data = {
-            'pow': 10*numpy.log10(dataOut.data_pow/dataOut.normFactor)    
+            'pow': 10*numpy.log10(dataOut.data_pow/dataOut.normFactor)
         }
 
         return data, {}
@@ -208,7 +321,7 @@ class GenericRTIPlot(Plot):
         meta = {}
 
         return data, meta
-    
+
     def plot(self):
         # self.data.normalize_heights()
         self.x = self.data.times
