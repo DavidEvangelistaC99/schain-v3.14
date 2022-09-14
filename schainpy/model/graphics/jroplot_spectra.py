@@ -95,18 +95,6 @@ class SpectraPlot(Plot):
 
         self.CODE2 = 'spc_oblique'
 
-        if not isinstance(self.zmin, collections.abc.Sequence):
-            if not self.zmin:
-                self.zmin = [numpy.min(self.z)]*len(self.axes)
-            else:
-                self.zmin = [self.zmin]*len(self.axes)
-
-        if not isinstance(self.zmax, collections.abc.Sequence):
-            if not self.zmax:
-                self.zmax = [numpy.max(self.z)]*len(self.axes)
-            else:
-                self.zmax = [self.zmax]*len(self.axes)
-
         for n, ax in enumerate(self.axes):
             noise = data['noise'][n]
             if self.CODE == 'spc_moments':
@@ -119,10 +107,12 @@ class SpectraPlot(Plot):
                 self.xmin = self.xmin if self.xmin else numpy.nanmin(x)#-self.xmax
                 #self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
                 #self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
 
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
-                                       vmin=self.zmin[n],
-                                       vmax=self.zmax[n],
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
                                        cmap=plt.get_cmap(self.colormap),
                                        )
 
@@ -137,6 +127,8 @@ class SpectraPlot(Plot):
                     ax.plt_gau0 = ax.plot(gau0, y, color='r', lw=1)[0]
                     ax.plt_gau1 = ax.plot(gau1, y, color='y', lw=1)[0]
             else:
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
                 ax.plt.set_array(z[n].T.ravel())
                 if self.showprofile:
                     ax.plt_profile.set_data(data['rti'][n], y)
@@ -725,7 +717,7 @@ class RTIPlot(Plot):
         else:
             x, y, z = self.fill_gaps(*self.decimate())
 
-
+        '''
         if not isinstance(self.zmin, collections.abc.Sequence):
             if not self.zmin:
                 self.zmin = [numpy.min(self.z)]*len(self.axes)
@@ -737,16 +729,18 @@ class RTIPlot(Plot):
                 self.zmax = [numpy.max(self.z)]*len(self.axes)
             else:
                 self.zmax = [self.zmax]*len(self.axes)
-
+                '''
         for n, ax in enumerate(self.axes):
 
-            #self.zmin = self.zmin if self.zmin else numpy.min(self.z)
-            #self.zmax = self.zmax if self.zmax else numpy.max(self.z)
+            self.zmin = self.zmin if self.zmin else numpy.min(self.z)
+            self.zmax = self.zmax if self.zmax else numpy.max(self.z)
 
             if ax.firsttime:
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
-                                       vmin=self.zmin[n],
-                                       vmax=self.zmax[n],
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
                                        cmap=plt.get_cmap(self.colormap)
                                        )
                 if self.showprofile:
@@ -755,10 +749,12 @@ class RTIPlot(Plot):
                     ax.plot_noise = self.pf_axes[n].plot(numpy.repeat(self.data['noise'][n][-1], len(self.y)), self.y,
                                                          color="k", linestyle="dashed", lw=1)[0]
             else:
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
                 ax.collections.remove(ax.collections[0])
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
-                                       vmin=self.zmin[n],
-                                       vmax=self.zmax[n],
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
                                        cmap=plt.get_cmap(self.colormap)
                                        )
                 if self.showprofile:

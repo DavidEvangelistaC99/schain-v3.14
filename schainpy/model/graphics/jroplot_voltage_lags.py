@@ -153,24 +153,12 @@ class RTILPPlot(RTIPlot):
         else:
             x, y, z = self.fill_gaps(*self.decimate())
 
-        if not isinstance(self.zmin, collections.abc.Sequence):
-            if not self.zmin:
-                self.zmin = [numpy.min(self.z)]*len(self.axes)
-            else:
-                self.zmin = [self.zmin]*len(self.axes)
-
-        if not isinstance(self.zmax, collections.abc.Sequence):
-            if not self.zmax:
-                self.zmax = [numpy.max(self.z)]*len(self.axes)
-            else:
-                self.zmax = [self.zmax]*len(self.axes)
-
         for n, ax in enumerate(self.axes):
 
-            #self.zmax = self.zmax if self.zmax is not None else numpy.max(
-                #self.z[1][0,12:40])
-            #self.zmin = self.zmin if self.zmin is not None else numpy.min(
-                #self.z[1][0,12:40])
+            self.zmax = self.zmax if self.zmax is not None else numpy.max(
+                self.z[1][0,12:40])
+            self.zmin = self.zmin if self.zmin is not None else numpy.min(
+                self.z[1][0,12:40])
 
             if ax.firsttime:
 
@@ -179,18 +167,18 @@ class RTILPPlot(RTIPlot):
 
 
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
-                                       vmin=self.zmin[n],
-                                       vmax=self.zmax[n],
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
                                        cmap=plt.get_cmap(self.colormap)
                                        )
 
             else:
-                #if self.zlimits is not None:
-                    #self.zmin, self.zmax = self.zlimits[n]
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
                 ax.collections.remove(ax.collections[0])
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
-                                       vmin=self.zmin[n],
-                                       vmax=self.zmax[n],
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
                                        cmap=plt.get_cmap(self.colormap)
                                        )
 

@@ -10,6 +10,7 @@ from schainpy.utils import log
 from time import time, mktime, strptime, gmtime, ctime
 from scipy.optimize import least_squares
 import datetime
+import collections.abc
 
 try:
     from schainpy.model.proc import fitacf_guess
@@ -2542,7 +2543,10 @@ class CleanCohEchoes(Operation):
                 dataOut.flagSpreadF = True
 
         #Removing echoes greater than 35 dB
-        maxdB = 10*numpy.log10(dataOut.pbn[0]) + 10 #Lag 0 NOise
+        if isinstance(dataOut.pbn, collections.abc.Sequence):
+            maxdB = 10*numpy.log10(dataOut.pbn[0]) + 10 #Lag 0 NOise
+        else:
+            maxdB = 10*numpy.log10(dataOut.pbn) + 10 #Lag 0 NOise
         #maxdB = 35 #DEBERÍA SER NOISE+ALGO!!!!!!!!!!!!!!!!!!!!!!
         #print("noise: ",maxdB - 10)
         #print(dataOut.kabxys_integrated[6][:,0,0])
@@ -3498,7 +3502,8 @@ class ElectronDensityFaraday(Operation):
         #print(dataOut.phi)
         #exit(1)
         #'''
-        if dataOut.flagSpreadF:
+        if hasattr(dataOut, 'flagSpreadF') and dataOut.flagSpreadF:
+        #if dataOut.flagSpreadF:
             nanindex = numpy.argwhere(numpy.isnan(dataOut.phi))
             i1 = nanindex[-1][0]
             #Analizar cuando SpreadF es Pluma
@@ -3931,7 +3936,8 @@ class NormalizeDPPowerRoberto_V2(Operation):
                 dataOut.sdp2[i]/=dataOut.cf
 
         #'''
-        if dataOut.flagSpreadF:
+        #if dataOut.flagSpreadF:
+        if hasattr(dataOut, 'flagSpreadF') and dataOut.flagSpreadF:
             i2=int((620-dataOut.range1[0])/dataOut.DH)
             nanindex = numpy.argwhere(numpy.isnan(dataOut.ph2))
             print("nanindex",nanindex)
@@ -3944,7 +3950,7 @@ class NormalizeDPPowerRoberto_V2(Operation):
         #print(dataOut.ph2[i1::])
         #'''
         try:
-            if dataOut.flagSpreadF and i1 > 30:
+            if hasattr(dataOut, 'flagSpreadF') and dataOut.flagSpreadF and i1 > 30:
                 dataOut.cf = numpy.nan
             else:
                 dataOut.cf=self.normal(dataOut.dphi[i1::], dataOut.ph2[i1::], i2-i1, 1)

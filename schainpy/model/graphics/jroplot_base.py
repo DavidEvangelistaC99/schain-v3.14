@@ -406,8 +406,10 @@ class Plot(Operation):
                 if self.ylabel is not None:
                     ax.set_ylabel(self.ylabel)
                 if self.showprofile:
+                    if self.zlimits is not None:
+                        self.zmin, self.zmax = self.zlimits[n]
                     self.pf_axes[n].set_ylim(ymin, ymax)
-                    self.pf_axes[n].set_xlim(self.zmin[n], self.zmax[n])
+                    self.pf_axes[n].set_xlim(self.zmin, self.zmax)
                     self.pf_axes[n].set_xlabel('dB')
                     self.pf_axes[n].grid(b=True, axis='x')
                     [tick.set_visible(False)
@@ -569,7 +571,9 @@ class Plot(Operation):
         else:
             self.data.meta['colormap'] = 'Viridis'
         self.data.meta['interval'] = int(interval)
-
+        #print(last_time)
+        #print(time.time())
+        #exit(1)
         self.sender_queue.append(last_time)
 
         while True:
