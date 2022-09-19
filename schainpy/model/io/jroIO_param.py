@@ -144,10 +144,7 @@ class HDFReader(Reader, ProcessingUnit):
 
         self.__readMetadata()
         self.__readData()
-        self.__setBlockList()
-
-        if 'type' in self.meta:
-            self.dataOut = eval(self.meta['type'])()
+        self.__setBlockList()        
 
         for attr in self.meta:
             setattr(self.dataOut, attr, self.meta[attr])
@@ -277,6 +274,9 @@ class HDFReader(Reader, ProcessingUnit):
             self.setNextFile()
 
         self.getData()
+
+        if 'type' in self.meta:
+            self.dataOut.type = self.meta['type'].decode('utf-8')
 
         return
 

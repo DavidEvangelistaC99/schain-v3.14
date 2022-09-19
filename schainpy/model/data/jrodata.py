@@ -196,7 +196,7 @@ class JROData(GenericData):
 
     def __str__(self):
 
-        return '{} - {}'.format(self.type, self.datatime())
+        return '{} - {}'.format(self.type, self.datatime)
 
     def getNoise(self):
 
@@ -560,8 +560,9 @@ class Spectra(JROData):
         self.ippFactor = 1
         self.beacon_heiIndexList = []
         self.noise_estimation = None
+        self.spc_noise = None
         self.metadata_list = ['type', 'heightList', 'timeZone', 'pairsList', 'channelList', 'nCohInt',
-            'code', 'nCode', 'nBaud', 'ippSeconds', 'ipp', 'nIncohInt', 'nFFTPoints', 'nProfiles']
+            'code', 'nCode', 'nBaud', 'ippSeconds', 'ipp', 'nIncohInt', 'nFFTPoints', 'nProfiles', 'flagDecodeData']
 
     def getNoisebyHildebrand(self, xmin_index=None, xmax_index=None, ymin_index=None, ymax_index=None):
         """
@@ -582,7 +583,10 @@ class Spectra(JROData):
 
     def getNoise(self, xmin_index=None, xmax_index=None, ymin_index=None, ymax_index=None):
 
-        if self.noise_estimation is not None:
+        if self.spc_noise is not None:
+            # this was estimated by getNoise Operation defined in jroproc_parameters.py
+            return self.spc_noise
+        elif self.noise_estimation is not None:
             # this was estimated by getNoise Operation defined in jroproc_spectra.py
             return self.noise_estimation
         else:
@@ -955,6 +959,7 @@ class Parameters(Spectra):
     nAvg = None
     noise_estimation = None
     GauSPC = None  # Fit gaussian SPC
+    spc_noise = None
 
     def __init__(self):
         '''
@@ -995,12 +1000,6 @@ class Parameters(Spectra):
         print("This property should not be initialized")
 
         return
-
-    def getNoise(self):
-
-        return self.spc_noise
-
-    noise = property(getNoise, setValue, "I'm the 'Noise' property.")
 
 
 class PlotterData(object):
