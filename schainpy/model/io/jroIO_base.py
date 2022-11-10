@@ -522,9 +522,8 @@ class Reader(object):
 
     def find_files(self, folders, ext, filefmt, startDate=None, endDate=None,
                    expLabel='', last=False):
-
         for path in folders:
-            files = glob.glob1(path, '*{}'.format(ext))
+            files = glob.glob1(path+'/'+expLabel, '*{}'.format(ext))
             files.sort()
             if last:
                 if files:
@@ -567,6 +566,7 @@ class Reader(object):
         if walk:
             folders = self.find_folders(
                 path, startDate, endDate, folderfmt)
+            #print("folders: ", folders)
         else:
             folders = path.split(',')
 
@@ -928,7 +928,6 @@ class JRODataReader(Reader):
         self.lastUTTime = self.basicHeaderObj.utc
 
         self.flagDiscontinuousBlock = 0
-
         if deltaTime > self.maxTimeStep:
             self.flagDiscontinuousBlock = 1
 

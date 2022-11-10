@@ -945,6 +945,7 @@ class SpectraAFCProc(ProcessingUnit):
             #data        =  numpy.fft.ifft(data, axis=1, n = 32)
             #data        =  numpy.fft.fftshift( data, axes=(1,))
             #acf         =  numpy.abs(data)
+            #print("data", data[0,0,0])
             acf = data[:,:16,:]
             #acf = data[:,16:,:]
             #print("SUM: ",numpy.sum(acf))

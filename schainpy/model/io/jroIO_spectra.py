@@ -75,7 +75,7 @@ class SpectraReader(JRODataReader, ProcessingUnit):
 
         self.pts2read_SelfSpectra = 0
         self.pts2read_CrossSpectra = 0
-        self.pts2read_DCchannels = 0        
+        self.pts2read_DCchannels = 0
         self.ext = ".pdata"
         self.optchar = "P"
         self.basicHeaderObj = BasicHeader(LOCALTIME)
@@ -162,7 +162,7 @@ class SpectraReader(JRODataReader, ProcessingUnit):
         Exceptions:
             Si un bloque leido no es un bloque valido
         """
-        
+
         fpointer = self.fp.tell()
 
         spc = numpy.fromfile( self.fp, self.dtype[0], self.pts2read_SelfSpectra )
@@ -364,7 +364,7 @@ class SpectraWriter(JRODataWriter, Operation):
         data.tofile(self.fp)
 
         if self.data_cspc is not None:
-            
+
             cspc = numpy.transpose( self.data_cspc, (0,2,1) )
             data = numpy.zeros( numpy.shape(cspc), self.dtype )
             #print 'data.shape', self.shape_cspc_Buffer
@@ -376,7 +376,7 @@ class SpectraWriter(JRODataWriter, Operation):
             data.tofile(self.fp)
 
         if self.data_dc is not None:
-            
+
             dc = self.data_dc
             data = numpy.zeros( numpy.shape(dc), self.dtype )
             data['real'] = dc.real

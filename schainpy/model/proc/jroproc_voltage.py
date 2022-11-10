@@ -2543,12 +2543,11 @@ class CleanCohEchoes(Operation):
                 dataOut.flagSpreadF = True
 
         #Removing echoes greater than 35 dB
-        if isinstance(dataOut.pbn, collections.abc.Sequence):
-            maxdB = 10*numpy.log10(dataOut.pbn[0]) + 10 #Lag 0 NOise
+        if hasattr(dataOut.pbn, "__len__"):
+            maxdB = 10*numpy.log10(dataOut.pbn[0]) + 10 #Lag 0 Noise
         else:
-            maxdB = 10*numpy.log10(dataOut.pbn) + 10 #Lag 0 NOise
-        #maxdB = 35 #DEBERÍA SER NOISE+ALGO!!!!!!!!!!!!!!!!!!!!!!
-        #print("noise: ",maxdB - 10)
+            maxdB = 10*numpy.log10(dataOut.pbn) + 10
+
         #print(dataOut.kabxys_integrated[6][:,0,0])
         data = numpy.copy(10*numpy.log10(dataOut.kabxys_integrated[6][:,0,0])) #Lag0 ChB
         #print("data: ",data)
@@ -3052,8 +3051,8 @@ class NoisePower(Operation):
             dataOut.pnoise[i]=dataOut.pnoise[i]/dataOut.DPL
 
 
-        dataOut.pan=1.0*dataOut.pnoise[0] # weights could change
-        dataOut.pbn=1.0*dataOut.pnoise[1] # weights could change
+        dataOut.pan=.8*dataOut.pnoise[0] # weights could change
+        dataOut.pbn=.8*dataOut.pnoise[1] # weights could change
         '''
         print("pan: ",dataOut.pan)
         print("pbn: ",dataOut.pbn)
@@ -3107,11 +3106,12 @@ class DoublePulseACFs(Operation):
         panrm=numpy.zeros((dataOut.NDP,dataOut.DPL), dtype=float)
 
         id = numpy.where(dataOut.heightList>700)[0]
-
+        #print("kabxys: ", numpy.shape(dataOut.kabxys_integrated))
         for i in range(dataOut.NDP):
             for j in range(dataOut.DPL):
                 #################  Total power
                 pa=numpy.abs(dataOut.kabxys_integrated[4][i,j,0]+dataOut.kabxys_integrated[5][i,j,0])
+                #print("pa::",pa)
                 pb=numpy.abs(dataOut.kabxys_integrated[6][i,j,0]+dataOut.kabxys_integrated[7][i,j,0])
                 st4=pa*pb
 
@@ -3200,17 +3200,19 @@ class DoublePulseACFs(Operation):
         exit(1)
         '''
         #print(pa)
+        #print("pa: ", numpy.shape(pa))
+        #print(numpy.shape(dataOut.heightList))
         '''
         import matplotlib.pyplot as plt
-        #plt.plot(dataOut.p[:,-1],dataOut.heightList)
-        plt.plot(pa/dataOut.pan-1.,dataOut.heightList)
-        plt.plot(pb/dataOut.pbn-1.,dataOut.heightList)
+        plt.plot(dataOut.p[:,-1],dataOut.heightList)
+        #plt.plot(pa/dataOut.pan-1.,dataOut.heightList)
+        #plt.plot(pb/dataOut.pbn-1.,dataOut.heightList)
         plt.grid()
-        #plt.xlim(0,1e5)
+        plt.xlim(0,1e5)
         plt.show()
         #print("p: ",dataOut.p[33,:])
         #exit(1)
-        '''
+        #'''
         #print(numpy.sum(dataOut.rhor))
         #exit(1)
         return dataOut
@@ -3346,7 +3348,7 @@ class DoublePulseACFs_PerLag(Operation):
         exit(1)
         '''
         #print(pa)
-        '''
+        #'''
         import matplotlib.pyplot as plt
         #plt.plot(dataOut.p[:,-1],dataOut.heightList)
         plt.plot(pa/dataOut.pan-1.,dataOut.heightList)
@@ -3356,7 +3358,7 @@ class DoublePulseACFs_PerLag(Operation):
         plt.show()
         #print("p: ",dataOut.p[33,:])
         #exit(1)
-        '''
+        #'''
         return dataOut
 
 class FaradayAngleAndDPPower(Operation):
@@ -3446,6 +3448,7 @@ class FaradayAngleAndDPPower(Operation):
 
         dataOut.flagTeTiCorrection = False
         #print(dataOut.ph2)
+
         #exit(1)
 
         return dataOut
@@ -3519,10 +3522,11 @@ class ElectronDensityFaraday(Operation):
         #exit(1)
         '''
         import matplotlib.pyplot as plt
-        plt.plot(dataOut.bki)
+        plt.plot(dataOut.phi,dataOut.heightList)
         plt.show()
         '''
-
+        #print(dataOut.bki)
+        print(dataOut.NDP)
         for i in range(2,dataOut.NSHTS-2):
             fact=(-0.5/(dataOut.RATE*dataOut.DH))*dataOut.bki[i]
             #four-point derivative, no phase unwrapping necessary
@@ -3535,8 +3539,15 @@ class ElectronDensityFaraday(Operation):
             dataOut.dphi[i]=abs(dataOut.dphi[i]*fact)
             dataOut.sdn1[i]=(4.*(dataOut.sdn2[i-2]+dataOut.sdn2[i+2])+dataOut.sdn2[i-1]+dataOut.sdn2[i+1])
             dataOut.sdn1[i]=numpy.sqrt(dataOut.sdn1[i])*fact
+        '''
         #print(dataOut.dphi)
         #exit(1)
+        import matplotlib.pyplot as plt
+        plt.plot(dataOut.dphi,dataOut.heightList)
+        plt.grid()
+        plt.xlim(0,1e7)
+        plt.show()
+        '''
         return dataOut
 
 
@@ -3962,6 +3973,7 @@ class NormalizeDPPowerRoberto_V2(Operation):
         #print(dataOut.ph2)
         #input()
         #  in case of spread F, normalize much higher
+        #print("dens: ", dataOut.dphi,dataOut.ph2)
         if(dataOut.cf<dataOut.cflast[0]/10.0):
             i1=(night_first1+100.-dataOut.range1[0])/dataOut.DH
             i2=(night_end+100.0-dataOut.range1[0])/dataOut.DH
@@ -3977,21 +3989,22 @@ class NormalizeDPPowerRoberto_V2(Operation):
         #'''
         #if (time_text.hour == 5 and time_text.minute == 32): #Year: 2022, DOY:104
         #if (time_text.hour == 0 and time_text.minute == 12): #Year: 2022, DOY:93
-        #if (time_text.hour == 0 and time_text.minute == 22) or (time_text.hour == 0 and time_text.minute == 54) or (time_text.hour == 1 and time_text.minute == 48): #Year: 2022, DOY:242
+        if (time_text.hour == 0 and time_text.minute == 22) or (time_text.hour == 0 and time_text.minute == 54) or (time_text.hour == 1 and time_text.minute == 48): #Year: 2022, DOY:242
         #if (time_text.hour == 1 and time_text.minute == 23) or (time_text.hour == 1 and time_text.minute == 44): #Year: 2022, DOY:243
-        if (time_text.hour == 0 and time_text.minute == 4): #Year: 2022, DOY:244
             dataOut.cf = dataOut.cflast[0]
+        #if (time_text.hour == 0 and time_text.minute == 4): #Year: 2022, DOY:244
             #dataOut.cf = 0.08
             #print("here")
-        if (time_text.hour == 2 and time_text.minute == 23): #Year: 2022, DOY:244
-            dataOut.cf = 0.08
-        if (time_text.hour == 2 and time_text.minute == 33): #Year: 2022, DOY:244
-            dataOut.cf = 0.09
-        if (time_text.hour == 3 and time_text.minute == 59) or (time_text.hour == 4 and time_text.minute == 20): #Year: 2022, DOY:244
-            dataOut.cf = 0.09
+        #if (time_text.hour == 2 and time_text.minute == 23): #Year: 2022, DOY:244
+            #dataOut.cf = 0.08
+        #if (time_text.hour == 2 and time_text.minute == 33): #Year: 2022, DOY:244
+            #dataOut.cf = 0.09
+        #if (time_text.hour == 3 and time_text.minute == 59) or (time_text.hour == 4 and time_text.minute == 20): #Year: 2022, DOY:244
+            #dataOut.cf = 0.09
             #'''
+
         dataOut.cflast[0]=dataOut.cf
-        #print(dataOut.cf)
+        print("cf: ", dataOut.cf)
 
         #print(dataOut.ph2)
         #print(dataOut.sdp2)
@@ -4337,30 +4350,41 @@ class DenCorrection(NormalizeDPPowerRoberto_V2):
         plt.title("{}".format(datetime.datetime.fromtimestamp(dataOut.utctime)))
         plt.xlim(.99,3)
         plt.grid()
-        plt.savefig("/home/roberto/Pictures/Density_Comparison/TeTi_from_temps/{}.png".format(dataOut.utctime))
+        plt.savefig("/home/roberto/Pictures/Density_Comparison/V2/TeTi_from_temps/{}.png".format(dataOut.utctime))
         '''
-
+        #dataOut.ti2 *= 5
         my_te2 = dataOut.ti2*ratio2
         #'''
+
+        te2_aux = dataOut.te2.copy()
+        te2_aux[26:] = 1000
+        te2_aux[:12] = 1000
+        te2_aux -= 1000
         def func(params):
-            return (dataOut.te2-self.gaussian(dataOut.heightList[:dataOut.NSHTS],params[0],params[1],params[2]))
-        x0_value = numpy.array([2000,250,20])
+            #return (dataOut.te2-self.gaussian(dataOut.heightList[:dataOut.NSHTS],params[0],params[1],params[2]))
+            return (te2_aux-self.gaussian(dataOut.heightList[:dataOut.NSHTS],params[0],params[1],params[2]))
+        x0_value = numpy.array([1000,250,20])
         popt = least_squares(func,x0=x0_value,verbose=0)
         A = popt.x[0]; B = popt.x[1]; C = popt.x[2]
-        te2_smooth = self.gaussian(dataOut.heightList[:dataOut.NSHTS], A, B, C)
+        te2_smooth = self.gaussian(dataOut.heightList[:dataOut.NSHTS], A, B, C)+1000
+        te2_aux += 1000
         #'''
-
+        ti2_smooth = te2_smooth/ratio2
         '''
         import matplotlib.pyplot as plt
         plt.clf()
         plt.plot(te2_smooth,dataOut.heightList[:dataOut.NSHTS],'*-',label = 'My Te')
+        plt.plot(ti2_smooth,dataOut.heightList[:dataOut.NSHTS],'*-',label = 'My Ti')
         plt.plot(dataOut.te2,dataOut.heightList[:dataOut.NSHTS],'*-',label = 'Te')
+        plt.plot(te2_aux,dataOut.heightList[:dataOut.NSHTS],'*-',label = 'Te_aux')
+        plt.plot(ratio2*1000,dataOut.heightList[:dataOut.NSHTS],'*-',label = 'ratio*1000')
         #plt.plot(signal.medfilt(dataOut.te2),dataOut.heightList[:dataOut.NSHTS],'*-',label = 'Te')
         plt.title("{}".format(datetime.datetime.fromtimestamp(dataOut.utctime)))
         plt.xlim(-50,3000)
         plt.grid()
         plt.legend()
-        plt.savefig("/home/roberto/Pictures/Density_Comparison/Te/{}.png".format(dataOut.utctime))
+        plt.savefig("/home/roberto/Pictures/Density_Comparison/V3/Temps+{}.png".format(dataOut.utctime))
+        #plt.show()
         '''
         #print("**** ACF2 WRAPPER ***** ",fitacf_acf2.acf2.__doc__ )
 
@@ -4370,18 +4394,21 @@ class DenCorrection(NormalizeDPPowerRoberto_V2):
                 nue=nui[0]=nui[1]=nui[2]=0.0#nui[3]=0.0
                 wion[0]=16 #O
                 wion[1]=1 #H
-                wion[2]=4
-                tion[0]=tion[1]=tion[2]=dataOut.ti2[i]
+                wion[2]=4 #He
+                #tion[0]=tion[1]=tion[2]=dataOut.ti2[i]
+                tion[0]=tion[1]=tion[2]=ti2_smooth[i]
                 fion[0]=1.0-dataOut.phy2[i] #1
                 fion[1]=dataOut.phy2[i] #0
                 fion[2]=0.0 #0
                 for j in range(dataOut.DPL):
                     tau=dataOut.alag[j]*1.0e-3
 
-                    with suppress_stdout_stderr():
+                    with suppress_stdout_stderr():#The smoothness in range of "y" depends on the smoothness of the input parameters
                         y[j]=fitacf_acf2.acf2(wl,tau,dataOut.te2[i],tion,fion,nue,nui,wion,angle,dataOut.ph2[i],dataOut.bfm[i],y[j],three)
-                        #y[j]=fitacf_acf2.acf2(wl,tau,my_te2[i],tion,fion,nue,nui,wion,angle,dataOut.ph2[i],dataOut.bfm[i],y[j],three)
+                        #y[j]=fitacf_acf2.acf2(wl,tau,te2_smooth[i],tion,fion,nue,nui,wion,angle,dataOut.ph2[i],dataOut.bfm[i],y[j],three)
 
+                    #y[j]=fitacf_acf2.acf2(wl,tau,my_te2[i],tion,fion,nue,nui,wion,angle,dataOut.ph2[i],dataOut.bfm[i],y[j],three)
+                    #exit(1)
                 #if dataOut.ut_Faraday>11.0 and dataOut.range1[i]>150.0 and dataOut.range1[i]<400.0:
 
                 if dataOut.ut_Faraday>11.0 and dataOut.range1[i]>150.0 and dataOut.range1[i]<300.0:
@@ -4419,7 +4446,7 @@ class DenCorrection(NormalizeDPPowerRoberto_V2):
         '''
         import matplotlib.pyplot as plt
         plt.clf()
-        plt.plot(aux,dataOut.heightList[:dataOut.NSHTS],'*:',label='Fitting')
+        #plt.plot(aux,dataOut.heightList[:dataOut.NSHTS],'*:',label='Fitting')
         plt.plot(my_aux,dataOut.heightList[:dataOut.NSHTS],'*:',label='Ratio')
         #plt.plot(acf_Temps,dataOut.heightList[:dataOut.NSHTS],'b*:',label='Temps')
         #plt.plot(acf_no_Temps,dataOut.heightList[:dataOut.NSHTS],'k*:',label='No Temps')
@@ -4431,7 +4458,9 @@ class DenCorrection(NormalizeDPPowerRoberto_V2):
         #plt.xlim(.99,1.25)
         #plt.show()
         #plt.savefig("/home/roberto/Pictures/Density_Comparison/FactorEf_NoLimits/{}.png".format(dataOut.utctime))
-        plt.savefig("/home/roberto/Pictures/Faraday/2022/08/Density_Comparison/FactorEf/{}.png".format(dataOut.utctime))
+        #plt.savefig("/home/roberto/Pictures/Density_Comparison/V2/TeTi_cte/Te2/{}.png".format(dataOut.utctime))
+        #plt.savefig("/home/roberto/Pictures/Density_Comparison/V2/bline/Te2/{}.png".format(dataOut.utctime))
+        plt.savefig("/home/roberto/Pictures/Density_Comparison/V3/{}.png".format(dataOut.utctime))
         #plt.savefig("/home/roberto/Pictures/Faraday_TeTi_Test/Ratio/{}.png".format(dataOut.utctime))
         '''
         #print("inside correction",dataOut.ph2)
@@ -4775,10 +4804,10 @@ class DataSaveCleaner(Operation):
 
         #print(time_text.hour,time_text.minute)
         #if (time_text.hour == 16 and time_text.minute==48) or (time_text.hour == 19 and time_text.minute ==49 ) or (time_text.hour >= 0 and time_text.hour < 5): #Year: 2022, DOY:241
-        #if (time_text.hour == 5 and time_text.minute==21) or (time_text.hour == 19 and time_text.minute ==49 ) or (time_text.hour == 7 and time_text.minute==40) or (time_text.hour == 7 and time_text.minute==50) or (time_text.hour >= 8 and time_text.hour < 11) or (time_text.hour == 11 and time_text.minute==2) or (time_text.hour == 11 and time_text.minute==13): #Year: 2022, DOY:242
+        if (time_text.hour == 5 and time_text.minute==21) or (time_text.hour == 19 and time_text.minute ==49 ) or (time_text.hour == 7 and time_text.minute==40) or (time_text.hour == 7 and time_text.minute==50) or (time_text.hour >= 8 and time_text.hour < 11) or (time_text.hour == 11 and time_text.minute==2) or (time_text.hour == 11 and time_text.minute==13): #Year: 2022, DOY:242
         #if (time_text.hour >= 8 and time_text.hour < 11) or (time_text.hour == 11 and time_text.minute==2) or (time_text.hour == 11 and time_text.minute==13) or (time_text.hour == 11 and time_text.minute==24): #Year: 2022, DOY:243
         #if (time_text.hour >= 9 and time_text.hour < 11) or (time_text.hour == 8 and time_text.minute==12) or (time_text.hour == 8 and time_text.minute==22) or (time_text.hour == 8 and time_text.minute==33) or (time_text.hour == 8 and time_text.minute==44) or (time_text.hour == 8 and time_text.minute==54) or (time_text.hour == 11 and time_text.minute==2) or (time_text.hour == 11 and time_text.minute==13): #Year: 2022, DOY:245
-        if (time_text.hour >= 8 and time_text.hour < 11) or (time_text.hour == 1) or (time_text.hour == 0 and time_text.minute==25) or (time_text.hour == 0 and time_text.minute==36) or (time_text.hour == 0 and time_text.minute==47) or (time_text.hour == 0 and time_text.minute==57) or (time_text.hour == 2 and time_text.minute==1) or (time_text.hour == 11 and time_text.minute==2) or (time_text.hour == 11 and time_text.minute==13) or (time_text.hour == 11 and time_text.minute==24) or (time_text.hour == 7 and time_text.minute==40) or (time_text.hour == 7 and time_text.minute==50) or (time_text.hour == 3 and time_text.minute==5): #Year: 2022, DOY:244
+        #if (time_text.hour >= 8 and time_text.hour < 11) or (time_text.hour == 1) or (time_text.hour == 0 and time_text.minute==15) or (time_text.hour == 0 and time_text.minute==25) or (time_text.hour == 0 and time_text.minute==36) or (time_text.hour == 0 and time_text.minute==47) or (time_text.hour == 0 and time_text.minute==57) or (time_text.hour == 2 and time_text.minute==1) or (time_text.hour == 11 and time_text.minute==2) or (time_text.hour == 11 and time_text.minute==13) or (time_text.hour == 11 and time_text.minute==24) or (time_text.hour == 7 and time_text.minute==40) or (time_text.hour == 7 and time_text.minute==50) or (time_text.hour == 3 and time_text.minute==5) or (time_text.hour == 3 and time_text.minute==16) or (time_text.hour == 3 and time_text.minute==27): #Year: 2022, DOY:244
 
             dataOut.DensityFinal[0,:]=missing
             dataOut.EDensityFinal[0,:]=missing
@@ -4813,7 +4842,17 @@ class DataSaveCleaner(Operation):
             dataOut.EIonTempFinal[0,id_aux:]=missing
             dataOut.PhyFinal[0,id_aux:]=missing
             dataOut.EPhyFinal[0,id_aux:]=missing
-        if (time_text.hour == 20 and time_text.minute == 29) or (time_text.hour == 20 and time_text.minute == 44): #Year: 2022, DOY:243
+        if (time_text.hour == 20 and time_text.minute == 29): #Year: 2022, DOY:243
+            id_aux = 30
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 20 and time_text.minute == 44): #Year: 2022, DOY:243
             id_aux = 31
             dataOut.DensityFinal[0,id_aux:]=missing
             dataOut.EDensityFinal[0,id_aux:]=missing
@@ -4823,8 +4862,187 @@ class DataSaveCleaner(Operation):
             dataOut.EIonTempFinal[0,id_aux:]=missing
             dataOut.PhyFinal[0,id_aux:]=missing
             dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour <= 8): #Year: 2022, DOY:243
+            id_aux = 11
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 23): #Year: 2022, DOY:243
+            id_aux = 12
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute == 21): #Year: 2022, DOY:243
+            id_aux = (36,37)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute == 53): #Year: 2022, DOY:243
+            id_aux = (37,38)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 6 and time_text.minute == 4): #Year: 2022, DOY:243
+            id_aux = (38,39)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 12 and time_text.minute == 6): #Year: 2022, DOY:243
+            id_aux = (29,30)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 14 and time_text.minute == 14): #Year: 2022, DOY:243
+            id_aux = (35,36)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 23 and time_text.minute == 2): #Year: 2022, DOY:243
+            id_aux = (41,42)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 0 and time_text.minute == 8): #Year: 2022, DOY:243
+            id_aux = 33
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+            id_aux = 18
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 23 and time_text.minute == 26): #Year: 2022, DOY:243
+            id_aux = (12,13,14)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 23 and time_text.minute == 36): #Year: 2022, DOY:243
+            id_aux = (14,15,16)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 2 and time_text.minute == 6): #Year: 2022, DOY:243
+            id_aux = (36,37,38)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 2 and time_text.minute == 16): #Year: 2022, DOY:243
+            id_aux = (34,35)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 2 and time_text.minute == 38): #Year: 2022, DOY:243
+            id_aux = (35,36)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 3 and time_text.minute == 20): #Year: 2022, DOY:243
+            id_aux = (33,34)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 3 and time_text.minute == 42): #Year: 2022, DOY:243
+            id_aux = 34
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 4 and time_text.minute == 35): #Year: 2022, DOY:243
+            id_aux = (36,37)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
             '''
-        #'''
+        '''
         if (time_text.hour == 2 and time_text.minute == 23): #Year: 2022, DOY:244
             id_aux = 12
             dataOut.DensityFinal[0,:id_aux]=missing
@@ -4905,8 +5123,358 @@ class DataSaveCleaner(Operation):
             dataOut.EIonTempFinal[0,id_aux:]=missing
             dataOut.PhyFinal[0,id_aux:]=missing
             dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour <= 8): #Year: 2022, DOY:244
+            id_aux = 12
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 23): #Year: 2022, DOY:244
+            id_aux = 12
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute == 42): #Year: 2022, DOY:244
+            id_aux = (32,33)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 11 and time_text.minute == 56): #Year: 2022, DOY:244
+            id_aux = (39,40)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 12 and time_text.minute == 52): #Year: 2022, DOY:244
+            id_aux = (36,37)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 13 and time_text.minute == 3): #Year: 2022, DOY:244
+            id_aux = (37,38)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 23 and time_text.minute == 11): #Year: 2022, DOY:244
+            id_aux = (40,41)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 23 and time_text.minute == 21): #Year: 2022, DOY:244
+            id_aux = (12,13,39,40,41)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 23 and time_text.minute == 53): #Year: 2022, DOY:244
+            id_aux = (15,16,17,18)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 2 and time_text.minute == 44): #Year: 2022, DOY:244
+            id_aux = (40,41,42)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 3 and time_text.minute == 37): #Year: 2022, DOY:244
+            id_aux = (36,37)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 4 and time_text.minute == 9): #Year: 2022, DOY:244
+            id_aux = (32,33,34)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 4 and time_text.minute == 20): #Year: 2022, DOY:244
+            id_aux = 37
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 4 and time_text.minute == 31): #Year: 2022, DOY:244
+            id_aux = 33
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+            '''
+        '''
+        if (time_text.hour <= 10): #Year: 2022, DOY:245
+            id_aux = 11
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute == 10): #Year: 2022, DOY:245
+            id_aux = 35
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 5 and time_text.minute == 21): #Year: 2022, DOY:245
+            id_aux = 36
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 11 and time_text.minute == 45): #Year: 2022, DOY:245
+            id_aux = 7
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+            '''
+        '''
+        if (time_text.hour == 23 and time_text.minute > 30): #Year: 2022, DOY:241
+            id_aux = 17
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+
+        if (time_text.hour == 13 and time_text.minute == 36): #Year: 2022, DOY:241
+            id_aux = 33
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 13 and time_text.minute == 47): #Year: 2022, DOY:241
+            id_aux = 36
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+
+        if (time_text.hour == 13 and time_text.minute == 57): #Year: 2022, DOY:241
+            id_aux = 36
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+            '''
+        #'''
+        #print("den: ", dataOut.DensityFinal[0,27])
+        if (time_text.hour == 5 and time_text.minute == 42): #Year: 2022, DOY:242
+            id_aux = 16
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute == 53): #Year: 2022, DOY:242
+            id_aux = 9
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 6): #Year: 2022, DOY:242
+            id_aux = 9
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 6 and time_text.minute == 36): #Year: 2022, DOY:242
+            id_aux = (10,36,37)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 7): #Year: 2022, DOY:242
+            id_aux = 9
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 13 and time_text.minute == 32): #Year: 2022, DOY:242
+            id_aux = (36,37)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 23 or time_text.hour <= 4): #Year: 2022, DOY:242
+            id_aux = 15
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 3 and time_text.minute == 13): #Year: 2022, DOY:242
+            id_aux = (37,38)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 3 and time_text.minute == 34): #Year: 2022, DOY:242
+            id_aux = (35,36)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 4 and time_text.minute == 17): #Year: 2022, DOY:242
+            id_aux = (34,35)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 18 and time_text.minute == 30): #Year: 2022, DOY:242
+            id_aux = (26,27)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 14 and time_text.minute == 14): #Year: 2022, DOY:242
+            id_aux = (35,36)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
             #'''
         #print("den_final",dataOut.DensityFinal)
+
 
         dataOut.flagNoData = numpy.all(numpy.isnan(dataOut.DensityFinal)) #Si todos los valores son NaN no se prosigue
 
@@ -4914,7 +5482,8 @@ class DataSaveCleaner(Operation):
 
         dataOut.DensityFinal *= 1.e6 #Convert units to m^⁻3
         dataOut.EDensityFinal *= 1.e6 #Convert units to m^⁻3
-        #print(dataOut.flagNoData)
+        print("Save Cleaner: ", dataOut.flagNoData)
+        #print("den: ", dataOut.DensityFinal[0,27])
         return dataOut
 
 
@@ -5703,6 +6272,8 @@ class SSheightProfiles(Operation):
         #print(numpy.shape(dataOut.data))
         #exit(1)
         #print(dataOut.data[0,:,150])
+        #exit(1)
+        #print(dataOut.data[0,:,0]*numpy.conjugate(dataOut.data[0,0,0]))
         #exit(1)
 
         return dataOut
@@ -6905,6 +7476,7 @@ class CrossProdHybrid(CrossProdDP):
             #self.dataOut.nptsfft2=150
             self.cnorm=float((dataOut.nProfiles-dataOut.NSCAN)/dataOut.NSCAN)
             self.lagp0=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NAVG),'complex128')
+            ww=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NSCAN,dataOut.NAVG),'complex128')
             self.lagp1=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NAVG),'complex128')
             self.lagp2=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NAVG),'complex128')
             self.lagp3=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NAVG),'complex128')
@@ -6927,6 +7499,7 @@ class CrossProdHybrid(CrossProdDP):
                     #exit(1)
                     if i==0:
                         self.lagp0[n][j][self.bcounter-1]=numpy.sum(c[:dataOut.NSCAN])
+                        ww[n,j,:,self.bcounter-1]=c[:dataOut.NSCAN]
                         self.lagp3[n][j][self.bcounter-1]=numpy.sum(c[dataOut.NSCAN:]/self.cnorm)
                     elif i==1:
                         self.lagp1[n][j][self.bcounter-1]=numpy.sum(c[:dataOut.NSCAN])
@@ -6945,6 +7518,9 @@ class CrossProdHybrid(CrossProdDP):
         #print(sum(self.buffer[3,:,199,2]))
         #print(self.cnorm)
         #exit(1)
+        #print("self,lagp0: ", self.lagp0[0,0,self.bcounter-1])
+        print(ww[:,0,0,self.bcounter-1])
+        exit(1)
 
 
     def LP_median_estimates_original(self,dataOut):
@@ -6955,7 +7531,7 @@ class CrossProdHybrid(CrossProdDP):
                 self.output=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NR),'complex128')
                 self.lag_products_LP_median_estimates_aux=0
 
-
+                #print("self,lagp0: ", numpy.sum(self.lagp0[0,0,:]))
             for i in range(dataOut.NLAG):
                 for j in range(dataOut.NRANGE):
                     for l in range(4): #four outputs
@@ -6995,7 +7571,7 @@ class CrossProdHybrid(CrossProdDP):
             if self.lag_products_LP_median_estimates_aux==1:
                 self.output=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NR),'complex128')
                 self.lag_products_LP_median_estimates_aux=0
-
+                #print("self,lagp0: ", numpy.sum(self.lagp0[0,0,:]))
 
             for i in range(dataOut.NLAG):
             #my_list = ([0,1,2,3,4,5,6,7]) #hasta 7 funciona, en 6 ya no
@@ -7388,12 +7964,12 @@ class LongPulseAnalysis(Operation):
             self.aux=0
 
         dataOut.cut=30
-        for i in range(30,15,-1):
+        for i in range(30,15,-1): #Aquí se calcula en donde se unirá DP y LP en la parte final
             if numpy.nanmax(dataOut.acfs_error_to_plot[i,:])>=10 or dataOut.info2[i]==0:
                 dataOut.cut=i-1
 
         for i in range(dataOut.NLAG):
-            self.cal[i]=sum(dataOut.output_LP_integrated[i,:,3].real)
+            self.cal[i]=sum(dataOut.output_LP_integrated[i,:,3].real) #Lag x Height x Channel
 
         #print(numpy.sum(self.cal)) #Coinciden
         #exit(1)
@@ -7401,7 +7977,18 @@ class LongPulseAnalysis(Operation):
         #print(anoise0)
         #print(anoise1)
         #exit(1)
-
+        print("nis: ", dataOut.nis)
+        print("pan: ", dataOut.pan)
+        print("pbn: ", dataOut.pbn)
+        #print(numpy.sum(dataOut.output_LP_integrated[0,:,0]))
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(dataOut.output_LP_integrated[:,40,0])
+        plt.show()
+        '''
+        #print(dataOut.output_LP_integrated[0,40,0])
+        print(numpy.sum(dataOut.output_LP_integrated[:,0,0]))
+        exit(1)
 
         #################### PROBAR MÁS INTEGRACIÓN, SINO MODIFICAR VALOR DE "NIS" ####################
                                     # VER dataOut.nProfiles_LP #
@@ -7427,7 +8014,7 @@ class LongPulseAnalysis(Operation):
             for i in range(1,dataOut.NLAG):  #remove cal data from certain lags
                  dataOut.output_LP_integrated.real[i,j,0]-=self.cal[i]
             k=max(j,26)   #constant power below range 26
-            self.powera[j]=dataOut.output_LP_integrated.real[0,k,0]
+            self.powera[j]=dataOut.output_LP_integrated.real[0,k,0] #Lag0 and Channel 0
 
             ## examine drifts here - based on 60 'indep.' estimates
         #print(numpy.sum(self.powera))
@@ -7520,7 +8107,7 @@ class LongPulseAnalysis(Operation):
         self.perror[:range2_nnls]=1.00/self.perror[:range2_nnls]
 
         b_nnlswrap=numpy.zeros(range2_nnls,'float64')
-        b_nnlswrap[:]=numpy.matmul(self.powera[dataOut.IBITS+ioff:range1_nnls+dataOut.IBITS+ioff],g_nnlswrap)
+        b_nnlswrap[:]=numpy.matmul(self.powera[dataOut.IBITS+ioff:range1_nnls+dataOut.IBITS+ioff],g_nnlswrap) #match filter alturas
 
         x_nnlswrap=numpy.zeros(range2_nnls,'float64')
         x_nnlswrap[:]=nnls(a_nnlswrap,b_nnlswrap)[0]
@@ -7630,10 +8217,309 @@ class LongPulseAnalysis(Operation):
         exit(1)
         '''
         print("Success")
+        ###################Correlation pulse and itself
+
         #print(dataOut.NRANGE)
         with suppress_stdout_stderr():
             #pass
             full_profile_profile.profile(numpy.transpose(dataOut.output_LP_integrated,(2,1,0)),numpy.transpose(dataOut.errors),self.powerb,dataOut.ne,dataOut.lags_LP,dataOut.thb,dataOut.bfm,dataOut.te,dataOut.ete,dataOut.ti,dataOut.eti,dataOut.ph,dataOut.eph,dataOut.phe,dataOut.ephe,dataOut.range1,dataOut.ut,dataOut.NACF,dataOut.fit_array_real,dataOut.status,dataOut.NRANGE,dataOut.IBITS)
+
+        print("status: ",dataOut.status)
+
+        if dataOut.status>=3.5:
+            dataOut.te[:]=numpy.nan
+            dataOut.ete[:]=numpy.nan
+            dataOut.ti[:]=numpy.nan
+            dataOut.eti[:]=numpy.nan
+            dataOut.ph[:]=numpy.nan
+            dataOut.eph[:]=numpy.nan
+            dataOut.phe[:]=numpy.nan
+            dataOut.ephe[:]=numpy.nan
+
+        return dataOut
+
+class LongPulseAnalysisSpectra(Operation):
+    """Operation to estimate ACFs, temperatures, total electron density and Hydrogen/Helium fractions from the Long Pulse data.
+
+    Parameters:
+    -----------
+    NACF : int
+        .*
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='LongPulseAnalysis', optype='other')
+    op.addParameter(name='NACF', value='16', format='int')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+        self.aux=1
+
+    def run(self,dataOut,NACF):
+
+        dataOut.NACF=NACF
+        dataOut.heightList=dataOut.DH*(numpy.arange(dataOut.NACF))
+        anoise0=dataOut.tnoise[0]
+        anoise1=anoise0*0.0       #seems to be noise in 1st lag 0.015 before '14
+        #print(anoise0)
+        #exit(1)
+        if self.aux:
+            #dataOut.cut=31#26#height=31*15=465
+            self.cal=numpy.zeros((dataOut.NLAG),'float32')
+            self.drift=numpy.zeros((200),'float32')
+            self.rdrift=numpy.zeros((200),'float32')
+            self.ddrift=numpy.zeros((200),'float32')
+            self.sigma=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
+            self.powera=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
+            self.powerb=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
+            self.perror=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
+            dataOut.ene=numpy.zeros((dataOut.NRANGE),'float32')
+            self.dpulse=numpy.zeros((dataOut.NACF),'float32')
+            self.lpulse=numpy.zeros((dataOut.NACF),'float32')
+            dataOut.lags_LP=numpy.zeros((dataOut.IBITS),order='F',dtype='float32')
+            self.lagp=numpy.zeros((dataOut.NACF),'float32')
+            self.u=numpy.zeros((2*dataOut.NACF,2*dataOut.NACF),'float32')
+            dataOut.ne=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
+            dataOut.te=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.ete=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.ti=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.eti=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.ph=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.eph=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.phe=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.ephe=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.errors=numpy.zeros((dataOut.IBITS,max(dataOut.NRANGE,dataOut.NSHTS)),order='F',dtype='float32')
+            dataOut.fit_array_real=numpy.zeros((max(dataOut.NRANGE,dataOut.NSHTS),dataOut.NLAG),order='F',dtype='float32')
+            dataOut.status=numpy.zeros(1,'float32')
+            dataOut.tx=240.0 #debería provenir del header #hybrid
+
+            for i in range(dataOut.IBITS):
+                dataOut.lags_LP[i]=float(i)*(dataOut.tx/150.0)/float(dataOut.IBITS) # (float)i*(header.tx/150.0)/(float)IBITS;
+
+            self.aux=0
+
+        dataOut.cut=30
+        for i in range(30,15,-1): #Aquí se calcula en donde se unirá DP y LP en la parte final
+            if numpy.nanmax(dataOut.acfs_error_to_plot[i,:])>=10 or dataOut.info2[i]==0:
+                dataOut.cut=i-1
+
+        for i in range(dataOut.NLAG):
+            self.cal[i]=sum(dataOut.output_LP_integrated[i,:,3].real) #Lag x Height x Channel
+
+        #print(numpy.sum(self.cal)) #Coinciden
+        #exit(1)
+        self.cal/=float(dataOut.NRANGE)
+
+
+        #################### PROBAR MÁS INTEGRACIÓN, SINO MODIFICAR VALOR DE "NIS" ####################
+                                    # VER dataOut.nProfiles_LP #
+
+        '''
+        #PLOTEAR POTENCIA VS RUIDO, QUIZA SE ESTA REMOVIENDO MUCHA SEÑAL
+        #print(dataOut.heightList)
+        import matplotlib.pyplot as plt
+        plt.plot(10*numpy.log10(dataOut.output_LP_integrated.real[0,:,0]),dataOut.range1)
+        #plt.plot(10*numpy.log10(dataOut.output_LP_integrated.real[0,:,0]/dataOut.nProfiles_LP),dataOut.range1)
+        plt.axvline(10*numpy.log10(anoise0),color='k',linestyle='dashed')
+        plt.grid()
+        plt.xlim(20,100)
+        plt.show()
+        '''
+
+
+        for j in range(dataOut.NACF+2*dataOut.IBITS+2):
+
+            dataOut.output_LP_integrated.real[0,j,0]-=anoise0   #lag0 ch0
+            dataOut.output_LP_integrated.real[1,j,0]-=anoise1   #lag1 ch0
+
+            for i in range(1,dataOut.NLAG):  #remove cal data from certain lags
+                 dataOut.output_LP_integrated.real[i,j,0]-=self.cal[i]
+            k=max(j,26)   #constant power below range 26
+            self.powera[j]=dataOut.output_LP_integrated.real[0,k,0] #Lag0 and Channel 0
+
+            ## examine drifts here - based on 60 'indep.' estimates
+        #print(numpy.sum(self.powera))
+        #exit(1)
+        #nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint*10
+        nis = dataOut.nis
+        #print("nis",nis)
+        alpha=beta=delta=0.0
+        nest=0
+        gamma=3.0/(2.0*numpy.pi*dataOut.lags_LP[1]*1.0e-3)
+        beta=gamma*(math.atan2(dataOut.output_LP_integrated.imag[14,0,2],dataOut.output_LP_integrated.real[14,0,2])-math.atan2(dataOut.output_LP_integrated.imag[1,0,2],dataOut.output_LP_integrated.real[1,0,2]))/13.0
+        #print(gamma,beta)
+        #exit(1)
+        for i in range(1,3):
+            gamma=3.0/(2.0*numpy.pi*dataOut.lags_LP[i]*1.0e-3)
+            #print("gamma",gamma)
+            for j in range(34,44):
+                rho2=numpy.abs(dataOut.output_LP_integrated[i,j,0])/numpy.abs(dataOut.output_LP_integrated[0,j,0])
+                dataOut.dphi2=(1.0/rho2-1.0)/(float(2*nis))
+                dataOut.dphi2*=gamma**2
+                pest=gamma*math.atan(dataOut.output_LP_integrated.imag[i,j,0]/dataOut.output_LP_integrated.real[i,j,0])
+                #print("1",dataOut.output_LP_integrated.imag[i,j,0])
+                #print("2",dataOut.output_LP_integrated.real[i,j,0])
+                self.drift[nest]=pest
+                self.ddrift[nest]=dataOut.dphi2
+                self.rdrift[nest]=float(nest)
+                nest+=1
+
+        sorted(self.drift[:nest])
+
+        #print(dataOut.dphi2)
+        #exit(1)
+
+        for j in range(int(nest/4),int(3*nest/4)):
+            #i=int(self.rdrift[j])
+            alpha+=self.drift[j]/self.ddrift[j]
+            delta+=1.0/self.ddrift[j]
+
+        alpha/=delta
+        delta=1./numpy.sqrt(delta)
+        vdrift=alpha-beta
+        dvdrift=delta
+
+        #need to develop estimate of complete density profile using all
+        #available data
+
+        #estimate sample variances for long-pulse power profile
+
+        #nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint
+        nis = dataOut.nis/10
+        #print("nis",nis)
+
+        self.sigma[:dataOut.NACF+2*dataOut.IBITS+2]=((anoise0+self.powera[:dataOut.NACF+2*dataOut.IBITS+2])**2)/float(nis)
+        #print(self.sigma)
+        #exit(1)
+        ioff=1
+
+        #deconvolve rectangular pulse shape from profile ==> powerb, perror
+
+        '''
+        ############# START nnlswrap#############
+
+        if dataOut.ut_Faraday>14.0:
+            alpha_nnlswrap=20.0
+        else:
+            alpha_nnlswrap=30.0
+
+        range1_nnls=dataOut.NACF
+        range2_nnls=dataOut.NACF+dataOut.IBITS-1
+
+        g_nnlswrap=numpy.zeros((range1_nnls,range2_nnls),'float32')
+        a_nnlswrap=numpy.zeros((range2_nnls,range2_nnls),'float64')
+
+        for i in range(range1_nnls):
+            for j in range(range2_nnls):
+                if j>=i and j<i+dataOut.IBITS:
+                    g_nnlswrap[i,j]=1.0
+                else:
+                    g_nnlswrap[i,j]=0.0
+
+        a_nnlswrap[:]=numpy.matmul(numpy.transpose(g_nnlswrap),g_nnlswrap)
+
+        numpy.fill_diagonal(a_nnlswrap,a_nnlswrap.diagonal()+alpha_nnlswrap**2)
+
+                    #ERROR ANALYSIS#
+
+        self.perror[:range2_nnls]=0.0
+        self.perror[:range2_nnls]=numpy.matmul(1./(self.sigma[dataOut.IBITS+ioff:range1_nnls+dataOut.IBITS+ioff]),g_nnlswrap**2)
+        self.perror[:range1_nnls]+=(alpha_nnlswrap**2)/(self.sigma[dataOut.IBITS+ioff:range1_nnls+dataOut.IBITS+ioff])
+        self.perror[:range2_nnls]=1.00/self.perror[:range2_nnls]
+
+        b_nnlswrap=numpy.zeros(range2_nnls,'float64')
+        b_nnlswrap[:]=numpy.matmul(self.powera[dataOut.IBITS+ioff:range1_nnls+dataOut.IBITS+ioff],g_nnlswrap)
+
+        x_nnlswrap=numpy.zeros(range2_nnls,'float64')
+        x_nnlswrap[:]=nnls(a_nnlswrap,b_nnlswrap)[0]
+
+        self.powerb[:range2_nnls]=x_nnlswrap
+        #print(self.powerb[40])
+        #print(self.powerb[66])
+        #exit(1)
+        #############END nnlswrap#############
+        '''
+        self.powerb[:] = self.powera
+        self.perror[:] = 0.
+        #print(numpy.sum(numpy.sqrt(self.perror[0:dataOut.NACF])))
+        #print(self.powerb[0:dataOut.NACF])
+        #exit(1)
+        #estimate relative error for deconvolved profile (scaling irrelevant)
+        #print(dataOut.NACF)
+        dataOut.ene[0:dataOut.NACF]=numpy.sqrt(self.perror[0:dataOut.NACF])/self.powerb[0:dataOut.NACF]
+        #print(numpy.sum(dataOut.ene))
+        #exit(1)
+        aux=0
+
+        for i in range(dataOut.IBITS,dataOut.NACF):
+            self.dpulse[i]=self.lpulse[i]=0.0
+            for j in range(dataOut.IBITS):
+                k=int(i-j)
+                if k<36-aux and k>16:
+                    self.dpulse[i]+=dataOut.ph2[k]/dataOut.h2[k]
+                elif k>=36-aux:
+                    self.lpulse[i]+=self.powerb[k]
+            self.lagp[i]=self.powera[i]
+
+        #find scale factor that best merges profiles
+
+        qi=sum(self.dpulse[32:dataOut.NACF]**2/(self.lagp[32:dataOut.NACF]+anoise0)**2)
+        ri=sum((self.dpulse[32:dataOut.NACF]*self.lpulse[32:dataOut.NACF])/(self.lagp[32:dataOut.NACF]+anoise0)**2)
+        si=sum((self.dpulse[32:dataOut.NACF]*self.lagp[32:dataOut.NACF])/(self.lagp[32:dataOut.NACF]+anoise0)**2)
+        ui=sum(self.lpulse[32:dataOut.NACF]**2/(self.lagp[32:dataOut.NACF]+anoise0)**2)
+        vi=sum((self.lpulse[32:dataOut.NACF]*self.lagp[32:dataOut.NACF])/(self.lagp[32:dataOut.NACF]+anoise0)**2)
+
+        alpha=(si*ui-vi*ri)/(qi*ui-ri*ri)
+        beta=(qi*vi-ri*si)/(qi*ui-ri*ri)
+
+        #form density profile estimate, merging rescaled power profiles
+        #print(dataOut.h2)
+        #print(numpy.sum(alpha))
+        #print(numpy.sum(dataOut.ph2))
+        self.powerb[16:36-aux]=alpha*dataOut.ph2[16:36-aux]/dataOut.h2[16:36-aux]
+        self.powerb[36-aux:dataOut.NACF]*=beta
+
+        #form Ne estimate, fill in error estimate at low altitudes
+
+        dataOut.ene[0:36-aux]=dataOut.sdp2[0:36-aux]/dataOut.ph2[0:36-aux]
+        dataOut.ne[:dataOut.NACF]=self.powerb[:dataOut.NACF]*dataOut.h2[:dataOut.NACF]/alpha
+        #print(numpy.sum(self.powerb))
+        #print(numpy.sum(dataOut.ene))
+        #print(numpy.sum(dataOut.ne))
+        #exit(1)
+        #now do error propagation: store zero lag error covariance in u
+
+        nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint/1   # DLH serious debris removal
+
+        for i in range(dataOut.NACF):
+            for j in range(i,dataOut.NACF):
+                if j-i>=dataOut.IBITS:
+                    self.u[i,j]=0.0
+                else:
+                    self.u[i,j]=dataOut.output_LP_integrated.real[j-i,i,0]**2/float(nis)
+                    self.u[i,j]*=(anoise0+dataOut.output_LP_integrated.real[0,i,0])/dataOut.output_LP_integrated.real[0,i,0]
+                    self.u[i,j]*=(anoise0+dataOut.output_LP_integrated.real[0,j,0])/dataOut.output_LP_integrated.real[0,j,0]
+
+                self.u[j,i]=self.u[i,j]
+
+        #now error analyis for lag product matrix (diag), place in acf_err
+
+        for i in range(dataOut.NACF):
+            for j in range(dataOut.IBITS):
+                if j==0:
+                    dataOut.errors[0,i]=numpy.sqrt(self.u[i,i])
+                else:
+                    dataOut.errors[j,i]=numpy.sqrt(((dataOut.output_LP_integrated.real[0,i,0]+anoise0)*(dataOut.output_LP_integrated.real[0,i+j,0]+anoise0)+dataOut.output_LP_integrated.real[j,i,0]**2)/float(2*nis))
+
+        print("Success")
+        #print(dataOut.NRANGE)
+        with suppress_stdout_stderr():
+            pass
+            #full_profile_profile.profile(numpy.transpose(dataOut.output_LP_integrated,(2,1,0)),numpy.transpose(dataOut.errors),self.powerb,dataOut.ne,dataOut.lags_LP,dataOut.thb,dataOut.bfm,dataOut.te,dataOut.ete,dataOut.ti,dataOut.eti,dataOut.ph,dataOut.eph,dataOut.phe,dataOut.ephe,dataOut.range1,dataOut.ut,dataOut.NACF,dataOut.fit_array_real,dataOut.status,dataOut.NRANGE,dataOut.IBITS)
 
         print("status: ",dataOut.status)
 

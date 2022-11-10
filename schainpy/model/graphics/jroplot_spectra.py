@@ -8,7 +8,7 @@
 
 import os
 import numpy
-import collections.abc
+#import collections.abc
 
 from schainpy.model.graphics.jroplot_base import Plot, plt, log
 
@@ -186,6 +186,7 @@ class SpectraObliquePlot(Plot):
         '''
         data['shift1'] = dataOut.Dop_EEJ_T1[0]
         data['shift2'] = dataOut.Dop_EEJ_T2[0]
+        data['max_val_2'] = dataOut.Oblique_params[0,-1,:]
         data['shift1_error'] = dataOut.Err_Dop_EEJ_T1[0]
         data['shift2_error'] = dataOut.Err_Dop_EEJ_T2[0]
 
@@ -216,6 +217,7 @@ class SpectraObliquePlot(Plot):
             shift1 = data['shift1']
             #print(shift1)
             shift2 = data['shift2']
+            max_val_2 = data['max_val_2']
             err1 = data['shift1_error']
             err2 = data['shift2_error']
             if ax.firsttime:
@@ -238,18 +240,22 @@ class SpectraObliquePlot(Plot):
 
                 self.ploterr1 = ax.errorbar(shift1, y, xerr=err1, fmt='k^', elinewidth=2.2, marker='o', linestyle='None',markersize=2.5,capsize=0.3,markeredgewidth=0.2)
                 self.ploterr2 = ax.errorbar(shift2, y, xerr=err2, fmt='m^',elinewidth=2.2,marker='o',linestyle='None',markersize=2.5,capsize=0.3,markeredgewidth=0.2)
+                self.ploterr3 = ax.errorbar(max_val_2, y, xerr=0, fmt='g^',elinewidth=2.2,marker='o',linestyle='None',markersize=2.5,capsize=0.3,markeredgewidth=0.2)
+
                 #print("plotter1: ", self.ploterr1,shift1)
 
             else:
                 #print("else plotter1: ", self.ploterr1,shift1)
                 self.ploterr1.remove()
                 self.ploterr2.remove()
+                self.ploterr3.remove()
                 ax.plt.set_array(z[n].T.ravel())
                 if self.showprofile:
                     ax.plt_profile.set_data(self.data['rti'][n][-1], y)
                     ax.plt_noise.set_data(numpy.repeat(noise, len(y)), y)
                 self.ploterr1 = ax.errorbar(shift1, y, xerr=err1, fmt='k^', elinewidth=2.2, marker='o', linestyle='None',markersize=2.5,capsize=0.3,markeredgewidth=0.2)
                 self.ploterr2 = ax.errorbar(shift2, y, xerr=err2, fmt='m^',elinewidth=2.2,marker='o',linestyle='None',markersize=2.5,capsize=0.3,markeredgewidth=0.2)
+                self.ploterr3 = ax.errorbar(max_val_2, y, xerr=0, fmt='g^',elinewidth=2.2,marker='o',linestyle='None',markersize=2.5,capsize=0.3,markeredgewidth=0.2)
 
             self.titles.append('CH {}: {:3.2f}dB'.format(n, noise))
 

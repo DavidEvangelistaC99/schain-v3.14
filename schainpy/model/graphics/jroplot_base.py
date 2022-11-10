@@ -557,7 +557,7 @@ class Plot(Operation):
 
         self.sender_time = last_time
 
-        attrs = ['titles', 'zmin', 'zmax', 'tag', 'ymin', 'ymax']
+        attrs = ['titles', 'zmin', 'zmax', 'tag', 'ymin', 'ymax', 'zlimits']
         for attr in attrs:
             value = getattr(self, attr)
             if value:
@@ -660,11 +660,12 @@ class Plot(Operation):
                 self.poll.register(self.socket, zmq.POLLIN)
 
         tm = getattr(dataOut, self.attr_time)
-
         if self.data and 'time' in self.xaxis and (tm - self.tmin) >= self.xrange*60*60:
             self.save_time = tm
             self.__plot()
-            self.tmin += self.xrange*60*60
+            #self.tmin += self.xrange*60*60 #Modified by R. Flores
+            self.tmin += 24*60*60 #Modified by R. Flores
+
             self.data.setup()
             self.clear_figures()
 
@@ -675,6 +676,7 @@ class Plot(Operation):
             self.isPlotConfig = True
             if self.xaxis == 'time':
                 dt = self.getDateTime(tm)
+
                 if self.xmin is None:
                     self.tmin = tm
                     self.xmin = dt.hour

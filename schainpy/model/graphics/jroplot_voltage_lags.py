@@ -4,7 +4,7 @@ import time
 import math
 import datetime
 import numpy
-import collections.abc
+
 from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecorator  #YONG
 
 from .jroplot_spectra import RTIPlot, NoisePlot
@@ -749,9 +749,9 @@ class FaradayAnglePlot(Plot):
 
         data['angle'] = numpy.degrees(dataOut.phi)
         #'''
-        print(dataOut.phi_uwrp)
-        print(data['angle'])
-        exit(1)
+        #print(dataOut.phi_uwrp)
+        #print(data['angle'])
+        #exit(1)
         #'''
         data['dphi'] = dataOut.dphi_uc*10
         #print(dataOut.dphi)

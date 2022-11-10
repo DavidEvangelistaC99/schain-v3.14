@@ -1159,11 +1159,12 @@ class Oblique_Gauss_Fit(Operation):
         freq_max = numpy.max(numpy.abs(freq))
         spc_max = numpy.max(spc)
 
-        from scipy.signal import medfilt
-        Nincoh = 20
-        Nincoh = 80
+        #from scipy.signal import medfilt
+        #Nincoh = 20
+        #Nincoh = 80
         Nincoh = Nincoh
-        spcm = medfilt(spc,11)/numpy.sqrt(Nincoh)
+        #spcm = medfilt(spc,11)/numpy.sqrt(Nincoh)
+        spcm = spc/numpy.sqrt(Nincoh)
 
         # define a least squares function to optimize
         def lsq_func(params):
@@ -1174,7 +1175,9 @@ class Oblique_Gauss_Fit(Operation):
     #    bounds=([0,-numpy.inf,0,0,-numpy.inf,0,-numpy.inf,0],[numpy.inf,-200,numpy.inf,numpy.inf,0,numpy.inf,0,numpy.inf])
         #print(a1,b1,c1,a2,b2,c2,k2,d)
         #bounds=([0,-numpy.inf,0,-numpy.inf,0,-400,0,0,0],[numpy.inf,-340,numpy.inf,0,numpy.inf,0,numpy.inf,numpy.inf,numpy.inf])
-        bounds=([0,-numpy.inf,0,-numpy.inf,0,-400,0,0,0],[numpy.inf,-140,numpy.inf,0,numpy.inf,0,numpy.inf,numpy.inf,numpy.inf])
+        #bounds=([0,-numpy.inf,0,-numpy.inf,0,-400,0,0,0],[numpy.inf,-140,numpy.inf,0,numpy.inf,0,numpy.inf,numpy.inf,numpy.inf])
+        bounds=([0,-numpy.inf,0,-5,0,-400,0,0,0],[numpy.inf,-300,numpy.inf,5,numpy.inf,0,numpy.inf,numpy.inf,numpy.inf])
+
         #print(bounds)
         #bounds=([0,-numpy.inf,0,0,-numpy.inf,0,0,0],[numpy.inf,-200,numpy.inf,numpy.inf,0,numpy.inf,numpy.inf,numpy.inf])
         params_scale = [spc_max,freq_max,freq_max,1,spc_max,freq_max,freq_max,1,spc_max]
@@ -1277,9 +1280,6 @@ class Oblique_Gauss_Fit(Operation):
         Df = popt.x[6]
         #print("before return")
         return A1f, B1f, C1f, A2f, B2f, C2f, Df, error
-
-
-
 
     def Double_Gauss_Double_Skew_fit_weight_bound_with_inputs(self, spc, freq, a1, b1, c1, a2, b2, c2, k2, d):
 
@@ -1469,7 +1469,7 @@ class Oblique_Gauss_Fit(Operation):
         return A1f, B1f, C1f, Df, error
 
 
-    def run(self, dataOut, mode = 0, Hmin1 = None, Hmax1 = None, Hmin2 = None, Hmax2 = None):
+    def run(self, dataOut, mode = 0, Hmin1 = None, Hmax1 = None, Hmin2 = None, Hmax2 = None, Dop = 'Shift'):
 
         pwcode = 1
 
@@ -1589,16 +1589,18 @@ class Oblique_Gauss_Fit(Operation):
 
                     elif mode == 9: #Double Skewed Weighted Bounded no inputs
                         #if numpy.max(spc) <= 0:
-                        if x[numpy.argmax(spc)] <= 0:
+                        from scipy.signal import medfilt
+                        spcm = medfilt(spc,11)
+                        if x[numpy.argmax(spcm)] <= 0:
                             #print("EEJ")
-                            dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_params[0,7,hei],dataOut.Oblique_params[0,8,hei],dataOut.Oblique_params[0,9,hei],dataOut.Oblique_params[0,10,hei],dataOut.Oblique_param_errors[0,:,hei] = self.Double_Gauss_Double_Skew_fit_weight_bound_no_inputs(spc,x,dataOut.nIncohInt)
+                            dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_params[0,7,hei],dataOut.Oblique_params[0,8,hei],dataOut.Oblique_params[0,9,hei],dataOut.Oblique_params[0,10,hei],dataOut.Oblique_param_errors[0,:,hei] = self.Double_Gauss_Double_Skew_fit_weight_bound_no_inputs(spcm,x,dataOut.nIncohInt)
                             #if dataOut.Oblique_params[0,-2,hei] < -500 or dataOut.Oblique_params[0,-2,hei] > 500 or dataOut.Oblique_params[0,-1,hei] < -500 or dataOut.Oblique_params[0,-1,hei] > 500:
                             #    dataOut.Oblique_params[0,:,hei] *= numpy.NAN
                             dataOut.dplr_2_u[0,0,hei] = dataOut.Oblique_params[0,10,hei]/numpy.sin(numpy.arccos(100./dataOut.heightList[hei]))
 
                         else:
                             #print("CEEJ")
-                            dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_params[0,7,hei],dataOut.Oblique_params[0,8,hei],dataOut.Oblique_params[0,9,hei],dataOut.Oblique_params[0,10,hei],dataOut.Oblique_param_errors[0,:,hei] = self.CEEJ_Skew_fit_weight_bound_no_inputs(spc,x,dataOut.nIncohInt)
+                            dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_params[0,7,hei],dataOut.Oblique_params[0,8,hei],dataOut.Oblique_params[0,9,hei],dataOut.Oblique_params[0,10,hei],dataOut.Oblique_param_errors[0,:,hei] = self.CEEJ_Skew_fit_weight_bound_no_inputs(spcm,x,dataOut.nIncohInt)
                             #if dataOut.Oblique_params[0,-2,hei] < -500 or dataOut.Oblique_params[0,-2,hei] > 500 or dataOut.Oblique_params[0,-1,hei] < -500 or dataOut.Oblique_params[0,-1,hei] > 500:
                             #    dataOut.Oblique_params[0,:,hei] *= numpy.NAN
                             dataOut.dplr_2_u[0,0,hei] = dataOut.Oblique_params[0,10,hei]/numpy.sin(numpy.arccos(100./dataOut.heightList[hei]))
@@ -1672,10 +1674,18 @@ class Oblique_Gauss_Fit(Operation):
         dataOut.lon=-76.87
 
         if mode == 9: #Double Skew Gaussian
-            dataOut.Dop_EEJ_T1 = dataOut.Oblique_params[:,-2,:]
+            #dataOut.Dop_EEJ_T1 = dataOut.Oblique_params[:,-2,:] #Pos[Max_value]
+            #dataOut.Dop_EEJ_T1 = dataOut.Oblique_params[:,1,:] #Shift
             dataOut.Spec_W_T1 = dataOut.Oblique_params[:,2,:]
-            dataOut.Dop_EEJ_T2 = dataOut.Oblique_params[:,-1,:]
+            #dataOut.Dop_EEJ_T2 = dataOut.Oblique_params[:,-1,:] #Pos[Max_value]
+            #dataOut.Dop_EEJ_T2 = dataOut.Oblique_params[:,5,:] #Shift
             dataOut.Spec_W_T2 = dataOut.Oblique_params[:,6,:]
+            if Dop == 'Shift':
+                dataOut.Dop_EEJ_T1 = dataOut.Oblique_params[:,1,:] #Shift
+                dataOut.Dop_EEJ_T2 = dataOut.Oblique_params[:,5,:] #Shift
+            elif Dop == 'Max':
+                dataOut.Dop_EEJ_T1 = dataOut.Oblique_params[:,-2,:] #Pos[Max_value]
+                dataOut.Dop_EEJ_T2 = dataOut.Oblique_params[:,-1,:] #Pos[Max_value]
 
             dataOut.Err_Dop_EEJ_T1 = dataOut.Oblique_param_errors[:,1,:] #En realidad este es el error?
             dataOut.Err_Spec_W_T1 = dataOut.Oblique_param_errors[:,2,:]
@@ -1694,6 +1704,8 @@ class Oblique_Gauss_Fit(Operation):
             dataOut.Err_Spec_W_T2 = dataOut.Oblique_param_errors[:,5,:]
 
         dataOut.mode = mode
+        dataOut.flagNoData = numpy.all(numpy.isnan(dataOut.Dop_EEJ_T1)) #Si todos los valores son NaN no se prosigue
+        #dataOut.flagNoData = False #Descomentar solo para ploteo sino mantener comentado
 
         return dataOut
 
@@ -6601,8 +6613,9 @@ class IGRFModel(Operation):
             dataOut.ut=dataOut.bd_time.tm_hour+dataOut.bd_time.tm_min/60.0+dataOut.bd_time.tm_sec/3600.0
 
             self.aux=0
-
-            dataOut.h=numpy.arange(0.0,15.0*dataOut.MAXNRANGENDT,15.0,dtype='float32')
+            dh = dataOut.heightList[1]-dataOut.heightList[0]
+            #dataOut.h=numpy.arange(0.0,15.0*dataOut.MAXNRANGENDT,15.0,dtype='float32')
+            dataOut.h=numpy.arange(0.0,dh*dataOut.MAXNRANGENDT,dh,dtype='float32')
             dataOut.bfm=numpy.zeros(dataOut.MAXNRANGENDT,dtype='float32')
             dataOut.bfm=numpy.array(dataOut.bfm,order='F')
             dataOut.thb=numpy.zeros(dataOut.MAXNRANGENDT,dtype='float32')
@@ -6627,7 +6640,7 @@ class MergeProc(ProcessingUnit):
         #print(data_inputs)
         #print("Run: ",self.dataOut.runNextUnit)
         #exit(1)
-        #print(numpy.shape([getattr(data, attr_data) for data in data_inputs][1]))
+        #print("a:", [getattr(data, attr_data) for data in data_inputs][1])
         #exit(1)
         if mode==0:
             data = numpy.concatenate([getattr(data, attr_data) for data in data_inputs])
@@ -6747,3 +6760,13 @@ class MergeProc(ProcessingUnit):
             #print(numpy.shape(self.dataOut.data_spc))
             #print("*************************GOOD*************************")
             #exit(1)
+
+        if mode==11: #MST ISR
+            #data = numpy.concatenate([getattr(data, attr_data) for data in data_inputs],axis=1)
+            #setattr(self.dataOut, attr_data, data)
+            setattr(self.dataOut, 'ph2', [getattr(data, attr_data) for data in data_inputs][1])
+            print("MST Density", numpy.shape(self.dataOut.ph2))
+            print("cf MST: ", self.dataOut.cf)
+            exit(1)
+            self.dataOut.ph2 *= self.dataOut.cf
+            self.dataOut.sdp2 *= self.dataOut.cf

@@ -384,6 +384,7 @@ Inputs:
 
     __attrs__ = ['path', 'oneDDict', 'ind2DList', 'twoDDict','metadata', 'format', 'blocks']
     missing = -32767
+    currentDay = None
 
     def __init__(self):
 
@@ -608,12 +609,29 @@ Inputs:
         header.createHeader(**self.header)
         header.write()
 
+    def timeFlag(self):
+        currentTime = self.dataOut.utctime
+        timeTuple = time.localtime(currentTime)
+        dataDay = timeTuple.tm_yday
+
+        if self.currentDay is None:
+            self.currentDay = dataDay
+            return False
+
+        #Si el dia es diferente
+        if dataDay != self.currentDay:
+            self.currentDay = dataDay
+            return True
+
+        else:
+            return False
+
     def putData(self):
 
         if self.dataOut.flagNoData:
             return 0
 
-        if self.dataOut.flagDiscontinuousBlock or self.counter == self.blocks:
+        if self.dataOut.flagDiscontinuousBlock or self.counter == self.blocks or self.timeFlag():
             if self.counter > 0:
                 self.setHeader()
             self.counter = 0
