@@ -20,7 +20,7 @@ import matplotlib,re
 if 'BACKEND' in os.environ:
     matplotlib.use(os.environ['BACKEND'])
 elif 'linux' in sys.platform:
-    matplotlib.use("TkAgg")
+    matplotlib.use("Agg")
 elif 'darwin' in sys.platform:
     matplotlib.use('MacOSX')
 else:
@@ -168,6 +168,7 @@ class Plot(Operation):
     bgcolor = 'white'
     buffering = True
     __missing = 1E30
+    projection = None
 
     __attrs__ = ['show', 'save', 'ymin', 'ymax', 'zmin', 'zmax', 'title',
                  'showprofile']
@@ -252,7 +253,7 @@ class Plot(Operation):
         self.ang_max = kwargs.get('ang_max', None)
         self.mode = kwargs.get('mode', None)
         self.mask = kwargs.get('mask', False)
-
+        self.shapes = kwargs.get('shapes', './')
 
         if self.server:
             if not self.server.startswith('tcp://'):
@@ -277,8 +278,8 @@ class Plot(Operation):
         if self.width is None:
             self.width = 8
 
-        self.figures = []
-        self.axes = []
+        self.figures = {'PPI':[], 'RHI':[]} 
+        self.axes = {'PPI':[], 'RHI':[]}        
         self.cb_axes = []
         self.pf_axes = []
         self.cmaps = []
@@ -289,18 +290,29 @@ class Plot(Operation):
         if self.oneFigure:
             if self.height is None:
                 self.height = 1.4 * self.nrows + 1
-            fig = plt.figure(figsize=(self.width, self.height),
+            fig_p = plt.figure(figsize=(self.width, self.height),
                              edgecolor='k',
                              facecolor='w')
-            self.figures.append(fig)
-            for n in range(self.nplots):
-                ax = fig.add_subplot(self.nrows, self.ncols,
-                                     n + 1, polar=self.polar)
-                ax.tick_params(labelsize=8)
-                ax.firsttime = True
-                ax.index = 0
-                ax.press = None
-                self.axes.append(ax)
+            fig_r = plt.figure(figsize=(self.width, self.height),
+                             edgecolor='k',
+                             facecolor='w')
+            self.figures['PPI'].append(fig_p)
+            self.figures['RHI'].append(fig_r)
+            for n in range(self.nplots):     
+                ax_p = fig_p.add_subplot(self.nrows, self.ncols, n+1, polar=self.polar, projection=self.projection)                
+                ax_r = fig_r.add_subplot(self.nrows, self.ncols, n+1, polar=self.polar)
+                ax_p.tick_params(labelsize=8)
+                ax_p.firsttime = True
+                ax_p.index = 0
+                ax_p.press = None
+                ax_r.tick_params(labelsize=8)
+                ax_r.firsttime = True
+                ax_r.index = 0
+                ax_r.press = None
+                
+                self.axes['PPI'].append(ax_p)
+                self.axes['RHI'].append(ax_r)
+                
                 if self.showprofile:
                     cax = self.__add_axes(ax, size=size, pad=pad)
                     cax.tick_params(labelsize=8)
@@ -312,13 +324,19 @@ class Plot(Operation):
                 fig = plt.figure(figsize=(self.width, self.height),
                                  edgecolor='k',
                                  facecolor='w')
-                ax = fig.add_subplot(1, 1, 1, polar=self.polar)
-                ax.tick_params(labelsize=8)
-                ax.firsttime = True
-                ax.index = 0
-                ax.press = None
+                ax_p = fig.add_subplot(1, 1, 1, polar=self.polar, projection=self.projection)                
+                ax_r = fig.add_subplot(1, 1, 1, polar=self.polar)
+                ax_p.tick_params(labelsize=8)
+                ax_p.firsttime = True
+                ax_p.index = 0
+                ax_p.press = None
+                ax_r.tick_params(labelsize=8)
+                ax_r.firsttime = True
+                ax_r.index = 0
+                ax_r.press = None
                 self.figures.append(fig)
-                self.axes.append(ax)
+                self.axes['PPI'].append(ax_p)
+                self.axes['RHI'].append(ax_r)
                 if self.showprofile:
                     cax = self.__add_axes(ax, size=size, pad=pad)
                     cax.tick_params(labelsize=8)
@@ -378,7 +396,7 @@ class Plot(Operation):
         Set min and max values, labels, ticks and titles
         '''
 
-        for n, ax in enumerate(self.axes):
+        for n, ax in enumerate(self.axes[self.mode]):
             if ax.firsttime:
                 if self.xaxis != 'time':
                     xmin = self.xmin
@@ -390,7 +408,9 @@ class Plot(Operation):
                     ax.xaxis.set_major_locator(LinearLocator(9))
                 ymin = self.ymin if self.ymin is not None else numpy.nanmin(self.y[numpy.isfinite(self.y)])
                 ymax = self.ymax if self.ymax is not None else numpy.nanmax(self.y[numpy.isfinite(self.y)])
+                
                 ax.set_facecolor(self.bgcolor)
+                
                 if self.xscale:
                     ax.xaxis.set_major_formatter(FuncFormatter(
                         lambda x, pos: '{0:g}'.format(x*self.xscale)))
@@ -407,7 +427,7 @@ class Plot(Operation):
                     self.pf_axes[n].set_xlabel('dB')
                     self.pf_axes[n].grid(b=True, axis='x')
                     [tick.set_visible(False)
-                     for tick in self.pf_axes[n].get_yticklabels()]
+                    for tick in self.pf_axes[n].get_yticklabels()]
                 if self.colorbar:
                     ax.cbar = plt.colorbar(
                         ax.plt, ax=ax, fraction=0.05, pad=0.06, aspect=10)
@@ -419,8 +439,9 @@ class Plot(Operation):
                         ax.cbar.set_label(self.cb_labels[n], size=8)
                 else:
                     ax.cbar = None
-                ax.set_xlim(xmin, xmax)
-                ax.set_ylim(ymin, ymax)
+                if self.mode == 'RHI':
+                    ax.set_xlim(xmin, xmax)
+                    ax.set_ylim(ymin, ymax)
                 ax.firsttime = False
                 if self.grid:
                     ax.grid(True)
@@ -447,7 +468,7 @@ class Plot(Operation):
                     ax.xaxis.labelpad = 16
 
         if self.firsttime:
-            for n, fig in enumerate(self.figures):
+            for fig in self.figures['PPI'] + self.figures['RHI']:
                 fig.subplots_adjust(**self.plots_adjust)
             self.firsttime = False
 
@@ -456,7 +477,9 @@ class Plot(Operation):
         Reset axes for redraw plots
         '''
 
-        for ax in self.axes+self.pf_axes+self.cb_axes:
+        axes = self.pf_axes + self.cb_axes + self.axes[self.mode]
+
+        for ax in axes:
             ax.clear()
             ax.firsttime = True
             if hasattr(ax, 'cbar') and ax.cbar:
@@ -469,8 +492,8 @@ class Plot(Operation):
 
         self.plot()
         self.format()
-
-        for n, fig in enumerate(self.figures):
+        figures = self.figures[self.mode]
+        for n, fig in enumerate(figures):
             if self.nrows == 0 or self.nplots == 0:
                 log.warning('No data', self.name)
                 fig.text(0.5, 0.5, 'No Data', fontsize='large', ha='center')
@@ -511,8 +534,10 @@ class Plot(Operation):
         '''
         if self.mode is not None:
             ang = 'AZ' if self.mode == 'RHI' else 'EL'    
-            label = '_{}_{}_{}'.format(self.mode, ang, self.mode_value)
+            folder = '_{}_{}_{}'.format(self.mode, ang, self.mode_value)
+            label = '{}{}_{}'.format(ang[0], self.mode_value, self.save_code)
         else:
+            folder = ''
             label = ''
 
         if self.oneFigure:
@@ -521,18 +546,19 @@ class Plot(Operation):
 
         self.save_time = self.data.max_time
 
-        fig = self.figures[n]
+        fig = self.figures[self.mode][n]
 
         if self.throttle == 0:
             if self.oneFigure:
                 figname = os.path.join(
                     self.save,
-                    self.save_code + label,
-                    '{}_{}.png'.format(
-                        self.save_code + label,
+                    self.save_code + folder,
+                    '{}_{}_{}.png'.format(
+                        'SOPHY',
                         self.getDateTime(self.data.max_time).strftime(
                             '%Y%m%d_%H%M%S'
                             ),
+                        label
                         )
                     )
             else:

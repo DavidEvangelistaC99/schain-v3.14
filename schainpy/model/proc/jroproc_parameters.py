@@ -4143,6 +4143,9 @@ class PedestalInformation(Operation):
                             continue
                         self.fp.close()
                         self.fp = h5py.File(self.filename, 'r')
+                        self.ele = self.fp['Data']['ele_pos'][:]
+                        self.azi = self.fp['Data']['azi_pos'][:] + 26.27
+                        self.azi[self.azi>360] = self.azi[self.azi>360] - 360
                         log.log('Opening file: {}'.format(self.filename), self.name)
                         ok = True
                         break
@@ -4162,25 +4165,25 @@ class PedestalInformation(Operation):
                 raise IOError('No new position files found in {}'.format(path))
 
 
-    def find_mode(self,index):
+    def find_mode(self, index):
         sample_max = 20
         start = index
-        flag_mode = None
-        azi = self.fp['Data']['azi_pos'][:]
-        ele = self.fp['Data']['ele_pos'][:]
+        flag_mode = None        
         
         while True:
-          if start+sample_max > numpy.shape(ele)[0]:
-            print("CANNOT KNOW IF MODE IS PPI OR RHI, ANALIZE NEXT FILE")
-            print("ele",ele[start-sample_max:start+sample_max])
-            print("azi",azi[start-sample_max:start+sample_max])
+          print(start, sample_max, numpy.shape(self.ele))  
+          if start+sample_max > numpy.shape(self.ele)[0]:
             if  sample_max == 10:
+                print("CANNOT KNOW IF MODE IS PPI OR RHI, ANALIZE NEXT FILE")                
                 break
             else:
                 sample_max = 10
                 continue
-          sigma_ele = numpy.nanstd(ele[start:start+sample_max])
-          sigma_azi = numpy.nanstd(azi[start:start+sample_max])
+          sigma_ele = numpy.nanstd(self.ele[start:start+sample_max])
+          sigma_azi = numpy.nanstd(self.azi[start:start+sample_max])
+          print("ele",self.ele[start-sample_max:start+sample_max])
+          print("azi",self.azi[start-sample_max:start+sample_max])
+          print(sigma_azi, sigma_ele)
 
           if sigma_ele<.5 and sigma_azi<.5:
             if sigma_ele<sigma_azi:
@@ -4206,14 +4209,20 @@ class PedestalInformation(Operation):
             return numpy.nan, numpy.nan, numpy.nan #Should be self.mode?
         else:
             index = int((self.utctime-self.utcfile)/self.interval)
+            try:
+                #print( self.azi[index], self.ele[index], None)
+                return self.azi[index], self.ele[index], None
+            except:
+                return numpy.nan, numpy.nan, numpy.nan
 
             if self.flagAskMode:
                mode = self.find_mode(index)
+               print('MODE: ', mode)
             else:
                mode = self.mode
 
             if mode is not None:
-                return self.fp['Data']['azi_pos'][index], self.fp['Data']['ele_pos'][index], mode
+                return self.azi[index], self.ele[index], mode
             else:
                 return numpy.nan, numpy.nan, numpy.nan
 
@@ -4242,6 +4251,10 @@ class PedestalInformation(Operation):
             try:
                 self.fp = h5py.File(self.filename, 'r')
                 self.utcfile = int(self.filename.split('/')[-1][4:14])
+
+                self.ele = self.fp['Data']['ele_pos'][:]
+                self.azi = self.fp['Data']['azi_pos'][:] + 26.27
+                self.azi[self.azi>360] = self.azi[self.azi>360] - 360
                 break
             except:
                 log.warning('Waiting {}s for position file to be ready...'.format(self.delay), self.name)
@@ -4258,12 +4271,13 @@ class PedestalInformation(Operation):
         self.find_next_file()
 
         az, el, scan = self.get_values()
+        
         dataOut.flagNoData = False
         if numpy.isnan(az) or numpy.isnan(el) :
             dataOut.flagNoData = True
             return dataOut
-
-        dataOut.azimuth = round(az, 2)
+        
+        dataOut.azimuth =  round(az, 2)
         dataOut.elevation = round(el, 2)
         dataOut.mode_op = scan
 
@@ -4303,146 +4317,150 @@ class Block360(Operation):
         self.attr = attr
 
         self.__buffer  = []
-        self.__buffer2 = []
-        self.__buffer3 = []
-        self.__buffer4 = []
+        self.azi = []
+        self.ele = []        
 
-    def putData(self, data, attr, flagMode):
+    def putData(self, data, attr):
         '''
         Add a profile to he __buffer and increase in one the __profiel Index
         '''
         tmp= getattr(data, attr)
         self.__buffer.append(tmp)
-        self.__buffer2.append(data.azimuth)
-        self.__buffer3.append(data.elevation)
+        self.azi.append(data.azimuth)
+        self.ele.append(data.elevation)
         self.__profIndex  += 1
 
-        if flagMode == 1: #'AZI'
-            return numpy.array(self.__buffer2)
-        elif flagMode == 0: #'ELE'
-            return numpy.array(self.__buffer3)
-
-    def pushData(self, data,flagMode,case_flag):
+    def pushData(self, data, case_flag):
         '''
-        Return the PULSEPAIR and the profiles used in the operation
-        Affected :  self.__profileIndex
         '''
 
         data_360 = numpy.array(self.__buffer).transpose(1, 2, 0, 3)
-        data_p   = numpy.array(self.__buffer2)
-        data_e   = numpy.array(self.__buffer3)
+        data_p   = numpy.array(self.azi)
+        data_e   = numpy.array(self.ele)
         n   = self.__profIndex
 
         self.__buffer = []
-        self.__buffer2 = []
-        self.__buffer3 = []
-        self.__buffer4 = []
+        self.azi = []
+        self.ele = []        
         self.__profIndex = 0
 
-        if flagMode == 1 and case_flag == 0: #'AZI' y ha girado
-            self.putData(data=data, attr = self.attr, flagMode=flagMode)
+        if case_flag in (0, 1, -1):
+            self.putData(data=data, attr = self.attr)
 
         return data_360, n, data_p, data_e
 
-    def byProfiles(self,dataOut,flagMode):
+    def byProfiles(self, dataOut):
 
-        self.__dataReady     =  False
+        self.__dataReady = False
         data_360 =  []
-        data_p             = None
-        data_e             = None
+        data_p = None
+        data_e = None
 
-        angles = self.putData(data=dataOut, attr = self.attr, flagMode=flagMode)
-        if self.__profIndex > 1:
-            case_flag = self.checkcase(angles,flagMode)
+        self.putData(data=dataOut, attr = self.attr)
+        
+        if self.__profIndex > 5:
+            case_flag = self.checkcase()
 
-            if flagMode == 1: #'AZI':
+            if self.flagMode == 1: #'AZI':
                 if case_flag == 0: #Ya giró
                     self.__buffer.pop() #Erase last data
-                    self.__buffer2.pop()
-                    self.__buffer3.pop()
-                    data_360 ,n,data_p,data_e  = self.pushData(data=dataOut,flagMode=flagMode,case_flag=case_flag)
-                    self.__dataReady = True
-
-            elif flagMode == 0: #'ELE'
-
-                if case_flag == 0: #Subida
-
-                    if len(self.__buffer) == 2: #Cuando está de subida
-                        #Se borra el dato anterior para liberar buffer y comparar el dato actual con el siguiente
-                        self.__buffer.pop(0) #Erase first data
-                        self.__buffer2.pop(0)
-                        self.__buffer3.pop(0)
-                        self.__profIndex -= 1
-                    else: #Cuando ha estado de bajada y ha vuelto a subir
-                        #Se borra el último dato
-                        self.__buffer.pop() #Erase last data
-                        self.__buffer2.pop()
-                        self.__buffer3.pop()
-                        data_360, n, data_p, data_e  = self.pushData(data=dataOut,flagMode=flagMode,case_flag=case_flag)
+                    self.azi.pop()
+                    self.ele.pop()
+                    data_360 ,n,data_p,data_e  = self.pushData(dataOut, case_flag)
+                    if len(data_p)>350:
                         self.__dataReady = True
+            elif self.flagMode == 0: #'ELE'
+                if case_flag == 1: #Bajada
+                    self.__buffer.pop() #Erase last data
+                    self.azi.pop()
+                    self.ele.pop()
+                    data_360, n, data_p, data_e  = self.pushData(dataOut, case_flag)                        
+                    self.__dataReady = True
+                if case_flag == -1: #Subida
+                    self.__buffer.pop() #Erase last data
+                    self.azi.pop()
+                    self.ele.pop()
+                    data_360, n, data_p, data_e  = self.pushData(dataOut, case_flag)                        
+                    #self.__dataReady = True
 
         return data_360, data_p, data_e
 
 
-    def blockOp(self, dataOut, flagMode, datatime= None):
+    def blockOp(self, dataOut, datatime= None):
         if self.__initime == None:
             self.__initime = datatime
-        data_360, data_p, data_e = self.byProfiles(dataOut,flagMode)
-        self.__lastdatatime           = datatime
+        data_360, data_p, data_e = self.byProfiles(dataOut)
+        self.__lastdatatime = datatime
 
-        avgdatatime    = self.__initime
+        avgdatatime = self.__initime
         if self.n==1:
             avgdatatime = datatime
-        deltatime      = datatime - self.__lastdatatime
+
         self.__initime = datatime
         return data_360, avgdatatime, data_p, data_e
 
-    def checkcase(self, angles, flagMode):
+    def checkcase(self):
 
-        if flagMode == 1: #'AZI'
-            start  = angles[-2]
-            end    = angles[-1]
+        sigma_ele = numpy.nanstd(self.ele[-5:])
+        sigma_azi = numpy.nanstd(self.azi[-5:])
+
+        if sigma_ele<.5 and sigma_azi<.5:
+            if sigma_ele<sigma_azi:
+                self.flagMode = 1
+                self.mode_op = 'PPI'
+            else:
+                self.flagMode = 0
+                self.mode_op = 'RHI'
+        elif sigma_ele < .5:
+            self.flagMode = 1
+            self.mode_op = 'PPI'
+        elif sigma_azi < .5:
+            self.flagMode = 0
+            self.mode_op = 'RHI'
+        else:
+            self.flagMode = None
+            self.mode_op = 'None'        
+        
+        if self.flagMode == 1: #'AZI'
+            start  = self.azi[-2]
+            end    = self.azi[-1]
             diff_angle = (end-start)
 
             if diff_angle < 0: #Ya giró
                 return 0
 
-        elif flagMode == 0: #'ELE'
+        elif self.flagMode == 0: #'ELE'
 
-            start  = angles[-2]
-            end    = angles[-1]
-            diff_angle = (end-start)
+            start  = self.ele[-3]
+            middle = self.ele[-2]
+            end    = self.ele[-1]            
 
-            if diff_angle > 0: #Subida
-                return 0
+            if end < 0:
+                return 1
+            elif (middle>start and end<middle):
+                return -1
 
     def run(self, dataOut, attr_data='dataPP_POWER', runNextOp = False,**kwargs):
 
         dataOut.attr_data = attr_data
         dataOut.runNextOp = runNextOp
-        dataOut.flagAskMode = False
-
-        if dataOut.mode_op == 'PPI':
-            dataOut.flagMode = 1
-        elif dataOut.mode_op == 'RHI':
-            dataOut.flagMode = 0
 
         if not self.isConfig:
             self.setup(dataOut = dataOut, attr = attr_data ,**kwargs)
             self.isConfig   = True
 
-        data_360, avgdatatime, data_p, data_e = self.blockOp(dataOut, dataOut.flagMode, dataOut.utctime)
+        data_360, avgdatatime, data_p, data_e = self.blockOp(dataOut, dataOut.utctime)
 
         dataOut.flagNoData = True
 
         if self.__dataReady:
             setattr(dataOut, attr_data, data_360 )
-            dataOut.data_azi  = data_p + 26.2
-            dataOut.data_azi[dataOut.data_azi>360] = dataOut.data_azi[dataOut.data_azi>360] - 360
+            dataOut.data_azi  = data_p
             dataOut.data_ele  = data_e
             dataOut.utctime  = avgdatatime
-            dataOut.flagNoData  = False
-            dataOut.flagAskMode = True
+            dataOut.flagNoData  = False       
+            dataOut.flagMode = self.flagMode
+            dataOut.mode_op = self.mode_op
 
         return dataOut
 

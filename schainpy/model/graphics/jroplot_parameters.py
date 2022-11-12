@@ -3,6 +3,10 @@ import datetime
 import warnings
 import numpy
 from mpl_toolkits.axisartist.grid_finder import FixedLocator, DictFormatter
+from matplotlib.patches import Circle
+import cartopy.crs as ccrs
+from cartopy.feature import ShapelyFeature
+import cartopy.io.shapereader as shpreader
 
 from schainpy.model.graphics.jroplot_base import Plot, plt
 from schainpy.model.graphics.jroplot_spectra import SpectraPlot, RTIPlot, CoherencePlot, SpectraCutPlot
@@ -514,6 +518,7 @@ class WeatherParamsPlot(Plot):
     #plot_name = 'RHI'
     plot_type = 'scattermap'
     buffering = False
+    projection = ccrs.PlateCarree()
 
     def setup(self):
 
@@ -522,8 +527,7 @@ class WeatherParamsPlot(Plot):
         self.nplots= 1
         self.ylabel= 'Range [km]'
         self.xlabel= 'Range [km]'
-        self.polar = True
-        self.grid = True
+    
         if self.channels is not None:
             self.nplots = len(self.channels)
             self.ncols = len(self.channels)
@@ -537,7 +541,7 @@ class WeatherParamsPlot(Plot):
             self.width = 12
         else:
             self.width   =8
-        self.height  =8
+        self.height  =7
         self.ini     =0
         self.len_azi =0
         self.buffer_ini  = None
@@ -589,11 +593,12 @@ class WeatherParamsPlot(Plot):
 
         data['data'] = [0, 0]
 
-        #try:
-        data['data'][0] = tmp[0][:,valid]
-        data['data'][1] = tmp[1][:,valid]
-        #except:
-        #    data['data'] = tmp[0][:,valid]
+        try:
+            data['data'][0] = tmp[0][:,valid]
+            data['data'][1] = tmp[1][:,valid]
+        except:
+            data['data'][0] = tmp[0][:,valid]
+            data['data'][1] = tmp[0][:,valid]
 
         if dataOut.mode_op == 'PPI':
             self.CODE = 'PPI'
@@ -606,23 +611,6 @@ class WeatherParamsPlot(Plot):
         data['ele'] = dataOut.data_ele
         data['mode_op'] = dataOut.mode_op
         self.mode = dataOut.mode_op
-        var = data['data'][0].flatten()
-        r = numpy.tile(data['r'], data['data'][0].shape[0])
-        az = numpy.repeat(data['azi'], data['data'][0].shape[1])
-        el = numpy.repeat(data['ele'], data['data'][0].shape[1])
-
-        # lla = georef.spherical_to_proj(r, data['azi'], data['ele'], (-75.295893, -12.040436, 3379.2147))
-
-        latlon = antenna_to_geographic(r, az, el, (-75.295893, -12.040436))
-
-        if self.mask:
-            meta['lat'] = latlon[1][var.mask==False]
-            meta['lon'] = latlon[0][var.mask==False]
-            data['var'] = numpy.array([var[var.mask==False]])
-        else:
-            meta['lat'] = latlon[1]
-            meta['lon'] = latlon[0]
-            data['var'] = numpy.array([var])
 
         return data, meta
 
@@ -641,45 +629,32 @@ class WeatherParamsPlot(Plot):
             data['mode_op'] = data['mode_op'].decode()
 
         if data['mode_op'] == 'RHI':
-            try:
-                if self.data['mode_op'][-2] == 'PPI':
-                    self.ang_min = None
-                    self.ang_max = None
-            except:
-                pass
-            self.ang_min = self.ang_min if self.ang_min else 0
-            self.ang_max = self.ang_max if self.ang_max else 90
-            r, theta = numpy.meshgrid(r, numpy.radians(data['ele']) )
-        elif data['mode_op'] == 'PPI':
-            try:
-                if self.data['mode_op'][-2] == 'RHI':
-                    self.ang_min = None
-                    self.ang_max = None
-            except:
-                pass
-            self.ang_min = self.ang_min if self.ang_min else 0
-            self.ang_max = self.ang_max if self.ang_max else 360
-            r, theta = numpy.meshgrid(r, numpy.radians(data['azi']) )
+            r, theta = numpy.meshgrid(r, numpy.radians(data['ele']))
+            len_aux = int(data['azi'].shape[0]/4)
+            mean = numpy.mean(data['azi'][len_aux:-len_aux])
+            x, y = r*numpy.cos(theta), r*numpy.sin(theta)
+        elif data['mode_op'] == 'PPI':            
+            r, theta = numpy.meshgrid(r, -numpy.radians(data['azi'])+numpy.pi/2)
+            len_aux = int(data['ele'].shape[0]/4)
+            mean = numpy.mean(data['ele'][len_aux:-len_aux])
+            x, y = r*numpy.cos(theta)*numpy.cos(numpy.radians(mean)), r*numpy.sin(
+                    theta)*numpy.cos(numpy.radians(mean))
+            x = km2deg(x) + -75.295893
+            y = km2deg(y) + -12.040436
 
         self.clear_figures()
 
-        for i,ax in enumerate(self.axes):
+        if data['mode_op'] == 'PPI':
+            axes = self.axes['PPI']
+        else:
+            axes = self.axes['RHI']
 
-            if ax.firsttime:
-                ax.set_xlim(numpy.radians(self.ang_min),numpy.radians(self.ang_max))
-                ax.plt = ax.pcolormesh(theta, r, z[i], cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
-                if data['mode_op'] == 'PPI':
-                    ax.set_theta_direction(-1)
-                    ax.set_theta_offset(numpy.pi/2)
+        for i, ax in enumerate(axes):
+            if data['mode_op'] == 'PPI':
+                ax.set_extent([-75.745893, -74.845893, -12.490436, -11.590436])
+                        
+            ax.plt = ax.pcolormesh(x, y, z[i], cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
 
-            else:
-                ax.set_xlim(numpy.radians(self.ang_min),numpy.radians(self.ang_max))
-                ax.plt = ax.pcolormesh(theta, r, z[i], cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
-                if data['mode_op'] == 'PPI':
-                    ax.set_theta_direction(-1)
-                    ax.set_theta_offset(numpy.pi/2)
-
-            ax.grid(True)
             if data['mode_op'] == 'RHI':
                 len_aux = int(data['azi'].shape[0]/4)
                 mean = numpy.mean(data['azi'][len_aux:-len_aux])
@@ -695,3 +670,47 @@ class WeatherParamsPlot(Plot):
                 else:
                     self.titles = ['PPI {} at EL: {} CH {}'.format(self.labels[0], str(round(mean,1)), self.channels[0])]
             self.mode_value = round(mean,1)
+
+            if data['mode_op'] == 'PPI':
+                gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
+                  linewidth=1, color='gray', alpha=0.5, linestyle='--')
+                gl.xlabel_style = {'size': 8}
+                gl.ylabel_style = {'size': 8}
+                gl.xlabels_top = False
+                gl.ylabels_right = False
+                shape_p = os.path.join(self.shapes,'PER_ADM2/PER_ADM2.shp')
+                shape_d = os.path.join(self.shapes,'PER_ADM1/PER_ADM1.shp')
+                capitales = os.path.join(self.shapes,'CAPITALES/cap_provincia.shp')
+                vias = os.path.join(self.shapes,'Carreteras/VIAS_NACIONAL_250000.shp')
+                reader_d = shpreader.BasicReader(shape_p, encoding='latin1')
+                reader_p = shpreader.BasicReader(shape_d, encoding='latin1')
+                reader_c = shpreader.BasicReader(capitales, encoding='latin1')
+                reader_v = shpreader.BasicReader(vias, encoding='latin1')
+                caps = [x for x in reader_c.records()  if x.attributes["Departa"] in ("JUNIN", "LIMA", "AYACUCHO", "HUANCAVELICA")]            
+                districts = [x for x in reader_d.records() if x.attributes["Name"] in ("JUNÍN", "CHANCHAMAYO", "CHUPACA", "CONCEPCIÓN", "HUANCAYO", "JAUJA", "SATIPO", "TARMA", "YAUYOS", "HUAROCHIRÍ", "CANTA", "HUANTA", "TAYACAJA")]
+                provs = [x for x in reader_p.records() if x.attributes["NAME"] in ("Junín", "Lima")]
+                vias = [x for x in reader_v.records() if x.attributes["DEP"] in ("JUNIN", "LIMA")]
+
+                # Display Kenya's shape
+                shape_feature = ShapelyFeature([x.geometry for x in districts], ccrs.PlateCarree(), facecolor="none", edgecolor='grey', lw=0.5)
+                ax.add_feature(shape_feature)
+                shape_feature = ShapelyFeature([x.geometry for x in provs], ccrs.PlateCarree(), facecolor="none", edgecolor='white', lw=1)
+                ax.add_feature(shape_feature)
+                shape_feature = ShapelyFeature([x.geometry for x in vias], ccrs.PlateCarree(), facecolor="none", edgecolor='yellow', lw=1)
+                ax.add_feature(shape_feature)
+
+                for cap in caps:
+                    if cap.attributes['Nombre'] in ("LA OROYA", "CONCEPCIÓN", "HUANCAYO", "JAUJA", "CHUPACA", "YAUYOS", "HUANTA", "PAMPAS"):
+                        ax.text(cap.attributes['X'], cap.attributes['Y'], cap.attributes['Nombre'].title(), size=7, color='white')
+                ax.text(-75.052003, -11.915552, 'Huaytapallana', size=7, color='cyan')
+                ax.plot(-75.052003, -11.915552, '*')
+                
+                for R in (10, 20, 30 , 40, 50):
+                    circle = Circle((-75.295893, -12.040436), km2deg(R), facecolor='none',
+                        edgecolor='skyblue', linewidth=1, alpha=0.5)
+                    ax.add_patch(circle)
+                    ax.text(km2deg(R)*numpy.cos(numpy.radians(45))-75.295893, 
+                        km2deg(R)*numpy.sin(numpy.radians(45))-12.040436, 
+                        '{}km'.format(R), color='skyblue', size=7)
+            elif data['mode_op'] == 'RHI':
+                ax.grid(color='grey', alpha=0.5, linestyle='--', linewidth=1)

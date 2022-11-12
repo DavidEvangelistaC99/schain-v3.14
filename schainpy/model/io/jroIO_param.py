@@ -505,6 +505,7 @@ class HDFWriter(Operation):
         
         if self.setType == 'weather':
             subfolder = dt.strftime('%Y-%m-%dT%H-00-00')
+            subfolder = ''
         else: 
             subfolder = dt.strftime('d%Y%j')
         
@@ -541,12 +542,14 @@ class HDFWriter(Operation):
             #SOPHY_20200505_140215_E10.0_Z.h5
             #SOPHY_20200505_140215_A40.0_Z.h5
             if self.dataOut.flagMode == 1: #'AZI' #PPI
-                ang_type = 'E'
+                ang_type = 'EL'
+                mode_type = 'PPI'
                 len_aux = int(self.dataOut.data_ele.shape[0]/4)
                 mean = numpy.mean(self.dataOut.data_ele[len_aux:-len_aux])
                 ang_    = round(mean,1)
             elif self.dataOut.flagMode == 0: #'ELE' #RHI
-                ang_type = 'A'
+                ang_type = 'AZ'
+                mode_type = 'RHI'
                 len_aux = int(self.dataOut.data_azi.shape[0]/4)
                 mean = numpy.mean(self.dataOut.data_azi[len_aux:-len_aux])
                 ang_    = round(mean,1)
@@ -559,11 +562,14 @@ class HDFWriter(Operation):
                                            dt.hour,
                                            dt.minute,
                                            dt.second,
-                                           ang_type,
+                                           ang_type[0],
                                            ang_,
                                            self.weather_var,
                                            ext )
-
+            subfolder = '{}_{}_{}_{:2.1f}'.format(self.weather_var, mode_type, ang_type, ang_)
+            fullpath = os.path.join(path, subfolder)
+            if not os.path.exists(fullpath):
+                os.makedirs(fullpath)
         else:
             setFile = dt.hour*60+dt.minute
             file = '%s%4.4d%3.3d%04d%s' % (self.optchar,
