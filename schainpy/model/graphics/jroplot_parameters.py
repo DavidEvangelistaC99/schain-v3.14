@@ -11,6 +11,7 @@ import cartopy.io.shapereader as shpreader
 from schainpy.model.graphics.jroplot_base import Plot, plt
 from schainpy.model.graphics.jroplot_spectra import SpectraPlot, RTIPlot, CoherencePlot, SpectraCutPlot
 from schainpy.utils import log
+from schainpy.model.graphics.plotting_codes import cb_tables
 
 
 EARTH_RADIUS = 6.3710e3
@@ -525,8 +526,8 @@ class WeatherParamsPlot(Plot):
         self.ncols = 1
         self.nrows = 1
         self.nplots= 1
-        self.ylabel= 'Range [km]'
-        self.xlabel= 'Range [km]'
+        self.ylabel= 'Height [km]'
+        self.xlabel= 'Distance from radar [km]'
     
         if self.channels is not None:
             self.nplots = len(self.channels)
@@ -546,7 +547,7 @@ class WeatherParamsPlot(Plot):
         self.len_azi =0
         self.buffer_ini  = None
         self.buffer_ele   = None
-        self.plots_adjust.update({'wspace': 0.4, 'hspace':0.4, 'left': 0.1, 'right': 0.9, 'bottom': 0.08})
+        self.plots_adjust.update({'wspace': 0.4, 'hspace':0.4, 'left': 0.1, 'right': 0.9, 'bottom': 0.1})
         self.flag    =0
         self.indicador= 0
         self.last_data_ele = None
@@ -649,11 +650,19 @@ class WeatherParamsPlot(Plot):
         else:
             axes = self.axes['RHI']
 
+        if self.colormap in cb_tables:
+            norm = cb_tables[self.colormap]['norm']
+        else:
+            norm = None
+        
         for i, ax in enumerate(axes):
             if data['mode_op'] == 'PPI':
                 ax.set_extent([-75.745893, -74.845893, -12.490436, -11.590436])
-                        
-            ax.plt = ax.pcolormesh(x, y, z[i], cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
+
+            if norm is None:
+                ax.plt = ax.pcolormesh(x, y, z[i], cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
+            else:
+                ax.plt = ax.pcolormesh(x, y, z[i], cmap=self.colormap, norm=norm)
 
             if data['mode_op'] == 'RHI':
                 len_aux = int(data['azi'].shape[0]/4)
@@ -691,7 +700,7 @@ class WeatherParamsPlot(Plot):
                 provs = [x for x in reader_p.records() if x.attributes["NAME"] in ("Junín", "Lima")]
                 vias = [x for x in reader_v.records() if x.attributes["DEP"] in ("JUNIN", "LIMA")]
 
-                # Display Kenya's shape
+                # Display limits and streets
                 shape_feature = ShapelyFeature([x.geometry for x in districts], ccrs.PlateCarree(), facecolor="none", edgecolor='grey', lw=0.5)
                 ax.add_feature(shape_feature)
                 shape_feature = ShapelyFeature([x.geometry for x in provs], ccrs.PlateCarree(), facecolor="none", edgecolor='white', lw=1)

@@ -20,7 +20,7 @@ import matplotlib,re
 if 'BACKEND' in os.environ:
     matplotlib.use(os.environ['BACKEND'])
 elif 'linux' in sys.platform:
-    matplotlib.use("Agg")
+    matplotlib.use("TkAgg")
 elif 'darwin' in sys.platform:
     matplotlib.use('MacOSX')
 else:
@@ -33,17 +33,16 @@ from matplotlib.patches import Polygon
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.ticker import FuncFormatter, LinearLocator, MultipleLocator
 
-from .plotting_codes import *
+from .plotting_codes import register_cmap
 
 from schainpy.model.data.jrodata import PlotterData
 from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecorator
 from schainpy.utils import log
 
-for name, cb_table in sophy_cb_tables:
-    ncmap = matplotlib.colors.ListedColormap(cb_table, name=name)
-    matplotlib.pyplot.register_cmap(cmap=ncmap)
 
 EARTH_RADIUS = 6.3710e3
+
+register_cmap()
 
 def ll2xy(lat1, lon1, lat2, lon2):
 
@@ -293,7 +292,7 @@ class Plot(Operation):
             fig_p = plt.figure(figsize=(self.width, self.height),
                              edgecolor='k',
                              facecolor='w')
-            fig_r = plt.figure(figsize=(self.width, self.height),
+            fig_r = plt.figure(figsize=(self.width, 4),
                              edgecolor='k',
                              facecolor='w')
             self.figures['PPI'].append(fig_p)
@@ -342,13 +341,13 @@ class Plot(Operation):
                     cax.tick_params(labelsize=8)
                     self.pf_axes.append(cax)
 
-        for n in range(self.nrows):
-            if self.colormaps is not None:
-                cmap = plt.get_cmap(self.colormaps[n])
-            else:
-                cmap = plt.get_cmap(self.colormap)
-            cmap.set_bad(self.bgcolor, 1.)
-            self.cmaps.append(cmap)
+        # for n in range(self.nrows):
+        #     if self.colormaps is not None:
+        #         cmap = plt.get_cmap(self.colormaps[n])
+        #     else:
+        #         cmap = plt.get_cmap(self.colormap)
+        #     cmap.set_bad(self.bgcolor, 1.)
+        #     self.cmaps.append(cmap)
 
     def __add_axes(self, ax, size='30%', pad='8%'):
         '''
@@ -431,6 +430,8 @@ class Plot(Operation):
                 if self.colorbar:
                     ax.cbar = plt.colorbar(
                         ax.plt, ax=ax, fraction=0.05, pad=0.06, aspect=10)
+                    if self.colormap=='sophy_r':
+                        ax.cbar.set_ticks([0.2, 0.73, 0.83, 0.93, 0.96, 0.99, 1.02, 1.05])
                     ax.cbar.ax.tick_params(labelsize=8)
                     ax.cbar.ax.press = None
                     if self.cb_label:

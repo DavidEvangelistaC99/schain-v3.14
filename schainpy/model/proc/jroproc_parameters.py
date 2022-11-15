@@ -4027,12 +4027,8 @@ class WeatherRadar(Operation):
 
         Pr = dataOut.data_param[:,0,:]
         '''---------------------------- Calculo de Noise y threshold para Reflectividad---------'''
-        # noise            = numpy.zeros(self.nCh)
-        # for i in range(self.nCh):
-        #     noise[i] = hildebrand_sekhon(Pr[i,:], 1)
-        #     window = numpy.where(Pr[i,:]<1.3*noise[i])
-        #     Pr[i,window]= 1e-10
-        Pr               = Pr/1000.0 # Conversion Watt
+
+        Pr = Pr/1000.0 # Conversion Watt
         '''-----------2 Reflectividad del Radar y Factor de Reflectividad------'''
         self.n_radar       = numpy.zeros((self.nCh,self.nHeis))
         self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
@@ -4044,12 +4040,7 @@ class WeatherRadar(Operation):
 
         '''----------- Factor de Reflectividad Equivalente lamda_ < 10 cm , lamda_= 3.2cm-------'''
         Zeh  =  self.Z_radar
-        #print("---------------------------------------------------------------------")
-        #print("RangedBz",10*numpy.log10((self.Range[0,-10:]*(10**3))**2))
-        #print("CTE",10*numpy.log10(self.RadarConstant))
-        #print("Pr first10",10*numpy.log10(Pr[0,:20]))
-        #print("Pr last10",10*numpy.log10(Pr[0,-20:]))
-        #print("LCTE",10*numpy.log10(self.lambda_**4/( numpy.pi**5 * self.Km**2)))
+
         if self.Pt<0.3:
             factor=10.072
         else:
@@ -4164,45 +4155,6 @@ class PedestalInformation(Operation):
                 log.error('No new position files found in {}'.format(path))
                 raise IOError('No new position files found in {}'.format(path))
 
-
-    def find_mode(self, index):
-        sample_max = 20
-        start = index
-        flag_mode = None        
-        
-        while True:
-          print(start, sample_max, numpy.shape(self.ele))  
-          if start+sample_max > numpy.shape(self.ele)[0]:
-            if  sample_max == 10:
-                print("CANNOT KNOW IF MODE IS PPI OR RHI, ANALIZE NEXT FILE")                
-                break
-            else:
-                sample_max = 10
-                continue
-          sigma_ele = numpy.nanstd(self.ele[start:start+sample_max])
-          sigma_azi = numpy.nanstd(self.azi[start:start+sample_max])
-          print("ele",self.ele[start-sample_max:start+sample_max])
-          print("azi",self.azi[start-sample_max:start+sample_max])
-          print(sigma_azi, sigma_ele)
-
-          if sigma_ele<.5 and sigma_azi<.5:
-            if sigma_ele<sigma_azi:
-              flag_mode = 'PPI'
-              break
-            else:
-              flag_mode = 'RHI'
-              break
-          elif sigma_ele < .5:
-            flag_mode = 'PPI'
-            break
-          elif sigma_azi < .5:
-            flag_mode = 'RHI'
-            break
-
-          start += sample_max
-
-        return flag_mode
-
     def get_values(self):
 
         if self.flagNoData:
@@ -4210,20 +4162,8 @@ class PedestalInformation(Operation):
         else:
             index = int((self.utctime-self.utcfile)/self.interval)
             try:
-                #print( self.azi[index], self.ele[index], None)
                 return self.azi[index], self.ele[index], None
             except:
-                return numpy.nan, numpy.nan, numpy.nan
-
-            if self.flagAskMode:
-               mode = self.find_mode(index)
-               print('MODE: ', mode)
-            else:
-               mode = self.mode
-
-            if mode is not None:
-                return self.azi[index], self.ele[index], mode
-            else:
                 return numpy.nan, numpy.nan, numpy.nan
 
     def setup(self, dataOut, path, conf, samples, interval, mode):
@@ -4294,8 +4234,6 @@ class Block360(Operation):
     __buffer       = None
     __dataReady    = False
     n              = None
-    __nch          = 0
-    __nHeis        = 0
     index          = 0
     mode           = None
 
@@ -4311,11 +4249,7 @@ class Block360(Operation):
         self.__dataReady      = False
         self.__buffer         = 0
         self.index            = 0
-        self.__nch            = dataOut.nChannels
-        self.__nHeis          = dataOut.nHeights
-
         self.attr = attr
-
         self.__buffer  = []
         self.azi = []
         self.ele = []        
