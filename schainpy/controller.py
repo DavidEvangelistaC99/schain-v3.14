@@ -286,7 +286,7 @@ class ReadUnitConf(ProcUnitConf):
         self.parameters = {}
     
     def setup(self, project_id, id, name, datatype, err_queue, path='', startDate='', endDate='',
-              startTime='', endTime='', server=None, **kwargs):
+              startTime='', endTime='', server=None, topic='', **kwargs):
         
         if datatype == None and name == None:
             raise ValueError('datatype or name should be defined')
@@ -314,6 +314,8 @@ class ReadUnitConf(ProcUnitConf):
         self.addParameter(name='endDate', value=endDate)
         self.addParameter(name='startTime', value=startTime)
         self.addParameter(name='endTime', value=endTime)
+        self.addParameter(name='server', value=server)
+        self.addParameter(name='topic', value=topic)
 
         for key, value in kwargs.items():
             self.addParameter(name=key, value=value)

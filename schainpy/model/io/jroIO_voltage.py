@@ -309,7 +309,11 @@ class VoltageReader(JRODataReader, ProcessingUnit):
         self.readFirstHeaderFromServer()
 
         timestamp = self.basicHeaderObj.get_datatime()
-        print('[Reading] - Block {} - {}'.format(self.nTotalBlocks, timestamp))
+        print('[Receiving] - Block {} - {}'.format(self.nTotalBlocks, timestamp))
+        if self.nTotalBlocks == self.processingHeaderObj.dataBlocksPerFile:
+            self.nTotalBlocks = 0
+            self.nReadBlocks = 0
+            print('Receiving the next stream...')
         current_pointer_location = self.blockPointer
         junk = numpy.fromstring(
             block[self.blockPointer:], self.dtype, self.blocksize)
@@ -623,10 +627,13 @@ class VoltageWriter(JRODataWriter, Operation):
         if self.profileIndex == 0:
             self.setBasicHeader()
 
-        self.datablock[:, self.profileIndex, :] = self.dataOut.data
-
-        self.profileIndex += 1
-
+        if not self.dataOut.flagDataAsBlock:
+            self.datablock[:, self.profileIndex, :] = self.dataOut.data
+            self.profileIndex += 1
+        else:
+            self.datablock[:, :, :] = self.dataOut.data
+            self.profileIndex = self.processingHeaderObj.profilesPerBlock
+        
         if self.hasAllDataInBuffer():
             # if self.flagIsNewFile:
             self.writeNextBlock()

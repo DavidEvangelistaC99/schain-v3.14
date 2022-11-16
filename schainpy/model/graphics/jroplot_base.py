@@ -554,7 +554,7 @@ class Plot(Operation):
 
         self.sender_time = last_time
         
-        attrs = ['titles', 'zmin', 'zmax', 'tag', 'ymin', 'ymax']
+        attrs = ['titles', 'zmin', 'zmax', 'tag', 'ymin', 'ymax', 'zlimits']
         for attr in attrs:
             value = getattr(self, attr)
             if value:

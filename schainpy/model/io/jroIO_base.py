@@ -781,6 +781,7 @@ class JRODataReader(Reader):
     firstHeaderSize = 0
     basicHeaderSize = 24
     __isFirstTimeOnline = 1
+    topic = ''
     filefmt = "*%Y%j***"
     folderfmt = "*%Y%j"
     __attrs__ = ['path', 'startDate', 'endDate', 'startTime', 'endTime', 'online', 'delay', 'walk']
@@ -1152,13 +1153,14 @@ class JRODataReader(Reader):
 
         if self.server is not None:
             if 'tcp://' in self.server:
-                address = server
+                address = self.server
             else:
                 address = 'ipc:///tmp/%s' % self.server
             self.server = address
             self.context = zmq.Context()
-            self.receiver = self.context.socket(zmq.PULL)
+            self.receiver = self.context.socket(zmq.SUB)
             self.receiver.connect(self.server)
+            self.receiver.setsockopt(zmq.SUBSCRIBE, str.encode(str(self.topic)))
             time.sleep(0.5)
             print('[Starting] ReceiverData from {}'.format(self.server))
         else:
@@ -1287,7 +1289,11 @@ class JRODataReader(Reader):
         if self.server is None:
             self.getData()
         else:
-            self.getFromServer()
+            try:
+                self.getFromServer()
+            except Exception as e:
+                log.warning('Invalid block...')                
+                self.dataOut.flagNoData = True
 
 
 class JRODataWriter(Reader):
