@@ -296,7 +296,7 @@ class VoltageReader(JRODataReader, ProcessingUnit):
         self.nReadBlocks += 1
         self.blockPointer = 0
 
-        block = self.receiver.recv()
+        topic, block = self.receiver.recv_multipart()
 
         self.basicHeaderObj.read(block[self.blockPointer:])
         self.blockPointer += self.basicHeaderObj.length
@@ -309,7 +309,7 @@ class VoltageReader(JRODataReader, ProcessingUnit):
         self.readFirstHeaderFromServer()
 
         timestamp = self.basicHeaderObj.get_datatime()
-        print('[Receiving] - Block {} - {}'.format(self.nTotalBlocks, timestamp))
+        print('[Receiving] - Block {} - {} from {}'.format(self.nTotalBlocks, timestamp, topic.decode()))
         if self.nTotalBlocks == self.processingHeaderObj.dataBlocksPerFile:
             self.nTotalBlocks = 0
             self.nReadBlocks = 0
