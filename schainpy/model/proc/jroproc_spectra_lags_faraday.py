@@ -4302,7 +4302,11 @@ class SpectraDataToFaraday(Operation):
         max_hei_id = dataOut.NDP - 2*0
         #if lag < 6:
         #dataOut.noise_lag[1] = dataOut.getNoise(ymin_index=80,ymax_index=106)[1]
-        dataOut.noise_lag[1] = dataOut.getNoise()[1]
+        if dataOut.flagDecodeData:
+            #dataOut.noise_lag[1] = dataOut.getNoise(ymin_index=150,ymax_index=200)[1]
+            dataOut.noise_lag[1] = dataOut.getNoise()[1]
+        else:
+            dataOut.noise_lag[1] = dataOut.getNoise()[1]
             #else:
                 #dataOut.noise_lag[1,lag] = numpy.mean(dataOut.noise_lag[1,:6])
             #dataOut.noise_lag[:,lag] = dataOut.getNoise(ymin_index=33,ymax_index=46)
@@ -4310,12 +4314,16 @@ class SpectraDataToFaraday(Operation):
 
             #print(lag)
         dataOut.data_spc = dataOut.dataLag_spc[:,:,:,0]
-        dataOut.noise_lag[0] = dataOut.getNoise()[0]
+        if dataOut.flagDecodeData:
+            #dataOut.noise_lag[0] = dataOut.getNoise(ymin_index=150,ymax_index=200)[0]
+            dataOut.noise_lag[0] = dataOut.getNoise()[0]
+        else:
+            dataOut.noise_lag[0] = dataOut.getNoise()[0]
 
         dataOut.tnoise = dataOut.noise_lag/float(dataOut.nProfiles*dataOut.nIncohInt)
         #dataOut.tnoise /= float(dataOut.nProfiles*dataOut.nIncohInt)
-        dataOut.pan = dataOut.tnoise[0]#*.95
-        dataOut.pbn = dataOut.tnoise[1]#*.95
+        dataOut.pan = dataOut.tnoise[0]#*.98
+        dataOut.pbn = dataOut.tnoise[1]#*.98
 
     def ConvertData(self,dataOut):
 
@@ -4336,12 +4344,24 @@ class SpectraDataToFaraday(Operation):
         for l in range(dataOut.DPL):
             dataOut.rnint2[l]=1.0/(dataOut.nIncohInt*dataOut.nProfiles)#*dataOut.nProfiles
 
-
-
+        #try:
+            #dataOut.rint2 /= dataOut.nCohInt*dataOut.windowOfFilter
+        #except: pass
+        '''
+        if hasattr(dataOut,'flagDecodeData'):
+            if dataOut.flagDecodeData:
+                print("decode",numpy.sum(dataOut.code[0]**2))
+                dataOut.rnint2 /= numpy.sum(dataOut.code[0]**2)
+            else:
+                print("widnow")
+                dataOut.rnint2 /= dataOut.windowOfFilter
+        else:
+            print("widnow")
+            dataOut.rint2 = dataOut.windowOfFilter
+            '''
         self.dataLag_spc=(dataOut.dataLag_spc.sum(axis=1))*(dataOut.rnint2[0]/dataOut.nProfiles)
         self.dataLag_cspc=(dataOut.dataLag_cspc.sum(axis=1))*(dataOut.rnint2[0]/dataOut.nProfiles)
         #self.dataLag_dc=dataOut.dataLag_dc.sum(axis=1)/dataOut.rnint2[0]
-
 
         dataOut.kabxys_integrated[4][:,:,0]=self.dataLag_spc[0,:,:].real
         #dataOut.kabxys_integrated[5][:,:,0]+=self.dataLag_spc[0,:,:].imag
@@ -4351,6 +4371,9 @@ class SpectraDataToFaraday(Operation):
         dataOut.kabxys_integrated[8][:,:,0]=self.dataLag_cspc[0,:,:].real
         dataOut.kabxys_integrated[10][:,:,0]=self.dataLag_cspc[0,:,:].imag
 
+        #print("power: ", numpy.sum(dataOut.kabxys_integrated[4][:16,0,0]))
+        #print("power: ", numpy.sum(dataOut.kabxys_integrated[4][16:32,0,0]))
+        #exit(1)
         '''
         print(dataOut.kabxys_integrated[4][:,0,0])
         print(dataOut.kabxys_integrated[6][:,0,0])
@@ -4376,7 +4399,23 @@ class SpectraDataToFaraday(Operation):
         dataOut.NR=len(dataOut.channelList)
         dataOut.DH=dataOut.heightList[1]-dataOut.heightList[0]
         dataOut.H0=int(dataOut.heightList[0])
+        '''
+        if dataOut.flagDecodeData:
+            print("flagDecodeData")
+            dataOut.data_spc /= numpy.sum(dataOut.code[0]**2)
+            dataOut.data_cspc /= numpy.sum(dataOut.code[0]**2)
+            dataOut.data_spc /= numpy.sum(dataOut.code[0]**2)
+            dataOut.data_cspc /= numpy.sum(dataOut.code[0]**2)
+        else:
+            print("windowOfFilter")
+            dataOut.data_spc /= dataOut.windowOfFilter
+            dataOut.data_cspc /= dataOut.windowOfFilter
+            dataOut.data_spc /= dataOut.windowOfFilter
+            dataOut.data_cspc /= dataOut.windowOfFilter
+            '''
         #print(dataOut.data_spc.shape)
+        print("*****************Sum: ", numpy.sum(dataOut.data_spc[0]))
+        print("*******************normFactor: *******************", dataOut.normFactor)
         dataOut.dataLag_spc = numpy.stack((dataOut.data_spc, dataOut.data_spc), axis=-1)
         dataOut.dataLag_cspc = numpy.stack((dataOut.data_cspc, dataOut.data_cspc), axis=-1)
         #print(dataOut.dataLag_spc.shape)
@@ -4387,13 +4426,15 @@ class SpectraDataToFaraday(Operation):
         dataOut.NAVG=16#dataOut.rnint2[0] #CHECK THIS!
         dataOut.MAXNRANGENDT=dataOut.NDP
         '''
-        print(dataOut.kabxys_integrated[4][:,0,0])
-        import matplotlib.pyplot as plt
-        plt.plot(dataOut.kabxys_integrated[4][:,0,0],dataOut.heightList)
-        plt.axvline(dataOut.pan)
-        plt.xlim(0,1.e3)
-        plt.show()
-        '''
+        if dataOut.flagDecodeData:
+            print(dataOut.kabxys_integrated[4][:,0,0])
+            import matplotlib.pyplot as plt
+            plt.plot(dataOut.kabxys_integrated[4][:,0,0],dataOut.heightList)
+            plt.axvline(dataOut.pan)
+            plt.xlim(1.1*1e3,0.6*1e6)
+            plt.ylim(30,90)
+            plt.show()
+            '''
         dataOut.DPL = 1
         return dataOut
 

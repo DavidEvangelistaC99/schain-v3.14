@@ -9,10 +9,10 @@ import copy
 import sys
 import importlib
 import itertools
-from multiprocessing import Pool, TimeoutError
+from multiprocessing import Pool, TimeoutError, Process
 from multiprocessing.pool import ThreadPool
 import time
-
+from threading import Thread
 from scipy.optimize import fmin_l_bfgs_b #optimize with bounds on state papameters
 from .jroproc_base import ProcessingUnit, Operation, MPDecorator
 from schainpy.model.data.jrodata import Parameters, hildebrand_sekhon
@@ -6571,8 +6571,6 @@ class SMOperations():
 #
 #         return heights, error
 
-
-
 class IGRFModel(Operation):
     '''
     Written by R. Flores
@@ -6599,7 +6597,7 @@ class IGRFModel(Operation):
     def run(self,dataOut):
 
         try:
-            from schainpy.model.proc import mkfact_short_2020
+            from schainpy.model.proc import mkfact_short_2020_2
         except:
             log.warning('You should install "mkfact_short_2020" module to process IGRF Model')
 
@@ -6622,8 +6620,18 @@ class IGRFModel(Operation):
             dataOut.thb=numpy.array(dataOut.thb,order='F')
             dataOut.bki=numpy.zeros(dataOut.MAXNRANGENDT,dtype='float32')
             dataOut.bki=numpy.array(dataOut.bki,order='F')
+            #print("bki: ", dataOut.bki)
+            #print("**** mkfact WRAPPER ***** ",mkfact_short_2020.mkfact.__doc__ )
+            #print("IDs: ", id(dataOut.bki))
+            #print("bki shape: ", numpy.shape(dataOut.bki),numpy.shape(dataOut.h),dataOut.year)
 
-            mkfact_short_2020.mkfact(dataOut.year,dataOut.h,dataOut.bfm,dataOut.thb,dataOut.bki,dataOut.MAXNRANGENDT)
+            mkfact_short_2020_2.mkfact(dataOut.year,dataOut.h,dataOut.bfm,dataOut.thb,dataOut.bki,dataOut.MAXNRANGENDT)
+
+            #mkfact_short_2020.mkfact(dataOut.year,dataOut.h,dataOut.bfm,dataOut.thb,dataOut.bki,dataOut.MAXNRANGENDT)
+            print("bki: ", dataOut.bki[:10])
+            print("thb: ", dataOut.thb[:10])
+            print("bfm: ", dataOut.bfm[:10])
+            #print("IDs: ", id(dataOut.bki))
 
         return dataOut
 
@@ -6764,9 +6772,60 @@ class MergeProc(ProcessingUnit):
         if mode==11: #MST ISR
             #data = numpy.concatenate([getattr(data, attr_data) for data in data_inputs],axis=1)
             #setattr(self.dataOut, attr_data, data)
-            setattr(self.dataOut, 'ph2', [getattr(data, attr_data) for data in data_inputs][1])
+            #setattr(self.dataOut, 'ph2', [getattr(data, attr_data) for data in data_inputs][1])
+            #setattr(self.dataOut, 'dphi', [getattr(data, attr_data_2) for data in data_inputs][1])
+            #setattr(self.dataOut, 'sdp2', [getattr(data, attr_data_3) for data in data_inputs][1])
+
+            setattr(self.dataOut, 'ph2', getattr(data_inputs[1], attr_data)) #DP
+            setattr(self.dataOut, 'dphi', getattr(data_inputs[1], attr_data_2)) #DP
+            setattr(self.dataOut, 'sdp2', getattr(data_inputs[1], attr_data_3)) #DP
+
             print("MST Density", numpy.shape(self.dataOut.ph2))
             print("cf MST: ", self.dataOut.cf)
-            exit(1)
-            self.dataOut.ph2 *= self.dataOut.cf
-            self.dataOut.sdp2 *= self.dataOut.cf
+            #exit(1)
+            #print("MST Density", self.dataOut.ph2[116:283])
+            print("MST Density", self.dataOut.ph2[80:120])
+            print("MST dPhi", self.dataOut.dphi[80:120])
+            self.dataOut.ph2 *= self.dataOut.cf#0.0008136899
+            #print("MST Density", self.dataOut.ph2[116:283])
+            self.dataOut.sdp2 *= 0#self.dataOut.cf#0.0008136899
+            #print("MST Density", self.dataOut.ph2[116:283])
+            print("MST Density", self.dataOut.ph2[80:120])
+            self.dataOut.NSHTS = int(numpy.shape(self.dataOut.ph2)[0])
+            dH = self.dataOut.heightList[1]-self.dataOut.heightList[0]
+            dH /= self.dataOut.windowOfFilter
+            self.dataOut.heightList = numpy.arange(0,self.dataOut.NSHTS)*dH
+            self.dataOut.NDP = self.dataOut.NSHTS
+            #print(self.dataOut.heightList)
+
+class MST_Den_Conv(Operation):
+    '''
+    Written by R. Flores
+    '''
+    """Operation to calculate Geomagnetic parameters.
+
+    Parameters:
+    -----------
+    None
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='MST_Den_Conv', optype='other')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+
+    def run(self,dataOut):
+
+        dataOut.PowDen = numpy.zeros((1,dataOut.NDP))
+        dataOut.PowDen[0] = numpy.copy(dataOut.ph2[:dataOut.NDP])
+
+        dataOut.FarDen = numpy.zeros((1,dataOut.NDP))
+        dataOut.FarDen[0] = numpy.copy(dataOut.dphi[:dataOut.NDP])
+        print("pow den shape", numpy.shape(dataOut.PowDen))
+        print("far den shape", numpy.shape(dataOut.FarDen))
+        return dataOut

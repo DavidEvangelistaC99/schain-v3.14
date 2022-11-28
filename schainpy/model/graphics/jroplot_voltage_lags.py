@@ -16,12 +16,13 @@ from schainpy.model.graphics.jroplot_base import Plot, plt
 
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
-from matplotlib.ticker import MultipleLocator
-
+from matplotlib.ticker import MultipleLocator, LogLocator, NullFormatter
 
 class RTIDPPlot(RTIPlot):
-
-    '''Plot for RTI Double Pulse Experiment
+    '''
+    Written by R. Flores
+    '''
+    '''Plot for RTI Double Pulse Experiment Using Cross Products Analysis
     '''
 
     CODE = 'RTIDP'
@@ -98,9 +99,11 @@ class RTIDPPlot(RTIPlot):
 
 
 class RTILPPlot(RTIPlot):
-
     '''
-       Plot for RTI Long Pulse
+    Written by R. Flores
+    '''
+    '''
+       Plot for RTI Long Pulse Using Cross Products Analysis
     '''
 
     CODE = 'RTILP'
@@ -184,7 +187,9 @@ class RTILPPlot(RTIPlot):
 
 
 class DenRTIPlot(RTIPlot):
-
+    '''
+    Written by R. Flores
+    '''
     '''
        Plot for Den
     '''
@@ -205,7 +210,6 @@ class DenRTIPlot(RTIPlot):
 
         if self.CODE == 'denrti':
             self.cb_label = r'$\mathrm{N_e}$ Electron Density ($\mathrm{1/cm^3}$)'
-
 
         self.titles = ['Electron Density RTI']
 
@@ -265,7 +269,9 @@ class DenRTIPlot(RTIPlot):
 
 
 class ETempRTIPlot(RTIPlot):
-
+    '''
+    Written by R. Flores
+    '''
     '''
        Plot for Electron Temperature
     '''
@@ -289,11 +295,11 @@ class ETempRTIPlot(RTIPlot):
             self.cb_label = 'Ion Temperature (K)'
             self.titles = ['Ion Temperature RTI']
         if self.CODE == 'HeFracLP':
-            self.cb_label='He+ Fraction'
+            self.cb_label ='He+ Fraction'
             self.titles = ['He+ Fraction RTI']
             self.zmax=0.16
-        if self.CODE== 'HFracLP':
-            self.cb_label='H+ Fraction'
+        if self.CODE == 'HFracLP':
+            self.cb_label ='H+ Fraction'
             self.titles = ['H+ Fraction RTI']
 
     def update(self, dataOut):
@@ -309,8 +315,6 @@ class ETempRTIPlot(RTIPlot):
 
         self.x = self.data.times
         self.y = self.data.yrange
-
-
         self.z = self.data[self.CODE]
 
         self.z = numpy.ma.masked_invalid(self.z)
@@ -351,7 +355,9 @@ class ETempRTIPlot(RTIPlot):
 
 
 class ITempRTIPlot(ETempRTIPlot):
-
+    '''
+    Written by R. Flores
+    '''
     '''
        Plot for Ion Temperature
     '''
@@ -371,7 +377,9 @@ class ITempRTIPlot(ETempRTIPlot):
 
 
 class HFracRTIPlot(ETempRTIPlot):
-
+    '''
+    Written by R. Flores
+    '''
     '''
        Plot for H+ LP
     '''
@@ -390,7 +398,9 @@ class HFracRTIPlot(ETempRTIPlot):
 
 
 class HeFracRTIPlot(ETempRTIPlot):
-
+    '''
+    Written by R. Flores
+    '''
     '''
        Plot for He+ LP
     '''
@@ -409,6 +419,9 @@ class HeFracRTIPlot(ETempRTIPlot):
 
 
 class TempsDPPlot(Plot):
+    '''
+    Written by R. Flores
+    '''
     '''
     Plot for Electron - Ion Temperatures
     '''
@@ -476,6 +489,9 @@ class TempsDPPlot(Plot):
 
 
 class TempsHPPlot(Plot):
+    '''
+    Written by R. Flores
+    '''
     '''
     Plot for Temperatures Hybrid Experiment
     '''
@@ -546,6 +562,9 @@ class TempsHPPlot(Plot):
 
 
 class FracsHPPlot(Plot):
+    '''
+    Written by R. Flores
+    '''
     '''
     Plot for Composition LP
     '''
@@ -623,6 +642,9 @@ class FracsHPPlot(Plot):
 
 class EDensityPlot(Plot):
     '''
+    Written by R. Flores
+    '''
+    '''
     Plot for electron density
     '''
 
@@ -651,6 +673,9 @@ class EDensityPlot(Plot):
         data['den_Faraday'] = dataOut.dphi[:dataOut.NSHTS]
         data['den_error'] = dataOut.sdp2[:dataOut.NSHTS]
         #data['err_Faraday'] = dataOut.sdn1[:dataOut.NSHTS]
+        print(numpy.shape(data['den_power']))
+        print(numpy.shape(data['den_Faraday']))
+        print(numpy.shape(data['den_error']))
 
         data['NSHTS'] = dataOut.NSHTS
 
@@ -662,8 +687,8 @@ class EDensityPlot(Plot):
 
         y = self.data.yrange
 
-        self.xmin = 1e3
-        self.xmax = 1e7
+        #self.xmin = 1e3
+        #self.xmax = 1e7
 
         ax = self.axes[0]
 
@@ -684,9 +709,9 @@ class EDensityPlot(Plot):
         if ax.firsttime:
             self.autoxticks=False
             #ax.errorbar(DenFar, y[:NSHTS], xerr=1, fmt='h-',elinewidth=1.0,color='g',linewidth=1.0, label='Faraday Profile',markersize=2)
-            ax.errorbar(DenFar, y[:NSHTS], xerr=1, fmt='h-',elinewidth=1.0,color='g',linewidth=1.0, label='Faraday',markersize=2)
+            ax.errorbar(DenFar, y[:NSHTS], xerr=1, fmt='h-',elinewidth=1.0,color='g',linewidth=1.0, label='Faraday',markersize=2,linestyle='-')
             #ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power Profile',markersize=2)
-            ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power',markersize=2)
+            ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power',markersize=2,linestyle='-')
 
             if self.CODE=='denLP':
                 ax.errorbar(DenPowLP[cut:], y[cut:], xerr=errDenPowLP[cut:], fmt='r^-',elinewidth=1.0,color='r',linewidth=1.0, label='LP Profile',markersize=2)
@@ -699,6 +724,11 @@ class EDensityPlot(Plot):
             if self.CODE=='denLP':
                 self.ystep_given=200
             ax.set_yticks(grid_y_ticks,minor=True)
+            locmaj = LogLocator(base=10,numticks=12)
+            ax.xaxis.set_major_locator(locmaj)
+            locmin = LogLocator(base=10.0,subs=(0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9),numticks=12)
+            ax.xaxis.set_minor_locator(locmin)
+            ax.xaxis.set_minor_formatter(NullFormatter())
             ax.grid(which='minor')
 
         else:
@@ -706,9 +736,9 @@ class EDensityPlot(Plot):
             DenPowBefore = dataBefore['den_power']
             self.clear_figures()
             #ax.errorbar(DenFar, y[:NSHTS], xerr=1, fmt='h-',elinewidth=1.0,color='g',linewidth=1.0, label='Faraday Profile',markersize=2)
-            ax.errorbar(DenFar, y[:NSHTS], xerr=1, fmt='h-',elinewidth=1.0,color='g',linewidth=1.0, label='Faraday',markersize=2)
+            ax.errorbar(DenFar, y[:NSHTS], xerr=1, fmt='h-',elinewidth=1.0,color='g',linewidth=1.0, label='Faraday',markersize=2,linestyle='-')
             #ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power Profile',markersize=2)
-            ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power',markersize=2)
+            ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power',markersize=2,linestyle='-')
             ax.errorbar(DenPowBefore, y[:NSHTS], elinewidth=1.0,color='r',linewidth=0.5,linestyle="dashed")
 
             if self.CODE=='denLP':
@@ -717,11 +747,19 @@ class EDensityPlot(Plot):
             ax.set_xscale("log", nonposx='clip')
             grid_y_ticks=numpy.arange(numpy.nanmin(y),numpy.nanmax(y),50)
             ax.set_yticks(grid_y_ticks,minor=True)
+            locmaj = LogLocator(base=10,numticks=12)
+            ax.xaxis.set_major_locator(locmaj)
+            locmin = LogLocator(base=10.0,subs=(0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9),numticks=12)
+            ax.xaxis.set_minor_locator(locmin)
+            ax.xaxis.set_minor_formatter(NullFormatter())
             ax.grid(which='minor')
             plt.legend(loc='upper left',fontsize=8.5)
             #plt.legend(loc='lower left',fontsize=8.5)
 
 class FaradayAnglePlot(Plot):
+    '''
+    Written by R. Flores
+    '''
     '''
     Plot for electron density
     '''
@@ -798,7 +836,9 @@ class FaradayAnglePlot(Plot):
             ax.grid(which='minor')
 
 class EDensityHPPlot(EDensityPlot):
-
+    '''
+    Written by R. Flores
+    '''
     '''
        Plot for Electron Density Hybrid Experiment
     '''
@@ -824,6 +864,9 @@ class EDensityHPPlot(EDensityPlot):
 
 
 class ACFsPlot(Plot):
+    '''
+    Written by R. Flores
+    '''
     '''
     Plot for ACFs Double Pulse Experiment
     '''
@@ -924,6 +967,9 @@ class ACFsPlot(Plot):
             ax.yaxis.set_minor_locator(MultipleLocator(15))
 
 class ACFsLPPlot(Plot):
+    '''
+    Written by R. Flores
+    '''
     '''
     Plot for ACFs Double Pulse Experiment
     '''
@@ -1028,6 +1074,9 @@ class ACFsLPPlot(Plot):
 
 class CrossProductsPlot(Plot):
     '''
+    Written by R. Flores
+    '''
+    '''
     Plot for cross products
     '''
 
@@ -1117,6 +1166,9 @@ class CrossProductsPlot(Plot):
 
 class CrossProductsLPPlot(Plot):
     '''
+    Written by R. Flores
+    '''
+    '''
     Plot for cross products LP
     '''
 
@@ -1195,6 +1247,9 @@ class CrossProductsLPPlot(Plot):
 
 class NoiseDPPlot(NoisePlot):
     '''
+    Written by R. Flores
+    '''
+    '''
     Plot for noise Double Pulse
     '''
 
@@ -1212,6 +1267,9 @@ class NoiseDPPlot(NoisePlot):
 
 
 class XmitWaveformPlot(Plot):
+    '''
+    Written by R. Flores
+    '''
     '''
     Plot for xmit waveform
     '''

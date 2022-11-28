@@ -167,6 +167,7 @@ class SpectraObliquePlot(Plot):
 
         data = {}
         meta = {}
+
         spc = 10*numpy.log10(dataOut.data_spc/dataOut.normFactor)
         data['spc'] = spc
         data['rti'] = dataOut.getPower()

@@ -325,7 +325,7 @@ class filterByHeights(Operation):
             buffer = buffer.reshape(dataOut.nChannels,int(dataOut.nHeights/window),int(window))
             buffer = numpy.sum(buffer,2)
 
-        dataOut.data = buffer
+        dataOut.data = buffer#/window
         dataOut.heightList = dataOut.heightList[0] + numpy.arange( newheights )*newdelta
         dataOut.windowOfFilter = window
 
@@ -3399,7 +3399,7 @@ class FaradayAngleAndDPPower(Operation):
         for i in range(dataOut.MAXNRANGENDT):
             dataOut.range1[i]=dataOut.H0 + i*dataOut.DH
             dataOut.h2[i]=dataOut.range1[i]**2
-
+        print("shape ph2",numpy.shape(dataOut.ph2))
         for j in range(dataOut.NDP):
             dataOut.ph2[j]=0.
             dataOut.sdp2[j]=0.
@@ -3447,7 +3447,8 @@ class FaradayAngleAndDPPower(Operation):
                 dataOut.phi[j]=math.atan2( ri , rr )
 
         dataOut.flagTeTiCorrection = False
-        #print(dataOut.ph2)
+        #print("ph2: ", numpy.sum(dataOut.ph2[:16]))
+        #print("ph2: ", numpy.sum(dataOut.ph2[16:32]))
 
         #exit(1)
 
@@ -3521,14 +3522,17 @@ class ElectronDensityFaraday(Operation):
         #print(dataOut.ph2)
         #exit(1)
         '''
-        import matplotlib.pyplot as plt
-        plt.plot(dataOut.phi,dataOut.heightList)
-        plt.show()
+        if dataOut.flagDecodeData:
+            import matplotlib.pyplot as plt
+            plt.plot(dataOut.phi,dataOut.heightList)
+            plt.show()
         '''
         #print(dataOut.bki)
-        print(dataOut.NDP)
+        #print(dataOut.NDP,dataOut.NSHTS)
+        #print("phi: ", dataOut.phi)
         for i in range(2,dataOut.NSHTS-2):
             fact=(-0.5/(dataOut.RATE*dataOut.DH))*dataOut.bki[i]
+            #print("fact: ", fact,dataOut.RATE,dataOut.DH,dataOut.bki[i])
             #four-point derivative, no phase unwrapping necessary
             #####dataOut.dphi[i]=((((theta[i+1]-theta[i-1])+(2.0*(theta[i+2]-theta[i-2])))/thetai[i])).real/10.0 #Original from C program
 
@@ -3536,18 +3540,23 @@ class ElectronDensityFaraday(Operation):
             dataOut.dphi[i]=((dataOut.phi[i+1]-dataOut.phi[i-1])+(2.0*(dataOut.phi[i+2]-dataOut.phi[i-2])))/10.0 #Better results
 
             #dataOut.dphi_uc[i] = abs(dataOut.phi[i]*dataOut.bki[i]*(-0.5)/dataOut.DH)
-            dataOut.dphi[i]=abs(dataOut.dphi[i]*fact)
+            #dataOut.dphi[i]=abs(dataOut.dphi[i]*fact)
+            dataOut.dphi[i]=dataOut.dphi[i]*abs(fact)
             dataOut.sdn1[i]=(4.*(dataOut.sdn2[i-2]+dataOut.sdn2[i+2])+dataOut.sdn2[i-1]+dataOut.sdn2[i+1])
             dataOut.sdn1[i]=numpy.sqrt(dataOut.sdn1[i])*fact
+
+        #print("dphi: ", dataOut.dphi)
         '''
-        #print(dataOut.dphi)
-        #exit(1)
-        import matplotlib.pyplot as plt
-        plt.plot(dataOut.dphi,dataOut.heightList)
-        plt.grid()
-        plt.xlim(0,1e7)
-        plt.show()
-        '''
+        if dataOut.flagDecodeData:
+            #exit(1)
+            import matplotlib.pyplot as plt
+            plt.plot(abs(dataOut.dphi),dataOut.heightList)
+            plt.grid()
+        #plt.xlim(0,1e7)
+            plt.show()
+
+            '''
+        print("dH: ", dataOut.heightList[1]-dataOut.heightList[0])
         return dataOut
 
 
@@ -3918,6 +3927,12 @@ class NormalizeDPPowerRoberto_V2(Operation):
             i2=(day_end-dataOut.range1[0])/dataOut.DH
             i1=(day_first -dataOut.range1[0])/dataOut.DH
             #'''
+
+        try:
+            dataOut.heightList[i2]
+        except:
+            i2 -= 1
+
         '''
         if not dataOut.flagSpreadF:
             i2=(420-dataOut.range1[0])/dataOut.DH
@@ -3955,6 +3970,8 @@ class NormalizeDPPowerRoberto_V2(Operation):
             i1 = nanindex[-1][0] #VER CUANDO i1>i2
             i1 += 1+2 #Se suma uno para no tomar el nan, se suma 2 para no tomar datos nan de "phi" debido al calculo de la derivada
         #print("i1, i2",i1,i2)
+        print(dataOut.heightList)
+        print("Bounds: ", dataOut.heightList[i1],dataOut.heightList[i2])
         #print(dataOut.dphi[33])
         #print(dataOut.ph2[33])
         #print(dataOut.dphi[i1::])
@@ -4002,6 +4019,8 @@ class NormalizeDPPowerRoberto_V2(Operation):
         #if (time_text.hour == 3 and time_text.minute == 59) or (time_text.hour == 4 and time_text.minute == 20): #Year: 2022, DOY:244
             #dataOut.cf = 0.09
             #'''
+        #dataOut.cf = 0.000057#0.0008136899
+
 
         dataOut.cflast[0]=dataOut.cf
         print("cf: ", dataOut.cf)
@@ -4028,7 +4047,7 @@ class NormalizeDPPowerRoberto_V2(Operation):
         #print(dataOut.ph2)
         #print(dataOut.sdp2)
         #input()
-
+        print("shape before" ,numpy.shape(dataOut.ph2))
 
         return dataOut
 
@@ -6187,7 +6206,7 @@ class SSheightProfiles(Operation):
 
         self.bufferShape  = int(shape[0]), int(numberSamples), int(numberProfile)  # nchannels, nsamples , nprofiles
         self.profileShape = int(shape[0]), int(numberProfile), int(numberSamples)  # nchannels, nprofiles, nsamples
-
+        print("buffer shape: ", self.bufferShape)
         self.buffer       = numpy.zeros(self.bufferShape , dtype=numpy.complex)
         self.sshProfiles  = numpy.zeros(self.profileShape, dtype=numpy.complex)
 
@@ -6482,7 +6501,7 @@ class Decoder(Operation):
         dataOut.nCode = self.nCode
         dataOut.nBaud = self.nBaud
 
-        dataOut.data = datadec
+        dataOut.data = datadec#/self.nBaud
 
         #print("before",dataOut.heightList)
         dataOut.heightList = dataOut.heightList[0:datadec.shape[-1]]
