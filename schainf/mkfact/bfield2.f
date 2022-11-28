@@ -17,7 +17,7 @@ c     usgs, ms 964, box 25046 federal center, denver, co  80225
 c
 c ===============================================================
       character*8 filmod(17)
-      character*31 fqual
+      character*9 fqual
       dimension gh1(220), gh2(220), gha(224), ext(3), dtemod(17)
       data ext /3*0./
       data filmod /  'dgrf45', 'dgrf50',
@@ -26,7 +26,7 @@ c ===============================================================
      3               'dgrf85', 'dgrf90', 'dgrf95',
      4               'dgrf00', 'dgrf05', 'dgrf10',
      5               'dgrf15', 'igrf20', 'igrf20s'/
-      data fqual/"/usr/local/lib/faraday/bfmodel/"/
+      data fqual/"/bfmodel/"/
       data dtemod / 1945., 1950., 1955., 1960.,
      1       1965., 1970., 1975., 1980., 1985., 1990., 1995., 2000.,
      2     2005.,2010.,2015.,2020.,2025./              

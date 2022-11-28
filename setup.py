@@ -97,6 +97,19 @@ setup(name='schainpy',
                 "schainf/mkfact/lmdif1.f",
                 "schainf/mkfact/mkfact.f",
                 "schainf/mkfact/r1mach.f",
+                "schainf/mkfact/bfield2.f"])
+                ]
+                )
+
+'''
+setup(name='schainpy',
+    ext_modules = [
+        Extension("schainpy.model.proc.mkfact_short_2020_2",
+            sources=[
+                "schainf/mkfact/mkfact_short_2020_2.pyf",
+                "schainf/mkfact/lmdif1.f",
+                "schainf/mkfact/mkfact.f",
+                "schainf/mkfact/r1mach.f",
                 "schainf/mkfact/bfield2.f"]),
         Extension("schainpy.model.proc.full_profile_profile",
             sources=[
@@ -206,3 +219,4 @@ setup(name='schainpy',
                 "schainf/acf2/tred1.f"])
                 ]
                 )
+'''
