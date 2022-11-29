@@ -17,7 +17,7 @@ c     usgs, ms 964, box 25046 federal center, denver, co  80225
 c
 c ===============================================================
       character*8 filmod(17)
-      character*9 fqual
+c      character*31 fqual
       dimension gh1(220), gh2(220), gha(224), ext(3), dtemod(17)
       data ext /3*0./
       data filmod /  'dgrf45', 'dgrf50',
@@ -26,7 +26,7 @@ c ===============================================================
      3               'dgrf85', 'dgrf90', 'dgrf95',
      4               'dgrf00', 'dgrf05', 'dgrf10',
      5               'dgrf15', 'igrf20', 'igrf20s'/
-      data fqual/"/bfmodel/"/
+c      data fqual/"/usr/local/lib/faraday/bfmodel/"/
       data dtemod / 1945., 1950., 1955., 1960.,
      1       1965., 1970., 1975., 1980., 1985., 1990., 1995., 2000.,
      2     2005.,2010.,2015.,2020.,2025./              
@@ -36,6 +36,13 @@ c      data a2/40680925./, b2/40408588./
 c
       data rtd/57.29577951/
       data tmp/0./,lp/0/
+      character(1024) :: fqual_temp
+      character(:), allocatable :: fqual
+      call get_path(fqual_temp)
+c      write(*,*) "L_BEF: ", fqual_temp, "L_BEF_end"
+      fqual = TRIM(fqual_temp)
+c      write(*,*) "L: ", fqual, "L_end"
+
       flat=90. - theta*rtd
       flon=rtd*phi
 c*****if previous time is not equal to current time
@@ -62,8 +69,9 @@ c       write(*,-)tm,l
         if(l .ne. lp)then
 c*********if previous epoch not the same, read in new coefs
 c         write(*,fmt='(" read coefs"))')
-c          write(*,*) fqual//filmod(l)
+c          write(*,*) "filmod", fqual//filmod(l)
            call getshc2 (iu, fqual//filmod(l), nmax1, erad, gh1, ier)
+c	   write(*,*) "AA: ", ier, filmod(l)
            if(ier .ne. 0)then
               write(*,fmt='(" geobfield: read error=",i2," on ",a)')
      1                   ier,filmod(l)

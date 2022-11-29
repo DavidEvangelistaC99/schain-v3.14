@@ -87,6 +87,18 @@ setup(
         ],
 )
 
+main_path = os.getcwd()
+child_path = '/schainf/mkfact/bfmodel/'
+#print("main_path: ", main_path)
+my_str = '      '+"ppath = "+"\""+main_path+"\"\n"
+my_str_2 = '      '+"cpath = "+"\""+child_path+"\""
+
+#'''
+with open('./schainf/mkfact/get_path_1.f', 'r') as path1: data1 = path1.read()
+with open('./schainf/mkfact/get_path_2.f', 'r') as path2: data2 = path2.read()
+with open('./schainf/mkfact/get_path.f', 'w') as final: final.write(data1+my_str+my_str_2+data2)
+#'''
+
 from numpy.distutils.core import Extension, setup
 
 setup(name='schainpy',
@@ -97,7 +109,8 @@ setup(name='schainpy',
                 "schainf/mkfact/lmdif1.f",
                 "schainf/mkfact/mkfact.f",
                 "schainf/mkfact/r1mach.f",
-                "schainf/mkfact/bfield2.f"])
+                "schainf/mkfact/bfield2.f",
+                "schainf/mkfact/get_path.f"])
                 ]
                 )
 
