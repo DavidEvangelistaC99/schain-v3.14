@@ -554,6 +554,10 @@ class Project(Process):
         for key in keys:
             conf = self.configurations[key]
             conf.createObjects()
+            if 'Reader' in str(conf):
+                reader = conf.object
+            else:
+                conf.object.reader = reader
             if conf.inputId is not None:
                 conf.object.setInput(self.configurations[conf.inputId].object)
 

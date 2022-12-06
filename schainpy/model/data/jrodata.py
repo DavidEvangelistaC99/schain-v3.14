@@ -123,6 +123,7 @@ class Beam:
 class GenericData(object):
 
     flagNoData = True
+    blockReader = False
 
     def copy(self, inputObj=None):
 
@@ -196,7 +197,11 @@ class JROData(GenericData):
 
     def __str__(self):
 
-        return '{} - {}'.format(self.type, self.datatime)
+        try:
+            dt = self.datatime
+        except:
+            dt = 'None'
+        return '{} - {}'.format(self.type, dt)
 
     def getNoise(self):
 

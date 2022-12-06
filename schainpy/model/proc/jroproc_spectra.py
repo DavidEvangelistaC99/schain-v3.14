@@ -135,6 +135,7 @@ class SpectraProc(ProcessingUnit):
         elif self.dataIn.type == "Voltage":
 
             self.dataOut.flagNoData = True
+            self.reader.bypass = True
 
             if nFFTPoints == None:
                 raise ValueError("This SpectraProc.run() need nFFTPoints input variable")
@@ -155,7 +156,6 @@ class SpectraProc(ProcessingUnit):
 
             if self.dataIn.flagDataAsBlock:
                 nVoltProfiles = self.dataIn.data.shape[1]
-
                 if nVoltProfiles == nProfiles:
                     self.buffer = self.dataIn.data.copy()
                     self.profIndex = nVoltProfiles
@@ -171,6 +171,19 @@ class SpectraProc(ProcessingUnit):
                     self.profIndex += nVoltProfiles
                     self.id_min += nVoltProfiles
                     self.id_max += nVoltProfiles
+                elif nVoltProfiles > nProfiles:
+                    print('Por perfiles...', self.profIndex)
+                    if self.profIndex == 0:
+                        self.id_min = 0
+                        self.id_max = nProfiles
+
+                    self.buffer = self.dataIn.data[:, self.id_min:self.id_max,:]
+                    self.profIndex += nProfiles
+                    self.id_min += nProfiles
+                    self.id_max += nProfiles
+                    if self.id_max == nVoltProfiles:
+                        self.reader.bypass = False
+                    
                 else:
                     raise ValueError("The type object %s has %d profiles, it should just has %d profiles" % (
                         self.dataIn.type, self.dataIn.data.shape[1], nProfiles))
@@ -182,7 +195,7 @@ class SpectraProc(ProcessingUnit):
             if self.firstdatatime == None:
                 self.firstdatatime = self.dataIn.utctime
 
-            if self.profIndex == nProfiles:
+            if self.profIndex % nProfiles == 0:
                 self.__updateSpecFromVoltage()
                 if pairsList == None:
                     self.dataOut.pairsList = [pair for pair in itertools.combinations(self.dataOut.channelList, 2)]
@@ -191,7 +204,8 @@ class SpectraProc(ProcessingUnit):
                 self.__getFft()
                 self.dataOut.flagNoData = False
                 self.firstdatatime = None
-                self.profIndex = 0
+                if not self.reader.bypass:
+                    self.profIndex = 0
         else:
             raise ValueError("The type of input object '%s' is not valid".format(
                 self.dataIn.type))

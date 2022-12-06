@@ -22,6 +22,7 @@ class ProcessingUnit(object):
     '''
 
     proc_type = 'processing'
+    bypass = False
 
     def __init__(self):
 
@@ -60,8 +61,13 @@ class ProcessingUnit(object):
         try:
             if self.dataIn is not None and self.dataIn.flagNoData and not self.dataIn.error:
                 return self.dataIn.isReady()
-            elif self.dataIn is None or not self.dataIn.error:
+            elif self.dataIn is None or not self.dataIn.error:                
+                if 'Reader' in self.name and self.bypass:
+                    print('Skipping...reader')
+                    return self.dataOut.isReady()
+                
                 self.run(**kwargs)
+                
             elif self.dataIn.error:
                 self.dataOut.error = self.dataIn.error
                 self.dataOut.flagNoData = True
@@ -81,7 +87,7 @@ class ProcessingUnit(object):
                 self.dataOut = op.run(self.dataOut, **opkwargs)
             elif optype == 'external' and not self.dataOut.flagNoData:
                 op.queue.put(aux)
-            elif optype == 'external' and self.dataOut.error:                        
+            elif optype == 'external' and self.dataOut.error:
                 op.queue.put(aux)
 
         return 'Error' if self.dataOut.error else self.dataOut.isReady()
