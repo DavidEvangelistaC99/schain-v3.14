@@ -3017,7 +3017,7 @@ class CohInt(Operation):
         if not self.isConfig:
             self.setup(n=n, stride=stride, timeInterval=timeInterval, overlapping=overlapping, byblock=byblock, **kwargs)
             self.isConfig = True
-        print("inside")
+
         if dataOut.flagDataAsBlock:
             """
             Si la data es leida por bloques, dimension = [nChannels, nProfiles, nHeis]

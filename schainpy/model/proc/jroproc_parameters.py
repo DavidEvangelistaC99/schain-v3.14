@@ -1,6 +1,7 @@
 import numpy
 import math
 from scipy import optimize, interpolate, signal, stats, ndimage
+from scipy.fftpack import fft
 import scipy
 import re
 import datetime
@@ -1414,33 +1415,215 @@ class SpectralMoments(Operation):
 
     '''
 
-    def run(self, dataOut):
+    def run(self, dataOut, proc_type=0):
 
-        data = dataOut.data_pre[0]
         absc = dataOut.abscissaList[:-1]
         noise = dataOut.noise
         nChannel = data.shape[0]
-        data_param = numpy.zeros((nChannel, 4, data.shape[2]))
+        data_param = numpy.zeros((nChannel, 8, data.shape[2]))
+
+        if proc_type == 1:
+            fwindow = numpy.zeros(absc.size) + 1
+            #b=64            
+            b=16
+            fwindow[0:absc.size//2 - b] = 0
+            fwindow[absc.size//2 + b:] = 0
+            type1 = 1 # moments calculation
+            nProfiles = dataOut.nProfiles
+            nCohInt = dataOut.nCohInt
+            nIncohInt = dataOut.nIncohInt
+            M = numpy.power(numpy.array(1/(nProfiles * nCohInt) ,dtype='float32'),2)
+            N = numpy.array(M / nIncohInt,dtype='float32')
+            data = dataOut.data_pre[0] * N
+            #noise = dataOut.noise * N
+            noise = numpy.zeros(nChannel)
+            for ind in range(nChannel):
+                noise[ind] = self.__NoiseByChannel(nProfiles, nIncohInt, data[ind,:,:])
+            smooth=3
+        else:
+            data = dataOut.data_pre[0]
+            noise = dataOut.noise
+            fwindow = None
+            type1 = 0
+            nIncohInt = None
+            smooth=None
 
         for ind in range(nChannel):
-            data_param[ind,:,:] = self.__calculateMoments( data[ind,:,:] , absc , noise[ind] )
+            data_param[ind,:,:] = self.__calculateMoments( data[ind,:,:] , absc , noise[ind], nicoh=nIncohInt, smooth=smooth, type1=type1, fwindow=fwindow, id_ch=ind)
 
-        dataOut.moments = data_param[:,1:,:]
-        dataOut.data_snr = data_param[:,0]
-        dataOut.data_pow = data_param[:,1]
-        dataOut.data_dop = data_param[:,2]
-        dataOut.data_width = data_param[:,3]
+        if proc_type == 1:
+            dataOut.moments = data_param[:,1:,:]
+            dataOut.data_dop = data_param[:,0]
+            dataOut.data_width = data_param[:,1]
+            dataOut.data_snr = data_param[:,2]
+            dataOut.data_pow = data_param[:,6]  # to compare with type0 proccessing
+            dataOut.spcpar=numpy.stack((dataOut.data_dop,dataOut.data_width,dataOut.data_snr, data_param[:,3], data_param[:,4],data_param[:,5]),axis=2)
+
+        else:
+            dataOut.moments = data_param[:,1:,:]
+            dataOut.data_snr = data_param[:,0]
+            dataOut.data_pow = data_param[:,1]
+            dataOut.data_dop = data_param[:,2]
+            dataOut.data_width = data_param[:,3]
+            dataOut.spcpar=numpy.stack((dataOut.data_dop,dataOut.data_width,dataOut.data_snr, dataOut.data_pow),axis=2)
 
         return dataOut
 
     def __calculateMoments(self, oldspec, oldfreq, n0,
                            nicoh = None, graph = None, smooth = None, type1 = None, fwindow = None, snrth = None, dc = None, aliasing = None, oldfd = None, wwauto = None):
 
-        if (nicoh is None): nicoh = 1
-        if (graph is None): graph = 0
-        if (smooth is None): smooth = 0
-        elif (self.smooth < 3): smooth = 0
+        def __GAUSSWINFIT1(A, flagPDER=0):
+            nonlocal truex, xvalid
+            nparams = 4
+            M=truex.size
+            mm=numpy.arange(M,dtype='f4')
+            delta = numpy.zeros(M,dtype='f4')
+            delta[0] = 1.0 
+            Ts = numpy.array([1.0/(2*truex[0])],dtype='f4')[0]
+            jj = -1j
+            #if self.winauto is None: self.winauto = (1.0 - mm/M)
+            winauto = (1.0 - mm/M)
+            winauto = winauto/winauto.max()     # Normalized to 1
+            #ON_ERROR,2     # IDL sentence: Return to caller if an error occurs
+            A[0] = numpy.abs(A[0])
+            A[2] = numpy.abs(A[2])
+            A[3] = numpy.abs(A[3])
+            pi=numpy.array([numpy.pi],dtype='f4')[0]
+            if A[2] != 0:
+                Z = numpy.exp(-2*numpy.power((pi*A[2]*mm*Ts),2,dtype='f4')+jj*2*pi*A[1]*mm*Ts, dtype='c8')      # Get Z
+            else:
+                Z = mm*0.0
+                A[0] = 0.0
+            junkF = numpy.roll(2*fft(winauto*(A[0]*Z+A[3]*delta)).real - \
+                                  winauto[0]*(A[0]+A[3]), M//2)                         # *M scale for fft not needed in python
+            F = junkF[xvalid]
+            if flagPDER == 0:       #NEED PARTIAL?
+                return F
+            PDER = numpy.zeros((M,nparams))   #YES, MAKE ARRAY.   
+            PDER[:,0] = numpy.shift(2*(fft(winauto*Z)*M) - winauto[0], M/2)
+            PDER[:,1] = numpy.shift(2*(fft(winauto*jj*2*numpy.pi*mm*Ts*A[0]*Z)*M), M/2)
+            PDER[:,2] = numpy.shift(2*(fft(winauto*(-4*numpy.power(numpy.pi*mm*Ts,2)*A[2]*A[0]*Z))*M), M/2)
+            PDER[:,3] = numpy.shift(2*(fft(winauto*delta)*M) - winauto[0], M/2)
+            PDER = PDER[xvalid,:]
+            return F, PDER
 
+        def __curvefit_koki(y, a, Weights, FlagNoDerivative=1,
+                            itmax=20, tol=None):
+            #ON_ERROR,2 IDL SENTENCE: RETURN TO THE CALLER IF ERROR
+            if tol == None:
+                tol = numpy.array([1.e-3],dtype='f4')[0] 
+            typ=a.dtype
+            double = 1 if typ == numpy.float64 else 0
+            if typ != numpy.float32:
+                a=a.astype(numpy.float32)       #Make params floating
+            # if we will be estimating partial derivates then compute machine precision
+            if FlagNoDerivative == 1:
+                res=numpy.MachAr(float_conv=numpy.float32)
+                eps=numpy.sqrt(res.eps)
+
+            nterms = a.size             # Number of parameters
+            nfree=numpy.array([numpy.size(y) - nterms],dtype='f4')[0]   # Degrees of freedom
+            if nfree <= 0: print('Curvefit - not enough data points.')
+            flambda= numpy.array([0.001],dtype='f4')[0]                         # Initial lambda
+            #diag=numpy.arange(nterms)*(nterms+1)       # Subscripta of diagonal elements
+            # Use diag method in python
+            converge=1
+
+            #Define the partial derivative array
+            PDER = numpy.zeros((nterms,numpy.size(y)),dtype='f8') if double == 1 else numpy.zeros((nterms,numpy.size(y)),dtype='f4')
+
+            for Niter in range(itmax):      #Iteration loop     
+
+                if FlagNoDerivative == 1:
+                    #Evaluate function and estimate partial derivatives
+                    yfit = __GAUSSWINFIT1(a)
+                    for term in range(nterms):
+                        p=a.copy()      # Copy current parameters
+                        #Increment size for forward difference derivative
+                        inc = eps * abs(p[term])
+                        if inc == 0: inc = eps
+                        p[term] = p[term] + inc
+                        yfit1 = __GAUSSWINFIT1(p)
+                        PDER[term,:] = (yfit1-yfit)/inc
+                else:
+                    #The user's procedure will return partial derivatives
+                    yfit,PDER=__GAUSSWINFIT1(a, flagPDER=1)
+
+                beta = numpy.dot(PDER,(y-yfit)*Weights)
+                alpha = numpy.dot(PDER * numpy.tile(Weights,(nterms,1)), numpy.transpose(PDER))
+                # save current values of return parameters
+                sigma1 = numpy.sqrt( 1.0 / numpy.diag(alpha) )  # Current sigma.
+                sigma  = sigma1
+
+                chisq1 = numpy.sum(Weights*numpy.power(y-yfit,2,dtype='f4'),dtype='f4')/nfree     # Current chi squared.
+                chisq = chisq1
+                yfit1 = yfit
+                elev7=numpy.array([1.0e7],dtype='f4')[0]
+                compara =numpy.sum(abs(y))/elev7/nfree
+                done_early = chisq1 < compara
+
+                if done_early:
+                    chi2 = chisq         # Return chi-squared (chi2 obsolete-still works)  
+                    if done_early: Niter -= 1
+                    #save_tp(chisq,Niter,yfit)
+                    return yfit, a, converge, sigma, chisq          # return result
+                #c = numpy.dot(c, c)    # this operator implemented at the next lines
+                c_tmp = numpy.sqrt(numpy.diag(alpha))
+                siz=len(c_tmp)
+                c=numpy.dot(c_tmp.reshape(siz,1),c_tmp.reshape(1,siz))
+                lambdaCount = 0
+                while True:
+                    lambdaCount += 1
+                    # Normalize alpha to have unit diagonal.
+                    array = alpha / c
+                    # Augment the diagonal.
+                    one=numpy.array([1.],dtype='f4')[0]
+                    numpy.fill_diagonal(array,numpy.diag(array)*(one+flambda))
+                    # Invert modified curvature matrix to find new parameters.
+  
+                    try:
+                        array =  (1.0/array) if array.size == 1  else numpy.linalg.inv(array)
+                    except Exception as e:
+                        print(e)
+                        array[:]=numpy.NaN
+
+                    b = a + numpy.dot(numpy.transpose(beta),array/c) # New params           
+                    yfit = __GAUSSWINFIT1(b) # Evaluate function
+                    chisq = numpy.sum(Weights*numpy.power(y-yfit,2,dtype='f4'),dtype='f4')/nfree # New chisq
+                    sigma = numpy.sqrt(numpy.diag(array)/numpy.diag(alpha)) # New sigma
+                    if (numpy.isfinite(chisq) == 0) or \
+                        (lambdaCount > 30 and chisq >= chisq1):
+                        # Reject changes made this iteration, use old values.
+                        yfit  = yfit1 
+                        sigma = sigma1
+                        chisq = chisq1
+                        converge = 0
+                        #print('Failed to converge.')
+                        chi2 = chisq         # Return chi-squared (chi2 obsolete-still works)
+                        if done_early: Niter -= 1
+                        #save_tp(chisq,Niter,yfit) 
+                        return yfit, a, converge, sigma, chisq, chi2          # return result   
+                    ten=numpy.array([10.0],dtype='f4')[0]
+                    flambda *= ten      # Assume fit got worse
+                    if chisq <= chisq1:
+                        break
+                hundred=numpy.array([100.0],dtype='f4')[0]
+                flambda /= hundred
+
+                a=b                     # Save new parameter estimate.             
+                if ((chisq1-chisq)/chisq1) <= tol: # Finished?
+                    chi2 = chisq         # Return chi-squared (chi2 obsolete-still works)
+                    if done_early: Niter -= 1
+                    #save_tp(chisq,Niter,yfit)
+                    return yfit, a, converge, sigma, chisq, chi2         # return result
+            converge = 0
+            chi2 = chisq
+            #print('Failed to converge.')
+            #save_tp(chisq,Niter,yfit)
+            return yfit, a, converge, sigma, chisq, chi2
+        
+        if (nicoh is None): nicoh = 1
+        if (smooth is None): smooth = 0
         if (type1 is None): type1 = 0
         if (fwindow is None): fwindow = numpy.zeros(oldfreq.size) + 1
         if (snrth is None): snrth = -3
@@ -1451,71 +1634,262 @@ class SpectralMoments(Operation):
 
         if (n0 < 1.e-20):   n0 = 1.e-20
 
+        xvalid = numpy.where(fwindow == 1)[0]
         freq = oldfreq
+        truex = oldfreq
         vec_power = numpy.zeros(oldspec.shape[1])
         vec_fd = numpy.zeros(oldspec.shape[1])
         vec_w = numpy.zeros(oldspec.shape[1])
         vec_snr = numpy.zeros(oldspec.shape[1])
-
-        # oldspec = numpy.ma.masked_invalid(oldspec)
+        vec_n1 = numpy.empty(oldspec.shape[1])
+        vec_fp = numpy.empty(oldspec.shape[1])
+        vec_sigma_fd = numpy.empty(oldspec.shape[1])
 
         for ind in range(oldspec.shape[1]):
 
             spec = oldspec[:,ind]
-            aux = spec*fwindow
-            max_spec = aux.max()
-            m = aux.tolist().index(max_spec)
-
-            # Smooth
             if (smooth == 0):
                 spec2 = spec
             else:
                 spec2 = scipy.ndimage.filters.uniform_filter1d(spec,size=smooth)
+            
+            aux = spec2*fwindow
+            max_spec = aux.max()
+            m = aux.tolist().index(max_spec)
 
-            # Moments Estimation
-            bb = spec2[numpy.arange(m,spec2.size)]
-            bb = (bb<n0).nonzero()
-            bb = bb[0]
-
-            ss = spec2[numpy.arange(0,m + 1)]
-            ss = (ss<n0).nonzero()
-            ss = ss[0]
-
-            if (bb.size == 0):
-                bb0 = spec.size - 1 - m
+            if m > 2 and m < oldfreq.size - 3:
+                newindex = m + numpy.array([-2,-1,0,1,2])
+                newfreq = numpy.arange(20)/20.0*(numpy.max(freq[newindex])-numpy.min(freq[newindex]))+numpy.min(freq[newindex])
+                #peakspec = SPLINE(,)
+                tck = interpolate.splrep(freq[newindex], spec2[newindex])
+                peakspec = interpolate.splev(newfreq, tck)
+                # max_spec = MAX(peakspec,)
+                max_spec = numpy.max(peakspec)
+                mnew = numpy.argmax(peakspec)
+                #fp = newfreq(mnew)
+                fp = newfreq[mnew]
             else:
-                bb0 = bb[0] - 1
-                if (bb0 < 0):
-                    bb0 = 0
+                fp = freq[m]
 
-            if (ss.size == 0):
-                ss1 = 1
+            if type1==0:
+
+                # Moments Estimation
+                bb = spec2[numpy.arange(m,spec2.size)]
+                bb = (bb<n0).nonzero()
+                bb = bb[0]
+
+                ss = spec2[numpy.arange(0,m + 1)]
+                ss = (ss<n0).nonzero()
+                ss = ss[0]
+
+                if (bb.size == 0):
+                    bb0 = spec.size - 1 - m
+                else:
+                    bb0 = bb[0] - 1
+                    if (bb0 < 0):
+                        bb0 = 0
+
+                if (ss.size == 0):
+                    ss1 = 1
+                else:
+                    ss1 = max(ss) + 1
+
+                if (ss1 > m):
+                    ss1 = m
+
+                valid = numpy.arange(int(m + bb0 - ss1 + 1)) + ss1
+
+                signal_power = ((spec2[valid] - n0) * fwindow[valid]).mean()    # D. Scipión added with correct definition
+                total_power = (spec2[valid] * fwindow[valid]).mean()            # D. Scipión added with correct definition
+                power = ((spec2[valid] - n0) * fwindow[valid]).sum() 
+                fd = ((spec2[valid]- n0)*freq[valid] * fwindow[valid]).sum() / power
+                w = numpy.sqrt(((spec2[valid] - n0)*fwindow[valid]*(freq[valid]- fd)**2).sum() / power)
+                snr = (spec2.mean()-n0)/n0
+                if (snr < 1.e-20): snr = 1.e-20
+   
+                vec_power[ind] = total_power
+                vec_fd[ind] = fd
+                vec_w[ind] = w
+                vec_snr[ind] = snr
             else:
-                ss1 = max(ss) + 1
+                # Noise by heights
+                n1, stdv = self.__get_noise2(spec, nicoh)            
+                # Moments Estimation
+                bb = spec2[numpy.arange(m,spec2.size)]
+                bb = (bb<n1).nonzero()
+                bb = bb[0]
 
-            if (ss1 > m):
-                ss1 = m
+                ss = spec2[numpy.arange(0,m + 1)]
+                ss = (ss<n1).nonzero()
+                ss = ss[0]
 
-            valid = numpy.arange(int(m + bb0 - ss1 + 1)) + ss1
+                if (bb.size == 0):
+                    bb0 = spec.size - 1 - m
+                else:
+                    bb0 = bb[0] - 1
+                    if (bb0 < 0):
+                        bb0 = 0
 
-            signal_power = ((spec2[valid] - n0) * fwindow[valid]).mean()    # D. Scipión added with correct definition
-            total_power = (spec2[valid] * fwindow[valid]).mean()            # D. Scipión added with correct definition
-            power = ((spec2[valid] - n0) * fwindow[valid]).sum() 
-            fd = ((spec2[valid]- n0)*freq[valid] * fwindow[valid]).sum() / power
-            w = numpy.sqrt(((spec2[valid] - n0)*fwindow[valid]*(freq[valid]- fd)**2).sum() / power)
-            snr = (spec2.mean()-n0)/n0
-            if (snr < 1.e-20) :
-                snr = 1.e-20
+                if (ss.size == 0):
+                    ss1 = 1
+                else:
+                    ss1 = max(ss) + 1
 
-            # vec_power[ind] = power    #D. Scipión replaced with the line below
-            vec_power[ind] = total_power
-            vec_fd[ind] = fd
-            vec_w[ind] = w
-            vec_snr[ind] = snr
+                if (ss1 > m):
+                    ss1 = m
 
-        return numpy.vstack((vec_snr, vec_power, vec_fd, vec_w))
+                valid = numpy.arange(int(m + bb0 - ss1 + 1)) + ss1
 
+                power = ((spec[valid] - n1)*fwindow[valid]).sum()
+                fd = ((spec[valid]- n1)*freq[valid]*fwindow[valid]).sum()/power
+                try:
+                    w = numpy.sqrt(((spec[valid] - n1)*fwindow[valid]*(freq[valid]- fd)**2).sum()/power)
+                except:
+                    w = float("NaN")
+                snr = power/(n0*fwindow.sum())
+                if snr <  1.e-20: snr = 1.e-20
+
+                # Here start gaussean adjustment
+
+                if snr > numpy.power(10,0.1*snrth):
     
+                    a = numpy.zeros(4,dtype='f4')
+                    a[0] = snr * n0
+                    a[1] = fd
+                    a[2] = w
+                    a[3] = n0
+
+                    np = spec.size
+                    aold = a.copy()
+                    spec2 = spec.copy()
+                    oldxvalid = xvalid.copy()
+
+                    for i in range(2):
+
+                        ww = 1.0/(numpy.power(spec2,2)/nicoh)
+                        ww[np//2] = 0.0
+
+                        a = aold.copy()
+                        xvalid = oldxvalid.copy()
+                        #self.show_var(xvalid)
+
+                        gaussfn = __curvefit_koki(spec[xvalid], a, ww[xvalid]) 
+                        a = gaussfn[1]
+
+                        xvalid = numpy.arange(np)
+                        spec2 = __GAUSSWINFIT1(a)
+
+                    xvalid = oldxvalid.copy()
+                    power = a[0] * np
+                    fd = a[1]
+                    sigma_fd = gaussfn[3][1]
+                    snr = max(power/ (max(a[3],n0) * len(oldxvalid)), 1e-20)
+                    w = numpy.abs(a[2])
+                    n1 = max(a[3], n0)
+
+                    #gauss_adj=[fd,w,snr,n1,fp,sigma_fd]
+                else:
+                    sigma_fd=numpy.nan # to avoid UnboundLocalError: local variable 'sigma_fd' referenced before assignment
+
+                vec_fd[ind] = fd
+                vec_w[ind] = w
+                vec_snr[ind] = snr
+                vec_n1[ind] = n1
+                vec_fp[ind] = fp
+                vec_sigma_fd[ind] = sigma_fd
+                vec_power[ind] = power  # to compare with type 0 proccessing
+
+        if type1==1:
+            return numpy.vstack((vec_fd,  vec_w, vec_snr, vec_n1, vec_fp, vec_sigma_fd, vec_power))
+        else:
+            return numpy.vstack((vec_snr, vec_power, vec_fd, vec_w))
+    
+    def __get_noise2(self,POWER, fft_avg, TALK=0):
+        '''
+        Rutina para cálculo de ruido por alturas(n1). Similar a IDL
+        '''
+        SPECT_PTS = len(POWER)
+        fft_avg = fft_avg*1.0
+        NOMIT = 0
+        NN = SPECT_PTS - NOMIT
+        N  = NN//2
+        ARR = numpy.concatenate((POWER[0:N+1],POWER[N+NOMIT+1:SPECT_PTS]))
+        ARR = numpy.sort(ARR)
+        NUMS_MIN = (SPECT_PTS+7)//8
+        RTEST = (1.0+1.0/fft_avg)
+        SUM = 0.0
+        SUMSQ = 0.0
+        J = 0
+        for I in range(NN):
+            J = J + 1
+            SUM = SUM + ARR[I]
+            SUMSQ = SUMSQ + ARR[I]*ARR[I]
+            AVE = SUM*1.0/J
+            if J > NUMS_MIN:
+                if (SUMSQ*J <= RTEST*SUM*SUM): RNOISE = AVE
+            else:
+                if J == NUMS_MIN: RNOISE = AVE
+        if TALK == 1: print('Noise Power (2):%4.4f' %RNOISE)
+        stdv = numpy.sqrt(SUMSQ/J - numpy.power(SUM/J,2))
+        return RNOISE, stdv
+
+    def __get_noise1(self, power, fft_avg, TALK=1):
+        '''
+        Rutina para cálculo de ruido por alturas(n0). Similar a IDL
+        '''
+        num_pts = numpy.size(power)
+        #print('num_pts',num_pts)
+        #print('power',power.shape)
+        #print(power[256:267,0:2])
+        fft_avg = fft_avg*1.0
+
+        ind = numpy.argsort(power, axis=None, kind='stable')
+        #ind = numpy.argsort(numpy.reshape(power,-1))
+        #print(ind.shape)
+        #print(ind[0:11])
+        #print(numpy.reshape(power,-1)[ind[0:11]])
+        ARR = numpy.reshape(power,-1)[ind]
+        #print('ARR',len(ARR))
+        #print('ARR',ARR.shape)
+        NUMS_MIN = num_pts//10
+        RTEST = (1.0+1.0/fft_avg)
+        SUM = 0.0
+        SUMSQ = 0.0
+        J = 0
+        cont = 1
+        while cont == 1 and J < num_pts:
+
+            SUM = SUM + ARR[J]
+            SUMSQ = SUMSQ + ARR[J]*ARR[J]
+            J = J + 1
+ 
+            if J > NUMS_MIN:
+                if (SUMSQ*J <= RTEST*SUM*SUM):
+                    LNOISE = SUM*1.0/J
+                else:
+                    J = J - 1
+                    SUM = SUM - ARR[J]
+                    SUMSQ = SUMSQ - ARR[J]*ARR[J]
+                    cont = 0
+            else:
+                if J == NUMS_MIN: LNOISE = SUM*1.0/J
+        if TALK == 1: print('Noise Power (1):%8.8f' %LNOISE)
+        stdv = numpy.sqrt(SUMSQ/J - numpy.power(SUM/J,2))
+        return LNOISE, stdv
+
+    def __NoiseByChannel(self, num_prof, num_incoh, spectra,talk=0):
+
+        val_frq = numpy.arange(num_prof-2)+1
+        val_frq[(num_prof-2)//2:] = val_frq[(num_prof-2)//2:] + 1       
+        junkspc = numpy.sum(spectra[val_frq,:], axis=1)
+        junkid = numpy.argsort(junkspc)
+        noisezone = val_frq[junkid[0:num_prof//2]]
+        specnoise = spectra[noisezone,:]
+        noise, stdvnoise = self.__get_noise1(specnoise,num_incoh)
+        
+        if talk:
+            print('noise =', noise)
+        return noise
 
 class SALags(Operation):
     '''

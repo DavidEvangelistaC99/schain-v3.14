@@ -475,6 +475,7 @@ class Reader(object):
     warnings = True
     verbose = True
     server = None
+    topic = None
     format = None
     oneDDict = None
     twoDDict = None
@@ -1477,9 +1478,6 @@ class JRODataWriter(Reader):
         if self.fp != None:
             self.fp.close()
 
-        if not os.path.exists(path):
-            os.mkdir(path)
-
         timeTuple = time.localtime(self.dataOut.utctime)
         subfolder = 'd%4.4d%3.3d' % (timeTuple.tm_year, timeTuple.tm_yday)
 
@@ -1487,7 +1485,7 @@ class JRODataWriter(Reader):
         setFile = self.setFile
 
         if not(os.path.exists(fullpath)):
-            os.mkdir(fullpath)
+            os.makedirs(fullpath)
             setFile = -1  # inicializo mi contador de seteo
         else:
             filesList = os.listdir(fullpath)

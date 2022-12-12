@@ -86,12 +86,12 @@ class DopplerPlot(RTIPlot):
     '''
 
     CODE = 'dop'
-    colormap = 'jet'
+    colormap = 'RdBu_r'
 
     def update(self, dataOut):
 
         data = {
-            'dop': 10 * numpy.log10(dataOut.data_dop)    
+            'dop': dataOut.data_dop
         }
 
         return data, {}
