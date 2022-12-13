@@ -44,7 +44,8 @@ class SpectraPlot(Plot):
         data['spc'] = spc
         data['rti'] = dataOut.getPower()
         data['noise'] = 10 * numpy.log10(dataOut.getNoise() / dataOut.normFactor)
-        meta['xrange'] = (dataOut.getFreqRange(1) / 1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
+        extrapoints = spc.shape[1] % dataOut.nFFTPoints
+        meta['xrange'] = (dataOut.getFreqRange(extrapoints) / 1000., dataOut.getAcfRange(extrapoints), dataOut.getVelRange(extrapoints))
         if self.CODE == 'spc_moments':
             data['moments'] = dataOut.moments
         if self.CODE == 'gaussian_fit':

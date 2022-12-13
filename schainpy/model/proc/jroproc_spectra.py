@@ -135,7 +135,6 @@ class SpectraProc(ProcessingUnit):
         elif self.dataIn.type == "Voltage":
 
             self.dataOut.flagNoData = True
-            self.reader.bypass = True
 
             if nFFTPoints == None:
                 raise ValueError("This SpectraProc.run() need nFFTPoints input variable")
@@ -172,7 +171,7 @@ class SpectraProc(ProcessingUnit):
                     self.id_min += nVoltProfiles
                     self.id_max += nVoltProfiles
                 elif nVoltProfiles > nProfiles:
-                    print('Por perfiles...', self.profIndex)
+                    self.reader.bypass = True
                     if self.profIndex == 0:
                         self.id_min = 0
                         self.id_max = nProfiles
