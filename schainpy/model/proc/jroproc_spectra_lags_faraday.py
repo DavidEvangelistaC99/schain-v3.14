@@ -3894,7 +3894,6 @@ class SnrFaraday(Operation):
 
         Operation.__init__(self, **kwargs)
 
-
     def run(self,dataOut):
 
         noise = dataOut.getNoise()

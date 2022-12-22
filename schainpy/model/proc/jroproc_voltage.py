@@ -3505,7 +3505,7 @@ class ElectronDensityFaraday(Operation):
         ndphi=dataOut.NSHTS-4
         #print(dataOut.phi)
         #exit(1)
-        #'''
+        '''
         if hasattr(dataOut, 'flagSpreadF') and dataOut.flagSpreadF:
         #if dataOut.flagSpreadF:
             nanindex = numpy.argwhere(numpy.isnan(dataOut.phi))
@@ -3517,16 +3517,18 @@ class ElectronDensityFaraday(Operation):
         else:
             #dataOut.phi_uwrp = dataOut.phi.copy()
             dataOut.phi[:]=numpy.unwrap(dataOut.phi[:]) #Better results
-            #'''
+            '''
         #print(dataOut.phi)
         #print(dataOut.ph2)
         #exit(1)
         '''
         if dataOut.flagDecodeData:
             import matplotlib.pyplot as plt
-            plt.plot(dataOut.phi,dataOut.heightList)
+            plt.plot(dataOut.phi,dataOut.heightList,'*-')
+            plt.ylim(60,95)
+            plt.grid()
             plt.show()
-        '''
+            '''
         #print(dataOut.bki)
         #print(dataOut.NDP,dataOut.NSHTS)
         #print("phi: ", dataOut.phi)
@@ -3556,7 +3558,7 @@ class ElectronDensityFaraday(Operation):
             plt.show()
 
             '''
-        print("dH: ", dataOut.heightList[1]-dataOut.heightList[0])
+        #print("dH: ", dataOut.heightList[1]-dataOut.heightList[0])
         return dataOut
 
 
