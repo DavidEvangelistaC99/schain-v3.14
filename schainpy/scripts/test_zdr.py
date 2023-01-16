@@ -18,7 +18,6 @@ NOTA:
   export WRADLIB_DATA = "/media/soporte/TOSHIBAEXT/sophy/HYO_CC4_CC64_COMB@2022-12-26T00-00-32/param-EVENTO/"
 - Update de plotting_codes
 '''
-
 PARAM = {
     'S': {'var': 'power','vmin': -45, 'vmax': -15, 'cmap': 'jet', 'label': 'Power','unit': 'dBm'},
     'V': {'var': 'velocity', 'vmin': -10, 'vmax': 10 , 'cmap': 'sophy_v', 'label': 'Velocity','unit': 'm/s'},
@@ -35,7 +34,7 @@ class Readsophy():
         self.variable  = None
         self.save      = None
         self.range     = None
-    def setup(self, path_file,mode,grado,range,r_min,variable,save):
+    def setup(self, path_file,mode,type,grado,range,r_min,variable,save):
         self.path_file = path_file
         self.mode      = mode
         self.range     = range
@@ -43,6 +42,7 @@ class Readsophy():
         self.r_min     = r_min
         self.variable  = variable
         self.save      = save
+        self.type_     = type
         self.list_file = self.read_files(path_file=self.path_file,mode=self.mode,grado=self.grado, variable=self.variable)
         print("self.list_file",self.list_file)
 
@@ -117,7 +117,7 @@ class Readsophy():
         new_h = heightList[minIndex:maxIndex]
         return new_h
 
-    def plot_PPI_RHI(self,count,x,y,z,cmap,my_time,vmin,vmax,label,unit,mode,grado):
+    def plot_RTI_PPI_RHI(self,count,x,y,z,cmap,my_time,vmin,vmax,label,unit,mode,grado):
         if count==1:
            fig = plt.figure(figsize=(8,6))
            plt.pcolormesh(x,y,z,cmap =cmap, vmin = vmin, vmax = vmax)
@@ -132,9 +132,80 @@ class Readsophy():
            cbar = plt.colorbar()
            cbar.set_label(label+'[' + unit + ']')
 
+    def plot_PROFILE(self,count,z,y,my_time,label,mode,grado):
+        if count==1:
+           fig = plt.figure(figsize=(8,6))
+           plt.plot(z,y)
+           title = 'Sophy Plot '+label+"-"+ my_time+" "+mode+" "+grado
+           t = plt.title(title, fontsize=12,y=1.05)
+           plt.ylim(0,self.range+1)
+           plt.xlabel(label)
+           plt.ylabel('Height(Km)')
+           if self.variable=="R":
+               plt.xlim(-1,3)
+           if self.variable=='D':
+               plt.xlim(-10,10)
+        else:
+           plt.plot(z,y)
+           title = 'Sophy Plot '+label+"-"+ my_time+" "+mode+" "+grado
+           t = plt.title(title, fontsize=12,y=1.05)
+           plt.ylim(0,self.range+1)
+           plt.xlabel(label)
+           plt.ylabel('Height(Km)')
+           if self.variable=="R":
+               plt.xlim(-1,3)
+           if self.variable=='D':
+               plt.xlim(-10,10)
+
+    def save_PIC(self,count,time_save):
+        if count ==1:
+            filename     = "SOPHY"+"_"+time_save+"_"+self.mode+"_"+self.grado+"_"+self.variable+str(self.range)+".png"
+            dir =self.variable+"_"+self.mode+self.grado+"CH0/"
+            filesavepath = os.path.join(self.path_file,dir)
+            try:
+              os.mkdir(filesavepath)
+            except:
+              pass
+        else:
+            dir =self.variable+"_"+self.mode+self.grado+"CH0/"
+            filesavepath = os.path.join(self.path_file,dir)
+            filename     = "SOPHY"+"_"+time_save+"_"+"E."+self.grado+"_"+self.variable+str(self.range)+".png"
+        plt.savefig(filesavepath+filename)
+
+    def seleccion_roHV_min(self,count,z,arr):
+        if self.variable=='R':
+            len_Z= z.shape[1]
+            min_CC=numpy.zeros(len_Z)
+            min_index_CC = numpy.zeros(len_Z)
+            for i in range(len_Z):
+                tmp=numpy.nanmin(z[:,i])
+                tmp_index = numpy.nanargmin((z[:,i]))
+
+                if  tmp <0.6:
+                    tmp_index= numpy.nan
+                    value = numpy.nan
+                else:
+                    value= new_heightList[tmp_index]
+                min_CC[i] =value
+            moda_,count_m_ = stats.mode(min_CC)
+            print(moda_)
+            for i in range(len_Z):
+                if min_CC[i]>moda_[0]+0.15 or min_CC[i]<moda_[0]-0.15:
+                    min_CC[i]=numpy.nan
+
+            min_index_CC=min_CC/0.06
+            if count == 0:
+                arr_ = min_index_CC
+            else:
+                arr_ = numpy.append(arr_,min_index_CC)
+            return arr_
+        else:
+            print("Operation JUST for roHV ")
+
     def run(self):
         count     = 0
         len_files = len(self.list_file)
+        SAVE_PARAM= []
         for thisFile in self.list_file:
             count= count +1
             print("Count :", count)
@@ -144,7 +215,7 @@ class Readsophy():
             # LECTURA
             data_arr, utc_time, data_azi,data_ele, heightList,unit,cmap,vmin,vmax,label = self.readAttributes(obj= test_hdf5,variable=self.variable)
             len_X= data_arr.shape[0]
-            #SELECCION DE ALTURAS
+            # SELECCION DE ALTURAS
             if self.range==0:
                 self.range == heightList[-1]
             if self.r_min==0:
@@ -197,53 +268,44 @@ class Readsophy():
                     bb[i]=z[int(min_CC[i]*0.06)][i]
                 except:
                     bb[i]=numpy.nan
-            print("bb",bb)
+            #print("bb           ",bb)
             print("bb _ prom_ZDR",numpy.nanmean(bb))
+            SAVE_PARAM.append(numpy.nanmean(bb))
             if count ==1:
+               if self.type_ =="PROFILE":
+                   self.plot_PROFILE(count=count ,z=z,y=y,my_time=my_time,label=label,mode=self.mode,grado=self.grado)
+               if self.type_ =="RTI":
+                   self.plot_RTI_PPI_RHI(count=count,x=x,y=y,z=z,cmap=cmap,my_time=my_time,vmin=vmin,vmax=vmax,label =label,unit=unit, mode=self.mode,grado=self.grado)
+               if self.type_ =='roHV_MIN':
+                   arr_= self.seleccion_roHV_min(count=count,z=z,arr_= 0)
                #arr_ = min_index_CC
-               '''
-               fig = plt.figure(figsize=(8,6))
-
-               plt.plot(z,y)
-               title = 'Sophy Plot '+label+"-"+ my_time+" "+self.mode+" "+self.grado
-               t = plt.title(title, fontsize=12,y=1.05)
-               '''
-               self.plot_PPI_RHI(count=count,x=x,y=y,z=z-1.2,cmap=cmap,my_time=my_time,vmin=vmin,vmax=vmax,label =label,unit=unit, mode=self.mode,grado=self.grado)
+               cota_min = 0
+               cota_max= len_X
                #plt.plot(x,min_CC[0:len_X]*0.06,'yo')
-               #cota_min = 0
-               #cota_max= len_X
+
             else:
-               #cota_min= cota_min+len_X
-               #cota_max= cota_min+len_X
                #arr_ = numpy.append(arr_,min_index_CC)
-               self.plot_PPI_RHI(count=count,x=x,y=y,z=z-1.2,cmap=cmap,my_time=my_time,vmin=vmin,vmax=vmax,label =label,unit=unit, mode=self.mode,grado=self.grado)
+               if self.type_=="RTI":
+                   self.plot_RTI_PPI_RHI(count=count,x=x,y=y,z=z,cmap=cmap,my_time=my_time,vmin=vmin,vmax=vmax,label =label,unit=unit, mode=self.mode,grado=self.grado)
+               if self.type_ =="PROFILE":
+                   self. plot_PROFILE(count=count,z=z,y=y,my_time=my_time,label=label,mode=self.mode,grado=self.grado)
+               if self.type_ =='roHV_MIN':
+                   arr_= self.seleccion_roHV_min(count=count,z=z,arr_= arr_)
+
+
+               #arr_ = numpy.append(arr_,min_index_CC)
+               cota_min= cota_min+len_X
+               cota_max= cota_min+len_X
                #plt.plot(x,min_CC[cota_min:cota_max]*0.06,'yo')
-               '''
-               plt.plot(z,y)
-               title = 'Sophy Plot '+label+"-"+ my_time+" "+self.mode+" "+self.grado
-               t = plt.title(title, fontsize=12,y=1.05)
-               '''
             print("Y",len_X)
-            #plt.xlim(-5,5)
-            #plt.ylim(0,self.range+1)
-            '''
             if self.save == 1:
-                if count ==1:
-                    filename     = "SOPHY"+"_"+time_save+"_"+self.mode+"_"+self.grado+"_"+self.variable+str(self.range)+".png"
-                    dir =self.variable+"_"+self.mode+self.grado+"CH0/"
-                    filesavepath = os.path.join(self.path_file,dir)
-                    try:
-                      os.mkdir(filesavepath)
-                    except:
-                      pass
-                else:
-                    filename     = "SOPHY"+"_"+time_save+"_"+"E."+self.grado+"_"+self.variable+str(self.range)+".png"
-                plt.savefig(filesavepath+filename)
-            '''
-            plt.pause(3)
+                self.save_PIC(count=count,time_save=time_save)
+            plt.pause(1)
             plt.clf()
             if  count == len_files:
-                #numpy.save("/home/soporte/WRJAN2023/schain/schainpy/scripts/index.npy",arr_)
+                if self.type_ =='roHV_MIN':
+                    numpy.save("/home/soporte/WRJAN2023/schain/schainpy/scripts/index.npy",arr_)
+                numpy.save("/home/soporte/WRJAN2023/schain/schainpy/scripts/index_"+self.variable+"_prom.npy",SAVE_PARAM)
                 plt.close()
         plt.show()
 
@@ -255,6 +317,7 @@ def main(args):
     save       = args.save
     range      = args.range
     mode       = args.mode
+    type       = args.type
     obj        = Readsophy()
     print("MODE     :", mode)
     if  not mode =='PPI' and not mode =='RHI':
@@ -267,7 +330,7 @@ def main(args):
         else:
            PATH = "/media/soporte/TOSHIBAEXT/sophy/HYO_CC4_CC64_COMB@2022-12-26T00-00-32/param-EVENTO/"+str(param)+"_RHI_AZ_"+str(grado)+".0/"
         print("Path       : ",PATH)
-        obj.setup(path_file =PATH,mode=mode,grado = grado,range=range,r_min=r_min, variable=param,save=int(save))
+        obj.setup(path_file =PATH,mode=mode,type=type,grado = grado,range=range,r_min=r_min, variable=param,save=int(save))
         print("SETUP OK")
         obj.run()
 
@@ -286,6 +349,8 @@ if __name__ == '__main__':
                         help='Max range to plot')
     parser.add_argument('--r_min', default=0, type=float,
                         help='Min range to plot')
+    parser.add_argument('--type', default='RTI',
+                        help='TYPE Profile or RTI')
     args = parser.parse_args()
 
     main(args)
