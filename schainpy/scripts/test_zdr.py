@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from wradlib.io import read_generic_hdf5
 from wradlib.util import get_wradlib_data_file
 from plotting_codes import sophy_cb_tables
+from scipy import stats
 
 for name, cb_table in sophy_cb_tables:
     ncmap = matplotlib.colors.ListedColormap(cb_table, name=name)
@@ -34,11 +35,12 @@ class Readsophy():
         self.variable  = None
         self.save      = None
         self.range     = None
-    def setup(self, path_file,mode,grado,range,variable,save):
+    def setup(self, path_file,mode,grado,range,r_min,variable,save):
         self.path_file = path_file
         self.mode      = mode
         self.range     = range
         self.grado     = grado
+        self.r_min     = r_min
         self.variable  = variable
         self.save      = save
         self.list_file = self.read_files(path_file=self.path_file,mode=self.mode,grado=self.grado, variable=self.variable)
@@ -115,6 +117,21 @@ class Readsophy():
         new_h = heightList[minIndex:maxIndex]
         return new_h
 
+    def plot_PPI_RHI(self,count,x,y,z,cmap,my_time,vmin,vmax,label,unit,mode,grado):
+        if count==1:
+           fig = plt.figure(figsize=(8,6))
+           plt.pcolormesh(x,y,z,cmap =cmap, vmin = vmin, vmax = vmax)
+           title = 'Sophy Plot'+label+"-"+ my_time+" "+mode+" "+grado
+           t = plt.title(title, fontsize=12,y=1.05)
+           cbar = plt.colorbar()
+           cbar.set_label(label+'[' + unit + ']')
+        else:
+           plt.pcolormesh(x,y,z, cmap =cmap, vmin = vmin, vmax = vmax)
+           title = 'Sophy Plot'+label+"-"+ my_time+" "+mode+" "+grado
+           t = plt.title(title, fontsize=12,y=1.05)
+           cbar = plt.colorbar()
+           cbar.set_label(label+'[' + unit + ']')
+
     def run(self):
         count     = 0
         len_files = len(self.list_file)
@@ -127,49 +144,88 @@ class Readsophy():
             # LECTURA
             data_arr, utc_time, data_azi,data_ele, heightList,unit,cmap,vmin,vmax,label = self.readAttributes(obj= test_hdf5,variable=self.variable)
             len_X= data_arr.shape[0]
-            x=numpy.linspace(1,len_X,len_X)
-            print("Data array:", data_arr.shape)
-            print('data_azi',data_azi.shape)
-            print('data_ele',data_ele.shape)
+            #SELECCION DE ALTURAS
             if self.range==0:
                 self.range == heightList[-1]
-            new_heightList,minIndex,maxIndex = self.selectHeights(heightList,0.01,self.range)
-            y= new_heightList
+            if self.r_min==0:
+                self.r_min = 0.01
+            new_heightList,minIndex,maxIndex = self.selectHeights(heightList,self.r_min,self.range)
             # TIEMPO
             utc_time[0] = utc_time[0]+60*60*5
             my_time    = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(utc_time[0]))
             time_save  = time.strftime('%Y%m%d_%H%M%S',time.localtime(utc_time[0]))
-
             data_arr= data_arr[:,minIndex:maxIndex].transpose()
+            # VARIABLES
+            x=numpy.linspace(1,len_X,len_X)
+            y= new_heightList
             z=data_arr
             profile = numpy.mean(z,1)
-            print("x",profile.shape,profile)
-            #print("y",y.shape,y)
+            # Seleccion del arreglo
+            '''
+            len_Z= z.shape[1]
+            min_CC=numpy.zeros(len_Z)
+            min_index_CC = numpy.zeros(len_Z)
+            for i in range(len_Z):
+                tmp=numpy.nanmin(z[:,i])
+                tmp_index = numpy.nanargmin((z[:,i]))
+
+                if  tmp <0.6:
+                    tmp_index= numpy.nan
+                    value = numpy.nan
+                else:
+                    value= new_heightList[tmp_index]
+                min_CC[i] =value
+            moda_,count_m_ = stats.mode(min_CC)
+            print(moda_)
+            for i in range(len_Z):
+                if min_CC[i]>moda_[0]+0.15 or min_CC[i]<moda_[0]-0.15:
+                    min_CC[i]=numpy.nan
+
+            min_index_CC=min_CC/0.06
+            #print(min_CC.shape,min_CC)
+            print("LONGITUD",min_index_CC.shape)
+            '''
+            len_Z= z.shape[1]
+            min_CC = numpy.zeros(len_Z)
+            min_CC = numpy.load("index.npy")
+            bb     = numpy.zeros(len_Z)
+
+            for i in range(len_Z):
+                if min_CC[i]==numpy.nan:
+                    bb[i]=numpy.nan
+                try:
+                    bb[i]=z[int(min_CC[i]*0.06)][i]
+                except:
+                    bb[i]=numpy.nan
+            print("bb",bb)
+            print("bb _ prom_ZDR",numpy.nanmean(bb))
             if count ==1:
+               #arr_ = min_index_CC
+               '''
                fig = plt.figure(figsize=(8,6))
+
                plt.plot(z,y)
                title = 'Sophy Plot '+label+"-"+ my_time+" "+self.mode+" "+self.grado
                t = plt.title(title, fontsize=12,y=1.05)
                '''
-               plt.pcolormesh(x,y,z,cmap =cmap, vmin = vmin, vmax = vmax)
-               title = 'Sophy Plot'+label+"-"+ my_time+" "+self.mode+" "+self.grado
-               t = plt.title(title, fontsize=12,y=1.05)
-               cbar = plt.colorbar()
-               cbar.set_label(label+'[' + unit + ']')
-               '''
+               self.plot_PPI_RHI(count=count,x=x,y=y,z=z-1.2,cmap=cmap,my_time=my_time,vmin=vmin,vmax=vmax,label =label,unit=unit, mode=self.mode,grado=self.grado)
+               #plt.plot(x,min_CC[0:len_X]*0.06,'yo')
+               #cota_min = 0
+               #cota_max= len_X
             else:
+               #cota_min= cota_min+len_X
+               #cota_max= cota_min+len_X
+               #arr_ = numpy.append(arr_,min_index_CC)
+               self.plot_PPI_RHI(count=count,x=x,y=y,z=z-1.2,cmap=cmap,my_time=my_time,vmin=vmin,vmax=vmax,label =label,unit=unit, mode=self.mode,grado=self.grado)
+               #plt.plot(x,min_CC[cota_min:cota_max]*0.06,'yo')
+               '''
                plt.plot(z,y)
                title = 'Sophy Plot '+label+"-"+ my_time+" "+self.mode+" "+self.grado
                t = plt.title(title, fontsize=12,y=1.05)
                '''
-               plt.pcolormesh(x,y,z, cmap =cmap, vmin = vmin, vmax = vmax)
-               title = 'Sophy Plot'+label+"-"+ my_time+" "+self.mode+" "+self.grado
-               t = plt.title(title, fontsize=12,y=1.05)
-               cbar = plt.colorbar()
-               cbar.set_label(label+'[' + unit + ']')
-               '''
-            plt.xlim(-5,5)
-            plt.ylim(0,self.range+1)
+            print("Y",len_X)
+            #plt.xlim(-5,5)
+            #plt.ylim(0,self.range+1)
             '''
             if self.save == 1:
                 if count ==1:
@@ -187,6 +243,7 @@ class Readsophy():
             plt.pause(3)
             plt.clf()
             if  count == len_files:
+                #numpy.save("/home/soporte/WRJAN2023/schain/schainpy/scripts/index.npy",arr_)
                 plt.close()
         plt.show()
 
@@ -194,6 +251,7 @@ class Readsophy():
 def main(args):
     grado      = args.grado
     parameters = args.parameters
+    r_min      = args.r_min
     save       = args.save
     range      = args.range
     mode       = args.mode
@@ -209,7 +267,7 @@ def main(args):
         else:
            PATH = "/media/soporte/TOSHIBAEXT/sophy/HYO_CC4_CC64_COMB@2022-12-26T00-00-32/param-EVENTO/"+str(param)+"_RHI_AZ_"+str(grado)+".0/"
         print("Path       : ",PATH)
-        obj.setup(path_file =PATH,mode=mode,grado = grado,range=range, variable=param,save=int(save))
+        obj.setup(path_file =PATH,mode=mode,grado = grado,range=range,r_min=r_min, variable=param,save=int(save))
         print("SETUP OK")
         obj.run()
 
@@ -226,6 +284,8 @@ if __name__ == '__main__':
                         help='Save plot')
     parser.add_argument('--range', default=0, type=float,
                         help='Max range to plot')
+    parser.add_argument('--r_min', default=0, type=float,
+                        help='Min range to plot')
     args = parser.parse_args()
 
     main(args)
