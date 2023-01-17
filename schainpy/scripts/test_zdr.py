@@ -121,13 +121,13 @@ class Readsophy():
         if count==1:
            fig = plt.figure(figsize=(8,6))
            plt.pcolormesh(x,y,z,cmap =cmap, vmin = vmin, vmax = vmax)
-           title = 'Sophy Plot'+label+"-"+ my_time+" "+mode+" "+grado
+           title = 'Sophy Plot '+label+"-"+ my_time+" "+mode+" "+grado+" N° "+str(count)
            t = plt.title(title, fontsize=12,y=1.05)
            cbar = plt.colorbar()
            cbar.set_label(label+'[' + unit + ']')
         else:
            plt.pcolormesh(x,y,z, cmap =cmap, vmin = vmin, vmax = vmax)
-           title = 'Sophy Plot'+label+"-"+ my_time+" "+mode+" "+grado
+           title = 'Sophy Plot '+label+"-"+ my_time+" "+mode+" "+grado+" N° "+str(count)
            t = plt.title(title, fontsize=12,y=1.05)
            cbar = plt.colorbar()
            cbar.set_label(label+'[' + unit + ']')
@@ -135,8 +135,8 @@ class Readsophy():
     def plot_PROFILE(self,count,z,y,my_time,label,mode,grado):
         if count==1:
            fig = plt.figure(figsize=(8,6))
-           plt.plot(z,y)
-           title = 'Sophy Plot '+label+"-"+ my_time+" "+mode+" "+grado
+           plt.plot(numpy.nanmean(z,1),y)
+           title = 'Sophy Plot '+label+"-"+ my_time+" "+mode+" "+grado+" N° "+str(count)
            t = plt.title(title, fontsize=12,y=1.05)
            plt.ylim(0,self.range+1)
            plt.xlabel(label)
@@ -145,9 +145,11 @@ class Readsophy():
                plt.xlim(-1,3)
            if self.variable=='D':
                plt.xlim(-10,10)
+           if self.variable=='Z':
+               plt.xlim(-20,80)
         else:
-           plt.plot(z,y)
-           title = 'Sophy Plot '+label+"-"+ my_time+" "+mode+" "+grado
+           plt.plot(numpy.nanmean(z,1),y)
+           title = 'Sophy Plot '+label+"-"+ my_time+" "+mode+" "+grado+" N° "+str(count)
            t = plt.title(title, fontsize=12,y=1.05)
            plt.ylim(0,self.range+1)
            plt.xlabel(label)
@@ -156,6 +158,8 @@ class Readsophy():
                plt.xlim(-1,3)
            if self.variable=='D':
                plt.xlim(-10,10)
+           if self.variable=='Z':
+               plt.xlim(-20,80)
 
     def save_PIC(self,count,time_save):
         if count ==1:
@@ -172,7 +176,8 @@ class Readsophy():
             filename     = "SOPHY"+"_"+time_save+"_"+"E."+self.grado+"_"+self.variable+str(self.range)+".png"
         plt.savefig(filesavepath+filename)
 
-    def seleccion_roHV_min(self,count,z,arr):
+    def seleccion_roHV_min(self,count,z,y,arr_):
+        ##print("y",y)
         if self.variable=='R':
             len_Z= z.shape[1]
             min_CC=numpy.zeros(len_Z)
@@ -180,27 +185,69 @@ class Readsophy():
             for i in range(len_Z):
                 tmp=numpy.nanmin(z[:,i])
                 tmp_index = numpy.nanargmin((z[:,i]))
-
-                if  tmp <0.6:
+                if  tmp <0.5:
                     tmp_index= numpy.nan
                     value = numpy.nan
                 else:
-                    value= new_heightList[tmp_index]
+                    value= y[tmp_index]
                 min_CC[i] =value
             moda_,count_m_ = stats.mode(min_CC)
-            print(moda_)
+            #print("MODA",moda_)
             for i in range(len_Z):
                 if min_CC[i]>moda_[0]+0.15 or min_CC[i]<moda_[0]-0.15:
                     min_CC[i]=numpy.nan
-
-            min_index_CC=min_CC/0.06
+            print("MIN_CC",min_CC)
+            print("y[0]",y[0])
+            min_index_CC=((min_CC-y[0])/0.06)
             if count == 0:
                 arr_ = min_index_CC
             else:
                 arr_ = numpy.append(arr_,min_index_CC)
+            print("arr_",min_index_CC)
             return arr_
         else:
-            print("Operation JUST for roHV ")
+            print("Operation JUST for roHV - EXIT ")
+            exit()
+
+    def pp_BB(self,count,x,y,z,filename,c_max,prom_List):
+        #print("z shape",z.shape)
+        len_Z = z.shape[1]
+        len_X = x.shape[0]
+        try:
+            min_CC = numpy.load(filename)
+        except:
+            print("There is no file")
+            exit()
+
+        #print(min_CC.shape,len_X)
+        #print(min_CC)
+        if count ==1:
+            c_min = 0
+            c_max = c_max+ len_X
+            plt.plot(x,y[0]+min_CC[c_min:c_max]*0.06,'yo')
+        else:
+            c_min = c_max
+            c_max = c_min+len_X
+            try:
+                plt.plot(x,y[0]+min_CC[c_min:c_max]*0.06,'yo')
+            except:
+                print("Check number of file")
+                return 0
+
+        bb     = numpy.zeros(len_Z)
+        min_READ_CC = min_CC[c_min:c_max]
+        #print(min_READ_CC[0:50])
+        for i in range(len_Z):
+            if min_READ_CC[i]==numpy.nan:
+                bb[i]=numpy.nan
+            try:
+                bb[i]=z[int(min_READ_CC[i])][i]
+            except:
+                bb[i]=numpy.nan
+        print("bb _ prom_ZDR",numpy.nanmean(bb))
+        prom_List.append(numpy.nanmean(bb))
+        return c_max
+
 
     def run(self):
         count     = 0
@@ -231,73 +278,29 @@ class Readsophy():
             y= new_heightList
             z=data_arr
             profile = numpy.mean(z,1)
-            # Seleccion del arreglo
-            '''
-            len_Z= z.shape[1]
-            min_CC=numpy.zeros(len_Z)
-            min_index_CC = numpy.zeros(len_Z)
-            for i in range(len_Z):
-                tmp=numpy.nanmin(z[:,i])
-                tmp_index = numpy.nanargmin((z[:,i]))
-
-                if  tmp <0.6:
-                    tmp_index= numpy.nan
-                    value = numpy.nan
-                else:
-                    value= new_heightList[tmp_index]
-                min_CC[i] =value
-            moda_,count_m_ = stats.mode(min_CC)
-            print(moda_)
-            for i in range(len_Z):
-                if min_CC[i]>moda_[0]+0.15 or min_CC[i]<moda_[0]-0.15:
-                    min_CC[i]=numpy.nan
-
-            min_index_CC=min_CC/0.06
-            #print(min_CC.shape,min_CC)
-            print("LONGITUD",min_index_CC.shape)
-            '''
-            len_Z= z.shape[1]
-            min_CC = numpy.zeros(len_Z)
-            min_CC = numpy.load("index.npy")
-            bb     = numpy.zeros(len_Z)
-
-            for i in range(len_Z):
-                if min_CC[i]==numpy.nan:
-                    bb[i]=numpy.nan
-                try:
-                    bb[i]=z[int(min_CC[i]*0.06)][i]
-                except:
-                    bb[i]=numpy.nan
-            #print("bb           ",bb)
-            print("bb _ prom_ZDR",numpy.nanmean(bb))
-            SAVE_PARAM.append(numpy.nanmean(bb))
             if count ==1:
                if self.type_ =="PROFILE":
                    self.plot_PROFILE(count=count ,z=z,y=y,my_time=my_time,label=label,mode=self.mode,grado=self.grado)
                if self.type_ =="RTI":
                    self.plot_RTI_PPI_RHI(count=count,x=x,y=y,z=z,cmap=cmap,my_time=my_time,vmin=vmin,vmax=vmax,label =label,unit=unit, mode=self.mode,grado=self.grado)
                if self.type_ =='roHV_MIN':
-                   arr_= self.seleccion_roHV_min(count=count,z=z,arr_= 0)
-               #arr_ = min_index_CC
-               cota_min = 0
-               cota_max= len_X
-               #plt.plot(x,min_CC[0:len_X]*0.06,'yo')
-
+                   arr_= self.seleccion_roHV_min(count=count,z=z,y=y,arr_= 0)
+               if self.type_ =='pp_BB':
+                   self.plot_RTI_PPI_RHI(count=count,x=x,y=y,z=z,cmap=cmap,my_time=my_time,vmin=vmin,vmax=vmax,label =label,unit=unit, mode=self.mode,grado=self.grado)
+                   c_max = self.pp_BB(count=count,x=x,y=y,z=z,filename='index.npy',c_max=0,prom_List=SAVE_PARAM)
             else:
-               #arr_ = numpy.append(arr_,min_index_CC)
                if self.type_=="RTI":
                    self.plot_RTI_PPI_RHI(count=count,x=x,y=y,z=z,cmap=cmap,my_time=my_time,vmin=vmin,vmax=vmax,label =label,unit=unit, mode=self.mode,grado=self.grado)
                if self.type_ =="PROFILE":
                    self. plot_PROFILE(count=count,z=z,y=y,my_time=my_time,label=label,mode=self.mode,grado=self.grado)
                if self.type_ =='roHV_MIN':
-                   arr_= self.seleccion_roHV_min(count=count,z=z,arr_= arr_)
+                   arr_= self.seleccion_roHV_min(count=count,z=z,y=y,arr_= arr_)
+               if self.type_ =='pp_BB':
+                   self.plot_RTI_PPI_RHI(count=count,x=x,y=y,z=z,cmap=cmap,my_time=my_time,vmin=vmin,vmax=vmax,label =label,unit=unit, mode=self.mode,grado=self.grado)
+                   c_max = self.pp_BB(count=count,x=x,y=y,z=z,filename='index.npy',c_max=c_max,prom_List=SAVE_PARAM)
+                   if c_max ==0:
+                       count=len_files
 
-
-               #arr_ = numpy.append(arr_,min_index_CC)
-               cota_min= cota_min+len_X
-               cota_max= cota_min+len_X
-               #plt.plot(x,min_CC[cota_min:cota_max]*0.06,'yo')
-            print("Y",len_X)
             if self.save == 1:
                 self.save_PIC(count=count,time_save=time_save)
             plt.pause(1)
@@ -305,8 +308,11 @@ class Readsophy():
             if  count == len_files:
                 if self.type_ =='roHV_MIN':
                     numpy.save("/home/soporte/WRJAN2023/schain/schainpy/scripts/index.npy",arr_)
-                numpy.save("/home/soporte/WRJAN2023/schain/schainpy/scripts/index_"+self.variable+"_prom.npy",SAVE_PARAM)
+                if self.type_ =='pp_BB':
+                    numpy.save("/home/soporte/WRJAN2023/schain/schainpy/scripts/index_"+self.variable+"_prom.npy",SAVE_PARAM)
+                print("-----ADIOS-------------------")
                 plt.close()
+                exit()
         plt.show()
 
 
