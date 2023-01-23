@@ -51,7 +51,7 @@ def main(args):
         end_time = args.end_time
     else:
         end_time = '23:59:59'
-        
+
     N = int(1/(speed_axis[0]*ipp))                                               # 1 GRADO DE RESOLUCION
 
     path = os.path.join(PATH, experiment, 'rawdata')
@@ -62,8 +62,8 @@ def main(args):
         label = ''
     path_plots = os.path.join(PATH, experiment, 'plots{}'.format(label))
     path_save = os.path.join(PATH, experiment, 'param{}'.format(label))
-    RMIX = 5.8#4.8#5.68#4.8#4.8#2.64#10#2.64
-    H0   =-1.68# -1.2#-1.68#-1.2#0.5#-1.2
+    RMIX = 5.8  #4.8#5.68#4.8#4.8#2.64#10#2.64
+    H0   = -1.2#-1.68# -1.2#-1.68#-1.2#0.5#-1.2
     MASK = 0.8
     #MASK = 0.4#0.35
 
@@ -260,7 +260,7 @@ def main(args):
         opObj10.addParameter(name='tauW',value=(1e-6/sample_rate)*len(code[0]))
         #opObj10.addParameter(name='Pt',value=((1e-6/sample_rate)*len(code[0])/ipp)*200)
         opObj10.addParameter(name='Pt',value=200)
-
+        opObj10.addParameter(name='min_index',value=0)
 
         op = proc1.addOperation(name='PedestalInformation')
         op.addParameter(name='path', value=path_ped, format='str')
@@ -315,6 +315,8 @@ def main(args):
         opObj10.addParameter(name='tauW',value=(1e-6/sample_rate)*len(code[0]))
         #opObj10.addParameter(name='Pt',value=((1e-6/sample_rate)*len(code[0])/ipp)*200)
         opObj10.addParameter(name='Pt',value=200)
+        opObj10.addParameter(name='min_index',value=max_index(RMIX, sample_rate, ipp))
+
 
 
         op = proc2.addOperation(name='PedestalInformation')
