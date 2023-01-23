@@ -3944,12 +3944,13 @@ class WeatherRadar(Operation):
         Operation.__init__(self)
 
     def setup(self,dataOut,variableList= None,Pt=0,Gt=0,Gr=0,Glna=0,lambda_=0, aL=0,
-                tauW= 0,thetaT=0,thetaR=0,Km =0):
+                tauW= 0,thetaT=0,thetaR=0,Km =0,CR_Flag=False,min_index=0):
 
         self.nCh      = dataOut.nChannels
         self.nHeis    = dataOut.nHeights
+        self.min_index= min_index
         deltaHeight   = dataOut.heightList[1] - dataOut.heightList[0]
-        self.Range    = numpy.arange(dataOut.nHeights)*deltaHeight + dataOut.heightList[0]
+        self.Range    = numpy.arange(dataOut.nHeights)*deltaHeight + dataOut.heightList[0]+min_index*deltaHeight
         self.Range    = self.Range.reshape(1,self.nHeis)
         self.Range    = numpy.tile(self.Range,[self.nCh,1])
         '''-----------1 Constante del Radar----------'''
@@ -3963,6 +3964,7 @@ class WeatherRadar(Operation):
         self.thetaT   = thetaT # 1.8º -- 0.0314 rad
         self.thetaR   = thetaR # 1.8ª --0.0314 rad
         self.Km       = Km
+        self.CR_Flag  = CR_Flag
         Numerator     = ((4*numpy.pi)**3 * aL**2 * 16 *numpy.log(2)*(10**18))
         Denominator   = (Pt *(10**(Gt/10.0))*(10**(Gr/10.0))*(10**(Glna/10.0))* lambda_**2 * SPEED_OF_LIGHT * tauW * numpy.pi*thetaT*thetaR)
         self.RadarConstant = Numerator/Denominator
@@ -4028,25 +4030,34 @@ class WeatherRadar(Operation):
         Pr = dataOut.data_param[:,0,:]
         '''---------------------------- Calculo de Noise y threshold para Reflectividad---------'''
 
-        Pr = Pr/1000.0 # Conversion Watt
+        Pr = Pr/100.0 # Conversion Watt
         '''-----------2 Reflectividad del Radar y Factor de Reflectividad------'''
-        self.n_radar       = numpy.zeros((self.nCh,self.nHeis))
-        self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
+        if not self.CR_Flag:
+            self.n_radar       = numpy.zeros((self.nCh,self.nHeis))
+            self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
 
-        for R in range(self.nHeis):
-            self.n_radar[:,R] = self.RadarConstant*Pr[:,R]* (self.Range[:,R]*(10**3))**2
+            for R in range(self.nHeis):
+                self.n_radar[:,R] = self.RadarConstant*Pr[:,R]* (self.Range[:,R]*(10**3))**2
 
-            self.Z_radar[:,R] = self.n_radar[:,R]* self.lambda_**4/( numpy.pi**5 * self.Km**2)
+                self.Z_radar[:,R] = self.n_radar[:,R]* self.lambda_**4/( numpy.pi**5 * self.Km**2)
 
-        '''----------- Factor de Reflectividad Equivalente lamda_ < 10 cm , lamda_= 3.2cm-------'''
-        Zeh  =  self.Z_radar
+            '''----------- Factor de Reflectividad Equivalente lamda_ < 10 cm , lamda_= 3.2cm-------'''
+            Zeh  =  self.Z_radar
 
-        if self.Pt<0.3:
-            factor=10.072
+            if self.Pt<0.3:
+                factor=1
+            else:
+                factor=28#23.072
+
+            dBZeh = 10*numpy.log10(Zeh) + factor
         else:
-            factor=23.072
+            self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
 
-        dBZeh = 10*numpy.log10(Zeh) + factor
+            for R in range(self.nHeis):
+                self.Z_radar[0,R]= 10*numpy.log10(Pr[0,R])+20*numpy.log10(self.Range[0,R]*10**3)+62.17-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)
+                self.Z_radar[1,R]= 10*numpy.log10(Pr[1,R])+20*numpy.log10(self.Range[1,R]*10**3)+55.6-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)
+            dBZeh= self.Z_radar
+
         if type=='N':
             return dBZeh
         elif type=='D':
@@ -4062,12 +4073,11 @@ class WeatherRadar(Operation):
         return Sigmav_W
 
 
-    def run(self,dataOut,variableList=None,Pt=1.58,Gt=38.5,Gr=38.5,Glna=70.0,lambda_=0.032, aL=1,
-                tauW= 0.2,thetaT=0.0314,thetaR=0.0314,Km =0.93):
-
+    def run(self,dataOut,variableList=None,Pt=1.58,Gt=38.5,Gr=38.5,Glna=59.0,lambda_=0.032, aL=1,
+                tauW= 0.2,thetaT=0.0314,thetaR=0.0314,Km =0.93,CR_Flag=0,min_index=0):
         if not self.isConfig:
             self.setup(dataOut= dataOut, variableList=variableList,Pt=Pt,Gt=Gt,Gr=Gr,Glna=Glna,lambda_=lambda_, aL=aL,
-                        tauW= tauW,thetaT=thetaT,thetaR=thetaR,Km =Km)
+                        tauW= tauW,thetaT=thetaT,thetaR=thetaR,Km =Km,CR_Flag=CR_Flag,min_index=min_index)
             self.isConfig = True
 
         dataOut.data_param = self.setMoments(dataOut)
@@ -4098,7 +4108,7 @@ class PedestalInformation(Operation):
 
         dt = datetime.datetime.utcfromtimestamp(timestamp)
         path = os.path.join(self.path, dt.strftime('%Y-%m-%dT%H-00-00'))
-        
+
         if not os.path.exists(path):
             return False
         fileList = glob.glob(os.path.join(path, '*.h5'))
@@ -4176,12 +4186,12 @@ class PedestalInformation(Operation):
         if mode is None:
             self.flagAskMode = True
         N = 0
-        while True:            
+        while True:
             if N == self.nTries+1:
                 log.error('No position files found in {}'.format(path), self.name)
                 raise IOError('No position files found in {}'.format(path))
             filelist = self.find_file(dataOut.utctime)
-            
+
             if filelist == 0:
                 N += 1
                 log.warning('Waiting {}s for position files...'.format(self.delay), self.name)
@@ -4211,12 +4221,12 @@ class PedestalInformation(Operation):
         self.find_next_file()
 
         az, el, scan = self.get_values()
-        
+
         dataOut.flagNoData = False
         if numpy.isnan(az) or numpy.isnan(el) :
             dataOut.flagNoData = True
             return dataOut
-        
+
         dataOut.azimuth =  round(az, 2)
         dataOut.elevation = round(el, 2)
         dataOut.mode_op = scan
@@ -4252,7 +4262,7 @@ class Block360(Operation):
         self.attr = attr
         self.__buffer  = []
         self.azi = []
-        self.ele = []        
+        self.ele = []
 
     def putData(self, data, attr):
         '''
@@ -4275,7 +4285,7 @@ class Block360(Operation):
 
         self.__buffer = []
         self.azi = []
-        self.ele = []        
+        self.ele = []
         self.__profIndex = 0
 
         if case_flag in (0, 1, -1):
@@ -4291,7 +4301,7 @@ class Block360(Operation):
         data_e = None
 
         self.putData(data=dataOut, attr = self.attr)
-        
+
         if self.__profIndex > 5:
             case_flag = self.checkcase()
 
@@ -4308,13 +4318,13 @@ class Block360(Operation):
                     self.__buffer.pop() #Erase last data
                     self.azi.pop()
                     self.ele.pop()
-                    data_360, n, data_p, data_e  = self.pushData(dataOut, case_flag)                        
+                    data_360, n, data_p, data_e  = self.pushData(dataOut, case_flag)
                     self.__dataReady = True
                 if case_flag == -1: #Subida
                     self.__buffer.pop() #Erase last data
                     self.azi.pop()
                     self.ele.pop()
-                    data_360, n, data_p, data_e  = self.pushData(dataOut, case_flag)                        
+                    data_360, n, data_p, data_e  = self.pushData(dataOut, case_flag)
                     #self.__dataReady = True
 
         return data_360, data_p, data_e
@@ -4353,8 +4363,8 @@ class Block360(Operation):
             self.mode_op = 'RHI'
         else:
             self.flagMode = None
-            self.mode_op = 'None'        
-        
+            self.mode_op = 'None'
+
         if self.flagMode == 1: #'AZI'
             start  = self.azi[-2]
             end    = self.azi[-1]
@@ -4367,7 +4377,7 @@ class Block360(Operation):
 
             start  = self.ele[-3]
             middle = self.ele[-2]
-            end    = self.ele[-1]            
+            end    = self.ele[-1]
 
             if end < 0:
                 return 1
@@ -4392,7 +4402,7 @@ class Block360(Operation):
             dataOut.data_azi  = data_p
             dataOut.data_ele  = data_e
             dataOut.utctime  = avgdatatime
-            dataOut.flagNoData  = False       
+            dataOut.flagNoData  = False
             dataOut.flagMode = self.flagMode
             dataOut.mode_op = self.mode_op
 
@@ -4472,7 +4482,6 @@ class MergeProc(ProcessingUnit):
             g = [getattr(data, attr_data) for data in data_inputs][1]
             data = numpy.concatenate((f,g),axis=3)
             setattr(self.dataOut, attr_data, data)
-
             # snr
             # self.dataOut.data_snr = numpy.concatenate((data_inputs[0].data_snr, data_inputs[1].data_snr), axis=2)
 
