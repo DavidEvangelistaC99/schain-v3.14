@@ -4250,7 +4250,7 @@ class Block360(Operation):
     def __init__(self,**kwargs):
         Operation.__init__(self,**kwargs)
 
-    def setup(self, dataOut, attr):
+    def setup(self, dataOut, attr, angles):
         '''
         n= Numero de PRF's de entrada
         '''
@@ -4263,6 +4263,7 @@ class Block360(Operation):
         self.__buffer  = []
         self.azi = []
         self.ele = []
+        self.angles = angles
 
     def putData(self, data, attr):
         '''
@@ -4384,27 +4385,31 @@ class Block360(Operation):
             elif (middle>start and end<middle):
                 return -1
 
-    def run(self, dataOut, attr_data='dataPP_POWER', runNextOp = False,**kwargs):
+    def run(self, dataOut, attr_data='dataPP_POWER', runNextOp = False, angles=[], **kwargs):
 
         dataOut.attr_data = attr_data
         dataOut.runNextOp = runNextOp
 
         if not self.isConfig:
-            self.setup(dataOut = dataOut, attr = attr_data ,**kwargs)
+            self.setup(dataOut=dataOut, attr=attr_data, angles=angles, **kwargs)
             self.isConfig   = True
 
         data_360, avgdatatime, data_p, data_e = self.blockOp(dataOut, dataOut.utctime)
 
-        dataOut.flagNoData = True
-
+        dataOut.flagNoData = True        
         if self.__dataReady:
-            setattr(dataOut, attr_data, data_360 )
-            dataOut.data_azi  = data_p
-            dataOut.data_ele  = data_e
-            dataOut.utctime  = avgdatatime
-            dataOut.flagNoData  = False
-            dataOut.flagMode = self.flagMode
-            dataOut.mode_op = self.mode_op
+            mean_az = numpy.mean(data_p[25:-25])
+            mean_el = numpy.mean(data_e[25:-25])
+            if round(mean_az,1) in angles or round(mean_el,1) in angles:
+                setattr(dataOut, attr_data, data_360 )
+                dataOut.data_azi  = data_p
+                dataOut.data_ele  = data_e
+                dataOut.utctime  = avgdatatime
+                dataOut.flagNoData  = False
+                dataOut.flagMode = self.flagMode
+                dataOut.mode_op = self.mode_op
+            else:
+                log.warning('Skipping angle {} / {}'.format(round(mean_az,1), round(mean_el,1)))
 
         return dataOut
 
@@ -4482,6 +4487,7 @@ class MergeProc(ProcessingUnit):
             g = [getattr(data, attr_data) for data in data_inputs][1]
             data = numpy.concatenate((f,g),axis=3)
             setattr(self.dataOut, attr_data, data)
+
             # snr
             # self.dataOut.data_snr = numpy.concatenate((data_inputs[0].data_snr, data_inputs[1].data_snr), axis=2)
 

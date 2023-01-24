@@ -432,6 +432,8 @@ class Plot(Operation):
                         ax.plt, ax=ax, fraction=0.05, pad=0.06, aspect=10)
                     if self.colormap=='sophy_r':
                         ax.cbar.set_ticks([0.2, 0.73, 0.83, 0.93, 0.96, 0.99, 1.02, 1.05])
+                    elif self.colormap=='sophy_d':
+                        ax.cbar.set_ticks([-9, -6, -3, 0, 3, 6, 9, 12])
                     ax.cbar.ax.tick_params(labelsize=8)
                     ax.cbar.ax.press = None
                     if self.cb_label:

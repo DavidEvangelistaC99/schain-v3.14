@@ -40,7 +40,7 @@ refl = [
     "#bf0000", "#7f0000", "#fe00fe", "#8e59ff", "#f0f0f0",
     ]
 
-refl_bounds = [-20, -15, -10, -5, 0, 5, 10 ,15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80]
+#refl_bounds = [-25, -20, -15, -10, -5, 0, 5, 10 ,15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80]
 
 doppler = [
     "#003300", "#005500", "#007700", "#009900", "#00bb00", "#24ce24", "#6cd26c", "#b4d6b4",
@@ -58,7 +58,7 @@ width = [
 
 zdr = [
     "#7333cc", "#7e3cd5", "#8945de", "#944ee7", "#9f57f0", "#aa5ff8",
-    "#82345c", "#984272", "#ae4f88", "#c55c9f", "#db6ab5", "#db6ab5",
+    "#82345c", "#984272", "#ae4f88", "#c55c9f", "#db6ab5", "#f177cb",
     "#b5842d", "#c29a4c", "#d0b16b", "#ddc78a", "#ebddaa", "#f8f4c9",
     "#f0f5ff", "#c4d8ff", "#97bbff", "#6a9eff", "#3e81ff", "#1164ff",
     "#17f576", "#13df60", "#0ec949", "#0ab233", "#059c1d", "#018606",
@@ -99,7 +99,7 @@ cb_tables = {
     'sophy_z': {'colors': refl, 'norm': None },
     'sophy_v': {'colors': doppler, 'norm': None },
     'sophy_w': {'colors': width, 'norm': None },
-    'sophy_d': {'colors': zdr, 'norm': None },
+    'sophy_d': {'colors': zdr, 'norm': None},
     'sophy_p': {'colors': phi, 'norm': None },
     'sophy_r': {'colors': rho, 'norm': matplotlib.colors.BoundaryNorm(rho_bounds, 37), 'extremes': ['#15191d', '#333899']},
 }
