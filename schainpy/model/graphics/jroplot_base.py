@@ -303,6 +303,7 @@ class Plot(Operation):
                 ax.firsttime = True
                 ax.index = 0
                 ax.press = None
+                ax.cbar = None
                 self.axes.append(ax)
                 if self.showprofile:
                     cax = self.__add_axes(ax, size=size, pad=pad)
@@ -408,10 +409,10 @@ class Plot(Operation):
                     self.pf_axes[n].set_ylim(ymin, ymax)
                     self.pf_axes[n].set_xlim(self.zmin, self.zmax)
                     self.pf_axes[n].set_xlabel('dB')
-                    self.pf_axes[n].grid(b=True, axis='x')
+                    self.pf_axes[n].grid(True, axis='x')
                     [tick.set_visible(False)
                      for tick in self.pf_axes[n].get_yticklabels()]
-                if self.colorbar:
+                if self.colorbar and ax.cbar == None:
                     ax.cbar = plt.colorbar(
                         ax.plt, ax=ax, fraction=0.05, pad=0.02, aspect=10)
                     ax.cbar.ax.tick_params(labelsize=8)
@@ -420,8 +421,7 @@ class Plot(Operation):
                         ax.cbar.set_label(self.cb_label, size=8)
                     elif self.cb_labels:
                         ax.cbar.set_label(self.cb_labels[n], size=8)
-                else:
-                    ax.cbar = None
+                
                 ax.set_xlim(xmin, xmax)
                 ax.set_ylim(ymin, ymax)
                 ax.firsttime = False
@@ -452,9 +452,7 @@ class Plot(Operation):
 
         for ax in self.axes + self.pf_axes + self.cb_axes:
             ax.clear()
-            ax.firsttime = True
-            if hasattr(ax, 'cbar') and ax.cbar:
-                ax.cbar.remove()
+            ax.firsttime = True            
 
     def __plot(self):
         '''

@@ -44,7 +44,7 @@ class SpectraPlot(Plot):
         data['spc'] = spc
         data['rti'] = dataOut.getPower()
         data['noise'] = 10 * numpy.log10(dataOut.getNoise() / dataOut.normFactor)
-        extrapoints = spc.shape[1] % dataOut.nFFTPoints
+        extrapoints = spc.shape[1] % dataOut.nFFTPoints        
         meta['xrange'] = (dataOut.getFreqRange(extrapoints) / 1000., dataOut.getAcfRange(extrapoints), dataOut.getVelRange(extrapoints))
         if self.CODE == 'spc_moments':
             data['moments'] = dataOut.moments
@@ -242,7 +242,8 @@ class CrossSpectraPlot(Plot):
 
         spc = dataOut.data_spc
         cspc = dataOut.data_cspc
-        meta['xrange'] = (dataOut.getFreqRange(1) / 1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
+        extrapoints = spc.shape[1] % dataOut.nFFTPoints
+        meta['xrange'] = (dataOut.getFreqRange(extrapoints) / 1000., dataOut.getAcfRange(extrapoints), dataOut.getVelRange(extrapoints))
         meta['pairs'] = dataOut.pairsList
 
         tmp = []
@@ -689,7 +690,7 @@ class RTIPlot(Plot):
                     ax.plot_noise = self.pf_axes[n].plot(numpy.repeat(self.data['noise'][n][-1], len(self.y)), self.y,
                                                          color="k", linestyle="dashed", lw=1)[0]
             else:
-                ax.collections.remove(ax.collections[0])
+                ax.plt.remove()
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -752,7 +753,7 @@ class SpectrogramPlot(Plot):
                     ax.plot_noise = self.pf_axes[n].plot(numpy.repeat(data['noise'][n], len(self.y)), self.y,
                                                          color="k", linestyle="dashed", lw=1)[0]
             else:
-                ax.collections.remove(ax.collections[0])
+                ax.plt.remove()
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,

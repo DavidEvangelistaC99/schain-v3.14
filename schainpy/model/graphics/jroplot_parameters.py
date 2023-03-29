@@ -241,7 +241,7 @@ class GenericRTIPlot(Plot):
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                ax.collections.remove(ax.collections[0])
+                ax.plt.remove()
                 ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -317,7 +317,7 @@ class PolarMapPlot(Plot):
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                ax.collections.remove(ax.collections[0])
+                ax.plt.remove()
                 ax.plt = ax.pcolormesh(# r, theta, numpy.ma.array(data, mask=numpy.isnan(data)),
                     x, y, numpy.ma.array(data, mask=numpy.isnan(data)),
                     vmin=self.zmin,
