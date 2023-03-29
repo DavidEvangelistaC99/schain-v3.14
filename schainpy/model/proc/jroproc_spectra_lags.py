@@ -613,7 +613,7 @@ class SpectraLagsProc(ProcessingUnit):
 
             median_real = numpy.median(numpy.real(junkcspc_interf[mask_prof[ind[list(range(3 * num_prof / 4))]], :]))
             median_imag = numpy.median(numpy.imag(junkcspc_interf[mask_prof[ind[list(range(3 * num_prof / 4))]], :]))
-            junkcspc_interf[comp_mask_prof, :] = numpy.complex(median_real, median_imag)
+            junkcspc_interf[comp_mask_prof, :] = complex(median_real, median_imag)
 
             for iprof in range(num_prof):
                 ind = numpy.abs(junkcspc_interf[iprof, :]).ravel().argsort()

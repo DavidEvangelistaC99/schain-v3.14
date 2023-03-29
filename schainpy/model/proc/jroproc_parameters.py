@@ -1419,8 +1419,8 @@ class SpectralMoments(Operation):
 
         absc = dataOut.abscissaList[:-1]
         noise = dataOut.noise
-        nChannel = data.shape[0]
-        data_param = numpy.zeros((nChannel, 8, data.shape[2]))
+        nChannel = dataOut.data_pre[0].shape[0]
+        data_param = numpy.zeros((nChannel, 4 + proc_type*3, dataOut.data_pre[0].shape[2]))
 
         if proc_type == 1:
             fwindow = numpy.zeros(absc.size) + 1
@@ -1449,7 +1449,7 @@ class SpectralMoments(Operation):
             smooth=None
 
         for ind in range(nChannel):
-            data_param[ind,:,:] = self.__calculateMoments( data[ind,:,:] , absc , noise[ind], nicoh=nIncohInt, smooth=smooth, type1=type1, fwindow=fwindow, id_ch=ind)
+            data_param[ind,:,:] = self.__calculateMoments( data[ind,:,:] , absc , noise[ind], nicoh=nIncohInt, smooth=smooth, type1=type1, fwindow=fwindow)
 
         if proc_type == 1:
             dataOut.moments = data_param[:,1:,:]

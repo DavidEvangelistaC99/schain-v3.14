@@ -666,7 +666,7 @@ class removeInterference(Operation):
             median_imag = int(numpy.median(numpy.imag(
                 junkcspc_interf[mask_prof[ind[list(range(3 * num_prof // 4))]], :])))
             comp_mask_prof = [int(e) for e in comp_mask_prof]
-            junkcspc_interf[comp_mask_prof, :] = numpy.complex(
+            junkcspc_interf[comp_mask_prof, :] = complex(
                 median_real, median_imag)
 
             for iprof in range(num_prof):

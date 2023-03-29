@@ -2996,7 +2996,7 @@ class CohInt(Operation):
     def integrateByBlock(self, dataOut):
 
         times = int(dataOut.data.shape[1]/self.n)
-        avgdata = numpy.zeros((dataOut.nChannels, times, dataOut.nHeights), dtype=numpy.complex)
+        avgdata = numpy.zeros((dataOut.nChannels, times, dataOut.nHeights), dtype=complex)
 
         id_min = 0
         id_max = self.n
@@ -3236,8 +3236,8 @@ class SSheightProfiles(Operation):
         self.bufferShape  = int(shape[0]), int(numberSamples), int(numberProfile)  # nchannels, nsamples , nprofiles
         self.profileShape = int(shape[0]), int(numberProfile), int(numberSamples)  # nchannels, nprofiles, nsamples
 
-        self.buffer       = numpy.zeros(self.bufferShape , dtype=numpy.complex)
-        self.sshProfiles  = numpy.zeros(self.profileShape, dtype=numpy.complex)
+        self.buffer       = numpy.zeros(self.bufferShape , dtype=complex)
+        self.sshProfiles  = numpy.zeros(self.profileShape, dtype=complex)
 
     def run(self, dataOut, step, nsamples, code = None, repeat = None):
         #print(dataOut.profileIndex)
@@ -3475,7 +3475,7 @@ class Decoder(Operation):
             raise ValueError('Number of heights (%d) should be greater than number of bauds (%d)' %(self.__nHeis, self.nBaud))
 
         #Frequency
-        __codeBuffer = numpy.zeros((self.nCode, self.__nHeis), dtype=numpy.complex)
+        __codeBuffer = numpy.zeros((self.nCode, self.__nHeis), dtype=complex)
 
         __codeBuffer[:,0:self.nBaud] = self.code
 
@@ -3485,7 +3485,7 @@ class Decoder(Operation):
 
             self.ndatadec = self.__nHeis #- self.nBaud + 1
 
-            self.datadecTime = numpy.zeros((self.__nChannels, self.__nProfiles, self.ndatadec), dtype=numpy.complex)
+            self.datadecTime = numpy.zeros((self.__nChannels, self.__nProfiles, self.ndatadec), dtype=complex)
 
         else:
 
@@ -3493,7 +3493,7 @@ class Decoder(Operation):
             self.ndatadec = self.__nHeis #- self.nBaud + 1
 
 
-            self.datadecTime = numpy.zeros((self.__nChannels, self.ndatadec), dtype=numpy.complex)
+            self.datadecTime = numpy.zeros((self.__nChannels, self.ndatadec), dtype=complex)
 
     def __convolutionInFreq(self, data):
 
@@ -3677,7 +3677,7 @@ class DecoderRoll(Operation):
             raise ValueError('Number of heights (%d) should be greater than number of bauds (%d)' %(self.__nHeis, self.nBaud))
 
         #Frequency
-        __codeBuffer = numpy.zeros((self.nCode, self.__nHeis), dtype=numpy.complex)
+        __codeBuffer = numpy.zeros((self.nCode, self.__nHeis), dtype=complex)
 
         __codeBuffer[:,0:self.nBaud] = self.code
 
@@ -3687,7 +3687,7 @@ class DecoderRoll(Operation):
 
             self.ndatadec = self.__nHeis #- self.nBaud + 1
 
-            self.datadecTime = numpy.zeros((self.__nChannels, self.__nProfiles, self.ndatadec), dtype=numpy.complex)
+            self.datadecTime = numpy.zeros((self.__nChannels, self.__nProfiles, self.ndatadec), dtype=complex)
 
         else:
 
@@ -3695,7 +3695,7 @@ class DecoderRoll(Operation):
             self.ndatadec = self.__nHeis #- self.nBaud + 1
 
 
-            self.datadecTime = numpy.zeros((self.__nChannels, self.ndatadec), dtype=numpy.complex)
+            self.datadecTime = numpy.zeros((self.__nChannels, self.ndatadec), dtype=complex)
 
     def __convolutionInFreq(self, data):
 
@@ -4373,7 +4373,7 @@ class CombineProfiles(Operation):
 #         bufferList = []
 #
 #         for i in range(nChannels):
-#             bufferByChannel = collections.deque(numpy.zeros( buffer_size*nSamples, dtype=numpy.complex) +  numpy.NAN,
+#             bufferByChannel = collections.deque(numpy.zeros( buffer_size*nSamples, dtype=complex) +  numpy.NAN,
 #                                           maxlen = buffer_size*nSamples)
 #
 #             bufferList.append(bufferByChannel)
@@ -4406,7 +4406,7 @@ class CombineProfiles(Operation):
 #                 dataOut.flagNoData = True
 #                 return
 #
-#             self.__arrayBuffer = numpy.zeros((self.__nChannels, self.__newNSamples), dtype = numpy.complex)
+#             self.__arrayBuffer = numpy.zeros((self.__nChannels, self.__newNSamples), dtype = complex)
 #             self.__pulseFound = True
 #             self.__startIndex = indexFound
 #
@@ -6211,7 +6211,7 @@ class PulsePairVoltage(Operation):
 #         bufferList = []
 #
 #         for i in range(nChannels):
-#             bufferByChannel = collections.deque(numpy.zeros( buffer_size*nSamples, dtype=numpy.complex) +  numpy.NAN,
+#             bufferByChannel = collections.deque(numpy.zeros( buffer_size*nSamples, dtype=complex) +  numpy.NAN,
 #                                           maxlen = buffer_size*nSamples)
 #
 #             bufferList.append(bufferByChannel)
@@ -6244,7 +6244,7 @@ class PulsePairVoltage(Operation):
 #                 dataOut.flagNoData = True
 #                 return
 #
-#             self.__arrayBuffer = numpy.zeros((self.__nChannels, self.__newNSamples), dtype = numpy.complex)
+#             self.__arrayBuffer = numpy.zeros((self.__nChannels, self.__newNSamples), dtype = complex)
 #             self.__pulseFound = True
 #             self.__startIndex = indexFound
 #
