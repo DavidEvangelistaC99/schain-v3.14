@@ -686,7 +686,7 @@ class HFReader(ProcessingUnit):
 
     def __setLocalVariables(self):
 
-        self.datablock = numpy.zeros((self.nChannels, self.nHeights, self.nProfiles), dtype=numpy.complex)
+        self.datablock = numpy.zeros((self.nChannels, self.nHeights, self.nProfiles), dtype=complex)
         #
 
 
@@ -743,7 +743,7 @@ class HFReader(ProcessingUnit):
 
         self.dataOut.nProfiles = 1
 
-        self.dataOut.heightList = self.__firstHeigth + numpy.arange(self.__nSamples, dtype=numpy.float) * self.__deltaHeigth
+        self.dataOut.heightList = self.__firstHeigth + numpy.arange(self.__nSamples, dtype=numpy.float32) * self.__deltaHeigth
 
         self.dataOut.channelList = list(range(self.nChannels))
 

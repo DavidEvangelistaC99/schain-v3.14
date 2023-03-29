@@ -360,13 +360,24 @@ class HDFWriter(Operation):
         Operation.__init__(self)
         return
 
-    def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None):
+    def set_kwargs(self, **kwargs):
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    def set_kwargs_obj(self, obj, **kwargs):
+
+        for key, value in kwargs.items():
+            setattr(obj, key, value)
+
+    def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None, **kwargs):
         self.path = path
         self.blocksPerFile = blocksPerFile
         self.metadataList = metadataList
         self.dataList = [s.strip() for s in dataList]
         self.setType = setType
         self.description = description
+        self.set_kwargs(**kwargs)        
 
         if self.metadataList is None:
             self.metadataList = self.dataOut.metadata_list
@@ -385,7 +396,7 @@ class HDFWriter(Operation):
 
             if dataAux is None:
                 continue
-            elif isinstance(dataAux, (int, float, numpy.integer, numpy.float)):
+            elif isinstance(dataAux, (int, float, numpy.integer, numpy.float32)):
                 dsDict['nDim'] = 0
             else:
                 dsDict['nDim'] = len(dataAux.shape)
@@ -422,13 +433,14 @@ class HDFWriter(Operation):
             return False
 
     def run(self, dataOut, path, blocksPerFile=10, metadataList=None,
-            dataList=[], setType=None, description={}):
+            dataList=[], setType=None, description={}, **kwargs):
 
         self.dataOut = dataOut
+        self.set_kwargs_obj(self.dataOut, **kwargs)
         if not(self.isConfig):
             self.setup(path=path, blocksPerFile=blocksPerFile,
                        metadataList=metadataList, dataList=dataList,
-                       setType=setType, description=description)
+                       setType=setType, description=description, **kwargs)
 
             self.isConfig = True
             self.setNextFile()
@@ -508,15 +520,17 @@ class HDFWriter(Operation):
                         return key
             return name
         else:
-            if 'Metadata' in self.description:
-                meta = self.description['Metadata']
+            if 'Data' in self.description:
+                data = self.description['Data']
+                if 'Metadata' in self.description:
+                    data.update(self.description['Metadata'])
             else:
-                meta = self.description
-            if name in meta:
-                if isinstance(meta[name], list):
-                    return meta[name][x]
-                elif isinstance(meta[name], dict):
-                    for key, value in meta[name].items():
+                data = self.description
+            if name in data:
+                if isinstance(data[name], list):
+                    return data[name][x]
+                elif isinstance(data[name], dict):
+                    for key, value in data[name].items():
                         return value[x]
             if 'cspc' in name:
                 return 'pair{:02d}'.format(x)
@@ -524,7 +538,7 @@ class HDFWriter(Operation):
                 return 'channel{:02d}'.format(x)
 
     def writeMetadata(self, fp):
-
+        
         if self.description:
             if 'Metadata' in self.description:
                 grp = fp.create_group('Metadata')
@@ -706,7 +720,7 @@ class ASCIIWriter(Operation):
 
             if dataAux is None:
                 continue
-            elif isinstance(dataAux, (int, float, numpy.integer, numpy.float)):
+            elif isinstance(dataAux, (int, float, numpy.integer, numpy.float32)):
                 dsDict['nDim'] = 0
             else:
                 dsDict['nDim'] = len(dataAux.shape)

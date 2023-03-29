@@ -110,7 +110,7 @@ class DigitalRFReader(ProcessingUnit):
         self.dataOut.nProfiles = int(nProfiles)
 
         self.dataOut.heightList = self.__firstHeigth + \
-            numpy.arange(self.__nSamples, dtype=numpy.float) * \
+            numpy.arange(self.__nSamples, dtype=numpy.float32) * \
             self.__deltaHeigth
 
         self.dataOut.channelList = list(range(self.__num_subchannels))
@@ -233,7 +233,7 @@ class DigitalRFReader(ProcessingUnit):
               nCode=1,
               nBaud=1,
               flagDecodeData=False,
-              code=numpy.ones((1, 1), dtype=numpy.int),
+              code=numpy.ones((1, 1), dtype=numpy.int32),
               **kwargs):
         '''
         In this method we should set all initial parameters.
@@ -404,7 +404,7 @@ class DigitalRFReader(ProcessingUnit):
         self.__thisUnixSample = int(startUTCSecond * self.__sample_rate) - self.__samples_to_read
 
         self.__data_buffer = numpy.zeros(
-            (self.__num_subchannels, self.__samples_to_read), dtype=numpy.complex)
+            (self.__num_subchannels, self.__samples_to_read), dtype=complex)
 
         self.__setFileHeader()
         self.isConfig = True

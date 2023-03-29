@@ -86,7 +86,7 @@ class USRPReader(ProcessingUnit):
 
         self.dataOut.nProfiles = nProfiles
 
-        self.dataOut.heightList = self.__firstHeigth + numpy.arange(self.__nSamples, dtype=numpy.float) * self.__deltaHeigth
+        self.dataOut.heightList = self.__firstHeigth + numpy.arange(self.__nSamples, dtype=numpy.float32) * self.__deltaHeigth
 
         self.dataOut.channelList = self.__channelList
 
@@ -257,7 +257,7 @@ class USRPReader(ProcessingUnit):
 
         nCode = 1
         nBaud = 1
-        code = numpy.ones((nCode, nBaud), dtype=numpy.int)
+        code = numpy.ones((nCode, nBaud), dtype=numpy.int32)
 
         if codeType:
             nCode = this_metadata_file['nCode'].value
@@ -341,7 +341,7 @@ class USRPReader(ProcessingUnit):
 
         self.__thisUnixSample = int(startUTCSecond * self.__sample_rate) - self.__samples_to_read
 
-        self.__data_buffer = numpy.zeros((self.__nChannels, self.__samples_to_read), dtype=numpy.complex)
+        self.__data_buffer = numpy.zeros((self.__nChannels, self.__samples_to_read), dtype=complex)
 
         self.__setFileHeader()
         self.isConfig = True

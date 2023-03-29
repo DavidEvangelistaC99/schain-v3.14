@@ -332,7 +332,7 @@ class SimulatorReader(JRODataReader, ProcessingUnit):
         Hdoppler = self.Hdoppler
         Adoppler = self.Adoppler
 
-        self.datablock = numpy.zeros([channels, prof_gen, Samples], dtype=numpy.complex64)
+        self.datablock = numpy.zeros([channels, prof_gen, Samples], dtype=complex)
         for i in range(channels):
             for k in range(prof_gen):
                 #-----------------------NOISE---------------
@@ -358,7 +358,7 @@ class SimulatorReader(JRODataReader, ProcessingUnit):
         #----------------DOPPLER SIGNAL...............................................
         time_vec = numpy.linspace(0, (prof_gen - 1) * ippSec, int(prof_gen)) + self.nReadBlocks * ippSec * prof_gen + (self.nReadFiles - 1) * ippSec * prof_gen
         fd = Fdoppler  # +(600.0/120)*self.nReadBlocks
-        d_signal = Adoppler * numpy.array(numpy.exp(1.0j * 2.0 * math.pi * fd * time_vec), dtype=numpy.complex64)
+        d_signal = Adoppler * numpy.array(numpy.exp(1.0j * 2.0 * math.pi * fd * time_vec), dtype=complex)
         #-------------Senal con ancho espectral--------------------
         if prof_gen % 2 == 0:
             min = int(prof_gen / 2.0 - 1.0)
@@ -371,7 +371,7 @@ class SimulatorReader(JRODataReader, ProcessingUnit):
         A = 20
         specw_sig = specw_sig / w
         specw_sig = numpy.sinc(specw_sig)
-        specw_sig = A * numpy.array(specw_sig, dtype=numpy.complex64)
+        specw_sig = A * numpy.array(specw_sig, dtype=complex)
         #------------------ DATABLOCK + DOPPLER--------------------
         HD = int(Hdoppler / self.AcqDH_0)
         for  i in range(12):
