@@ -382,6 +382,8 @@ def main(args):
                 writer.addParameter(name='path', value=path_save, format='str')
                 writer.addParameter(name='Reset', value=True)
                 writer.addParameter(name='setType', value='weather')
+                #writer.addParameter(name='setChannel', value='0') #new parameter choose ch 0  H  or ch 1 V
+
                 writer.addParameter(name='description', value=json.dumps(desc))
                 writer.addParameter(name='blocksPerFile', value='1',format='int')
                 writer.addParameter(name='metadataList', value=','.join(META))
