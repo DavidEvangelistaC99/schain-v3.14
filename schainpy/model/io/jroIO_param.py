@@ -350,28 +350,29 @@ class HDFWriter(Operation):
 
     """
 
-    ext = ".hdf5"
-    optchar = "D"
-    filename = None
-    path = None
-    setFile = None
-    fp = None
-    firsttime = True
+    ext           = ".hdf5"
+    optchar       = "D"
+    filename      = None
+    path          = None
+    setFile       = None
+    fp            = None
+    firsttime     = True
     #Configurations
     blocksPerFile = None
-    blockIndex = None
-    dataOut = None
+    blockIndex    = None
+    dataOut       = None
     #Data Arrays
     dataList = None
     metadataList = None
-    currentDay = None
-    lastTime = None
-    last_Azipos = None
-    last_Elepos = None
-    mode       = None
+    currentDay   = None
+    lastTime     = None
+    last_Azipos  = None
+    last_Elepos  = None
+    mode         = None
     #-----------------------
-    Typename = None
-    mask = False
+    Typename   = None
+    mask       = False
+    setChannel = None
 
     def __init__(self):
 
@@ -388,11 +389,12 @@ class HDFWriter(Operation):
         for key, value in kwargs.items():
             setattr(obj, key, value)
 
-    def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None,type_data=None, localtime=True, **kwargs):
+    def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None,type_data=None, localtime=True,setChannel=None, **kwargs):
         self.path = path
         self.blocksPerFile = blocksPerFile
-        self.metadataList = metadataList
-        self.dataList = [s.strip() for s in dataList]
+        self.metadataList  = metadataList
+        self.dataList      = [s.strip() for s in dataList]
+        self.setChannel    = setChannel
         self.setType = setType
         if self.setType == "weather":
             self.set_kwargs(**kwargs)
@@ -426,7 +428,11 @@ class HDFWriter(Operation):
             if hasattr(self.dataOut, self.dataList[i]):
                 dataAux = getattr(self.dataOut, self.dataList[i])
                 if self.setType == 'weather' and self.dataList[i] == 'data_param':
-                    dataAux = dataAux[:,self.weather_vars[self.weather_var],:]
+                    if self.setChannel is None: 
+                        dataAux = dataAux[:,self.weather_vars[self.weather_var],:]
+                    else:
+                        dataAux = dataAux[self.setChannel,self.weather_vars[self.weather_var],:]
+                        dataAux = numpy.reshape(dataAux,(1,dataAux.shape[0],dataAux.shape[1]))
                 dsDict['variable'] = self.dataList[i]
             else:
                 log.warning('Attribute {} not found in dataOut'.format(self.dataList[i]), self.name)
@@ -679,6 +685,9 @@ class HDFWriter(Operation):
                 else:
                     shape = (self.blocksPerFile, ) + dsInfo['shape'][1:]
                 for i in range(dsInfo['dsNumber']):
+                    if dsInfo['dsNumber']==1:
+                        if self.setChannel==1:
+                            i=1
                     ds = sgrp.create_dataset(
                         self.getLabel(dsInfo['variable'], i),
                         shape,
