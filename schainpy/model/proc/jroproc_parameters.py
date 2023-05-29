@@ -890,7 +890,8 @@ class PrecipitationProc(Operation):
         self.i=0
 
     def run(self, dataOut, radar=None, Pt=5000, Gt=295.1209, Gr=70.7945, Lambda=0.6741, aL=2.5118,
-            tauW=4e-06, ThetaT=0.1656317, ThetaR=0.36774087, Km2 = 0.93, Altitude=3350,SNRdBlimit=-30):
+            tauW=4e-06, ThetaT=0.1656317, ThetaR=0.36774087, Km2 = 0.93, Altitude=3350, SNRdBlimit=-30,
+            channel=None):
 
         # print ('Entering PrecepitationProc ... ')
 
@@ -939,7 +940,10 @@ class PrecipitationProc(Operation):
                 SignalPower[i,:,:] = self.spc[i,:,:] - dataOut.noise[i]
                 SignalPower[numpy.where(SignalPower < 0)] = 1e-20
 
-            SPCmean = numpy.mean(SignalPower, 0)
+            if channel is None:
+                SPCmean = numpy.mean(SignalPower, 0)
+            else:
+                SPCmean = SignalPower[channel]
             Pr = SPCmean[:,:]/dataOut.normFactor
 
             # Declaring auxiliary variables
