@@ -73,7 +73,9 @@ class ConfBase():
         '''
         '''
 
-        if isinstance(value, str) and re.search(r'(\d+/\d+/\d+)', value):
+        if format is not None:
+            self.parameters[name] = eval(format)(value)
+        elif isinstance(value, str) and re.search(r'(\d+/\d+/\d+)', value):
             self.parameters[name] = datetime.date(*[int(x) for x in value.split('/')])
         elif isinstance(value, str) and re.search(r'(\d+:\d+:\d+)', value):
             self.parameters[name] = datetime.time(*[int(x) for x in value.split(':')])
