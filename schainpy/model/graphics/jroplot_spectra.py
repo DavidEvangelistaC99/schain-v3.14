@@ -42,6 +42,9 @@ class SpectraPlot(Plot):
         meta = {}
 
         spc = 10*numpy.log10(dataOut.data_spc/dataOut.normFactor)
+        #print("dataOut.normFactor: ", dataOut.normFactor)
+        #print("spc: ", dataOut.data_spc[0,0,0])
+        #spc = 10*numpy.log10(dataOut.data_spc)
         #print("Spc: ",spc[0])
         #exit(1)
         data['spc'] = spc
@@ -716,14 +719,15 @@ class RTIPlot(Plot):
         self.x = self.data.times
         self.y = self.data.yrange
         self.z = self.data[self.CODE]
-
+        #print("Inside RTI: ", self.z)
         self.z = numpy.ma.masked_invalid(self.z)
 
         if self.decimation is None:
             x, y, z = self.fill_gaps(self.x, self.y, self.z)
         else:
             x, y, z = self.fill_gaps(*self.decimate())
-
+        #print("self.z: ", self.z)
+        #exit(1)
         '''
         if not isinstance(self.zmin, collections.abc.Sequence):
             if not self.zmin:

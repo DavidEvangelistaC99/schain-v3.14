@@ -673,9 +673,9 @@ class EDensityPlot(Plot):
         data['den_Faraday'] = dataOut.dphi[:dataOut.NSHTS]
         data['den_error'] = dataOut.sdp2[:dataOut.NSHTS]
         #data['err_Faraday'] = dataOut.sdn1[:dataOut.NSHTS]
-        print(numpy.shape(data['den_power']))
-        print(numpy.shape(data['den_Faraday']))
-        print(numpy.shape(data['den_error']))
+        #print(numpy.shape(data['den_power']))
+        #print(numpy.shape(data['den_Faraday']))
+        #print(numpy.shape(data['den_error']))
 
         data['NSHTS'] = dataOut.NSHTS
 

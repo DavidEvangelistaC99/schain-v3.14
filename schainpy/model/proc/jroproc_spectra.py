@@ -455,19 +455,43 @@ class GetSNR(Operation):
 
     def run(self,dataOut):
 
-        noise = dataOut.getNoise()
-        maxdB = 16
-
-        normFactor = 24
-
+        #noise = dataOut.getNoise()
+        noise = dataOut.getNoise(ymin_index=-10) #Región superior donde solo debería de haber ruido
+        #print("Noise: ", noise)
+        #print("Noise_dB: ", 10*numpy.log10(noise/dataOut.normFactor))
+        #print("Heights: ", dataOut.heightList)
         #dataOut.data_snr = (dataOut.data_spc.sum(axis=1))/(noise[:,None]*dataOut.normFactor)
-        dataOut.data_snr = (dataOut.data_spc.sum(axis=1))/(noise[:,None]*dataOut.nFFTPoints)
-
-        dataOut.data_snr = numpy.where(10*numpy.log10(dataOut.data_snr)<.5, numpy.nan, dataOut.data_snr)
+        ################dataOut.data_snr = (dataOut.data_spc.sum(axis=1))/(noise[:,None]*dataOut.nFFTPoints) #Before 12Jan2023
+        #dataOut.data_snr = (dataOut.data_spc.sum(axis=1)-noise[:,None])/(noise[:,None])
+        dataOut.data_snr = (dataOut.data_spc.sum(axis=1)-noise[:,None]*dataOut.nFFTPoints)/(noise[:,None]*dataOut.nFFTPoints) #It works apparently
+        dataOut.snl = numpy.log10(dataOut.data_snr)
+        #print("snl: ", dataOut.snl)
+        #exit(1)
+        #print(dataOut.heightList[-11])
+        #print(numpy.shape(dataOut.heightList))
+        #print(dataOut.data_snr)
+        #print(dataOut.data_snr[0,-11])
+        #exit(1)
+        #dataOut.data_snr = numpy.where(10*numpy.log10(dataOut.data_snr)<.5, numpy.nan, dataOut.data_snr)
+        #dataOut.data_snr = numpy.where(10*numpy.log10(dataOut.data_snr)<.1, numpy.nan, dataOut.data_snr)
+        #dataOut.data_snr = numpy.where(10*numpy.log10(dataOut.data_snr)<.0, numpy.nan, dataOut.data_snr)
+        #dataOut.data_snr = numpy.where(dataOut.data_snr<.05, numpy.nan, dataOut.data_snr)
+        dataOut.snl = numpy.where(dataOut.data_snr<.01, numpy.nan, dataOut.snl)
+        '''
+        import matplotlib.pyplot as plt
+        #plt.plot(10*numpy.log10(dataOut.data_snr[0]),dataOut.heightList)
+        plt.plot(dataOut.data_snr[0],dataOut.heightList)#,marker='*')
+        plt.xlim(-1,10)
+        plt.axvline(1,color='k')
+        plt.axvline(.1,color='k',linestyle='--')
+        plt.grid()
+        plt.show()
+        '''
         #dataOut.data_snr = 10*numpy.log10(dataOut.data_snr)
         #dataOut.data_snr = numpy.expand_dims(dataOut.data_snr,axis=0)
         #print(dataOut.data_snr.shape)
         #exit(1)
+        #print("Before: ", dataOut.data_snr[0])
 
 
         return dataOut

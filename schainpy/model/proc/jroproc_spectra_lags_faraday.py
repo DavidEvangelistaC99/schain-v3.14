@@ -3815,6 +3815,9 @@ class IncohInt(Operation):
             dataOut.flagNoData = False
 
             dataOut.VelRange = dataOut.getVelRange(0)
+            dataOut.FreqRange = dataOut.getFreqRange(0)/1000.
+            #print("VelRange: ", dataOut.VelRange)
+            #exit(1)
 
             #print("Power",numpy.sum(dataOut.data_spc[0,:,20:30],axis=0))
             #print("Power",numpy.sum(dataOut.data_spc[0,100:110,:],axis=1))
@@ -3921,7 +3924,7 @@ class SnrFaraday(Operation):
 
         return dataOut
 
-class SpectraDataToFaraday_07_11_2022(Operation):
+class SpectraDataToFaraday(Operation): #ISR MODE
     '''
     Written by R. Flores
     '''
@@ -4144,10 +4147,14 @@ class SpectraDataToFaraday_07_11_2022(Operation):
         #print(data_eej)
         index_eej = CleanCohEchoes.mad_based_outlier(self,data_eej[:17])
         aux_eej = numpy.array(index_eej.nonzero()).ravel()
+        print("aux_eej: ", aux_eej)
+        if aux_eej != []:
+            dataOut.min_id_eej = aux_eej[-1]
+        else:
+            dataOut.min_id_eej = 12
 
-        dataOut.min_id_eej = aux_eej[-1]
 
-        print(dataOut.min_id_eej)
+        #print("min_id_eej: ", dataOut.min_id_eej)
         #exit(1)
 
     def run(self,dataOut):
@@ -4204,7 +4211,7 @@ class SpectraDataToFaraday_07_11_2022(Operation):
         #exit(1)
         return dataOut
 
-class SpectraDataToFaraday(Operation):
+class SpectraDataToFaraday_MST(Operation): #MST MODE
     """Operation to use spectra data in Faraday processing.
 
     Parameters:

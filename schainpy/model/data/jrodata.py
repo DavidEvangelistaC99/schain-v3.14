@@ -548,6 +548,9 @@ class Spectra(JROData):
 
         if self.flagDecodeData:
             pwcode = numpy.sum(self.code[0]**2)
+            #pwcode = 64
+            #print("pwcode: ", pwcode)
+            #exit(1)
         #normFactor = min(self.nFFTPoints,self.nProfiles)*self.nIncohInt*self.nCohInt*pwcode*self.windowOfFilter
         normFactor = self.nProfiles * self.nIncohInt * self.nCohInt * pwcode * self.windowOfFilter
 
