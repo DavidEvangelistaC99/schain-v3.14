@@ -165,7 +165,7 @@ setup(name='schainpy',
                 "schainf/Ffiles/pythag.f",
                 "schainf/Ffiles/tql1.f",
                 "schainf/Ffiles/tred1.f"],
-                extra_f77_compile_args=["-fallow-argument-mismatch"]),
+            extra_f77_compile_args=["-fallow-argument-mismatch"]),
         Extension("schainpy.model.proc.fitacf_fit_short",
             sources = [
                 "schainf/Ffiles/fitacf_fit_short.pyf",
@@ -209,8 +209,8 @@ setup(name='schainpy',
                 "schainf/Ffiles/tql2.f",
                 "schainf/Ffiles/tred1.f",
                 "schainf/Ffiles/tred2.f",
-                "schainf/Ffiles/zeta.f",
-                extra_f77_compile_args=["-fallow-argument-mismatch"])
+                "schainf/Ffiles/zeta.f"],
+            extra_f77_compile_args=["-fallow-argument-mismatch"])
                 ]
                 )
 
