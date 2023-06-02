@@ -512,7 +512,7 @@ c         write(*,fmt='(" geobfield: time is before earliest model.")')
       p=(cabs(ye))**2*real(sum2)+cabs(sum1+cmplx(0.0,dl))**2*real(ye)
       p=p/(cabs(yed+sum1))**2
       spect1=p*2.0e0/(omega*pi)
-       
+      write(*,*) "spect1 DONE "
       return
       end
 
