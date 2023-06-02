@@ -540,7 +540,7 @@ c
       integer i,j,k,imode
       common /mode/imode
 c
-      write(*,*) "INITIAL acf:",wl,tau,te1,ti1,fi1,ven1,vin1,wi1,alpha1
+c      write(*,*) "INITIAL acf:",wl,tau,te1,ti1,fi1,ven1,vin1,wi1,alpha1
       write(*,*) "INITIAL acf:",dens1, bfld1, acf, nion1
 c      write(*,fmt='("INIT")')
       pi=4.0*atan(1.0)
