@@ -5,7 +5,7 @@
       return
       end
 
-      subroutine get_path(fqual,the_len)
+      subroutine get_path_reader(fqual,the_len)
 c
 c      create table of magnetic field components
 c
