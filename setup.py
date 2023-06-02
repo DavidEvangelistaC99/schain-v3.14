@@ -112,6 +112,10 @@ setup(name='schainpy',
                 "schainf/Ffiles/bfield2.f",
                 "schainf/Ffiles/get_path.f"],
             extra_f77_compile_args=["-fallow-argument-mismatch"]),
+        Extension("schainpy.model.proc.fitacf_guess",
+            sources=[
+                "schainf/Ffiles/fitacf_guess.pyf",
+            extra_f77_compile_args=["-fallow-argument-mismatch"]),
         Extension("schainpy.model.proc.fitacf_acf2",
             sources = [
                 "schainf/Ffiles/fitacf_acf2.pyf",
