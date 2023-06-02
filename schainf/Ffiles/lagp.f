@@ -91,8 +91,8 @@ c      write(*,*) "L_BEF: ", fqual_temp, "L_BEF_end"
       fqual = TRIM(fqual_temp)
       bfmodel_str = 'bfmodel/'
       write(*,*) "bfmodel_str: ", bfmodel_str
-      fqual(1:len_trim(fqual)-len_trim(bfmodel_str))
-      fqual = fqual//'weights.dat'
+c      fqual(1:len_trim(fqual)-len_trim(bfmodel_str))
+      fqual = fqual(1:index(fqual, bfmodel-str))//'weights.dat'
 c      write(*,*) "Final fqual",fqual,"FINAL"
  
       if(first) then
