@@ -89,14 +89,20 @@ setup(
 
 main_path = os.getcwd()
 child_path = '/schainf/Ffiles/bfmodel/'
+child_path_r = '/schainf/Ffiles/jlib26feb2001'
 #print("main_path: ", main_path)
 my_str = '      '+"ppath = "+"\""+main_path+"\"\n"
 my_str_2 = '      '+"cpath = "+"\""+child_path+"\""
+my_str_2_r = '      '+"cpath = "+"\""+child_path_r+"\""
 
 #'''
 with open('./schainf/Ffiles/get_path_1.f', 'r') as path1: data1 = path1.read()
 with open('./schainf/Ffiles/get_path_2.f', 'r') as path2: data2 = path2.read()
 with open('./schainf/Ffiles/get_path.f', 'w') as final: final.write(data1+my_str+my_str_2+data2)
+
+with open('./schainf/Ffiles/get_path_1_reader.f', 'r') as p1: data1_r = p1.read()
+with open('./schainf/Ffiles/get_path_2_reader.f', 'r') as p2: data2_r = p2.read()
+with open('./schainf/Ffiles/get_path_reader.f', 'w') as final_r: final_r.write(data1_r+my_str+my_str_2_r+data2_r)
 #'''
 
 from numpy.distutils.core import Extension, setup
