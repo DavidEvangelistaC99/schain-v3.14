@@ -142,7 +142,7 @@ void initialize(void){
 
   char the_path[1025];
 
-  get_path_(the_path,&the_number);
+  get_path_reader_(the_path,&the_number);
   //printf("C the_number: %i",the_number);
   //printf("After\n");
   //printf("The Path: %s", the_path);
