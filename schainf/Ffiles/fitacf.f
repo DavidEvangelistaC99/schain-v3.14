@@ -485,9 +485,6 @@ c     between k and the magnetic field (radians)
         sum2=sum2+fi(i)*yi(i)
       end do
       dl=ak**2*dlf*te/densmks
-c      write(*,fmt='("Before YE")')
-c      write(*,*) imode
-c      call exit
 
       if(imode.eq.1.or.imode.eq.3) then
       
@@ -496,8 +493,6 @@ c      call exit
          phi=(omegae/ak)/(sqrt(2.0)*vte)
          psie=(ven/ak)/(sqrt(2.0)*vte)
          ye=y_electron(thetae,phi,psie,alpha)
-	 write(*,fmt='("AFTER YE")')
-c         call exit
   
       else if(imode.eq.2) then
 c
@@ -508,8 +503,7 @@ c
          alpha2=abs(pi/2.0-alpha)*180.0/pi
 c         write(*,*) "ye: ", ye
          call collision(densmks, te, freq, alpha2, ye)
-c         write(*,fmt='("AFTER COLLISION")')
-c         call exit
+c         write(*,fmt='(" geobfield: time is before earliest model.")')
          ye=ye*omega+cmplx(0.0,1.0)        
 
       end if
@@ -518,12 +512,12 @@ c         call exit
       p=(cabs(ye))**2*real(sum2)+cabs(sum1+cmplx(0.0,dl))**2*real(ye)
       p=p/(cabs(yed+sum1))**2
       spect1=p*2.0e0/(omega*pi)
-      write(*,*) "spect1:",spect1
+       
       return
       end
 
-      subroutine acf2(wl, tau, te1, ti1, fi1, ven1, vin1, wi1,
-     &     alpha1, dens1, bfld1, acf, nion1)
+      subroutine acf2(wl, tau, te1, ti1, fi1, ven1, vin1, wi1, nion1,
+     &     alpha1, dens1, bfld1, acf)
 c
 c     computes autocorrelation function for given plasma parameters
 c     by integrating real spectrum
@@ -537,44 +531,33 @@ c
       real pi
       integer nion1
       integer wi1(nion1)
-      integer i,j,k,imode
-      common /mode/imode
+      integer i,j,k
 c
-c      write(*,*) "INITIAL acf:",wl,tau,te1,ti1,fi1,ven1,vin1,wi1,alpha1
-      write(*,*) "INITIAL acf:",dens1, bfld1, acf, nion1
-c      write(*,fmt='("INIT")')
       pi=4.0*atan(1.0)
 c
 c     copy arguments to common block
 c
       ak=2.0*pi/wl
       imode=2
-      write(*,*) "imode:",imode
 
       nion=nion1
       alpha=alpha1
       te=te1
       ven=ven1
-c      write(*,fmt='("INIT2")')
       do i=1,nion
-c      write(*,fmt='("INIT2.5")')
         ti(i)=ti1(i)
         fi(i)=fi1(i)
         vin(i)=vin1(i)
         wi(i)=wi1(i)
       end do
-c      write(*,fmt='("INIT3")')
       dens=dens1
       bfld=bfld1
 
 c      write(*,*) wl,alpha1,bfld1,dens
 c      call exit
-c      write(*,fmt='("Before Gauss")')
+
       call gaussq(tau,acf)
 
-      write(*,*) "FINAL acf:",acf
-
-c      write(*,fmt='("After Gauss")')
       return
       end
 
@@ -607,7 +590,7 @@ c      write(*,*) leniw,lenw
       nrmom=0
       ksave=0
       momcom=0
-      write(*,*) "Before qc25f:",acf,imode
+ 
 c     much faster, more robust
 c      write(*,*) "acf_in: ",acf
       call qc25f(spect1,a,b,tau,integr,nrmom,maxp1,ksave,acf,
@@ -615,7 +598,7 @@ c      write(*,*) "acf_in: ",acf
 c      write(*,*) "acf_out: ",acf
 c      call qawf(spect1,a,tau,integr,epsabs,acf,abserr,neval,
 c     &     ier,limlst,lst,leniw,maxp1,lenw,iwork,work)
-      write(*,*) "After qc25f:",acf
-c      call exit
+ 
+      
       return
       end
