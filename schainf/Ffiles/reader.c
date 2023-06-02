@@ -153,7 +153,7 @@ void initialize(void){
   char the_path_true[the_number];
   memcpy(the_path_true,the_path,the_number);
   the_path_true[the_number] = '\0';
-  //printf("%s%n",the_path_true,&crr2);
+  printf("%s%n",the_path_true,&crr2);
   //printf("=%d",crr2);
   //printf("END3\n");
   //printf("PATH: %s",s);
