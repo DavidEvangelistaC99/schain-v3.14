@@ -92,7 +92,7 @@ c      write(*,*) "L_BEF: ", fqual_temp, "L_BEF_end"
       bfmodel_str = 'bfmodel/'
       write(*,*) "bfmodel_str: ", bfmodel_str
 c      fqual(1:len_trim(fqual)-len_trim(bfmodel_str))
-      fqual = fqual(1:index(fqual, bfmodel-str))//'weights.dat'
+      fqual = fqual(1:index(fqual, bfmodel_str))//'weights.dat'
 c      write(*,*) "Final fqual",fqual,"FINAL"
  
       if(first) then
