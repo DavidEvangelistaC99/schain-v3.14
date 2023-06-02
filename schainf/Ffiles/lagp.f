@@ -90,11 +90,11 @@ c      write(*,*) "BEFORE GET_PATH"
 c      write(*,*) "L_BEF: ", fqual_temp, "L_BEF_end"
       fqual = TRIM(fqual_temp)
       bfmodel_str = 'bfmodel/'
-      write(*,*) "bfmodel_str: ", bfmodel_str
+c      write(*,*) "bfmodel_str: ", bfmodel_str
 c      fqual(1:len_trim(fqual)-len_trim(bfmodel_str))
-      fqual = fqual(1:index(fqual, bfmodel_str))//'weights.dat'
+      fqual = fqual(1:index(fqual, bfmodel_str))//'weights.da'
 c      write(*,*) "Final fqual",fqual,"FINAL"
-      call exit
+c      call exit
       if(first) then
          open(unit=25,file=fqual,
      &    status='old')
