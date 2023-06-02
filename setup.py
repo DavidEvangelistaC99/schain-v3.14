@@ -216,7 +216,7 @@ setup(name='schainpy',
             extra_f77_compile_args=["-fallow-argument-mismatch"]),
         Extension("schainpy.model.proc.full_profile_profile",
             sources = [
-                "schainf/Ffiles/full_profile.pyf",
+                "schainf/Ffiles/full_profile_profile.pyf",
                 "schainf/Ffiles/full_profile_profile.f",
                 "schainf/Ffiles/fitacf.f",
                 "schainf/Ffiles/r1mach.f",
