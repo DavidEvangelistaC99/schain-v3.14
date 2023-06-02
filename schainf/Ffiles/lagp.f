@@ -19,6 +19,7 @@ c
 
       character(1024) :: fqual_temp
       character(:), allocatable :: fqual
+      character(8) :: bfmodel_str
 
       data first/.true./
 c
@@ -88,7 +89,8 @@ c      write(*,*) "BEFORE GET_PATH"
       call get_path(fqual_temp)
 c      write(*,*) "L_BEF: ", fqual_temp, "L_BEF_end"
       fqual = TRIM(fqual_temp)
-      fqual(1:len_trim(fqual)-len_trim('/'))
+      bfmodel = 'bfmodel/'
+      fqual(1:len_trim(fqual)-len_trim(bfmodel))
       fqual = fqual//'weights.dat'
 c      write(*,*) "Final fqual",fqual,"FINAL"
  
