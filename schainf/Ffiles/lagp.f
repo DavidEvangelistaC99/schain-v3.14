@@ -19,7 +19,7 @@ c
 
       character(1024) :: fqual_temp
       character(:), allocatable :: fqual
-      character(8) :: bfmodel_str
+      character bfmodel_str*8
 
       data first/.true./
 c
