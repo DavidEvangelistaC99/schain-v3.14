@@ -94,7 +94,7 @@ c      write(*,*) "L_BEF: ", fqual_temp, "L_BEF_end"
 c      fqual(1:len_trim(fqual)-len_trim(bfmodel_str))
       fqual = fqual(1:index(fqual, bfmodel_str))//'weights.dat'
 c      write(*,*) "Final fqual",fqual,"FINAL"
- 
+      call exit
       if(first) then
          open(unit=25,file=fqual,
      &    status='old')
