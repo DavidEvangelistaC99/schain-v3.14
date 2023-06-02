@@ -233,6 +233,7 @@ setup(name='schainpy',
             sources = [
                 "schainf/Ffiles/full_profile_profile.pyf",
                 "schainf/Ffiles/full_profile_profile.f",
+                "schainf/Ffiles/get_path_reader.f",
                 "schainf/Ffiles/fitacf.f",
                 "schainf/Ffiles/r1mach.f",
                 "schainf/Ffiles/lmdif1.f",
