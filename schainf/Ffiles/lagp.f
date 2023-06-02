@@ -90,6 +90,7 @@ c      write(*,*) "BEFORE GET_PATH"
 c      write(*,*) "L_BEF: ", fqual_temp, "L_BEF_end"
       fqual = TRIM(fqual_temp)
       bfmodel_str = 'bfmodel/'
+      write(*,*) "bfmodel_str: ", bfmodel_str
       fqual(1:len_trim(fqual)-len_trim(bfmodel_str))
       fqual = fqual//'weights.dat'
 c      write(*,*) "Final fqual",fqual,"FINAL"
