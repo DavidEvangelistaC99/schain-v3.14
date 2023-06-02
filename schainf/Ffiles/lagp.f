@@ -16,6 +16,10 @@ c
       real weight(nw),dtau(nw),drange(nw)
       logical first
       real store(2*nl,2*nrange,2)
+
+      character(1024) :: fqual_temp
+      character(:), allocatable :: fqual
+
       data first/.true./
 c
       
@@ -80,8 +84,15 @@ c
 c      write(*,*) "before weights"
 c      write(*,*) first 
 c      write(*,*) "weight before: ",weight
+c      write(*,*) "BEFORE GET_PATH"
+      call get_path(fqual_temp)
+c      write(*,*) "L_BEF: ", fqual_temp, "L_BEF_end"
+      fqual = TRIM(fqual_temp)
+      fqual = fqual//'/weights.dat'
+c      write(*,*) "Final fqual",fqual,"FINAL"
+ 
       if(first) then
-         open(unit=25,file='/usr/local/lib/faraday/weights.dat',
+         open(unit=25,file=fqual,
      &    status='old')
          read (25,*) nwt
          do i=1,nwt
