@@ -90,9 +90,10 @@ c      write(*,*) "BEFORE GET_PATH"
 c      write(*,*) "L_BEF: ", fqual_temp, "L_BEF_end"
       fqual = TRIM(fqual_temp)
       bfmodel_str = 'bfmodel/'
-c      write(*,*) "bfmodel_str: ", bfmodel_str
+      write(*,*) "bfmodel_str: ", bfmodel_str
 c      fqual(1:len_trim(fqual)-len_trim(bfmodel_str))
       fqual = fqual(1:index(fqual, bfmodel_str))//'weights.da'
+      write(*,*) "fqual: ", fqual
 c      write(*,*) "Final fqual",fqual,"FINAL"
 c      call exit
       if(first) then
