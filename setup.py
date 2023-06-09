@@ -10,11 +10,16 @@ data.
 """
 
 import os
+import re
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext as _build_ext
 from schainpy import __version__
 
 DOCLINES = __doc__.split("\n")
+
+gfor = os.popen("gfortran --version").read()
+match = re.search(r'\d+',gfor)
+gfor_ver = int(match.group())
 
 class build_ext(_build_ext):
     def finalize_options(self):
@@ -107,6 +112,11 @@ with open('./schainf/Ffiles/get_path_reader.f', 'w') as final_r: final_r.write(d
 
 from numpy.distutils.core import Extension, setup
 
+if gfor_ver >= 10:
+    extra_f77 = "-fallow-argument-mismatch"
+else:
+    extra_f77 = "-g"
+
 setup(name='schainpy',
     ext_modules = [
         Extension("schainpy.model.proc.mkfact_short_2020_2",
@@ -117,12 +127,12 @@ setup(name='schainpy',
                 "schainf/Ffiles/r1mach.f",
                 "schainf/Ffiles/bfield2.f",
                 "schainf/Ffiles/get_path.f"],
-            extra_f77_compile_args=["-fallow-argument-mismatch"]),
+            extra_f77_compile_args=[extra_f77]),
         Extension("schainpy.model.proc.fitacf_guess",
             sources=[
                 "schainf/Ffiles/fitacf_guess.pyf",
-                "schainf/Ffiles/fitacf_guess.f",],
-            extra_f77_compile_args=["-fallow-argument-mismatch"]),
+                "schainf/Ffiles/fitacf_guess.f"],
+            extra_f77_compile_args=[extra_f77]),
         Extension("schainpy.model.proc.fitacf_acf2",
             sources = [
                 "schainf/Ffiles/fitacf_acf2.pyf",
@@ -178,7 +188,7 @@ setup(name='schainpy',
                 "schainf/Ffiles/tql1.f",
                 "schainf/Ffiles/get_path.f",
                 "schainf/Ffiles/tred1.f"],
-            extra_f77_compile_args=["-fallow-argument-mismatch"]),
+            extra_f77_compile_args=[extra_f77]),
         Extension("schainpy.model.proc.fitacf_fit_short",
             sources = [
                 "schainf/Ffiles/fitacf_fit_short.pyf",
@@ -228,7 +238,7 @@ setup(name='schainpy',
                 "schainf/Ffiles/get_path.f",
                 "schainf/Ffiles/get_path_reader.f",
                 "schainf/Ffiles/zeta.f"],
-            extra_f77_compile_args=["-fallow-argument-mismatch"]),
+            extra_f77_compile_args=[extra_f77]),
         Extension("schainpy.model.proc.full_profile_profile",
             sources = [
                 "schainf/Ffiles/full_profile_profile.pyf",
@@ -284,126 +294,7 @@ setup(name='schainpy',
                 "schainf/Ffiles/tql1.f",
                 "schainf/Ffiles/get_path.f",
                 "schainf/Ffiles/tred1.f"],
-            extra_f77_compile_args=["-fallow-argument-mismatch"])
+            extra_f77_compile_args=[extra_f77])
                 ]
                 )
 
-'''
-setup(name='schainpy',
-    ext_modules = [
-        Extension("schainpy.model.proc.mkfact_short_2020_2",
-            sources=[
-                "schainf/mkfact/mkfact_short_2020_2.pyf",
-                "schainf/mkfact/lmdif1.f",
-                "schainf/mkfact/mkfact.f",
-                "schainf/mkfact/r1mach.f",
-                "schainf/mkfact/bfield2.f"]),
-        Extension("schainpy.model.proc.full_profile_profile",
-            sources=[
-                "schainf/full_profile/full_profile_profile.pyf",
-                "schainf/full_profile/full_profile_profile.f",
-                "schainf/full_profile/fitacf.f",
-                "schainf/full_profile/r1mach.f",
-                "schainf/full_profile/lmdif1.f",
-                "schainf/full_profile/lagp.f",
-                "schainf/full_profile/reader.c",
-                "schainf/full_profile/cbesi.f",
-                "schainf/full_profile/i1mach.f",
-                "schainf/full_profile/zeta.f",
-                "schainf/full_profile/qc25f.f",
-                "schainf/full_profile/qwgtf.f",
-                "schainf/full_profile/qcheb.f",
-                "schainf/full_profile/sgtsl.f",
-                "schainf/full_profile/qk15w.f",
-                "schainf/full_profile/complex.c",
-                "schainf/full_profile/cbinu.f",
-                "schainf/full_profile/cseri.f",
-                "schainf/full_profile/cwrsk.f",
-                "schainf/full_profile/crati.f",
-                "schainf/full_profile/casyi.f",
-                "schainf/full_profile/cbuni.f",
-                "schainf/full_profile/cuni2.f",
-                "schainf/full_profile/gamln.f",
-                "schainf/full_profile/cuchk.f",
-                "schainf/full_profile/cbknu.f",
-                "schainf/full_profile/cshch.f",
-                "schainf/full_profile/ckscl.f",
-                "schainf/full_profile/cuoik.f",
-                "schainf/full_profile/cunik.f",
-                "schainf/full_profile/cuni1.f",
-                "schainf/full_profile/cairy.f",
-                "schainf/full_profile/cmlri.f",
-                "schainf/full_profile/cunhj.f",
-                "schainf/full_profile/cacai.f",
-                "schainf/full_profile/csisl.f",
-                "schainf/full_profile/caxpy.f",
-                "schainf/full_profile/cs1s2.f",
-                "schainf/full_profile/scabs1.f",
-                "schainf/full_profile/cdotu.f",
-                "schainf/full_profile/rs.f",
-                "schainf/full_profile/sppfa.f",
-                "schainf/full_profile/sdot.f",
-                "schainf/full_profile/tred2.f",
-                "schainf/full_profile/tql2.f",
-                "schainf/full_profile/sppdi.f",
-                "schainf/full_profile/saxpy.f",
-                "schainf/full_profile/sscal.f",
-                "schainf/full_profile/pythag.f",
-                "schainf/full_profile/tql1.f",
-                "schainf/full_profile/tred1.f"]),
-        Extension("schainpy.model.proc.fitacf_acf2",
-            sources = [
-                "schainf/acf2/fitacf_acf2.pyf",
-                "schainf/acf2/full_profile_profile.f",
-                "schainf/acf2/fitacf.f",
-                "schainf/acf2/r1mach.f",
-                "schainf/acf2/lmdif1.f",
-                "schainf/acf2/lagp.f",
-                "schainf/acf2/reader.c",
-                "schainf/acf2/cbesi.f",
-                "schainf/acf2/i1mach.f",
-                "schainf/acf2/zeta.f",
-                "schainf/acf2/qc25f.f",
-                "schainf/acf2/qwgtf.f",
-                "schainf/acf2/qcheb.f",
-                "schainf/acf2/sgtsl.f",
-                "schainf/acf2/qk15w.f",
-                "schainf/acf2/complex.c",
-                "schainf/acf2/cbinu.f",
-                "schainf/acf2/cseri.f",
-                "schainf/acf2/cwrsk.f",
-                "schainf/acf2/crati.f",
-                "schainf/acf2/casyi.f",
-                "schainf/acf2/cbuni.f",
-                "schainf/acf2/cuni2.f",
-                "schainf/acf2/gamln.f",
-                "schainf/acf2/cuchk.f",
-                "schainf/acf2/cbknu.f",
-                "schainf/acf2/cshch.f",
-                "schainf/acf2/ckscl.f",
-                "schainf/acf2/cuoik.f",
-                "schainf/acf2/cunik.f",
-                "schainf/acf2/cuni1.f",
-                "schainf/acf2/cairy.f",
-                "schainf/acf2/cmlri.f",
-                "schainf/acf2/cunhj.f",
-                "schainf/acf2/cacai.f",
-                "schainf/acf2/csisl.f",
-                "schainf/acf2/caxpy.f",
-                "schainf/acf2/cs1s2.f",
-                "schainf/acf2/scabs1.f",
-                "schainf/acf2/cdotu.f",
-                "schainf/acf2/rs.f",
-                "schainf/acf2/sppfa.f",
-                "schainf/acf2/sdot.f",
-                "schainf/acf2/tred2.f",
-                "schainf/acf2/tql2.f",
-                "schainf/acf2/sppdi.f",
-                "schainf/acf2/saxpy.f",
-                "schainf/acf2/sscal.f",
-                "schainf/acf2/pythag.f",
-                "schainf/acf2/tql1.f",
-                "schainf/acf2/tred1.f"])
-                ]
-                )
-'''
