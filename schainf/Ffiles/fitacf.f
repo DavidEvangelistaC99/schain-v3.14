@@ -522,8 +522,8 @@ c         call exit
       return
       end
 
-      subroutine acf2(wl, tau, te1, ti1, fi1, ven1, vin1, wi1,
-     &     alpha1, dens1, bfld1, acf, nion1)
+      subroutine acf2(wl, tau, te1, ti1, fi1, ven1, vin1, wi1, nion1
+     &     alpha1, dens1, bfld1, acf)
 c
 c     computes autocorrelation function for given plasma parameters
 c     by integrating real spectrum

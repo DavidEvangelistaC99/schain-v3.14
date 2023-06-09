@@ -4545,7 +4545,7 @@ class DenCorrection(NormalizeDPPowerRoberto_V2):
 
     def TeTiEstimation(self,dataOut):
 
-        dataOut.DPL = 2 #for MST
+        #dataOut.DPL = 2 #for MST
         y=numpy.zeros(dataOut.DPL,order='F',dtype='float32')
 
         #y_aux = numpy.zeros(1,,dtype='float32')
@@ -9125,6 +9125,7 @@ class LongPulseAnalysis(Operation):
         ###################Correlation pulse and itself
 
         #print(dataOut.NRANGE)
+        print("LP Estimation")
         with suppress_stdout_stderr():
             #pass
             full_profile_profile.profile(numpy.transpose(dataOut.output_LP_integrated,(2,1,0)),numpy.transpose(dataOut.errors),self.powerb,dataOut.ne,dataOut.lags_LP,dataOut.thb,dataOut.bfm,dataOut.te,dataOut.ete,dataOut.ti,dataOut.eti,dataOut.ph,dataOut.eph,dataOut.phe,dataOut.ephe,dataOut.range1,dataOut.ut,dataOut.NACF,dataOut.fit_array_real,dataOut.status,dataOut.NRANGE,dataOut.IBITS)
