@@ -1,2 +1,0 @@
-f2py -c fitacf_fit_short.pyf fitacf_fit_short.f complex.c reader.c cbesi.f r1mach.f i1mach.f lmdif1.f zeta.f rs.f sppfa.f sdot.f tred2.f tql2.f sppdi.f saxpy.f sscal.f qc25f.f qwgtf.f qcheb.f sgtsl.f qk15w.f pythag.f cbuni.f cuni2.f cuchk.f cuoik.f cunik.f cuni1.f cairy.f cbknu.f cshch.f gamln.f ckscl.f cunhj.f cbinu.f cseri.f cwrsk.f crati.f casyi.f cmlri.f cacai.f cs1s2.f tql1.f tred1.f get_path.f 
-
