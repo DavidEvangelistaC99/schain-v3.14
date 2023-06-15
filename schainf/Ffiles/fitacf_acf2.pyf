@@ -3,7 +3,7 @@
 
 python module fitacf_acf2 ! in 
     interface  ! in :fitacf_acf2
-        subroutine acf2(wl,tau,te1,ti1,fi1,ven1,vin1,wi1,alpha1,dens1,bfld1,acf,nion1) ! in :fitacf_acf2:fitacf.f
+        subroutine acf2(wl,tau,te1,ti1,fi1,ven1,vin1,wi1,nion1,alpha1,dens1,bfld1,acf) ! in :fitacf_acf2:fitacf.f
             real intent(in):: wl
             real intent(in):: tau
             real intent(in):: te1
