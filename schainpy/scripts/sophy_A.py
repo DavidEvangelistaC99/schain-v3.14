@@ -5,17 +5,17 @@ import datetime
 import time
 
 PATH = '/DATA_RM/DATA'
-PATH = "/media/soporte/TOSHIBAEXT/sophy/"
+#PATH = "/media/soporte/TOSHIBAEXT/sophy/"
 # SNR ZMIN -40 A ZMAX -20
 PARAM = {
-    'S': {'zmin': -45, 'zmax': -25, 'colormap': 'jet', 'label': 'Power', 'wrname': 'power','cb_label': 'dBm', 'ch':0},
-    'SNR': {'zmin': -10, 'zmax': 15, 'colormap': 'jet', 'label': 'SNR', 'wrname': 'snr','cb_label': 'dB', 'ch':0},
-    'V': {'zmin': -12, 'zmax': 12, 'colormap': 'sophy_v', 'label': 'Velocity', 'wrname': 'velocity', 'cb_label': 'm/s', 'ch':0},
-    'R': {'zmin': 0.5,   'zmax': 1,  'colormap': 'sophy_r',    'label': 'RhoHV', 'wrname':'rhoHV', 'cb_label': '',  'ch':0},
-    'P': {'zmin': -180,'zmax': 180,'colormap': 'sophy_p', 'label': 'PhiDP', 'wrname':'phiDP' , 'cb_label': 'degrees',  'ch':0},
-    'D': {'zmin': -9, 'zmax': 12, 'colormap': 'sophy_d','label': 'ZDR','wrname':'differential_reflectivity' , 'cb_label': 'dB','ch':0},
-    'Z':  {'zmin': -20, 'zmax': 80, 'colormap': 'sophy_z','label': 'Reflectivity ',  'wrname':'reflectivity', 'cb_label': 'dBz','ch':0},
-    'W':  {'zmin': 0, 'zmax': 12, 'colormap': 'sophy_w','label': 'Spectral Width', 'wrname':'spectral_width', 'cb_label': 'm/s', 'ch':0}
+    'S':  {'zmin': -45, 'zmax':-25, 'colormap': 'jet'    , 'label': 'Power', 'wrname': 'power','cb_label': 'dBm', 'ch':0},
+    'SNR':{'zmin': -10, 'zmax': 15, 'colormap': 'jet'    , 'label': 'SNR', 'wrname': 'snr','cb_label': 'dB', 'ch':0},
+    'V':  {'zmin': -12, 'zmax': 12, 'colormap': 'sophy_v', 'label': 'Velocity', 'wrname': 'velocity', 'cb_label': 'm/s', 'ch':0},
+    'R':  {'zmin': 0.5, 'zmax': 1 , 'colormap': 'sophy_r', 'label': 'RhoHV', 'wrname':'rhoHV', 'cb_label': '',  'ch':0},
+    'P':  {'zmin': -180,'zmax': 180,'colormap': 'sophy_p', 'label': 'PhiDP', 'wrname':'phiDP' , 'cb_label': 'degrees',  'ch':0},
+    'D':  {'zmin': -9 , 'zmax': 12, 'colormap': 'sophy_d', 'label': 'ZDR','wrname':'differential_reflectivity' , 'cb_label': 'dB','ch':0},
+    'Z':  {'zmin': -20, 'zmax': 80, 'colormap': 'sophy_z', 'label': 'Reflectivity ',  'wrname':'reflectivity', 'cb_label': 'dBz','ch':0},
+    'W':  {'zmin':  0 , 'zmax': 12, 'colormap': 'sophy_w', 'label': 'Spectral Width', 'wrname':'spectral_width', 'cb_label': 'm/s', 'ch':0}
     }
 
 META = ['heightList', 'data_azi', 'data_ele', 'mode_op', 'latitude', 'longitude', 'altitude', 'heading', 'radar_name',
@@ -26,7 +26,7 @@ META = ['heightList', 'data_azi', 'data_ele', 'mode_op', 'latitude', 'longitude'
 
 def max_index(r, sample_rate, ipp):
 
-    return int(sample_rate*ipp*1e6 * r / 60) + int(sample_rate*ipp*1e6 * 1.2 / 60)
+    return int(sample_rate*ipp*1e6 * r / 60) + int(sample_rate*ipp*1e6 * 1.68/ 60)
 
 def main(args):
 
@@ -38,6 +38,10 @@ def main(args):
     ipp = ipp_km * 2 /300000
     sample_rate  = conf['usrp_rx']['sample_rate']
     speed_axis = conf['pedestal']['speed']
+    if args.angles:
+        angles = args.angles
+    else:
+        angles = conf['pedestal']['table']
     time_offset = args.time_offset
     parameters = args.parameters
     start_date = conf['name'].split('@')[1].split('T')[0].replace('-', '/')
@@ -62,8 +66,8 @@ def main(args):
         label = ''
     path_plots = os.path.join(PATH, experiment, 'plots{}'.format(label))
     path_save = os.path.join(PATH, experiment, 'param{}'.format(label))
-    RMIX = 5.8  #4.8#5.68#4.8#4.8#2.64#10#2.64
-    H0   = -1.2#-1.68# -1.2#-1.68#-1.2#0.5#-1.2
+    RMIX = 4.8#5.8  #4.8#5.68#4.8#4.8#2.64#10#2.64
+    H0   = -1.68 #-1.68# -1.2#-1.68#-1.2#0.5#-1.2
     MASK = 0.8
     #MASK = 0.4#0.35
 
@@ -256,11 +260,13 @@ def main(args):
         proc1.addParameter(name='runNextUnit', value=True)
 
         opObj10 = proc1.addOperation(name="WeatherRadar")
-        #opObj10.addParameter(name='CR_Flag',value=True)
+        opObj10.addParameter(name='CR_Flag',value=True)
         opObj10.addParameter(name='tauW',value=(1e-6/sample_rate)*len(code[0]))
         #opObj10.addParameter(name='Pt',value=((1e-6/sample_rate)*len(code[0])/ipp)*200)
         opObj10.addParameter(name='Pt',value=200)
         opObj10.addParameter(name='min_index',value=0)
+        #opObj10.addParameter(name='sesgoZD',value=7.73)
+
 
         op = proc1.addOperation(name='PedestalInformation')
         op.addParameter(name='path', value=path_ped, format='str')
@@ -271,6 +277,7 @@ def main(args):
         op = proc1.addOperation(name='Block360')
         op.addParameter(name='attr_data', value='data_param')
         op.addParameter(name='runNextOp', value=True)
+        op.addParameter(name='angles', value=angles)
 
 
         voltage2 = project.addProcUnit(datatype='VoltageProc', inputId=reader.getId())
@@ -311,13 +318,12 @@ def main(args):
         proc2.addParameter(name='runNextUnit', value=True)
 
         opObj10 = proc2.addOperation(name="WeatherRadar")
-        #opObj10.addParameter(name='CR_Flag',value=True,format='bool')
+        opObj10.addParameter(name='CR_Flag',value=True,format='bool')
         opObj10.addParameter(name='tauW',value=(1e-6/sample_rate)*len(code[0]))
         #opObj10.addParameter(name='Pt',value=((1e-6/sample_rate)*len(code[0])/ipp)*200)
         opObj10.addParameter(name='Pt',value=200)
         opObj10.addParameter(name='min_index',value=max_index(RMIX, sample_rate, ipp))
-
-
+        #opObj10.addParameter(name='sesgoZD',value=7.73)
 
         op = proc2.addOperation(name='PedestalInformation')
         op.addParameter(name='path', value=path_ped, format='str')
@@ -328,6 +334,7 @@ def main(args):
         op = proc2.addOperation(name='Block360')
         op.addParameter(name='attr_data', value='data_param')
         op.addParameter(name='runNextOp', value=True)
+        op.addParameter(name='angles', value=angles)
 
         merge = project.addProcUnit(datatype='MergeProc', inputId=[proc1.getId(), proc2.getId()])
         merge.addParameter(name='attr_data', value='data_param')
@@ -343,7 +350,7 @@ def main(args):
                 op.addParameter(name='save_period', value=-1)
                 op.addParameter(name='show', value=args.show)
                 #op.addParameter(name='channels', value='0,1')
-                op.addParameter(name='channels', value='0,')
+                op.addParameter(name='channels', value='1,')
                 op.addParameter(name='zmin', value=PARAM[param]['zmin'], format='int')
                 op.addParameter(name='zmax', value=PARAM[param]['zmax'], format='int')
                 op.addParameter(name='ymax', value=20, format='int')
@@ -382,7 +389,8 @@ def main(args):
                 writer.addParameter(name='path', value=path_save, format='str')
                 writer.addParameter(name='Reset', value=True)
                 writer.addParameter(name='setType', value='weather')
-                #writer.addParameter(name='setChannel', value='0') #new parameter choose ch 0  H  or ch 1 V
+                writer.addParameter(name='setChannel', value='1') #new parameter choose ch 0 or ch 1
+
 
                 writer.addParameter(name='description', value=json.dumps(desc))
                 writer.addParameter(name='blocksPerFile', value='1',format='int')
@@ -423,6 +431,8 @@ if __name__ == '__main__':
                         help='Experiment name')
     parser.add_argument('--parameters', nargs='*', default=['S'],
                         help='Variables to process: P, Z, V')
+    parser.add_argument('--angles', nargs='*', default=[], type=int,
+                        help='Angles to process')
     parser.add_argument('--time_offset', default=0,
                         help='Fix time offset')
     parser.add_argument('--range', default=0, type=float,
@@ -452,4 +462,5 @@ if __name__ == '__main__':
     project = main(args)
     project.start()
 
-#python sophy_A.py HYO_CC4_CC64_COMB@2022-12-27T00-00-32 --parameters Z  --plot --save --show --rmDC --label Z_04 --start_time "22:00:00"
+#python sophy_A.py HYO_CC4_CC64_COMB@2022-12-27T00-00-32 --parameters Z  --plot --save --show --rmDC --label Z_04 --range 60 --start_time "22:00:00"
+# colocar siempre el range que asume 0 y no hace la seleccion de alturas
