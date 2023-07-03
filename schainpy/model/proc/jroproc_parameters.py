@@ -3944,7 +3944,7 @@ class WeatherRadar(Operation):
         Operation.__init__(self)
 
     def setup(self,dataOut,variableList= None,Pt=0,Gt=0,Gr=0,Glna=0,lambda_=0, aL=0,
-                tauW= 0,thetaT=0,thetaR=0,Km =0,CR_Flag=False,min_index=0):
+                tauW= 0,thetaT=0,thetaR=0,Km =0,CR_Flag=False,min_index=0,sesgoZD=0):
 
         self.nCh      = dataOut.nChannels
         self.nHeis    = dataOut.nHeights
@@ -3965,6 +3965,7 @@ class WeatherRadar(Operation):
         self.thetaR   = thetaR # 1.8ª --0.0314 rad
         self.Km       = Km
         self.CR_Flag  = CR_Flag
+        self.sesgoZD  = sesgoZD
         Numerator     = ((4*numpy.pi)**3 * aL**2 * 16 *numpy.log(2)*(10**18))
         Denominator   = (Pt *(10**(Gt/10.0))*(10**(Gr/10.0))*(10**(Glna/10.0))* lambda_**2 * SPEED_OF_LIGHT * tauW * numpy.pi*thetaT*thetaR)
         self.RadarConstant = Numerator/Denominator
@@ -3997,10 +3998,7 @@ class WeatherRadar(Operation):
         nHeis = dataOut.nHeights
         data_RhoHV_R = numpy.zeros((nHeis))
         if type == "Voltage":
-            powa  = dataOut.data_param[0,0,:]
-            powb  = dataOut.data_param[1,0,:]
-            ccf   = dataOut.dataPP_CCF
-            avgcoherenceComplex = ccf / numpy.sqrt(powa * powb)
+            avgcoherenceComplex= dataOut.dataPP_CCF
             data_RhoHV_R = numpy.abs(avgcoherenceComplex)
         if type == "Spectra":
             data_RhoHV_R = dataOut.getCoherence()
@@ -4012,10 +4010,7 @@ class WeatherRadar(Operation):
         nHeis = dataOut.nHeights
         data_PhiD_P = numpy.zeros((nHeis))
         if type == "Voltage":
-            powa  = dataOut.data_param[0,0,:]
-            powb  = dataOut.data_param[1,0,:]
-            ccf   = dataOut.dataPP_CCF
-            avgcoherenceComplex = ccf / numpy.sqrt(powa * powb)
+            avgcoherenceComplex= dataOut.dataPP_CCF
             if phase:
                 data_PhiD_P = numpy.arctan2(avgcoherenceComplex.imag,
                                      avgcoherenceComplex.real) * 180 / numpy.pi
@@ -4035,7 +4030,6 @@ class WeatherRadar(Operation):
         if not self.CR_Flag:
             self.n_radar       = numpy.zeros((self.nCh,self.nHeis))
             self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
-
             for R in range(self.nHeis):
                 self.n_radar[:,R] = self.RadarConstant*Pr[:,R]* (self.Range[:,R]*(10**3))**2
 
@@ -4054,14 +4048,14 @@ class WeatherRadar(Operation):
             self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
 
             for R in range(self.nHeis):
-                self.Z_radar[0,R]= 10*numpy.log10(Pr[0,R])+20*numpy.log10(self.Range[0,R]*10**3)+62.17-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)
-                self.Z_radar[1,R]= 10*numpy.log10(Pr[1,R])+20*numpy.log10(self.Range[1,R]*10**3)+55.6-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)
+                self.Z_radar[0,R]= 10*numpy.log10(Pr[0,R])+20*numpy.log10(self.Range[0,R]*10**3)+67.41-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)#63.58,65.26,68.91
+                self.Z_radar[1,R]= 10*numpy.log10(Pr[1,R])+20*numpy.log10(self.Range[1,R]*10**3)+67.17-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)#64.26,65.79,62.33
             dBZeh= self.Z_radar
 
         if type=='N':
             return dBZeh
         elif type=='D':
-            Zdb_D = dBZeh[0] - dBZeh[1]
+            Zdb_D = dBZeh[0] - dBZeh[1]- self.sesgoZD
             return Zdb_D
 
     def getRadialVelocity_V(self,dataOut):
@@ -4074,10 +4068,10 @@ class WeatherRadar(Operation):
 
 
     def run(self,dataOut,variableList=None,Pt=1.58,Gt=38.5,Gr=38.5,Glna=59.0,lambda_=0.032, aL=1,
-                tauW= 0.2,thetaT=0.0314,thetaR=0.0314,Km =0.93,CR_Flag=0,min_index=0):
+                tauW= 0.2,thetaT=0.0314,thetaR=0.0314,Km =0.93,CR_Flag=0,min_index=0,sesgoZD=0):
         if not self.isConfig:
             self.setup(dataOut= dataOut, variableList=variableList,Pt=Pt,Gt=Gt,Gr=Gr,Glna=Glna,lambda_=lambda_, aL=aL,
-                        tauW= tauW,thetaT=thetaT,thetaR=thetaR,Km =Km,CR_Flag=CR_Flag,min_index=min_index)
+                        tauW= tauW,thetaT=thetaT,thetaR=thetaR,Km =Km,CR_Flag=CR_Flag,min_index=min_index,sesgoZD=sesgoZD)
             self.isConfig = True
 
         dataOut.data_param = self.setMoments(dataOut)
@@ -4233,7 +4227,6 @@ class PedestalInformation(Operation):
 
         return dataOut
 
-
 class Block360(Operation):
     '''
     '''
@@ -4250,7 +4243,7 @@ class Block360(Operation):
     def __init__(self,**kwargs):
         Operation.__init__(self,**kwargs)
 
-    def setup(self, dataOut, attr, angles):
+    def setup(self, dataOut, attr, angles,horario):
         '''
         n= Numero de PRF's de entrada
         '''
@@ -4264,6 +4257,7 @@ class Block360(Operation):
         self.azi = []
         self.ele = []
         self.angles = angles
+        self.horario= horario
 
     def putData(self, data, attr):
         '''
@@ -4370,10 +4364,12 @@ class Block360(Operation):
             start  = self.azi[-2]
             end    = self.azi[-1]
             diff_angle = (end-start)
-
-            if diff_angle < 0: #Ya giró
-                return 0
-
+            if self.horario== True:
+               if diff_angle < 0: #Ya giró
+                   return 0
+            else:
+               if diff_angle > 0: #Ya giró
+                   return 0
         elif self.flagMode == 0: #'ELE'
 
             start  = self.ele[-3]
@@ -4385,13 +4381,13 @@ class Block360(Operation):
             elif (middle>start and end<middle):
                 return -1
 
-    def run(self, dataOut, attr_data='dataPP_POWER', runNextOp = False, angles=[], **kwargs):
+    def run(self, dataOut, attr_data='dataPP_POWER', runNextOp = False, angles=[],horario=True,**kwargs):
 
         dataOut.attr_data = attr_data
         dataOut.runNextOp = runNextOp
 
         if not self.isConfig:
-            self.setup(dataOut=dataOut, attr=attr_data, angles=angles, **kwargs)
+            self.setup(dataOut=dataOut, attr=attr_data, angles=angles,horario=horario, **kwargs)
             self.isConfig   = True
 
         data_360, avgdatatime, data_p, data_e = self.blockOp(dataOut, dataOut.utctime)

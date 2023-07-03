@@ -627,7 +627,7 @@ class CohInt(Operation):
     def integrateByBlock(self, dataOut):
 
         times = int(dataOut.data.shape[1]/self.n)
-        avgdata = numpy.zeros((dataOut.nChannels, times, dataOut.nHeights), dtype=numpy.complex)
+        avgdata = numpy.zeros((dataOut.nChannels, times, dataOut.nHeights), dtype=numpy.complex_)
 
         id_min = 0
         id_max = self.n
@@ -718,7 +718,7 @@ class Decoder(Operation):
             raise ValueError('Number of heights (%d) should be greater than number of bauds (%d)' %(self.__nHeis, self.nBaud))
 
         #Frequency
-        __codeBuffer = numpy.zeros((self.nCode, self.__nHeis), dtype=numpy.complex)
+        __codeBuffer = numpy.zeros((self.nCode, self.__nHeis), dtype=numpy.complex_)
 
         __codeBuffer[:,0:self.nBaud] = self.code
 
@@ -728,14 +728,14 @@ class Decoder(Operation):
 
             self.ndatadec = self.__nHeis #- self.nBaud + 1
 
-            self.datadecTime = numpy.zeros((self.__nChannels, self.__nProfiles, self.ndatadec), dtype=numpy.complex)
+            self.datadecTime = numpy.zeros((self.__nChannels, self.__nProfiles, self.ndatadec), dtype=numpy.complex_)
 
         else:
 
             #Time
             self.ndatadec = self.__nHeis #- self.nBaud + 1
 
-            self.datadecTime = numpy.zeros((self.__nChannels, self.ndatadec), dtype=numpy.complex)
+            self.datadecTime = numpy.zeros((self.__nChannels, self.ndatadec), dtype=numpy.complex_)
 
     def __convolutionInFreq(self, data):
 
@@ -1609,14 +1609,13 @@ class PulsePair_vRF(Operation):
         '''
         #----------------- Remove DC-----------------------------------
         if self.removeDC==True:
-            mean    = numpy.mean(self.__buffer,1)
+            mean    = numpy.nanmean(self.__buffer,1)
             tmp     = mean.reshape(self.__nch,1,self.__nHeis)
             dc= numpy.tile(tmp,[1,self.__nProf,1])
             self.__buffer = self.__buffer -  dc
         #------------------Calculo de Potencia ------------------------
         pair0       = self.__buffer*numpy.conj(self.__buffer)#* 10.0
         pair0       = pair0.real
-        lag_0       = numpy.sum(pair0,1)
         #-----------------Calculo de Cscp------------------------------ New
         if len(self.__buffer)>1:
             cspc_pair01 = self.__buffer[0]*numpy.conjugate(self.__buffer[1])
@@ -1626,9 +1625,10 @@ class PulsePair_vRF(Operation):
             pwcode = numpy.sum(dataOut.code[0]**2)
         #------------------Calculo de Ruido x canal--------------------
         self.noise  = numpy.zeros(self.__nch)
+
         for i in range(self.__nch):
             daux         = numpy.sort(pair0[i,:,:],axis= None)
-            self.noise[i]=hildebrand_sekhon( daux/pwcode ,self.nCohInt)
+            self.noise[i]=hildebrand_sekhon( daux/pwcode,self.nCohInt)
 
         data_noise       = self.noise
         self.noise       = self.noise.reshape(self.__nch,1)
@@ -1638,22 +1638,15 @@ class PulsePair_vRF(Operation):
         #------------------ Potencia recibida= P , Potencia senal = S , Ruido= N--
         #------------------   P= S+N  ,P=lag_0/N ---------------------------------
         #-------------------- Power --------------------------------------------------
-        data_power       = lag_0/(self.n*self.nCohInt*pwcode)
+        data_power         = numpy.nanmean(pair0,axis=1)/(self.nCohInt*pwcode)
         #--------------------CCF------------------------------------------------------
-
         if len(self.__buffer)>1:
-            data_ccf         =numpy.sum(cspc_pair01,axis=0)/(self.n*self.nCohInt*pwcode)
+            data_ccf          =numpy.nanmean(cspc_pair01,axis=0)/(numpy.sqrt(numpy.nanmean(pair0[0],axis=0)*numpy.nanmean(pair0[1],axis=0)))
         else:
             data_ccf = 0
         #------------------  Senal  --------------------------------------------------
-        data_intensity   = pair0/(self.nCohInt*pwcode) - noise_buffer
-        data_intensity   = numpy.sum(data_intensity,axis=1)/(self.n)#*(self.n*self.nCohInt)
-        #data_intensity   = (lag_0-self.noise*self.n)*(self.n*self.nCohInt)
-        #print("data_intensity",data_intensity)
-        for i in range(self.__nch):
-            for j in range(self.__nHeis):
-                if data_intensity[i][j]  < 0:
-                    data_intensity[i][j] = numpy.min(numpy.absolute(data_intensity[i][j]))
+        data_intensity  = (pair0-noise_buffer*self.nCohInt)/(self.nCohInt*pwcode)
+        data_intensity   = numpy.nanmean(data_intensity,axis=1)
 
         #----------------- Calculo de Frecuencia y Velocidad doppler--------
         pair1            = self.__buffer[:,:-1,:]*numpy.conjugate(self.__buffer[:,1:,:])
