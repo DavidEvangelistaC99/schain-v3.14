@@ -24,9 +24,9 @@ META = ['heightList', 'data_azi', 'data_ele', 'mode_op', 'latitude', 'longitude'
     'snr_threshold', 'dataPP_NOISE']
 
 
-def max_index(r, sample_rate, ipp):
+def max_index(r, sample_rate, ipp, h0):
 
-    return int(sample_rate*ipp*1e6 * r / 60) + int(sample_rate*ipp*1e6 * 1.68/ 60)
+    return int(sample_rate*ipp*1e6 * r / 60) + int(sample_rate*ipp*1e6 * -h0 / 60)
 
 def main(args):
 
@@ -55,8 +55,8 @@ def main(args):
         end_time = args.end_time
     else:
         end_time = '23:59:59'
-
-    N = int(1/(speed_axis[0]*ipp))                                               # 1 GRADO DE RESOLUCION
+        
+    N = int(1.0/(abs(speed_axis[0])*ipp))                                               # 1 GRADO DE RESOLUCION
 
     path = os.path.join(PATH, experiment, 'rawdata')
     path_ped = os.path.join(PATH, experiment, 'position')
@@ -68,7 +68,7 @@ def main(args):
     path_save = os.path.join(PATH, experiment, 'param{}'.format(label))
     RMIX = 4.8#5.8  #4.8#5.68#4.8#4.8#2.64#10#2.64
     H0   = -1.68 #-1.68# -1.2#-1.68#-1.2#0.5#-1.2
-    MASK = 0.8
+    MASK = 0.6
     #MASK = 0.4#0.35
 
     from schainpy.controller import Project
@@ -122,7 +122,7 @@ def main(args):
         if args.range > 0:
             op = voltage.addOperation(name='selectHeights')
             op.addParameter(name='minIndex', value='0', format='int')
-            op.addParameter(name='maxIndex', value=max_index(args.range, sample_rate, ipp), format='int')
+            op.addParameter(name='maxIndex', value=max_index(args.range, sample_rate, ipp, H0), format='int')
 
         op = voltage.addOperation(name='PulsePair_vRF', optype='other')
         op.addParameter(name='n', value=int(N)/ncode, format='int')
@@ -133,7 +133,8 @@ def main(args):
 
         opObj10 = proc.addOperation(name="WeatherRadar")
         opObj10.addParameter(name='tauW',value=(1e-6/sample_rate)*len(code[0]))
-        opObj10.addParameter(name='Pt',value=((1e-6/sample_rate)*len(code[0])/ipp)*200)
+        # opObj10.addParameter(name='Pt',value=((1e-6/sample_rate)*len(code[0])/ipp)*200)
+        opObj10.addParameter(name='Pt',value=200)
 
         op = proc.addOperation(name='PedestalInformation')
         op.addParameter(name='path', value=path_ped, format='str')
@@ -145,6 +146,7 @@ def main(args):
             op = proc.addOperation(name='Block360')
             op.addParameter(name='runNextOp', value=True)
             op.addParameter(name='attr_data', value='data_param')
+            op.addParameter(name='angles', value=angles)
 
             op= proc.addOperation(name='WeatherParamsPlot')
             if args.save: op.addParameter(name='save', value=path_plots, format='str')
@@ -158,8 +160,9 @@ def main(args):
             op.addParameter(name='save_code', value=param)
             op.addParameter(name='cb_label', value=PARAM[param]['cb_label'])
             op.addParameter(name='colormap', value=PARAM[param]['colormap'])
-            op.addParameter(name='bgcolor', value='white')
+            op.addParameter(name='bgcolor', value='black')
             op.addParameter(name='localtime', value=False)
+            op.addParameter(name='shapes', value='./shapes')
             if MASK: op.addParameter(name='mask', value=MASK, format='float')
             if args.server:
                 op.addParameter(name='server', value='190.187.237.239:4444')
@@ -237,7 +240,9 @@ def main(args):
             op.addParameter(name='code', value=code)
             op.addParameter(name='nCode', value=len(code), format='int')
             op.addParameter(name='nBaud', value=len(code[0]), format='int')
+            ncode = len(code)
         else:
+            ncode = 1
             code = ['0']
 
         op = voltage1.addOperation(name='CohInt', optype='other') #Minimo integrar 2 perfiles por ser codigo complementario
@@ -246,13 +251,13 @@ def main(args):
         if args.range > 0:
             op = voltage1.addOperation(name='selectHeights')
             op.addParameter(name='minIndex', value='0', format='int')
-            op.addParameter(name='maxIndex', value=max_index(RMIX, sample_rate, ipp), format='int')
+            op.addParameter(name='maxIndex', value=max_index(RMIX, sample_rate, ipp, H0), format='int')
 
         op = voltage1.addOperation(name='setH0')
         op.addParameter(name='h0', value=H0, format='float')
 
         op = voltage1.addOperation(name='PulsePair_vRF', optype='other')
-        op.addParameter(name='n', value=int(conf['usrp_tx']['repetitions_1'])/2, format='int')
+        op.addParameter(name='n', value=int(conf['usrp_tx']['repetitions_1'])/ncode, format='int')
         if args.rmDC:
             op.addParameter(name='removeDC', value=1, format='int')
 
@@ -278,7 +283,7 @@ def main(args):
         op.addParameter(name='attr_data', value='data_param')
         op.addParameter(name='runNextOp', value=True)
         op.addParameter(name='angles', value=angles)
-
+        #op.addParameter(name='horario',value=False)
 
         voltage2 = project.addProcUnit(datatype='VoltageProc', inputId=reader.getId())
 
@@ -303,8 +308,8 @@ def main(args):
 
         if args.range > 0:
             op = voltage2.addOperation(name='selectHeights')
-            op.addParameter(name='minIndex', value=max_index(RMIX, sample_rate, ipp), format='int')
-            op.addParameter(name='maxIndex', value=max_index(args.range, sample_rate, ipp), format='int')
+            op.addParameter(name='minIndex', value=max_index(RMIX, sample_rate, ipp, H0), format='int')
+            op.addParameter(name='maxIndex', value=max_index(args.range, sample_rate, ipp, H0), format='int')
 
         op = voltage2.addOperation(name='setH0')
         op.addParameter(name='h0', value=H0, format='float')
@@ -322,7 +327,7 @@ def main(args):
         opObj10.addParameter(name='tauW',value=(1e-6/sample_rate)*len(code[0]))
         #opObj10.addParameter(name='Pt',value=((1e-6/sample_rate)*len(code[0])/ipp)*200)
         opObj10.addParameter(name='Pt',value=200)
-        opObj10.addParameter(name='min_index',value=max_index(RMIX, sample_rate, ipp))
+        opObj10.addParameter(name='min_index',value=max_index(RMIX, sample_rate, ipp, H0))        
         #opObj10.addParameter(name='sesgoZD',value=7.73)
 
         op = proc2.addOperation(name='PedestalInformation')
@@ -335,6 +340,7 @@ def main(args):
         op.addParameter(name='attr_data', value='data_param')
         op.addParameter(name='runNextOp', value=True)
         op.addParameter(name='angles', value=angles)
+        #op.addParameter(name='horario',value=False)
 
         merge = project.addProcUnit(datatype='MergeProc', inputId=[proc1.getId(), proc2.getId()])
         merge.addParameter(name='attr_data', value='data_param')
@@ -350,7 +356,7 @@ def main(args):
                 op.addParameter(name='save_period', value=-1)
                 op.addParameter(name='show', value=args.show)
                 #op.addParameter(name='channels', value='0,1')
-                op.addParameter(name='channels', value='1,')
+                op.addParameter(name='channels', value='0,')
                 op.addParameter(name='zmin', value=PARAM[param]['zmin'], format='int')
                 op.addParameter(name='zmax', value=PARAM[param]['zmax'], format='int')
                 op.addParameter(name='ymax', value=20, format='int')
@@ -389,9 +395,7 @@ def main(args):
                 writer.addParameter(name='path', value=path_save, format='str')
                 writer.addParameter(name='Reset', value=True)
                 writer.addParameter(name='setType', value='weather')
-                writer.addParameter(name='setChannel', value='1') #new parameter choose ch 0 or ch 1
-
-
+                writer.addParameter(name='setChannel', value='0') #new parameter choose ch 0  H  or ch 1 V
                 writer.addParameter(name='description', value=json.dumps(desc))
                 writer.addParameter(name='blocksPerFile', value='1',format='int')
                 writer.addParameter(name='metadataList', value=','.join(META))

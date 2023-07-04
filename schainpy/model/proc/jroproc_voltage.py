@@ -5,7 +5,7 @@ from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecora
 from schainpy.model.data.jrodata import Voltage,hildebrand_sekhon
 from schainpy.utils import log
 from time import time
-
+from scipy import signal
 
 
 class VoltageProc(ProcessingUnit):
@@ -1746,6 +1746,120 @@ class PulsePair_vRF(Operation):
             dataOut.utctime         = avgdatatime
             dataOut.flagNoData      = False
         return dataOut
+
+class Xcorr(Operation):
+    isConfig    = False
+    __profIndex = 0
+    code        = None
+    nCode = None
+    nBaud = None
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+        self.isConfig = False
+        self.setupReq = False
+
+
+    def setup(self, code ,dataOut):
+        self.__profIndex = 0
+        self.code = code
+        self.nCode = len(code)
+        self.nBaud = len(code[0])
+
+        self.__nChannels = dataOut.nChannels
+        self.__nProfiles = dataOut.nProfiles
+        self.__nHeis = dataOut.nHeights
+        print("TEST SETUP--------------------------------------------")
+
+        if dataOut.flagDataAsBlock:
+
+            self.ndatadec = self.__nHeis #- self.nBaud + 1
+
+            self.datadecTime = numpy.zeros((self.__nChannels, self.__nProfiles, self.ndatadec), dtype=numpy.complex_)
+
+        else:
+            #Time
+            self.ndatadec = self.__nHeis #- self.nBaud + 1
+
+            self.datadecTime = numpy.zeros((self.__nChannels, self.ndatadec), dtype=numpy.complex_)
+
+    def __XcorrByProfile(self,data):
+        #print("shape0",data[0,:].shape)
+        #print("shape1",self.code.shape)
+        for i in range(self.__nChannels):
+            #print("shape0",data[i,:].shape)
+            #print("shape1",self.code[0].shape)
+            c = signal.correlate(data[i,:],self.code[0], mode="full")
+            lags = signal.correlation_lags(len(data[i,:]), len(self.code[0]), mode="full")
+            self.datadecTime[i,:]=c[lags>=0]
+
+        return self.datadecTime
+
+    def __XcorrByBlock(self,data):
+        repetitions = int(self.__nProfiles/ self.nCode)
+        junk = numpy.lib.stride_tricks.as_strided(self.code, (repetitions, self.code.size), (0, self.code.itemsize))
+        junk = junk.flatten()
+        code_block = numpy.reshape(junk, (self.nCode*repetitions, self.nBaud))
+
+        profilesList = range(self.__nProfiles)
+
+        for i in range(self.__nChannels):
+            for j in profilesList:
+                c =signal.correlate(data[i,j,:], code_block[j,:], mode='full')
+                lags = signal.correlation_lags(len(data[i,j,:]), len(code_block[j,:]), mode="full")
+                self.datadecTime[i,j,:] = c[lags>=0]
+        return self.datadecTime
+
+
+    def run(self, dataOut, code=None,nCode= None,nBaud= None,mode = 0):
+        if not self.isConfig:
+            #print("CONFIGURACION..........")
+            if code is None:
+                if dataOut.code is None:
+                    raise ValueError("Code could not be read from %s instance. Enter a value in Code parameter" %dataOut.type)
+
+                code = dataOut.code
+            else:
+                code = numpy.array(code)
+                code = code.reshape(int(nCode),int(nBaud))
+            self.setup(code, dataOut)
+            #print("-------------------------------------TEST SETUP OK")
+            self.isConfig = True
+
+        self.__nProfiles = dataOut.nProfiles
+        datadec = None
+
+        if dataOut.flagDataAsBlock:
+            """
+            Decoding when data have been read as block,
+            """
+            datadec = self.__XcorrByBlock(dataOut.data)
+        else:
+            """
+            Decoding when data have been read profile by profile
+            """
+            datadec = self.__XcorrByProfile(dataOut.data)
+            #print("type_________________________",datadec.dtype)
+        if datadec is None:
+            raise ValueError("Codification mode selected is not valid: mode=%d. Try selecting 0 or 1" %mode)
+
+        dataOut.code = self.code
+        dataOut.nCode = self.nCode
+        dataOut.nBaud = self.nBaud
+
+        dataOut.data = datadec
+        dataOut.heightList = dataOut.heightList[0:datadec.shape[-1]]
+
+        dataOut.flagDecodeData = True #asumo q la data esta decodificada
+        if self.__profIndex == self.nCode-1:
+            self.__profIndex = 0
+            return dataOut
+
+        self.__profIndex += 1
+
+        return dataOut
+
 
 # import collections
 # from scipy.stats import mode
