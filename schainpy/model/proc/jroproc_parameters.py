@@ -3950,7 +3950,9 @@ class WeatherRadar(Operation):
         self.nHeis    = dataOut.nHeights
         self.min_index= min_index
         deltaHeight   = dataOut.heightList[1] - dataOut.heightList[0]
-        self.Range    = numpy.arange(dataOut.nHeights)*deltaHeight + dataOut.heightList[0]+min_index*deltaHeight
+        #self.Range    = numpy.arange(dataOut.nHeights)*deltaHeight + dataOut.heightList[0]+min_index*deltaHeight
+        self.Range    = dataOut.heightList
+        print(self.Range, flush=True)
         self.Range    = self.Range.reshape(1,self.nHeis)
         self.Range    = numpy.tile(self.Range,[self.nCh,1])
         '''-----------1 Constante del Radar----------'''

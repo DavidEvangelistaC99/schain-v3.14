@@ -214,7 +214,7 @@ def main(args):
 
         opObj10 = proc1.addOperation(name="WeatherRadar")
         opObj10.addParameter(name='tauW',value=(1e-6/sample_rate)*len(code[0]))
-        opObj10.addParameter(name='Pt',value=((1e-6/sample_rate)*len(code[0])/ipp)*200)
+        opObj10.addParameter(name='Pt',value=200)
 
         op = proc1.addOperation(name='PedestalInformation')
         op.addParameter(name='path', value=path_ped, format='str')
@@ -266,7 +266,7 @@ def main(args):
 
         opObj10 = proc2.addOperation(name="WeatherRadar")
         opObj10.addParameter(name='tauW',value=(1e-6/sample_rate)*len(code[0]))
-        opObj10.addParameter(name='Pt',value=((1e-6/sample_rate)*len(code[0])/ipp)*200)
+        opObj10.addParameter(name='Pt',value=200)
 
         op = proc2.addOperation(name='PedestalInformation')
         op.addParameter(name='path', value=path_ped, format='str')

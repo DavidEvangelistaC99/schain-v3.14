@@ -528,7 +528,7 @@ class WeatherParamsPlot(Plot):
         self.nplots= 1
         self.ylabel= 'Height [km]'
         self.xlabel= 'Distance from radar [km]'
-    
+
         if self.channels is not None:
             self.nplots = len(self.channels)
             self.ncols = len(self.channels)
@@ -577,9 +577,12 @@ class WeatherParamsPlot(Plot):
         if hasattr(dataOut, 'dparam'):
             tmp = getattr(dataOut, 'data_param')
         else:
-
+            #print("-------------------self.attr_data[0]",self.attr_data[0])
             if 'S' in self.attr_data[0]:
-                tmp = 10*numpy.log10(10.0*getattr(dataOut, 'data_param')[:,0,:]/(factor))
+                if self.attr_data[0]=='S':
+                    tmp = 10*numpy.log10(10.0*getattr(dataOut, 'data_param')[:,0,:]/(factor))
+                if self.attr_data[0]=='SNR':
+                    tmp = 10*numpy.log10(getattr(dataOut, 'data_param')[:,3,:])
             else:
                 tmp = getattr(dataOut, 'data_param')[:,vars[self.attr_data[0]],:]
 
@@ -610,6 +613,12 @@ class WeatherParamsPlot(Plot):
 
         data['azi'] = dataOut.data_azi
         data['ele'] = dataOut.data_ele
+
+        if isinstance(dataOut.mode_op, bytes):
+            try:
+                dataOut.mode_op = dataOut.mode_op.decode()
+            except:
+                dataOut.mode_op = str(dataOut.mode_op, 'utf-8')
         data['mode_op'] = dataOut.mode_op
         self.mode = dataOut.mode_op
 
@@ -634,7 +643,7 @@ class WeatherParamsPlot(Plot):
             len_aux = int(data['azi'].shape[0]/4)
             mean = numpy.mean(data['azi'][len_aux:-len_aux])
             x, y = r*numpy.cos(theta), r*numpy.sin(theta)
-        elif data['mode_op'] == 'PPI':            
+        elif data['mode_op'] == 'PPI':
             r, theta = numpy.meshgrid(r, -numpy.radians(data['azi'])+numpy.pi/2)
             len_aux = int(data['ele'].shape[0]/4)
             mean = numpy.mean(data['ele'][len_aux:-len_aux])
@@ -654,7 +663,7 @@ class WeatherParamsPlot(Plot):
             norm = cb_tables[self.colormap]['norm']
         else:
             norm = None
-        
+
         for i, ax in enumerate(axes):
             if data['mode_op'] == 'PPI':
                 ax.set_extent([-75.745893, -74.845893, -12.490436, -11.590436])
@@ -687,6 +696,8 @@ class WeatherParamsPlot(Plot):
                 gl.ylabel_style = {'size': 8}
                 gl.xlabels_top = False
                 gl.ylabels_right = False
+                #self.shapes="/home/soporte/workspace/sirm/volumes/schain/shapes/"
+                #print("self.shapes",self.shapes)
                 shape_p = os.path.join(self.shapes,'PER_ADM2/PER_ADM2.shp')
                 shape_d = os.path.join(self.shapes,'PER_ADM1/PER_ADM1.shp')
                 capitales = os.path.join(self.shapes,'CAPITALES/cap_provincia.shp')
@@ -695,7 +706,7 @@ class WeatherParamsPlot(Plot):
                 reader_p = shpreader.BasicReader(shape_d, encoding='latin1')
                 reader_c = shpreader.BasicReader(capitales, encoding='latin1')
                 reader_v = shpreader.BasicReader(vias, encoding='latin1')
-                caps = [x for x in reader_c.records()  if x.attributes["Departa"] in ("JUNIN", "LIMA", "AYACUCHO", "HUANCAVELICA")]            
+                caps = [x for x in reader_c.records()  if x.attributes["Departa"] in ("JUNIN", "LIMA", "AYACUCHO", "HUANCAVELICA")]
                 districts = [x for x in reader_d.records() if x.attributes["Name"] in ("JUNÍN", "CHANCHAMAYO", "CHUPACA", "CONCEPCIÓN", "HUANCAYO", "JAUJA", "SATIPO", "TARMA", "YAUYOS", "HUAROCHIRÍ", "CANTA", "HUANTA", "TAYACAJA")]
                 provs = [x for x in reader_p.records() if x.attributes["NAME"] in ("Junín", "Lima")]
                 vias = [x for x in reader_v.records() if x.attributes["DEP"] in ("JUNIN", "LIMA")]
@@ -713,13 +724,13 @@ class WeatherParamsPlot(Plot):
                         ax.text(cap.attributes['X'], cap.attributes['Y'], cap.attributes['Nombre'].title(), size=7, color='white')
                 ax.text(-75.052003, -11.915552, 'Huaytapallana', size=7, color='cyan')
                 ax.plot(-75.052003, -11.915552, '*')
-                
+
                 for R in (10, 20, 30 , 40, 50):
                     circle = Circle((-75.295893, -12.040436), km2deg(R), facecolor='none',
                         edgecolor='skyblue', linewidth=1, alpha=0.5)
                     ax.add_patch(circle)
-                    ax.text(km2deg(R)*numpy.cos(numpy.radians(45))-75.295893, 
-                        km2deg(R)*numpy.sin(numpy.radians(45))-12.040436, 
+                    ax.text(km2deg(R)*numpy.cos(numpy.radians(45))-75.295893,
+                        km2deg(R)*numpy.sin(numpy.radians(45))-12.040436,
                         '{}km'.format(R), color='skyblue', size=7)
             elif data['mode_op'] == 'RHI':
                 ax.grid(color='grey', alpha=0.5, linestyle='--', linewidth=1)

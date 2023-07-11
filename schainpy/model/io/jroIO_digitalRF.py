@@ -26,6 +26,7 @@ from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecora
 
 import pickle
 try:
+    os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
     import digital_rf
 except:
     pass
@@ -267,9 +268,14 @@ class DigitalRFReader(ProcessingUnit):
 
         self.getByBlock     = getByBlock
         self.nProfileBlocks = nProfileBlocks
+        if online:
+            print('Waiting for RF data..')
+            sleep(40)
+
         if not os.path.isdir(path):
             raise ValueError("[Reading] Directory %s does not exist" % path)
 
+        #print("path",path)
         try:
             self.digitalReadObj = digital_rf.DigitalRFReader(
                 path, load_all_metadata=True)
@@ -350,29 +356,27 @@ class DigitalRFReader(ProcessingUnit):
         if startDate:
             startDatetime  = datetime.datetime.combine(startDate, startTime)
             startUTCSecond = (
-                startDatetime - datetime.datetime(1970, 1, 1)).total_seconds() + self.__timezone
+                startDatetime - datetime.datetime(1970, 1, 1)).total_seconds()# + self.__timezone
 
         if endDate:
             endDatetime   = datetime.datetime.combine(endDate, endTime)
             endUTCSecond  = (endDatetime - datetime.datetime(1970,
-                                                            1, 1)).total_seconds() + self.__timezone
-
-
-        #print(startUTCSecond,endUTCSecond)
-        start_index, end_index = self.digitalReadObj.get_bounds(
-            channelNameList[channelList[0]])
-
-        #print("*****",start_index,end_index)
+                                                            1, 1)).total_seconds()# + self.__timezone
+        start_index, end_index = self.digitalReadObj.get_bounds(channelNameList[channelList[0]])
+        if start_index==None or end_index==None:
+             print("Check error No data,  start_index: ",start_index,",end_index: ",end_index)
+             #return 0
         if not startUTCSecond:
             startUTCSecond = start_index / self.__sample_rate
-
         if start_index     > startUTCSecond * self.__sample_rate:
             startUTCSecond = start_index / self.__sample_rate
 
         if not endUTCSecond:
             endUTCSecond   = end_index / self.__sample_rate
+
         if end_index       < endUTCSecond * self.__sample_rate:
             endUTCSecond   = end_index / self.__sample_rate #Check UTC and LT time
+
         if not nSamples:
             if not ippKm:
                 raise ValueError("[Reading] nSamples or ippKm should be defined")
@@ -428,6 +432,7 @@ class DigitalRFReader(ProcessingUnit):
 
         #self.__data_buffer    = numpy.zeros(
         #    (self.__num_subchannels, self.__samples_to_read), dtype=numpy.complex)
+        print("samplestoread",self.__samples_to_read)
         self.__data_buffer    = numpy.zeros((int(len(channelList)), self.__samples_to_read), dtype=numpy.complex)
 
 
@@ -442,9 +447,7 @@ class DigitalRFReader(ProcessingUnit):
         ))
 
         print("[Reading] Starting process from %s to %s" % (datetime.datetime.utcfromtimestamp(startUTCSecond - self.__timezone),
-                                                            datetime.datetime.utcfromtimestamp(
-            endUTCSecond - self.__timezone)
-        ))
+                                                            datetime.datetime.utcfromtimestamp(endUTCSecond - self.__timezone)))
         self.oldAverage    = None
         self.count         = 0
         self.executionTime = 0
@@ -532,9 +535,11 @@ class DigitalRFReader(ProcessingUnit):
             for indexSubchannel in range(self.__num_subchannels):
                 try:
                     t0     = time()
+                    #print("thisUNixSample",self.__thisUnixSample)
                     result = self.digitalReadObj.read_vector_c81d(self.__thisUnixSample,
                                                                   self.__samples_to_read,
                                                                   thisChannelName, sub_channel=indexSubchannel)
+                    #print("result--------------",result)
                     self.executionTime  = time() - t0
                     if self.oldAverage is None:
                         self.oldAverage = self.executionTime
@@ -546,7 +551,21 @@ class DigitalRFReader(ProcessingUnit):
                     # read next profile
                     self.__flagDiscontinuousBlock = True
                     print("[Reading] %s" % datetime.datetime.utcfromtimestamp(self.thisSecond - self.__timezone), e)
-                    break
+                    bot = 0
+                    while(self.__flagDiscontinuousBlock):
+                        bot +=1
+                        self.__thisUnixSample += self.__sample_rate
+                        try:
+                            result = result = self.digitalReadObj.read_vector_c81d(self.__thisUnixSample,self.__samples_to_read,thisChannelName, sub_channel=indexSubchannel)
+                            self.__flagDiscontinuousBlock=False
+                            print("Searching.. N°: ",bot,"Success",self.__thisUnixSample)
+                        except:
+                            print("Searching...N°: ",bot,"Fail", self.__thisUnixSample)
+                    if self.__flagDiscontinuousBlock==True:
+                        break
+                    else:
+                        print("New data index found...",self.__thisUnixSample)
+                    #break
 
                 if result.shape[0] != self.__samples_to_read:
                     self.__flagDiscontinuousBlock = True
