@@ -1,57 +1,75 @@
 # SOPHY PROC script
 import os, sys, json, argparse
+import multiprocessing
 import datetime
 import time
 
-PATH = '/DATA_RM/DATA'
-PATH = '/media/jespinoza/Elements'
-PATH = '/media/jespinoza/data/SOPHY'
-PATH = '/home/soporte/Documents/EVENTO'
-
+PATH = '/data'
+#PATH = "/media/soporte/TOSHIBAEXT/sophy/"
+# SNR ZMIN -40 A ZMAX -20
 PARAM = {
-    'S': {'zmin': -45, 'zmax': -25, 'colormap': 'jet', 'label': 'Power', 'wrname': 'power','cb_label': 'dBm', 'ch':0},
-    'SNR': {'zmin': -40, 'zmax': -20, 'colormap': 'jet', 'label': 'SNR', 'wrname': 'snr','cb_label': 'dB', 'ch':0},
-    'V': {'zmin': -12, 'zmax': 12, 'colormap': 'sophy_v', 'label': 'Velocity', 'wrname': 'velocity', 'cb_label': 'm/s', 'ch':0},
-    'R': {'zmin': 0,   'zmax': 1,  'colormap': 'jet',    'label': 'RhoHV', 'wrname':'rhoHV', 'cb_label': '*',  'ch':0},
-    'P': {'zmin': -180,'zmax': 180,'colormap': 'RdBu_r', 'label': 'PhiDP', 'wrname':'phiDP' , 'cb_label': 'º',  'ch':0},
-    'D': {'zmin': -30, 'zmax': 80, 'colormap': 'sophy_r','label': 'ZDR','wrname':'differential_reflectivity' , 'cb_label': 'dBz','ch':0},
-    'Z':  {'zmin': -30, 'zmax': 80, 'colormap': 'sophy_r','label': 'Reflectivity ',  'wrname':'reflectivity', 'cb_label': 'dBz','ch':0},
-    'W':  {'zmin': 0, 'zmax': 15, 'colormap': 'sophy_w','label': 'Spectral Width', 'wrname':'spectral_width', 'cb_label': 'm/s', 'ch':0}
+    'S':  {'zmin': -45, 'zmax':-25, 'colormap': 'jet'    , 'label': 'Power', 'wrname': 'power','cb_label': 'dBm', 'ch':0},
+    'SNR':{'zmin': -10, 'zmax': 15, 'colormap': 'jet'    , 'label': 'SNR', 'wrname': 'snr','cb_label': 'dB', 'ch':0},
+    'V':  {'zmin': -12, 'zmax': 12, 'colormap': 'sophy_v', 'label': 'Velocity', 'wrname': 'velocity', 'cb_label': 'm/s', 'ch':0},
+    'R':  {'zmin': 0.5, 'zmax': 1 , 'colormap': 'sophy_r', 'label': 'RhoHV', 'wrname':'rhoHV', 'cb_label': '',  'ch':0},
+    'P':  {'zmin': -180,'zmax': 180,'colormap': 'sophy_p', 'label': 'PhiDP', 'wrname':'phiDP' , 'cb_label': 'degrees',  'ch':0},
+    'D':  {'zmin': -9 , 'zmax': 12, 'colormap': 'sophy_d', 'label': 'ZDR','wrname':'differential_reflectivity' , 'cb_label': 'dB','ch':0},
+    'Z':  {'zmin': -20, 'zmax': 80, 'colormap': 'sophy_z', 'label': 'Reflectivity ',  'wrname':'reflectivity', 'cb_label': 'dBz','ch':0},
+    'W':  {'zmin':  0 , 'zmax': 12, 'colormap': 'sophy_w', 'label': 'Spectral Width', 'wrname':'spectral_width', 'cb_label': 'm/s', 'ch':0}
     }
 
-def max_index(r, sample_rate, ipp):
+META = ['heightList', 'data_azi', 'data_ele', 'mode_op', 'latitude', 'longitude', 'altitude', 'heading', 'radar_name',
+    'institution', 'contact', 'h0', 'range_unit', 'prf', 'prf_unit', 'variable', 'variable_unit', 'n_pulses',
+    'pulse1_range', 'pulse1_width', 'pulse2_width', 'pulse1_repetitions', 'pulse2_repetitions', 'pulse_width_unit',
+    'snr_threshold', 'data_noise']
 
-    return int(sample_rate*ipp*1e6 * r / 60) + int(sample_rate*ipp*1e6 * 1.2 / 60)
+
+def max_index(r, sample_rate, ipp, h0):
+
+    return int(sample_rate*ipp*1e6 * r / 60) + int(sample_rate*ipp*1e6 * -h0 / 60)
 
 def main(args):
 
     experiment = args.experiment
-    fp = open(os.path.join(PATH, experiment, 'experiment.conf'))
+    fp = open(os.path.join(PATH, experiment, 'experiment.json'))
     conf = json.loads(fp.read())
 
     ipp_km = conf['usrp_tx']['ipp']
     ipp = ipp_km * 2 /300000
     sample_rate  = conf['usrp_rx']['sample_rate']
-    axis = ['0' if x=='elevation' else '1' for x in conf['pedestal']['axis']]      # AZIMUTH 1 ELEVACION 0
     speed_axis = conf['pedestal']['speed']
-    steps = conf['pedestal']['table']
+    if args.angles:
+        angles = args.angles
+    else:
+        angles = conf['pedestal']['table']
     time_offset = args.time_offset
     parameters = args.parameters
-    start_date = experiment.split('@')[1].split('T')[0].replace('-', '/')
+    start_date = conf['name'].split('@')[1].split('T')[0].replace('-', '/')
     end_date = start_date
     if args.start_time:
         start_time = args.start_time
     else:
-        start_time = experiment.split('@')[1].split('T')[1].replace('-', ':')
-    end_time = '23:59:59'
-    N = int(1/(speed_axis[0]*ipp))                                               # 1 GRADO DE RESOLUCION
+        start_time = conf['name'].split('@')[1].split('T')[1].replace('-', ':')
+
+    if args.end_time:
+        end_time = args.end_time
+    else:
+        end_time = '23:59:59'
+        
+    N = int(1.0/(abs(speed_axis[0])*ipp))                                               # 1 GRADO DE RESOLUCION
+
     path = os.path.join(PATH, experiment, 'rawdata')
     path_ped = os.path.join(PATH, experiment, 'position')
-    path_plots = os.path.join(PATH, experiment, 'plotsC0N'+str(args.range))
-    path_save = os.path.join(PATH, experiment, 'paramC0N'+str(args.range))
-    RMIX = 1.62
-    H0 = -1.68
-    MASK = 0.3
+    if args.label:
+        label = '-{}'.format(args.label)
+    else:
+        label = ''
+    path_plots = os.path.join(PATH, experiment, 'plots{}'.format(label))
+    path_save = os.path.join(PATH, experiment, 'param{}'.format(label))
+    RMIX = 4.8#5.8  #4.8#5.68#4.8#4.8#2.64#10#2.64
+    H0   = -1.68 #-1.68# -1.2#-1.68#-1.2#0.5#-1.2
+    MASK = 0.6
+    #MASK = 0.4#0.35
 
     from schainpy.controller import Project
 
@@ -73,6 +91,12 @@ def main(args):
     )
 
     if not conf['usrp_tx']['enable_2']: # One Pulse
+        n_pulses = 1
+        pulse_1_width = conf['usrp_tx']['pulse_1']
+        pulse_1_repetitions = conf['usrp_tx']['repetitions_1']
+        pulse_2_width = 0
+        pulse_2_repetitions = 0
+
         voltage = project.addProcUnit(datatype='VoltageProc', inputId=reader.getId())
 
         if conf['usrp_tx']['code_type_1'] != 'None':
@@ -98,50 +122,55 @@ def main(args):
         if args.range > 0:
             op = voltage.addOperation(name='selectHeights')
             op.addParameter(name='minIndex', value='0', format='int')
-            op.addParameter(name='maxIndex', value=max_index(args.range, sample_rate, ipp), format='int')
+            op.addParameter(name='maxIndex', value=max_index(args.range, sample_rate, ipp, H0), format='int')
 
         op = voltage.addOperation(name='PulsePair_vRF', optype='other')
         op.addParameter(name='n', value=int(N)/ncode, format='int')
-        #op.addParameter(name='removeDC', value=1, format='int')
-
+        if args.rmDC:
+            op.addParameter(name='removeDC', value=1, format='int')
 
         proc = project.addProcUnit(datatype='ParametersProc', inputId=voltage.getId())
 
         opObj10 = proc.addOperation(name="WeatherRadar")
         opObj10.addParameter(name='tauW',value=(1e-6/sample_rate)*len(code[0]))
-        opObj10.addParameter(name='Pt',value=((1e-6/sample_rate)*len(code[0])/ipp)*200)
+        # opObj10.addParameter(name='Pt',value=((1e-6/sample_rate)*len(code[0])/ipp)*200)
+        opObj10.addParameter(name='Pt',value=200)
 
         op = proc.addOperation(name='PedestalInformation')
         op.addParameter(name='path', value=path_ped, format='str')
         op.addParameter(name='interval', value='0.04')
         op.addParameter(name='time_offset', value=time_offset)
-        op.addParameter(name='mode', value='PPI')
+        op.addParameter(name='mode', value=args.mode)
 
         for param in parameters:
             op = proc.addOperation(name='Block360')
             op.addParameter(name='runNextOp', value=True)
+            op.addParameter(name='attr_data', value='data_param')
+            op.addParameter(name='angles', value=angles)
 
             op= proc.addOperation(name='WeatherParamsPlot')
             if args.save: op.addParameter(name='save', value=path_plots, format='str')
             op.addParameter(name='save_period', value=-1)
             op.addParameter(name='show', value=args.show)
-            op.addParameter(name='channels', value='1,')
+            op.addParameter(name='channels', value='0,')
             op.addParameter(name='zmin', value=PARAM[param]['zmin'])
             op.addParameter(name='zmax', value=PARAM[param]['zmax'])
             op.addParameter(name='attr_data', value=param, format='str')
-            op.addParameter(name='labels', value=[PARAM[param]['label']])
+            op.addParameter(name='labels', value=[PARAM[param]['label'], PARAM[param]['label']])
             op.addParameter(name='save_code', value=param)
             op.addParameter(name='cb_label', value=PARAM[param]['cb_label'])
             op.addParameter(name='colormap', value=PARAM[param]['colormap'])
             op.addParameter(name='bgcolor', value='black')
+            op.addParameter(name='localtime', value=False)
+            op.addParameter(name='shapes', value='./shapes')
             if MASK: op.addParameter(name='mask', value=MASK, format='float')
             if args.server:
-                op.addParameter(name='server', value='0.0.0.0:4444')
+                op.addParameter(name='server', value='190.187.237.239:4444')
                 op.addParameter(name='exp_code', value='400')
 
             desc = {
                     'Data': {
-                        param: PARAM[param]['wrname'],
+                        'data_param': {PARAM[param]['wrname']: ['H', 'V']},
                         'utctime': 'time'
                     },
                      'Metadata': {
@@ -150,19 +179,22 @@ def main(args):
                         'data_ele': 'elevation',
                         'mode_op': 'scan_type',
                         'h0': 'range_correction',
+                        'dataPP_NOISE': 'noise',
                     }
                 }
 
             if args.save:
-                opObj10 = proc.addOperation(name='HDFWriter')
+                writer = proc.addOperation(name='HDFWriter')
                 writer.addParameter(name='path', value=path_save, format='str')
                 writer.addParameter(name='Reset', value=True)
                 writer.addParameter(name='setType', value='weather')
                 writer.addParameter(name='description', value=json.dumps(desc))
                 writer.addParameter(name='blocksPerFile', value='1',format='int')
-                writer.addParameter(name='metadataList', value='heightList,data_azi,data_ele,mode_op,latitude,longitude,altitude,heading,radar_name,institution,contact,h0,range_unit')
-                writer.addParameter(name='dataList', value='{},utctime'.format(param))
+                writer.addParameter(name='metadataList', value=','.join(META))
+                writer.addParameter(name='dataList', value='data_param,utctime')
+                writer.addParameter(name='weather_var', value=param)
                 writer.addParameter(name='mask', value=MASK, format='float')
+                writer.addParameter(name='localtime', value=False)
                 # meta
                 writer.addParameter(name='latitude', value='-12.040436')
                 writer.addParameter(name='longitude', value='-75.295893')
@@ -173,8 +205,26 @@ def main(args):
                 writer.addParameter(name='contact', value='dscipion@igp.gob.pe')
                 writer.addParameter(name='created_by', value='Signal Chain (https://pypi.org/project/schainpy/)')
                 writer.addParameter(name='range_unit', value='km')
+                writer.addParameter(name='prf', value=1/ipp)
+                writer.addParameter(name='prf_unit', value='hertz')
+                writer.addParameter(name='variable', value=PARAM[param]['label'])
+                writer.addParameter(name='variable_unit', value=PARAM[param]['cb_label'])
+                writer.addParameter(name='n_pulses', value=n_pulses)
+                writer.addParameter(name='pulse1_range', value=RMIX)
+                writer.addParameter(name='pulse1_width', value=pulse_1_width)
+                writer.addParameter(name='pulse2_width', value=pulse_2_width)
+                writer.addParameter(name='pulse1_repetitions', value=pulse_1_repetitions)
+                writer.addParameter(name='pulse2_repetitions', value=pulse_2_repetitions)
+                writer.addParameter(name='pulse_width_unit', value='microseconds')
+                writer.addParameter(name='snr_threshold', value=MASK)
+
 
     else: #Two pulses
+        n_pulses = 1
+        pulse_1_width = conf['usrp_tx']['pulse_1']
+        pulse_1_repetitions = conf['usrp_tx']['repetitions_1']
+        pulse_2_width = conf['usrp_tx']['pulse_2']
+        pulse_2_repetitions = conf['usrp_tx']['repetitions_2']
 
         voltage1 = project.addProcUnit(datatype='VoltageProc', inputId=reader.getId())
 
@@ -190,42 +240,54 @@ def main(args):
             op.addParameter(name='code', value=code)
             op.addParameter(name='nCode', value=len(code), format='int')
             op.addParameter(name='nBaud', value=len(code[0]), format='int')
+            ncode = len(code)
         else:
+            ncode = 1
             code = ['0']
 
         op = voltage1.addOperation(name='CohInt', optype='other') #Minimo integrar 2 perfiles por ser codigo complementario
         op.addParameter(name='n', value=2, format='int')
-
-        if args.range > 0:
-            op = voltage1.addOperation(name='selectHeights')
-            op.addParameter(name='minIndex', value='0', format='int')
-            op.addParameter(name='maxIndex', value=max_index(RMIX, sample_rate, ipp), format='int')
-
+        
         op = voltage1.addOperation(name='setH0')
         op.addParameter(name='h0', value=H0, format='float')
+        
+        if args.range > 0:
+            op = voltage1.addOperation(name='selectHeights')
+            op.addParameter(name='minIndex', value=max_index(0, sample_rate, ipp, H0), format='int')
+            op.addParameter(name='maxIndex', value=max_index(RMIX, sample_rate, ipp, H0), format='int')
+
+        #op = voltage1.addOperation(name='setH0')
+        #op.addParameter(name='h0', value=H0, format='float')
 
         op = voltage1.addOperation(name='PulsePair_vRF', optype='other')
-        op.addParameter(name='n', value=int(conf['usrp_tx']['repetitions_1'])/2, format='int')
-        #op.addParameter(name='removeDC', value=1, format='int')
-
+        op.addParameter(name='n', value=int(conf['usrp_tx']['repetitions_1'])/ncode, format='int')
+        if args.rmDC:
+            op.addParameter(name='removeDC', value=1, format='int')
 
         proc1 = project.addProcUnit(datatype='ParametersProc', inputId=voltage1.getId())
         proc1.addParameter(name='runNextUnit', value=True)
 
         opObj10 = proc1.addOperation(name="WeatherRadar")
+        opObj10.addParameter(name='CR_Flag',value=True)
         opObj10.addParameter(name='tauW',value=(1e-6/sample_rate)*len(code[0]))
+        #opObj10.addParameter(name='Pt',value=((1e-6/sample_rate)*len(code[0])/ipp)*200)
         opObj10.addParameter(name='Pt',value=200)
+        #opObj10.addParameter(name='min_index',value=0)
+        opObj10.addParameter(name='min_index',value=max_index(0, sample_rate, ipp, H0))
+        #opObj10.addParameter(name='sesgoZD',value=7.73)
+
 
         op = proc1.addOperation(name='PedestalInformation')
         op.addParameter(name='path', value=path_ped, format='str')
         op.addParameter(name='interval', value='0.04')
         op.addParameter(name='time_offset', value=time_offset)
-        op.addParameter(name='mode', value='PPI')
+        op.addParameter(name='mode', value=args.mode)
 
         op = proc1.addOperation(name='Block360')
         op.addParameter(name='attr_data', value='data_param')
         op.addParameter(name='runNextOp', value=True)
-
+        op.addParameter(name='angles', value=angles)
+        #op.addParameter(name='horario',value=False)
 
         voltage2 = project.addProcUnit(datatype='VoltageProc', inputId=reader.getId())
 
@@ -248,35 +310,45 @@ def main(args):
         else:
             ncode = 1
 
-        if args.range > 0:
-            op = voltage2.addOperation(name='selectHeights')
-            op.addParameter(name='minIndex', value=max_index(RMIX, sample_rate, ipp), format='int')
-            op.addParameter(name='maxIndex', value=max_index(args.range, sample_rate, ipp), format='int')
-
         op = voltage2.addOperation(name='setH0')
         op.addParameter(name='h0', value=H0, format='float')
 
+        if args.range > 0:
+            print('voltage 2', flush=True)
+            op = voltage2.addOperation(name='selectHeights')
+            op.addParameter(name='minIndex', value=max_index(RMIX, sample_rate, ipp, H0), format='int')
+            op.addParameter(name='maxIndex', value=max_index(args.range, sample_rate, ipp, H0), format='int')
+
+        #op = voltage2.addOperation(name='setH0')
+        #op.addParameter(name='h0', value=H0, format='float')
+
         op = voltage2.addOperation(name='PulsePair_vRF', optype='other')
         op.addParameter(name='n', value=int(conf['usrp_tx']['repetitions_2'])/ncode, format='int')
-        #op.addParameter(name='removeDC', value=1, format='int')
-
+        if args.rmDC:
+            op.addParameter(name='removeDC', value=1, format='int')
 
         proc2 = project.addProcUnit(datatype='ParametersProc', inputId=voltage2.getId())
         proc2.addParameter(name='runNextUnit', value=True)
 
         opObj10 = proc2.addOperation(name="WeatherRadar")
+        opObj10.addParameter(name='CR_Flag',value=True,format='bool')
         opObj10.addParameter(name='tauW',value=(1e-6/sample_rate)*len(code[0]))
+        #opObj10.addParameter(name='Pt',value=((1e-6/sample_rate)*len(code[0])/ipp)*200)
         opObj10.addParameter(name='Pt',value=200)
+        opObj10.addParameter(name='min_index',value=max_index(RMIX, sample_rate, ipp, H0))        
+        #opObj10.addParameter(name='sesgoZD',value=7.73)
 
         op = proc2.addOperation(name='PedestalInformation')
         op.addParameter(name='path', value=path_ped, format='str')
         op.addParameter(name='interval', value='0.04')
         op.addParameter(name='time_offset', value=time_offset)
-        op.addParameter(name='mode', value='PPI')
+        op.addParameter(name='mode', value=args.mode)
 
         op = proc2.addOperation(name='Block360')
         op.addParameter(name='attr_data', value='data_param')
         op.addParameter(name='runNextOp', value=True)
+        op.addParameter(name='angles', value=angles)
+        #op.addParameter(name='horario',value=False)
 
         merge = project.addProcUnit(datatype='MergeProc', inputId=[proc1.getId(), proc2.getId()])
         merge.addParameter(name='attr_data', value='data_param')
@@ -291,18 +363,24 @@ def main(args):
                     op.addParameter(name='save', value=path_plots, format='str')
                 op.addParameter(name='save_period', value=-1)
                 op.addParameter(name='show', value=args.show)
+                #op.addParameter(name='channels', value='0,1')
                 op.addParameter(name='channels', value='0,')
                 op.addParameter(name='zmin', value=PARAM[param]['zmin'], format='int')
                 op.addParameter(name='zmax', value=PARAM[param]['zmax'], format='int')
+                op.addParameter(name='ymax', value=20, format='int')
+                op.addParameter(name='xmin', value=-50, format='int')
+                op.addParameter(name='xmax', value=50, format='int')
                 op.addParameter(name='attr_data', value=param, format='str')
-                op.addParameter(name='labels', value=[PARAM[param]['label']])
+                op.addParameter(name='labels', value=[[PARAM[param]['label']], [PARAM[param]['label']]])
                 op.addParameter(name='save_code', value=param)
                 op.addParameter(name='cb_label', value=PARAM[param]['cb_label'])
                 op.addParameter(name='colormap', value=PARAM[param]['colormap'])
                 op.addParameter(name='bgcolor', value='black')
+                op.addParameter(name='localtime', value=False)
+                op.addParameter(name='shapes', value='./shapes')
                 if MASK: op.addParameter(name='mask', value=MASK, format='float')
                 if args.server:
-                    op.addParameter(name='server', value='0.0.0.0:4444')
+                    op.addParameter(name='server', value='190.187.237.239:4444')
                     op.addParameter(name='exp_code', value='400')
 
             desc = {
@@ -316,6 +394,7 @@ def main(args):
                         'data_ele': 'elevation',
                         'mode_op': 'scan_type',
                         'h0': 'range_correction',
+                        'dataPP_NOISE': 'noise',
                     }
                 }
 
@@ -324,12 +403,14 @@ def main(args):
                 writer.addParameter(name='path', value=path_save, format='str')
                 writer.addParameter(name='Reset', value=True)
                 writer.addParameter(name='setType', value='weather')
+                writer.addParameter(name='setChannel', value='0') #new parameter choose ch 0  H  or ch 1 V
                 writer.addParameter(name='description', value=json.dumps(desc))
                 writer.addParameter(name='blocksPerFile', value='1',format='int')
-                writer.addParameter(name='metadataList', value='heightList,data_azi,data_ele,mode_op,latitude,longitude,altitude,heading,radar_name,institution,contact,h0,range_unit')
+                writer.addParameter(name='metadataList', value=','.join(META))
                 writer.addParameter(name='dataList', value='data_param,utctime')
                 writer.addParameter(name='weather_var', value=param)
                 writer.addParameter(name='mask', value=MASK, format='float')
+                writer.addParameter(name='localtime', value=False)
                 # meta
                 writer.addParameter(name='latitude', value='-12.040436')
                 writer.addParameter(name='longitude', value='-75.295893')
@@ -340,8 +421,20 @@ def main(args):
                 writer.addParameter(name='contact', value='dscipion@igp.gob.pe')
                 writer.addParameter(name='created_by', value='Signal Chain (https://pypi.org/project/schainpy/)')
                 writer.addParameter(name='range_unit', value='km')
+                writer.addParameter(name='prf', value=1/ipp)
+                writer.addParameter(name='prf_unit', value='hertz')
+                writer.addParameter(name='variable', value=PARAM[param]['label'])
+                writer.addParameter(name='variable_unit', value=PARAM[param]['cb_label'])
+                writer.addParameter(name='n_pulses', value=n_pulses)
+                writer.addParameter(name='pulse1_range', value=RMIX)
+                writer.addParameter(name='pulse1_width', value=pulse_1_width)
+                writer.addParameter(name='pulse2_width', value=pulse_2_width)
+                writer.addParameter(name='pulse1_repetitions', value=pulse_1_repetitions)
+                writer.addParameter(name='pulse2_repetitions', value=pulse_2_repetitions)
+                writer.addParameter(name='pulse_width_unit', value='microseconds')
+                writer.addParameter(name='snr_threshold', value=MASK)
 
-    project.start()
+    return project
 
 if __name__ == '__main__':
 
@@ -350,6 +443,8 @@ if __name__ == '__main__':
                         help='Experiment name')
     parser.add_argument('--parameters', nargs='*', default=['S'],
                         help='Variables to process: P, Z, V')
+    parser.add_argument('--angles', nargs='*', default=[], type=int,
+                        help='Angles to process')
     parser.add_argument('--time_offset', default=0,
                         help='Fix time offset')
     parser.add_argument('--range', default=0, type=float,
@@ -366,10 +461,18 @@ if __name__ == '__main__':
                         help='Send to realtime')
     parser.add_argument('--start_time', default='',
                         help='Set start time.')
-
-
+    parser.add_argument('--end_time', default='',
+                        help='Set end time.')
+    parser.add_argument('--label', default='',
+                        help='Label for plot & param folder')
+    parser.add_argument('--mode', default=None,
+                        help='Type of scan')
+    parser.add_argument('--rmDC', action='store_true',
+                        help='Apply remove DC.')
     args = parser.parse_args()
 
-    main(args)
+    project = main(args)
+    project.start()
 
-# python sophy_proc.py  HYO_PM@2022-06-09T15-05-12  --parameters V --plot --save --show --range 36S
+#python sophy_A.py HYO_CC4_CC64_COMB@2022-12-27T00-00-32 --parameters Z  --plot --save --show --rmDC --label Z_04 --range 60 --start_time "22:00:00"
+# colocar siempre el range que asume 0 y no hace la seleccion de alturas
