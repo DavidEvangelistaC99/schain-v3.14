@@ -3952,7 +3952,6 @@ class WeatherRadar(Operation):
         deltaHeight   = dataOut.heightList[1] - dataOut.heightList[0]
         #self.Range    = numpy.arange(dataOut.nHeights)*deltaHeight + dataOut.heightList[0]+min_index*deltaHeight
         self.Range    = dataOut.heightList
-        print(self.Range, flush=True)
         self.Range    = self.Range.reshape(1,self.nHeis)
         self.Range    = numpy.tile(self.Range,[self.nCh,1])
         '''-----------1 Constante del Radar----------'''
@@ -4256,8 +4255,9 @@ class Block360(Operation):
         self.index            = 0
         self.attr = attr
         self.__buffer  = []
-        self.azi = []
-        self.ele = []
+        self.azi       = []
+        self.ele       = []
+        self.__noise   = []
         self.angles = angles
         self.horario= horario
 
@@ -4269,6 +4269,7 @@ class Block360(Operation):
         self.__buffer.append(tmp)
         self.azi.append(data.azimuth)
         self.ele.append(data.elevation)
+        self.__noise.append(data.dataPP_NOISE)
         self.__profIndex  += 1
 
     def pushData(self, data, case_flag):
@@ -4278,17 +4279,19 @@ class Block360(Operation):
         data_360 = numpy.array(self.__buffer).transpose(1, 2, 0, 3)
         data_p   = numpy.array(self.azi)
         data_e   = numpy.array(self.ele)
+        data_n   = numpy.array(self.__noise)
         n   = self.__profIndex
 
         self.__buffer = []
-        self.azi = []
-        self.ele = []
+        self.azi      = []
+        self.ele      = []
+        self.__noise  = []
         self.__profIndex = 0
 
         if case_flag in (0, 1, -1):
             self.putData(data=data, attr = self.attr)
 
-        return data_360, n, data_p, data_e
+        return data_360, n, data_p, data_e, data_n
 
     def byProfiles(self, dataOut):
 
@@ -4296,6 +4299,7 @@ class Block360(Operation):
         data_360 =  []
         data_p = None
         data_e = None
+        data_n = None
 
         self.putData(data=dataOut, attr = self.attr)
 
@@ -4307,7 +4311,7 @@ class Block360(Operation):
                     self.__buffer.pop() #Erase last data
                     self.azi.pop()
                     self.ele.pop()
-                    data_360 ,n,data_p,data_e  = self.pushData(dataOut, case_flag)
+                    data_360 ,n,data_p,data_e,data_n  = self.pushData(dataOut, case_flag)
                     if len(data_p)>350:
                         self.__dataReady = True
             elif self.flagMode == 0: #'ELE'
@@ -4315,22 +4319,22 @@ class Block360(Operation):
                     self.__buffer.pop() #Erase last data
                     self.azi.pop()
                     self.ele.pop()
-                    data_360, n, data_p, data_e  = self.pushData(dataOut, case_flag)
+                    data_360, n, data_p, data_e, data_n  = self.pushData(dataOut, case_flag)
                     self.__dataReady = True
                 if case_flag == -1: #Subida
                     self.__buffer.pop() #Erase last data
                     self.azi.pop()
                     self.ele.pop()
-                    data_360, n, data_p, data_e  = self.pushData(dataOut, case_flag)
+                    data_360, n, data_p, data_e, data_n  = self.pushData(dataOut, case_flag)
                     #self.__dataReady = True
 
-        return data_360, data_p, data_e
+        return data_360, data_p, data_e, data_n
 
 
     def blockOp(self, dataOut, datatime= None):
         if self.__initime == None:
             self.__initime = datatime
-        data_360, data_p, data_e = self.byProfiles(dataOut)
+        data_360, data_p, data_e, data_n = self.byProfiles(dataOut)
         self.__lastdatatime = datatime
 
         avgdatatime = self.__initime
@@ -4338,7 +4342,7 @@ class Block360(Operation):
             avgdatatime = datatime
 
         self.__initime = datatime
-        return data_360, avgdatatime, data_p, data_e
+        return data_360, avgdatatime, data_p, data_e, data_n
 
     def checkcase(self):
 
@@ -4392,7 +4396,7 @@ class Block360(Operation):
             self.setup(dataOut=dataOut, attr=attr_data, angles=angles,horario=horario, **kwargs)
             self.isConfig   = True
 
-        data_360, avgdatatime, data_p, data_e = self.blockOp(dataOut, dataOut.utctime)
+        data_360, avgdatatime, data_p, data_e, data_n = self.blockOp(dataOut, dataOut.utctime)
 
         dataOut.flagNoData = True        
         if self.__dataReady:
@@ -4400,12 +4404,13 @@ class Block360(Operation):
             mean_el = numpy.mean(data_e[25:-25])
             if round(mean_az,1) in angles or round(mean_el,1) in angles:
                 setattr(dataOut, attr_data, data_360 )
-                dataOut.data_azi  = data_p
-                dataOut.data_ele  = data_e
-                dataOut.utctime  = avgdatatime
-                dataOut.flagNoData  = False
-                dataOut.flagMode = self.flagMode
-                dataOut.mode_op = self.mode_op
+                dataOut.data_azi   = data_p
+                dataOut.data_ele   = data_e
+                dataOut.utctime    = avgdatatime
+                dataOut.data_noise = data_n
+                dataOut.flagNoData = False
+                dataOut.flagMode   = self.flagMode
+                dataOut.mode_op    = self.mode_op
             else:
                 log.warning('Skipping angle {} / {}'.format(round(mean_az,1), round(mean_el,1)))
 
