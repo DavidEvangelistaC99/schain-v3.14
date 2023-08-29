@@ -407,7 +407,7 @@ class Plot(Operation):
                     self.pf_axes[n].grid(b=True, axis='x')
                     [tick.set_visible(False)
                      for tick in self.pf_axes[n].get_yticklabels()]
-                if self.colorbar:
+                if self.colorbar and not(hasattr(ax, 'cbar')):
                     ax.cbar = plt.colorbar(
                         ax.plt, ax=ax, fraction=0.05, pad=0.02, aspect=10)
                     ax.cbar.ax.tick_params(labelsize=8)
@@ -449,8 +449,8 @@ class Plot(Operation):
         for ax in self.axes+self.pf_axes+self.cb_axes:
             ax.clear()
             ax.firsttime = True
-            if hasattr(ax, 'cbar') and ax.cbar:
-                ax.cbar.remove()
+            #if hasattr(ax, 'cbar') and ax.cbar:
+            #    ax.cbar.remove()
 
     def __plot(self):
         '''
@@ -652,11 +652,11 @@ class Plot(Operation):
         tm = getattr(dataOut, self.attr_time)
         
         if self.data and 'time' in self.xaxis and (tm - self.tmin) >= self.xrange*60*60:
-            self.save_time = tm
-            self.__plot()
-            self.tmin += self.xrange*60*60
-            self.data.setup()
             self.clear_figures()
+            self.save_time = tm
+            self.tmin += self.xrange*60*60
+            self.__plot()
+            self.data.setup()
 
         self.__update(dataOut, tm)
 
