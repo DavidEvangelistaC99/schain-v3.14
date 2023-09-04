@@ -1422,14 +1422,15 @@ class SpectralMoments(Operation):
     def run(self, dataOut, proc_type=0):
 
         absc = dataOut.abscissaList[:-1]
-        noise = dataOut.noise
+        #noise = dataOut.noise
         nChannel = dataOut.data_pre[0].shape[0]
-        data_param = numpy.zeros((nChannel, 4 + proc_type*3, dataOut.data_pre[0].shape[2]))
+        nHei = dataOut.data_pre[0].shape[2]
+        data_param = numpy.zeros((nChannel, 4 + proc_type*3, nHei))
 
         if proc_type == 1:
             fwindow = numpy.zeros(absc.size) + 1
-            #b=64            
-            b=16
+            b=64            
+            #b=16
             fwindow[0:absc.size//2 - b] = 0
             fwindow[absc.size//2 + b:] = 0
             type1 = 1 # moments calculation
@@ -1457,9 +1458,11 @@ class SpectralMoments(Operation):
 
         if proc_type == 1:
             dataOut.moments = data_param[:,1:,:]
-            dataOut.data_dop = data_param[:,0]
+            #dataOut.data_dop = data_param[:,0]
+            dataOut.data_dop = data_param[:,2]
             dataOut.data_width = data_param[:,1]
-            dataOut.data_snr = data_param[:,2]
+           # dataOut.data_snr = data_param[:,2]
+            dataOut.data_snr = data_param[:,0]
             dataOut.data_pow = data_param[:,6]  # to compare with type0 proccessing
             dataOut.spcpar=numpy.stack((dataOut.data_dop,dataOut.data_width,dataOut.data_snr, data_param[:,3], data_param[:,4],data_param[:,5]),axis=2)
 
@@ -1630,7 +1633,7 @@ class SpectralMoments(Operation):
         if (smooth is None): smooth = 0
         if (type1 is None): type1 = 0
         if (fwindow is None): fwindow = numpy.zeros(oldfreq.size) + 1
-        if (snrth is None): snrth = -3
+        if (snrth is None): snrth = -20.0
         if (dc is None): dc = 0
         if (aliasing is None): aliasing = 0
         if (oldfd is None): oldfd = 0
@@ -1779,6 +1782,7 @@ class SpectralMoments(Operation):
 
                         gaussfn = __curvefit_koki(spec[xvalid], a, ww[xvalid]) 
                         a = gaussfn[1]
+                        converge = gaussfn[2]
 
                         xvalid = numpy.arange(np)
                         spec2 = __GAUSSWINFIT1(a)
@@ -1787,7 +1791,7 @@ class SpectralMoments(Operation):
                     power = a[0] * np
                     fd = a[1]
                     sigma_fd = gaussfn[3][1]
-                    snr = max(power/ (max(a[3],n0) * len(oldxvalid)), 1e-20)
+                    snr = max(power/ (max(a[3],n0) * len(oldxvalid)) * converge, 1e-20)
                     w = numpy.abs(a[2])
                     n1 = max(a[3], n0)
 
@@ -1804,7 +1808,8 @@ class SpectralMoments(Operation):
                 vec_power[ind] = power  # to compare with type 0 proccessing
 
         if type1==1:
-            return numpy.vstack((vec_fd,  vec_w, vec_snr, vec_n1, vec_fp, vec_sigma_fd, vec_power))
+            #return numpy.vstack((vec_fd,  vec_w, vec_snr, vec_n1, vec_fp, vec_sigma_fd, vec_power))
+            return numpy.vstack((vec_snr,  vec_w, vec_fd, vec_n1, vec_fp, vec_sigma_fd, vec_power))   # snr and fd exchanged to compare doppler of both types
         else:
             return numpy.vstack((vec_snr, vec_power, vec_fd, vec_w))
     
@@ -1837,7 +1842,7 @@ class SpectralMoments(Operation):
         stdv = numpy.sqrt(SUMSQ/J - numpy.power(SUM/J,2))
         return RNOISE, stdv
 
-    def __get_noise1(self, power, fft_avg, TALK=1):
+    def __get_noise1(self, power, fft_avg, TALK=0):
         '''
         Rutina para cálculo de ruido por alturas(n0). Similar a IDL
         '''
