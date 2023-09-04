@@ -1899,7 +1899,158 @@ class SpectralMoments(Operation):
         if talk:
             print('noise =', noise)
         return noise
+        
+class JULIADriftsEstimation(Operation):
 
+    def __init__(self):
+        Operation.__init__(self)
+
+
+    def newtotal(self, data):
+        return numpy.nansum(data)
+    
+    #def data_filter(self, parm, snrth=-19.5, swth=20, wErrth=500):
+    def data_filter(self, parm, snrth=-20, swth=20, wErrth=500):
+
+        Sz0 = parm.shape # Sz0: h,p
+        drift = parm[:,0]
+        sw = 2*parm[:,1]
+        snr = 10*numpy.log10(parm[:,2])
+        Sz = drift.shape # Sz: h
+        mask = numpy.ones((Sz[0]))
+        th=0
+        valid=numpy.where(numpy.isfinite(snr))
+        cvalid = len(valid[0])
+        if cvalid >= 1:
+            # Cálculo del ruido promedio de snr para el i-ésimo grupo de alturas
+            nbins = int(numpy.max(snr)-numpy.min(snr))+1 # bin size = 1, similar to IDL
+            h = numpy.histogram(snr,bins=nbins)
+            hist = h[0]
+            values = numpy.round_(h[1])
+            moda = values[numpy.where(hist == numpy.max(hist))]
+            indNoise = numpy.where(numpy.abs(snr - numpy.min(moda)) < 3)[0] 
+
+            noise = snr[indNoise]
+            noise_mean = numpy.sum(noise)/len(noise)
+            # Cálculo de media de snr
+            med = numpy.median(snr)
+            # Establece el umbral de snr
+            if  noise_mean > med + 3:
+                th = med
+            else:
+                th = noise_mean + 3
+            # Establece máscara
+            novalid = numpy.where(snr <= th)[0]
+            mask[novalid] = numpy.nan
+        # Elimina datos que no sobrepasen el umbral: PARAMETRO
+        novalid = numpy.where(snr <= snrth)
+        cnovalid = len(novalid[0])
+        if cnovalid > 0:
+           mask[novalid] = numpy.nan
+        novalid = numpy.where(numpy.isnan(snr))
+        cnovalid = len(novalid[0])
+        if cnovalid > 0:
+            mask[novalid] = numpy.nan
+        new_parm = numpy.zeros((Sz0[0],Sz0[1]))
+        for h in range(Sz0[0]):
+            for p in range(Sz0[1]):
+                if numpy.isnan(mask[h]):
+                    new_parm[h,p]=numpy.nan
+                else:
+                    new_parm[h,p]=parm[h,p]  
+
+        return new_parm, th
+
+    def run(self, dataOut, zenith, zenithCorrection,heights=None, statistics=0, otype=0):
+
+        nCh=dataOut.spcpar.shape[0]
+        
+        nHei=dataOut.spcpar.shape[1]
+        nParam=dataOut.spcpar.shape[2]
+        # Solo las alturas de interes
+        hei=dataOut.heightList
+        hvalid=numpy.where([hei >= heights[0]][0] & [hei <= heights[1]][0])[0]
+        nhvalid=len(hvalid)
+        parm = numpy.zeros((nCh,nhvalid,nParam))
+        parm = dataOut.spcpar[:,hvalid,:]
+        
+        # Primer filtrado: Umbral de SNR
+        #snrth=-19
+        for i in range(nCh):
+            #print('snr:',parm[i,:,2])
+            #dataOut.spcpar[i,hvalid,:] = self.data_filter(parm[i,:,:],snrth)[0]
+            dataOut.spcpar[i,hvalid,:] = self.data_filter(parm[i,:,:])[0]
+        #print('dataOut.spcpar[0,:,2]',dataOut.spcpar[0,:,2])
+        #print('dataOut.spcpar[1,:,2]',dataOut.spcpar[1,:,2])
+        zenith = numpy.array(zenith)
+        zenith -= zenithCorrection
+        zenith *= numpy.pi/180
+        alpha = zenith[0]
+        beta = zenith[1]
+
+        dopplerCH0 = dataOut.spcpar[0,:,0]
+        dopplerCH1 = dataOut.spcpar[1,:,0]
+        swCH0 = dataOut.spcpar[0,:,1]
+        swCH1 = dataOut.spcpar[1,:,1]
+        snrCH0 = 10*numpy.log10(dataOut.spcpar[0,:,2])
+        snrCH1 = 10*numpy.log10(dataOut.spcpar[1,:,2])
+        noiseCH0 = dataOut.spcpar[0,:,3]
+        noiseCH1 = dataOut.spcpar[1,:,3]
+        wErrCH0 = dataOut.spcpar[0,:,5]
+        wErrCH1 = dataOut.spcpar[1,:,5]
+
+        # Vertical and zonal calculation according to geometry
+        sinB_A = numpy.sin(beta)*numpy.cos(alpha) - numpy.sin(alpha)* numpy.cos(beta)
+        drift = -(dopplerCH0 * numpy.sin(beta) - dopplerCH1 * numpy.sin(alpha))/ sinB_A
+        '''
+        print('drift.shape:',drift.shape)
+        print('drift min:', numpy.nanmin(drift))
+        print('drift max:', numpy.nanmax(drift))
+        '''
+
+        '''
+        print('shape:', dopplerCH0[hvalid].shape)
+        print('dopplerCH0:', dopplerCH0[hvalid])
+        print('dopplerCH1:', dopplerCH1[hvalid])
+        print('drift:', drift[hvalid])
+        '''
+        zonal = (dopplerCH0 * numpy.cos(beta) - dopplerCH1 * numpy.cos(alpha))/ sinB_A
+        '''
+        print('zonal min:', numpy.nanmin(zonal))
+        print('zonal max:', numpy.nanmax(zonal))
+        '''
+        #print('zonal:', zonal[hvalid])
+        snr = (snrCH0 + snrCH1)/2
+        '''
+        print('snr min:', 10*numpy.log10(numpy.nanmin(snr)))
+        print('snr max:', 10*numpy.log10(numpy.nanmax(snr)))
+        '''
+        noise = (noiseCH0 + noiseCH1)/2
+        sw = (swCH0 + swCH1)/2
+        w_w_err= numpy.sqrt(numpy.power(wErrCH0 * numpy.sin(beta)/numpy.abs(sinB_A),2) + numpy.power(wErrCH1 * numpy.sin(alpha)/numpy.abs(sinB_A),2))
+        w_e_err= numpy.sqrt(numpy.power(wErrCH0 * numpy.cos(beta)/numpy.abs(-1*sinB_A),2) + numpy.power(wErrCH1 * numpy.cos(alpha)/numpy.abs(-1*sinB_A),2))		
+
+        # for statistics150km
+        if statistics:
+            print('Implemented offline.')
+            
+        if otype == 0:
+            winds = numpy.vstack((snr, drift, zonal, noise, sw, w_w_err, w_e_err)) # to process statistics drifts
+        elif otype == 3:
+            winds = numpy.vstack((snr, drift, zonal)) # to generic plot: 3 RTI's
+        elif otype == 4:
+            winds = numpy.vstack((snrCH0, drift, snrCH1, zonal)) # to generic plot: 4 RTI's
+
+        snr1 = numpy.vstack((snrCH0, snrCH1))
+        
+        dataOut.data_output = winds
+        dataOut.data_snr = snr1     
+
+        dataOut.utctimeInit = dataOut.utctime
+        dataOut.outputInterval = dataOut.timeInterval
+
+        return dataOut
+        
 class SALags(Operation):
     '''
     Function GetMoments()
