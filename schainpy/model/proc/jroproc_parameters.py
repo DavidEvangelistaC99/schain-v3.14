@@ -1,6 +1,7 @@
 import numpy
 import math
 from scipy import optimize, interpolate, signal, stats, ndimage
+from scipy.fftpack import fft
 import scipy
 import re
 import datetime
@@ -11,19 +12,19 @@ import itertools
 from multiprocessing import Pool, TimeoutError
 from multiprocessing.pool import ThreadPool
 import time
-
+#percy
 from scipy.optimize import fmin_l_bfgs_b #optimize with bounds on state papameters
 from .jroproc_base import ProcessingUnit, Operation, MPDecorator
 from schainpy.model.data.jrodata import Parameters, hildebrand_sekhon
+from schainpy.model.data.jrodata import Spectra
 from scipy import asarray as ar,exp
-from scipy.optimize import curve_fit
+from scipy.optimize import fmin, curve_fit
 from schainpy.utils import log
 import warnings
 from numpy import NaN
 from scipy.optimize.optimize import OptimizeWarning
 warnings.filterwarnings('ignore')
 
-import matplotlib.pyplot as plt
 
 SPEED_OF_LIGHT = 299792458
 
@@ -54,7 +55,6 @@ class ParametersProc(ProcessingUnit):
     def __init__(self):
         ProcessingUnit.__init__(self)
 
-#         self.objectDict = {}
         self.buffer = None
         self.firstdatatime = None
         self.profIndex = 0
@@ -75,29 +75,20 @@ class ParametersProc(ProcessingUnit):
         self.dataOut.channelList = self.dataIn.channelList
         self.dataOut.heightList = self.dataIn.heightList
         self.dataOut.dtype = numpy.dtype([('real','<f4'),('imag','<f4')])
-#         self.dataOut.nHeights = self.dataIn.nHeights
-#         self.dataOut.nChannels = self.dataIn.nChannels
         # self.dataOut.nBaud = self.dataIn.nBaud
         # self.dataOut.nCode = self.dataIn.nCode
         # self.dataOut.code = self.dataIn.code
-#        self.dataOut.nProfiles = self.dataOut.nFFTPoints
         self.dataOut.flagDiscontinuousBlock = self.dataIn.flagDiscontinuousBlock
-#         self.dataOut.utctime = self.firstdatatime
         self.dataOut.utctime = self.dataIn.utctime
         self.dataOut.flagDecodeData = self.dataIn.flagDecodeData #asumo q la data esta decodificada
         self.dataOut.flagDeflipData = self.dataIn.flagDeflipData #asumo q la data esta sin flip
         self.dataOut.nCohInt = self.dataIn.nCohInt
-#        self.dataOut.nIncohInt = 1
-#        self.dataOut.ippSeconds = self.dataIn.ippSeconds
-#        self.dataOut.windowOfFilter = self.dataIn.windowOfFilter
         self.dataOut.timeInterval1 = self.dataIn.timeInterval
         self.dataOut.heightList = self.dataIn.heightList
         self.dataOut.frequency = self.dataIn.frequency
-        # self.dataOut.noise = self.dataIn.noise
+
 
     def run(self):
-
-
 
         #----------------------    Voltage Data    ---------------------------
 
@@ -222,7 +213,6 @@ class RemoveWideGC(Operation):
         self.ir = 0
     
     def run(self, dataOut, ClutterWidth=2.5):
-        # print ('Entering RemoveWideGC ... ')
 
         self.spc = dataOut.data_pre[0].copy()
         self.spc_out = dataOut.data_pre[0].copy()
@@ -279,7 +269,7 @@ class RemoveWideGC(Operation):
                 self.spc_out[ich,gcindex,ir] = numpy.interp(VelRange[gcindex],VelRange[interpindex],self.spc[ich,interpindex,ir])
 
         dataOut.data_pre[0] = self.spc_out
-        #print ('Leaving RemoveWideGC ... ')
+
         return dataOut
 
 class SpectralFilters(Operation):
@@ -378,12 +368,12 @@ class GaussianFit(Operation):
             v1 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][2,:,1]] * self.Num_Bin))
             s0 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][3,:,0]] * self.Num_Bin))
             s1 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][3,:,1]] * self.Num_Bin))
-            if method == 'genealized':
+            if method == 'generalized':
                 p0 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][4,:,0]] * self.Num_Bin))
                 p1 = numpy.transpose(numpy.transpose([dataOut.DGauFitParams[iCh][4,:,1]] * self.Num_Bin))
             elif method == 'squared':
                 p0 = 2.
-                p1 = 2. 
+                p1 = 2.
             gau0[iCh] = A0*numpy.exp(-0.5*numpy.abs((x_mtr-v0)/s0)**p0)+N0
             gau1[iCh] = A1*numpy.exp(-0.5*numpy.abs((x_mtr-v1)/s1)**p1)+N1
         dataOut.GaussFit0 = gau0
@@ -493,7 +483,7 @@ class GaussianFit(Operation):
             if powerwidth <= 1:
                 # print('powerwidth <= 1')
                 continue
-        
+
             # print ('stop 6')
             firstpeak = powerlo + powerwidth/10.# first gaussian energy location
             secondpeak = powerhi - powerwidth/10. #second gaussian energy location
@@ -531,7 +521,6 @@ class GaussianFit(Operation):
                     noise=lsq1[0][4]
                     #return (numpy.array([shift0,width0,Amplitude0,p0]),
                     #        numpy.array([shift1,width1,Amplitude1,p1]),noise,snrdB,chiSq1,6.,sigmas1,[None,]*9,choice)
-            
             # print ('stop 9')
             '''    two Gaussians    '''
             #shift0=numpy.mod(firstpeak+minx,64); shift1=numpy.mod(secondpeak+minx,64)
@@ -644,11 +633,7 @@ class GaussianFit(Operation):
             DGauFitParam[4,ht,0] = p0
             DGauFitParam[4,ht,1] = p1
 
-        # print (DGauFitParam.shape)
-        # print ('Leaving FitGau')
         return DGauFitParam
-        # return SPCparam
-        # return GauSPC
 
     def y_model1(self,x,state):
         shift0, width0, amplitude0, power0, noise = state
@@ -662,7 +647,7 @@ class GaussianFit(Operation):
         model0 = amplitude0*numpy.exp(-0.5*abs((x-shift0)/width0)**power0)
         model0u = amplitude0*numpy.exp(-0.5*abs((x - shift0 - self.Num_Bin)/width0)**power0)
         model0d = amplitude0*numpy.exp(-0.5*abs((x - shift0 + self.Num_Bin)/width0)**power0)
-        
+
         model1 = amplitude1*numpy.exp(-0.5*abs((x - shift1)/width1)**power1)
         model1u = amplitude1*numpy.exp(-0.5*abs((x - shift1 - self.Num_Bin)/width1)**power1)
         model1d = amplitude1*numpy.exp(-0.5*abs((x - shift1 + self.Num_Bin)/width1)**power1)
@@ -675,7 +660,206 @@ class GaussianFit(Operation):
     def misfit2(self,state,y_data,x,num_intg):
         return num_intg*sum((numpy.log(y_data)-numpy.log(self.y_model2(x,state)))**2)#/(64-9.)
 
+class Oblique_Gauss_Fit(Operation):
 
+    def __init__(self):
+        Operation.__init__(self)
+
+    def Gauss_fit(self,spc,x,nGauss):
+
+
+        def gaussian(x, a, b, c, d):
+            val = a * numpy.exp(-(x - b)**2 / (2*c**2)) + d
+            return val
+
+        if nGauss == 'first':
+            spc_1_aux = numpy.copy(spc[:numpy.argmax(spc)+1])
+            spc_2_aux = numpy.flip(spc_1_aux)
+            spc_3_aux = numpy.concatenate((spc_1_aux,spc_2_aux[1:]))
+
+            len_dif = len(x)-len(spc_3_aux)
+
+            spc_zeros = numpy.ones(len_dif)*spc_1_aux[0]
+
+            spc_new = numpy.concatenate((spc_3_aux,spc_zeros))
+
+            y = spc_new
+
+        elif nGauss == 'second':
+            y = spc
+
+
+        # estimate starting values from the data
+        a = y.max()
+        b = x[numpy.argmax(y)]
+        if nGauss == 'first':
+            c = 1.#b#b#numpy.std(spc)
+        elif nGauss == 'second':
+            c = b
+        else:
+            print("ERROR")
+
+        d = numpy.mean(y[-100:])
+
+        # define a least squares function to optimize
+        def minfunc(params):
+            return sum((y-gaussian(x,params[0],params[1],params[2],params[3]))**2)
+
+        # fit
+        popt = fmin(minfunc,[a,b,c,d],disp=False)
+        #popt,fopt,niter,funcalls = fmin(minfunc,[a,b,c,d])
+
+
+        return gaussian(x, popt[0], popt[1], popt[2], popt[3]), popt[0], popt[1], popt[2], popt[3]
+
+
+    def Gauss_fit_2(self,spc,x,nGauss):
+
+
+        def gaussian(x, a, b, c, d):
+            val = a * numpy.exp(-(x - b)**2 / (2*c**2)) + d
+            return val
+
+        if nGauss == 'first':
+            spc_1_aux = numpy.copy(spc[:numpy.argmax(spc)+1])
+            spc_2_aux = numpy.flip(spc_1_aux)
+            spc_3_aux = numpy.concatenate((spc_1_aux,spc_2_aux[1:]))
+
+            len_dif = len(x)-len(spc_3_aux)
+
+            spc_zeros = numpy.ones(len_dif)*spc_1_aux[0]
+
+            spc_new = numpy.concatenate((spc_3_aux,spc_zeros))
+
+            y = spc_new
+
+        elif nGauss == 'second':
+            y = spc
+
+
+        # estimate starting values from the data
+        a = y.max()
+        b = x[numpy.argmax(y)]
+        if nGauss == 'first':
+            c = 1.#b#b#numpy.std(spc)
+        elif nGauss == 'second':
+            c = b
+        else:
+            print("ERROR")
+
+        d = numpy.mean(y[-100:])
+
+        # define a least squares function to optimize
+        popt,pcov = curve_fit(gaussian,x,y,p0=[a,b,c,d])
+        #popt,fopt,niter,funcalls = fmin(minfunc,[a,b,c,d])
+
+
+        #return gaussian(x, popt[0], popt[1], popt[2], popt[3]), popt[0], popt[1], popt[2], popt[3]
+        return gaussian(x, popt[0], popt[1], popt[2], popt[3]),popt[0], popt[1], popt[2], popt[3]
+
+    def Double_Gauss_fit(self,spc,x,A1,B1,C1,A2,B2,C2,D):
+
+        def double_gaussian(x, a1, b1, c1, a2, b2, c2, d):
+            val = a1 * numpy.exp(-(x - b1)**2 / (2*c1**2)) + a2 * numpy.exp(-(x - b2)**2 / (2*c2**2)) + d
+            return val
+
+
+        y = spc
+
+        # estimate starting values from the data
+        a1 = A1
+        b1 = B1
+        c1 = C1#numpy.std(spc)
+
+        a2 = A2#y.max()
+        b2 = B2#x[numpy.argmax(y)]
+        c2 = C2#numpy.std(spc)
+        d = D
+
+        # define a least squares function to optimize
+        def minfunc(params):
+            return sum((y-double_gaussian(x,params[0],params[1],params[2],params[3],params[4],params[5],params[6]))**2)
+
+        # fit
+        popt = fmin(minfunc,[a1,b1,c1,a2,b2,c2,d],disp=False)
+
+        return double_gaussian(x, popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6]), popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6]
+
+    def Double_Gauss_fit_2(self,spc,x,A1,B1,C1,A2,B2,C2,D):
+
+        def double_gaussian(x, a1, b1, c1, a2, b2, c2, d):
+            val = a1 * numpy.exp(-(x - b1)**2 / (2*c1**2)) + a2 * numpy.exp(-(x - b2)**2 / (2*c2**2)) + d
+            return val
+
+
+        y = spc
+
+        # estimate starting values from the data
+        a1 = A1
+        b1 = B1
+        c1 = C1#numpy.std(spc)
+
+        a2 = A2#y.max()
+        b2 = B2#x[numpy.argmax(y)]
+        c2 = C2#numpy.std(spc)
+        d = D
+
+        # fit
+
+        popt,pcov = curve_fit(double_gaussian,x,y,p0=[a1,b1,c1,a2,b2,c2,d])
+
+        error = numpy.sqrt(numpy.diag(pcov))
+
+        return popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6], error[0], error[1], error[2], error[3], error[4], error[5], error[6]
+
+    def run(self, dataOut):
+
+        pwcode = 1
+
+        if dataOut.flagDecodeData:
+            pwcode = numpy.sum(dataOut.code[0]**2)
+        #normFactor = min(self.nFFTPoints,self.nProfiles)*self.nIncohInt*self.nCohInt*pwcode*self.windowOfFilter
+        normFactor = dataOut.nProfiles * dataOut.nIncohInt * dataOut.nCohInt * pwcode * dataOut.windowOfFilter
+        factor = normFactor
+        z = dataOut.data_spc / factor
+        z = numpy.where(numpy.isfinite(z), z, numpy.NAN)
+        dataOut.power = numpy.average(z, axis=1)
+        dataOut.powerdB = 10 * numpy.log10(dataOut.power)
+
+
+        x = dataOut.getVelRange(0)
+        
+        dataOut.Oblique_params = numpy.ones((1,7,dataOut.nHeights))*numpy.NAN
+        dataOut.Oblique_param_errors = numpy.ones((1,7,dataOut.nHeights))*numpy.NAN
+
+        dataOut.VelRange = x
+
+
+        l1=range(22,36)
+        l2=range(58,99)
+
+        for hei in itertools.chain(l1, l2):
+
+            try:
+                spc = dataOut.data_spc[0,:,hei]
+
+                spc_fit, A1, B1, C1, D1 = self.Gauss_fit_2(spc,x,'first')
+
+                spc_diff = spc - spc_fit
+                spc_diff[spc_diff < 0] = 0
+
+                spc_fit_diff, A2, B2, C2, D2 = self.Gauss_fit_2(spc_diff,x,'second')
+
+                D = (D1+D2)
+
+                dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_param_errors[0,0,hei],dataOut.Oblique_param_errors[0,1,hei],dataOut.Oblique_param_errors[0,2,hei],dataOut.Oblique_param_errors[0,3,hei],dataOut.Oblique_param_errors[0,4,hei],dataOut.Oblique_param_errors[0,5,hei],dataOut.Oblique_param_errors[0,6,hei] = self.Double_Gauss_fit_2(spc,x,A1,B1,C1,A2,B2,C2,D)
+                #spc_double_fit,dataOut.Oblique_params = self.Double_Gauss_fit(spc,x,A1,B1,C1,A2,B2,C2,D)
+            
+            except:
+                ###dataOut.Oblique_params[0,:,hei] = dataOut.Oblique_params[0,:,hei]*numpy.NAN
+                pass
+            
+        return dataOut
 
 class PrecipitationProc(Operation):
 
@@ -698,7 +882,8 @@ class PrecipitationProc(Operation):
         self.i=0
 
     def run(self, dataOut, radar=None, Pt=5000, Gt=295.1209, Gr=70.7945, Lambda=0.6741, aL=2.5118,
-            tauW=4e-06, ThetaT=0.1656317, ThetaR=0.36774087, Km2 = 0.93, Altitude=3350,SNRdBlimit=-30):
+            tauW=4e-06, ThetaT=0.1656317, ThetaR=0.36774087, Km2 = 0.93, Altitude=3350, SNRdBlimit=-30,
+            channel=None):
 
         # print ('Entering PrecepitationProc ... ')
 
@@ -747,7 +932,10 @@ class PrecipitationProc(Operation):
                 SignalPower[i,:,:] = self.spc[i,:,:] - dataOut.noise[i]
                 SignalPower[numpy.where(SignalPower < 0)] = 1e-20
 
-            SPCmean = numpy.mean(SignalPower, 0)
+            if channel is None:
+                SPCmean = numpy.mean(SignalPower, 0)
+            else:
+                SPCmean = SignalPower[channel]
             Pr = SPCmean[:,:]/dataOut.normFactor
 
             # Declaring auxiliary variables
@@ -846,7 +1034,6 @@ class PrecipitationProc(Operation):
 #         RadarConstant =  Numerator / Denominator
 #
 #         return RadarConstant
-
 
 
 class FullSpectralAnalysis(Operation):
@@ -1224,36 +1411,217 @@ class SpectralMoments(Operation):
 
     '''
 
-    def run(self, dataOut):
+    def run(self, dataOut, proc_type=0):
 
-        data = dataOut.data_pre[0]
         absc = dataOut.abscissaList[:-1]
-        noise = dataOut.noise
-        nChannel = data.shape[0]
-        data_param = numpy.zeros((nChannel, 4, data.shape[2]))
+        nChannel = dataOut.data_pre[0].shape[0]
+        nHei = dataOut.data_pre[0].shape[2]
+        data_param = numpy.zeros((nChannel, 4 + proc_type*3, nHei))
+
+        if proc_type == 1:
+            fwindow = numpy.zeros(absc.size) + 1
+            b=64            
+            #b=16
+            fwindow[0:absc.size//2 - b] = 0
+            fwindow[absc.size//2 + b:] = 0
+            type1 = 1 # moments calculation & gaussean fitting
+            nProfiles = dataOut.nProfiles
+            nCohInt = dataOut.nCohInt
+            nIncohInt = dataOut.nIncohInt
+            M = numpy.power(numpy.array(1/(nProfiles * nCohInt) ,dtype='float32'),2)
+            N = numpy.array(M / nIncohInt,dtype='float32')
+            data = dataOut.data_pre[0] * N
+            #noise = dataOut.noise * N
+            noise = numpy.zeros(nChannel)
+            for ind in range(nChannel):
+                noise[ind] = self.__NoiseByChannel(nProfiles, nIncohInt, data[ind,:,:])
+            smooth=3
+        else:
+            data = dataOut.data_pre[0]
+            noise = dataOut.noise
+            fwindow = None
+            type1 = 0
+            nIncohInt = None
+            smooth=None
 
         for ind in range(nChannel):
-            data_param[ind,:,:] = self.__calculateMoments( data[ind,:,:] , absc , noise[ind] )
+            data_param[ind,:,:] = self.__calculateMoments( data[ind,:,:] , absc , noise[ind], nicoh=nIncohInt, smooth=smooth, type1=type1, fwindow=fwindow, id_ch=ind)
 
-        dataOut.moments = data_param[:,1:,:]
-        dataOut.data_snr = data_param[:,0]
-        dataOut.data_pow = data_param[:,1]
-        dataOut.data_dop = data_param[:,2]
-        dataOut.data_width = data_param[:,3]
+        if proc_type == 1:
+            dataOut.moments    = data_param[:,1:,:]
+            dataOut.data_dop   = data_param[:,2]
+            dataOut.data_width = data_param[:,1]
+            dataOut.data_snr   = data_param[:,0]
+            dataOut.data_pow   = data_param[:,6]  # to compare with type0 proccessing
+            dataOut.spcpar=numpy.stack((dataOut.data_dop,dataOut.data_width,dataOut.data_snr, data_param[:,3], data_param[:,4],data_param[:,5]),axis=2)
+
+        else:
+            dataOut.moments = data_param[:,1:,:]
+            dataOut.data_snr = data_param[:,0]
+            dataOut.data_pow = data_param[:,1]
+            dataOut.data_dop = data_param[:,2]
+            dataOut.data_width = data_param[:,3]
+            dataOut.spcpar=numpy.stack((dataOut.data_dop,dataOut.data_width,dataOut.data_snr, dataOut.data_pow),axis=2)
 
         return dataOut
 
     def __calculateMoments(self, oldspec, oldfreq, n0,
-                           nicoh = None, graph = None, smooth = None, type1 = None, fwindow = None, snrth = None, dc = None, aliasing = None, oldfd = None, wwauto = None):
+                           nicoh = None, graph = None smooth = None, type1 = None, fwindow = None, snrth = None, dc = None, aliasing = None, oldfd = None, wwauto = None,id_ch=0):
 
+        def __GAUSSWINFIT1(A, flagPDER=0):
+            nonlocal truex, xvalid
+            nparams = 4
+            M=truex.size
+            mm=numpy.arange(M,dtype='f4')
+            delta = numpy.zeros(M,dtype='f4')
+            delta[0] = 1.0 
+            Ts = numpy.array([1.0/(2*truex[0])],dtype='f4')[0]
+            jj = -1j
+            #if self.winauto is None: self.winauto = (1.0 - mm/M)
+            winauto = (1.0 - mm/M)
+            winauto = winauto/winauto.max()     # Normalized to 1
+            #ON_ERROR,2     # IDL sentence: Return to caller if an error occurs
+            A[0] = numpy.abs(A[0])
+            A[2] = numpy.abs(A[2])
+            A[3] = numpy.abs(A[3])
+            pi=numpy.array([numpy.pi],dtype='f4')[0]
+            if A[2] != 0:
+                Z = numpy.exp(-2*numpy.power((pi*A[2]*mm*Ts),2,dtype='f4')+jj*2*pi*A[1]*mm*Ts, dtype='c8')      # Get Z
+            else:
+                Z = mm*0.0
+                A[0] = 0.0
+            junkF = numpy.roll(2*fft(winauto*(A[0]*Z+A[3]*delta)).real - \
+                                  winauto[0]*(A[0]+A[3]), M//2)                         # *M scale for fft not needed in python
+            F = junkF[xvalid]
+            if flagPDER == 0:       #NEED PARTIAL?
+                return F
+            PDER = numpy.zeros((M,nparams))   #YES, MAKE ARRAY.   
+            PDER[:,0] = numpy.shift(2*(fft(winauto*Z)*M) - winauto[0], M/2)
+            PDER[:,1] = numpy.shift(2*(fft(winauto*jj*2*numpy.pi*mm*Ts*A[0]*Z)*M), M/2)
+            PDER[:,2] = numpy.shift(2*(fft(winauto*(-4*numpy.power(numpy.pi*mm*Ts,2)*A[2]*A[0]*Z))*M), M/2)
+            PDER[:,3] = numpy.shift(2*(fft(winauto*delta)*M) - winauto[0], M/2)
+            PDER = PDER[xvalid,:]
+            return F, PDER
+
+        def __curvefit_koki(y, a, Weights, FlagNoDerivative=1,
+                            itmax=20, tol=None):
+            #ON_ERROR,2 IDL SENTENCE: RETURN TO THE CALLER IF ERROR
+            if tol == None:
+                tol = numpy.array([1.e-3],dtype='f4')[0] 
+            typ=a.dtype
+            double = 1 if typ == numpy.float64 else 0
+            if typ != numpy.float32:
+                a=a.astype(numpy.float32)       #Make params floating
+            # if we will be estimating partial derivates then compute machine precision
+            if FlagNoDerivative == 1:
+                res=numpy.MachAr(float_conv=numpy.float32)
+                eps=numpy.sqrt(res.eps)
+
+            nterms = a.size             # Number of parameters
+            nfree=numpy.array([numpy.size(y) - nterms],dtype='f4')[0]   # Degrees of freedom
+            if nfree <= 0: print('Curvefit - not enough data points.')
+            flambda= numpy.array([0.001],dtype='f4')[0]                         # Initial lambda
+            #diag=numpy.arange(nterms)*(nterms+1)       # Subscripta of diagonal elements
+            # Use diag method in python
+            converge=1
+
+            #Define the partial derivative array
+            PDER = numpy.zeros((nterms,numpy.size(y)),dtype='f8') if double == 1 else numpy.zeros((nterms,numpy.size(y)),dtype='f4')
+
+            for Niter in range(itmax):      #Iteration loop     
+
+                if FlagNoDerivative == 1:
+                    #Evaluate function and estimate partial derivatives
+                    yfit = __GAUSSWINFIT1(a)
+                    for term in range(nterms):
+                        p=a.copy()      # Copy current parameters
+                        #Increment size for forward difference derivative
+                        inc = eps * abs(p[term])
+                        if inc == 0: inc = eps
+                        p[term] = p[term] + inc
+                        yfit1 = __GAUSSWINFIT1(p)
+                        PDER[term,:] = (yfit1-yfit)/inc
+                else:
+                    #The user's procedure will return partial derivatives
+                    yfit,PDER=__GAUSSWINFIT1(a, flagPDER=1)
+
+                beta = numpy.dot(PDER,(y-yfit)*Weights)
+                alpha = numpy.dot(PDER * numpy.tile(Weights,(nterms,1)), numpy.transpose(PDER))
+                # save current values of return parameters
+                sigma1 = numpy.sqrt( 1.0 / numpy.diag(alpha) )  # Current sigma.
+                sigma  = sigma1
+
+                chisq1 = numpy.sum(Weights*numpy.power(y-yfit,2,dtype='f4'),dtype='f4')/nfree     # Current chi squared.
+                chisq = chisq1
+                yfit1 = yfit
+                elev7=numpy.array([1.0e7],dtype='f4')[0]
+                compara =numpy.sum(abs(y))/elev7/nfree
+                done_early = chisq1 < compara
+
+                if done_early:
+                    chi2 = chisq         # Return chi-squared (chi2 obsolete-still works)  
+                    if done_early: Niter -= 1
+                    #save_tp(chisq,Niter,yfit)
+                    return yfit, a, converge, sigma, chisq          # return result
+                #c = numpy.dot(c, c)    # this operator implemented at the next lines
+                c_tmp = numpy.sqrt(numpy.diag(alpha))
+                siz=len(c_tmp)
+                c=numpy.dot(c_tmp.reshape(siz,1),c_tmp.reshape(1,siz))
+                lambdaCount = 0
+                while True:
+                    lambdaCount += 1
+                    # Normalize alpha to have unit diagonal.
+                    array = alpha / c
+                    # Augment the diagonal.
+                    one=numpy.array([1.],dtype='f4')[0]
+                    numpy.fill_diagonal(array,numpy.diag(array)*(one+flambda))
+                    # Invert modified curvature matrix to find new parameters.
+                    try:
+                        array =  (1.0/array) if array.size == 1  else numpy.linalg.inv(array)
+                    except Exception as e:
+                        print(e)
+                        array[:]=numpy.NaN
+
+                    b = a + numpy.dot(numpy.transpose(beta),array/c) # New params           
+                    yfit = __GAUSSWINFIT1(b) # Evaluate function
+                    chisq = numpy.sum(Weights*numpy.power(y-yfit,2,dtype='f4'),dtype='f4')/nfree # New chisq
+                    sigma = numpy.sqrt(numpy.diag(array)/numpy.diag(alpha)) # New sigma
+                    if (numpy.isfinite(chisq) == 0) or \
+                        (lambdaCount > 30 and chisq >= chisq1):
+                        # Reject changes made this iteration, use old values.
+                        yfit  = yfit1 
+                        sigma = sigma1
+                        chisq = chisq1
+                        converge = 0
+                        #print('Failed to converge.')
+                        chi2 = chisq         # Return chi-squared (chi2 obsolete-still works)
+                        if done_early: Niter -= 1
+                        #save_tp(chisq,Niter,yfit) 
+                        return yfit, a, converge, sigma, chisq, chi2          # return result   
+                    ten=numpy.array([10.0],dtype='f4')[0]
+                    flambda *= ten      # Assume fit got worse
+                    if chisq <= chisq1:
+                        break
+                hundred=numpy.array([100.0],dtype='f4')[0]
+                flambda /= hundred
+
+                a=b                     # Save new parameter estimate.             
+                if ((chisq1-chisq)/chisq1) <= tol: # Finished?
+                    chi2 = chisq         # Return chi-squared (chi2 obsolete-still works)
+                    if done_early: Niter -= 1
+                    #save_tp(chisq,Niter,yfit)
+                    return yfit, a, converge, sigma, chisq, chi2         # return result
+            converge = 0
+            chi2 = chisq
+            #print('Failed to converge.')
+            #save_tp(chisq,Niter,yfit)
+            return yfit, a, converge, sigma, chisq, chi2
+        
         if (nicoh is None): nicoh = 1
-        if (graph is None): graph = 0
         if (smooth is None): smooth = 0
-        elif (self.smooth < 3): smooth = 0
-
         if (type1 is None): type1 = 0
         if (fwindow is None): fwindow = numpy.zeros(oldfreq.size) + 1
-        if (snrth is None): snrth = -3
+        if (snrth is None): snrth = -20.0
         if (dc is None): dc = 0
         if (aliasing is None): aliasing = 0
         if (oldfd is None): oldfd = 0
@@ -1261,101 +1629,381 @@ class SpectralMoments(Operation):
 
         if (n0 < 1.e-20):   n0 = 1.e-20
 
+        xvalid = numpy.where(fwindow == 1)[0]
         freq = oldfreq
+        truex = oldfreq
         vec_power = numpy.zeros(oldspec.shape[1])
         vec_fd = numpy.zeros(oldspec.shape[1])
         vec_w = numpy.zeros(oldspec.shape[1])
         vec_snr = numpy.zeros(oldspec.shape[1])
-
-        # oldspec = numpy.ma.masked_invalid(oldspec)
+        vec_n1 = numpy.empty(oldspec.shape[1])
+        vec_fp = numpy.empty(oldspec.shape[1])
+        vec_sigma_fd = numpy.empty(oldspec.shape[1])
 
         for ind in range(oldspec.shape[1]):
 
             spec = oldspec[:,ind]
-            aux = spec*fwindow
-            max_spec = aux.max()
-            m = aux.tolist().index(max_spec)
-
-            # Smooth
             if (smooth == 0):
                 spec2 = spec
             else:
                 spec2 = scipy.ndimage.filters.uniform_filter1d(spec,size=smooth)
+            
+            aux = spec2*fwindow
+            max_spec = aux.max()
+            m = aux.tolist().index(max_spec)
 
-            # Moments Estimation
-            bb = spec2[numpy.arange(m,spec2.size)]
-            bb = (bb<n0).nonzero()
-            bb = bb[0]
-
-            ss = spec2[numpy.arange(0,m + 1)]
-            ss = (ss<n0).nonzero()
-            ss = ss[0]
-
-            if (bb.size == 0):
-                bb0 = spec.size - 1 - m
+            if m > 2 and m < oldfreq.size - 3:
+                newindex = m + numpy.array([-2,-1,0,1,2])
+                newfreq = numpy.arange(20)/20.0*(numpy.max(freq[newindex])-numpy.min(freq[newindex]))+numpy.min(freq[newindex])
+                #peakspec = SPLINE(,)
+                tck = interpolate.splrep(freq[newindex], spec2[newindex])
+                peakspec = interpolate.splev(newfreq, tck)
+                # max_spec = MAX(peakspec,)
+                max_spec = numpy.max(peakspec)
+                mnew = numpy.argmax(peakspec)
+                #fp = newfreq(mnew)
+                fp = newfreq[mnew]
             else:
-                bb0 = bb[0] - 1
-                if (bb0 < 0):
-                    bb0 = 0
+                fp = freq[m]
 
-            if (ss.size == 0):
-                ss1 = 1
+            if type1==0:
+
+                # Moments Estimation
+                bb = spec2[numpy.arange(m,spec2.size)]
+                bb = (bb<n0).nonzero()
+                bb = bb[0]
+
+                ss = spec2[numpy.arange(0,m + 1)]
+                ss = (ss<n0).nonzero()
+                ss = ss[0]
+
+                if (bb.size == 0):
+                    bb0 = spec.size - 1 - m
+                else:
+                    bb0 = bb[0] - 1
+                    if (bb0 < 0):
+                        bb0 = 0
+
+                if (ss.size == 0):
+                    ss1 = 1
+                else:
+                    ss1 = max(ss) + 1
+
+                if (ss1 > m):
+                    ss1 = m
+
+                valid = numpy.arange(int(m + bb0 - ss1 + 1)) + ss1
+
+                signal_power = ((spec2[valid] - n0) * fwindow[valid]).mean()    # D. Scipión added with correct definition
+                total_power = (spec2[valid] * fwindow[valid]).mean()            # D. Scipión added with correct definition
+                power = ((spec2[valid] - n0) * fwindow[valid]).sum() 
+                fd = ((spec2[valid]- n0)*freq[valid] * fwindow[valid]).sum() / power
+                w = numpy.sqrt(((spec2[valid] - n0)*fwindow[valid]*(freq[valid]- fd)**2).sum() / power)
+                snr = (spec2.mean()-n0)/n0
+                if (snr < 1.e-20): snr = 1.e-20
+   
+                vec_power[ind] = total_power
+                vec_fd[ind] = fd
+                vec_w[ind] = w
+                vec_snr[ind] = snr
             else:
-                ss1 = max(ss) + 1
+                # Noise by heights
+                n1, stdv = self.__get_noise2(spec, nicoh)          
+                # Moments Estimation
+                bb = spec2[numpy.arange(m,spec2.size)]
+                bb = (bb<n1).nonzero()
+                bb = bb[0]
 
-            if (ss1 > m):
-                ss1 = m
+                ss = spec2[numpy.arange(0,m + 1)]
+                ss = (ss<n1).nonzero()
+                ss = ss[0]
 
-            valid = numpy.arange(int(m + bb0 - ss1 + 1)) + ss1
+                if (bb.size == 0):
+                    bb0 = spec.size - 1 - m
+                else:
+                    bb0 = bb[0] - 1
+                    if (bb0 < 0):
+                        bb0 = 0
 
-            signal_power = ((spec2[valid] - n0) * fwindow[valid]).mean()    # D. Scipión added with correct definition
-            total_power = (spec2[valid] * fwindow[valid]).mean()            # D. Scipión added with correct definition
-            power = ((spec2[valid] - n0) * fwindow[valid]).sum() 
-            fd = ((spec2[valid]- n0)*freq[valid] * fwindow[valid]).sum() / power
-            w = numpy.sqrt(((spec2[valid] - n0)*fwindow[valid]*(freq[valid]- fd)**2).sum() / power)
-            snr = (spec2.mean()-n0)/n0
-            if (snr < 1.e-20) :
-                snr = 1.e-20
+                if (ss.size == 0):
+                    ss1 = 1
+                else:
+                    ss1 = max(ss) + 1
 
-            # vec_power[ind] = power    #D. Scipión replaced with the line below
-            vec_power[ind] = total_power
-            vec_fd[ind] = fd
-            vec_w[ind] = w
-            vec_snr[ind] = snr
+                if (ss1 > m):
+                    ss1 = m
 
-        return numpy.vstack((vec_snr, vec_power, vec_fd, vec_w))
+                valid = numpy.arange(int(m + bb0 - ss1 + 1)) + ss1
+                power = ((spec[valid] - n1)*fwindow[valid]).sum()
+                fd = ((spec[valid]- n1)*freq[valid]*fwindow[valid]).sum()/power
+                try:
+                    w = numpy.sqrt(((spec[valid] - n1)*fwindow[valid]*(freq[valid]- fd)**2).sum()/power)
+                except:
+                    w = float("NaN")
+                snr = power/(n0*fwindow.sum())
+                if snr <  1.e-20: snr = 1.e-20
 
-    #------------------    Get SA Parameters    --------------------------
+                # Here start gaussean adjustment
 
-    def GetSAParameters(self):
-        #SA en frecuencia
-        pairslist = self.dataOut.groupList
-        num_pairs = len(pairslist)
+                if snr > numpy.power(10,0.1*snrth):
+    
+                    a = numpy.zeros(4,dtype='f4')
+                    a[0] = snr * n0
+                    a[1] = fd
+                    a[2] = w
+                    a[3] = n0
 
-        vel = self.dataOut.abscissaList
-        spectra = self.dataOut.data_pre
-        cspectra = self.dataIn.data_cspc
-        delta_v = vel[1] - vel[0]
+                    np = spec.size
+                    aold = a.copy()
+                    spec2 = spec.copy()
+                    oldxvalid = xvalid.copy()
 
-        #Calculating the power spectrum
-        spc_pow = numpy.sum(spectra, 3)*delta_v
-        #Normalizing Spectra
-        norm_spectra = spectra/spc_pow
-        #Calculating the norm_spectra at peak
-        max_spectra = numpy.max(norm_spectra, 3)
+                    for i in range(2):
 
-        #Normalizing Cross Spectra
-        norm_cspectra = numpy.zeros(cspectra.shape)
+                        ww = 1.0/(numpy.power(spec2,2)/nicoh)
+                        ww[np//2] = 0.0
 
-        for i in range(num_chan):
-            norm_cspectra[i,:,:] = cspectra[i,:,:]/numpy.sqrt(spc_pow[pairslist[i][0],:]*spc_pow[pairslist[i][1],:])
+                        a = aold.copy()
+                        xvalid = oldxvalid.copy()
+                        #self.show_var(xvalid)
 
-        max_cspectra = numpy.max(norm_cspectra,2)
-        max_cspectra_index = numpy.argmax(norm_cspectra, 2)
+                        gaussfn = __curvefit_koki(spec[xvalid], a, ww[xvalid]) 
+                        a = gaussfn[1]
+                        converge = gaussfn[2]
 
-        for i in range(num_pairs):
-            cspc_par[i,:,:] = __calculateMoments(norm_cspectra)
-    #-------------------    Get Lags    ----------------------------------
+                        xvalid = numpy.arange(np)
+                        spec2 = __GAUSSWINFIT1(a)
+
+                    xvalid = oldxvalid.copy()
+                    power = a[0] * np
+                    fd = a[1]
+                    sigma_fd = gaussfn[3][1]
+                    snr = max(power/ (max(a[3],n0) * len(oldxvalid)) * converge, 1.e-20)
+                    w = numpy.abs(a[2])
+                    n1 = max(a[3], n0)
+
+                    #gauss_adj=[fd,w,snr,n1,fp,sigma_fd]
+                else:
+                    sigma_fd=numpy.nan # to avoid UnboundLocalError: local variable 'sigma_fd' referenced before assignment
+
+                vec_fd[ind] = fd
+                vec_w[ind] = w
+                vec_snr[ind] = snr
+                vec_n1[ind] = n1
+                vec_fp[ind] = fp
+                vec_sigma_fd[ind] = sigma_fd
+                vec_power[ind] = power  # to compare with type 0 proccessing
+
+        if type1==1:
+            return numpy.vstack((vec_snr,  vec_w, vec_fd, vec_n1, vec_fp, vec_sigma_fd, vec_power))   # snr and fd exchanged to compare doppler of both types
+        else:
+            return numpy.vstack((vec_snr, vec_power, vec_fd, vec_w))
+
+    def __get_noise2(self,POWER, fft_avg, TALK=0):
+        '''
+        Rutina para cálculo de ruido por alturas(n1). Similar a IDL
+        '''
+        SPECT_PTS = len(POWER)
+        fft_avg = fft_avg*1.0
+        NOMIT = 0
+        NN = SPECT_PTS - NOMIT
+        N  = NN//2
+        ARR = numpy.concatenate((POWER[0:N+1],POWER[N+NOMIT+1:SPECT_PTS]))
+        ARR = numpy.sort(ARR)
+        NUMS_MIN = (SPECT_PTS+7)//8
+        RTEST = (1.0+1.0/fft_avg)
+        SUM = 0.0
+        SUMSQ = 0.0
+        J = 0
+        for I in range(NN):
+            J = J + 1
+            SUM = SUM + ARR[I]
+            SUMSQ = SUMSQ + ARR[I]*ARR[I]
+            AVE = SUM*1.0/J
+            if J > NUMS_MIN:
+                if (SUMSQ*J <= RTEST*SUM*SUM): RNOISE = AVE
+            else:
+                if J == NUMS_MIN: RNOISE = AVE
+        if TALK == 1: print('Noise Power (2):%4.4f' %RNOISE)
+        stdv = numpy.sqrt(SUMSQ/J - numpy.power(SUM/J,2))
+        return RNOISE, stdv
+
+    def __get_noise1(self, power, fft_avg, TALK=0):
+        '''
+        Rutina para cálculo de ruido por alturas(n0). Similar a IDL
+        '''
+        num_pts = numpy.size(power)
+        #print('num_pts',num_pts)
+        #print('power',power.shape)
+        #print(power[256:267,0:2])
+        fft_avg = fft_avg*1.0
+
+        ind = numpy.argsort(power, axis=None, kind='stable')
+        #ind = numpy.argsort(numpy.reshape(power,-1))
+        #print(ind.shape)
+        #print(ind[0:11])
+        #print(numpy.reshape(power,-1)[ind[0:11]])
+        ARR = numpy.reshape(power,-1)[ind]
+        #print('ARR',len(ARR))
+        #print('ARR',ARR.shape)
+        NUMS_MIN = num_pts//10
+        RTEST = (1.0+1.0/fft_avg)
+        SUM = 0.0
+        SUMSQ = 0.0
+        J = 0
+        cont = 1
+        while cont == 1 and J < num_pts:
+
+            SUM = SUM + ARR[J]
+            SUMSQ = SUMSQ + ARR[J]*ARR[J]
+            J = J + 1
+ 
+            if J > NUMS_MIN:
+                if (SUMSQ*J <= RTEST*SUM*SUM):
+                    LNOISE = SUM*1.0/J
+                else:
+                    J = J - 1
+                    SUM = SUM - ARR[J]
+                    SUMSQ = SUMSQ - ARR[J]*ARR[J]
+                    cont = 0
+            else:
+                if J == NUMS_MIN: LNOISE = SUM*1.0/J
+        if TALK == 1: print('Noise Power (1):%8.8f' %LNOISE)
+        stdv = numpy.sqrt(SUMSQ/J - numpy.power(SUM/J,2))
+        return LNOISE, stdv
+
+    def __NoiseByChannel(self, num_prof, num_incoh, spectra,talk=0):
+
+        val_frq = numpy.arange(num_prof-2)+1
+        val_frq[(num_prof-2)//2:] = val_frq[(num_prof-2)//2:] + 1       
+        junkspc = numpy.sum(spectra[val_frq,:], axis=1)
+        junkid = numpy.argsort(junkspc)
+        noisezone = val_frq[junkid[0:num_prof//2]]
+        specnoise = spectra[noisezone,:]
+        noise, stdvnoise = self.__get_noise1(specnoise,num_incoh)
+        
+        if talk:
+            print('noise =', noise)
+        return noise
+
+class JULIADriftsEstimation(Operation):
+
+    def __init__(self):
+        Operation.__init__(self)
+
+    def newtotal(self, data):
+        return numpy.nansum(data)
+    
+    def data_filter(self, parm, snrth=-20, swth=20, wErrth=500):
+
+        Sz0 = parm.shape # Sz0: h,p
+        drift = parm[:,0]
+        sw = 2*parm[:,1]
+        snr = 10*numpy.log10(parm[:,2])
+        Sz = drift.shape # Sz: h
+        mask = numpy.ones((Sz[0]))
+        th=0
+        valid=numpy.where(numpy.isfinite(snr))
+        cvalid = len(valid[0])
+        if cvalid >= 1:
+            # Cálculo del ruido promedio de snr para el i-ésimo grupo de alturas
+            nbins = int(numpy.max(snr)-numpy.min(snr))+1 # bin size = 1, similar to IDL
+            h = numpy.histogram(snr,bins=nbins)
+            hist = h[0]
+            values = numpy.round_(h[1])
+            moda = values[numpy.where(hist == numpy.max(hist))]
+            indNoise = numpy.where(numpy.abs(snr - numpy.min(moda)) < 3)[0] 
+
+            noise = snr[indNoise]
+            noise_mean = numpy.sum(noise)/len(noise)
+            # Cálculo de media de snr
+            med = numpy.median(snr)
+            # Establece el umbral de snr
+            if  noise_mean > med + 3:
+                th = med
+            else:
+                th = noise_mean + 3
+            # Establece máscara
+            novalid = numpy.where(snr <= th)[0]
+            mask[novalid] = numpy.nan
+        # Elimina datos que no sobrepasen el umbral: PARAMETRO
+        novalid = numpy.where(snr <= snrth)
+        cnovalid = len(novalid[0])
+        if cnovalid > 0:
+           mask[novalid] = numpy.nan
+        novalid = numpy.where(numpy.isnan(snr))
+        cnovalid = len(novalid[0])
+        if cnovalid > 0:
+            mask[novalid] = numpy.nan
+        new_parm = numpy.zeros((Sz0[0],Sz0[1]))
+        for h in range(Sz0[0]):
+            for p in range(Sz0[1]):
+                if numpy.isnan(mask[h]):
+                    new_parm[h,p]=numpy.nan
+                else:
+                    new_parm[h,p]=parm[h,p]  
+
+        return new_parm, th
+
+    def run(self, dataOut, zenith, zenithCorrection,heights=None, statistics=0, otype=0):
+
+        nCh=dataOut.spcpar.shape[0]
+        nHei=dataOut.spcpar.shape[1]
+        nParam=dataOut.spcpar.shape[2]
+        # Solo las alturas de interes
+        hei=dataOut.heightList
+        hvalid=numpy.where([hei >= heights[0]][0] & [hei <= heights[1]][0])[0]
+        nhvalid=len(hvalid)
+        parm = numpy.zeros((nCh,nhvalid,nParam))
+        parm = dataOut.spcpar[:,hvalid,:]
+        # Primer filtrado: Umbral de SNR
+        for i in range(nCh):
+            dataOut.spcpar[i,hvalid,:] = self.data_filter(parm[i,:,:])[0] 
+        zenith = numpy.array(zenith)
+        zenith -= zenithCorrection
+        zenith *= numpy.pi/180
+        alpha = zenith[0]
+        beta = zenith[1]
+
+        dopplerCH0 = dataOut.spcpar[0,:,0]
+        dopplerCH1 = dataOut.spcpar[1,:,0]
+        swCH0 = dataOut.spcpar[0,:,1]
+        swCH1 = dataOut.spcpar[1,:,1]
+        snrCH0 = 10*numpy.log10(dataOut.spcpar[0,:,2])
+        snrCH1 = 10*numpy.log10(dataOut.spcpar[1,:,2])
+        noiseCH0 = dataOut.spcpar[0,:,3]
+        noiseCH1 = dataOut.spcpar[1,:,3]
+        wErrCH0 = dataOut.spcpar[0,:,5]
+        wErrCH1 = dataOut.spcpar[1,:,5]
+
+        # Vertical and zonal calculation according to geometry
+        sinB_A = numpy.sin(beta)*numpy.cos(alpha) - numpy.sin(alpha)* numpy.cos(beta)
+        drift = -(dopplerCH0 * numpy.sin(beta) - dopplerCH1 * numpy.sin(alpha))/ sinB_A
+        zonal = (dopplerCH0 * numpy.cos(beta) - dopplerCH1 * numpy.cos(alpha))/ sinB_A
+        snr = (snrCH0 + snrCH1)/2
+        noise = (noiseCH0 + noiseCH1)/2
+        sw = (swCH0 + swCH1)/2
+        w_w_err= numpy.sqrt(numpy.power(wErrCH0 * numpy.sin(beta)/numpy.abs(sinB_A),2) + numpy.power(wErrCH1 * numpy.sin(alpha)/numpy.abs(sinB_A),2))
+        w_e_err= numpy.sqrt(numpy.power(wErrCH0 * numpy.cos(beta)/numpy.abs(-1*sinB_A),2) + numpy.power(wErrCH1 * numpy.cos(alpha)/numpy.abs(-1*sinB_A),2))
+
+        # for statistics150km
+        if statistics:
+            print('Implemented offline.')          
+        if otype == 0:
+            winds = numpy.vstack((snr, drift, zonal, noise, sw, w_w_err, w_e_err)) # to process statistics drifts
+        elif otype == 3:
+            winds = numpy.vstack((snr, drift, zonal)) # to generic plot: 3 RTI's
+        elif otype == 4:
+            winds = numpy.vstack((snrCH0, drift, snrCH1, zonal)) # to generic plot: 4 RTI's
+
+        snr1 = numpy.vstack((snrCH0, snrCH1))
+        dataOut.data_output = winds
+        dataOut.data_snr = snr1     
+
+        dataOut.utctimeInit = dataOut.utctime
+        dataOut.outputInterval = dataOut.timeInterval
+
+        return dataOut
 
 class SALags(Operation):
     '''
@@ -1387,9 +2035,6 @@ class SALags(Operation):
         noise = dataOut.noise
         SNR = dataOut.data_snr
         nChannels = dataOut.nChannels
-#         pairsList = dataOut.groupList
-#         pairsAutoCorr, pairsCrossCorr = self.__getPairsAutoCorr(pairsList, nChannels)
-
         for l in range(len(pairs_acf)):
             data_acf[l,:,:] = data_acf[l,:,:]/normFactor_acf[l,:]
 
@@ -1400,25 +2045,6 @@ class SALags(Operation):
         dataOut.data_param[:-1,:] = self.__calculateTaus(data_acf, data_ccf, absc)
         dataOut.data_param[-1,:] = self.__calculateLag1Phase(data_acf, absc)
         return
-
-#     def __getPairsAutoCorr(self, pairsList, nChannels):
-#
-#         pairsAutoCorr = numpy.zeros(nChannels, dtype = 'int')*numpy.nan
-#
-#         for l in range(len(pairsList)):
-#             firstChannel = pairsList[l][0]
-#             secondChannel = pairsList[l][1]
-#
-#             #Obteniendo pares de Autocorrelacion
-#             if firstChannel == secondChannel:
-#                 pairsAutoCorr[firstChannel] = int(l)
-#
-#         pairsAutoCorr = pairsAutoCorr.astype(int)
-#
-#         pairsCrossCorr = range(len(pairsList))
-#         pairsCrossCorr = numpy.delete(pairsCrossCorr,pairsAutoCorr)
-#
-#         return pairsAutoCorr, pairsCrossCorr
 
     def __calculateTaus(self, data_acf, data_ccf, lagRange):
 
@@ -1455,6 +2081,12 @@ class SALags(Operation):
 
         return phase
 
+def fit_func( x, a0, a1, a2): #, a3, a4, a5):
+    z = (x - a1) / a2
+    y = a0 * numpy.exp(-z**2 / a2)  #+ a3 + a4 * x + a5 * x**2
+    return y
+
+
 class SpectralFitting(Operation):
     '''
         Function GetMoments()
@@ -1463,35 +2095,664 @@ class SpectralFitting(Operation):
         Output:
         Variables modified:
     '''
+    isConfig = False
+    __dataReady = False
+    bloques =  None
+    bloque0 = None
+    index = 0
+    fint = 0
+    buffer = 0
+    buffer2 = 0
+    buffer3 = 0
 
-    def run(self, dataOut, getSNR = True, path=None, file=None, groupList=None):
+    def __init__(self):
+        Operation.__init__(self)
+        self.i=0
+        self.isConfig = False
+        
+
+    def setup(self,nChan,nProf,nHei,nBlocks):
+        self.__dataReady = False
+        self.bloques = numpy.zeros([2, nProf, nHei,nBlocks], dtype= complex)
+        self.bloque0 = numpy.zeros([nChan, nProf, nHei, nBlocks])
+
+    def __calculateMoments(self,oldspec, oldfreq, n0, nicoh = None, graph = None, smooth = None, type1 = None, fwindow = None, snrth = None, dc = None, aliasing = None, oldfd = None, wwauto = None):
+        
+        if (nicoh is None): nicoh = 1
+        if (graph is None): graph = 0    
+        if (smooth is None): smooth = 0
+        elif (self.smooth < 3): smooth = 0
+
+        if (type1 is None): type1 = 0
+        if (fwindow is None): fwindow = numpy.zeros(oldfreq.size) + 1
+        if (snrth is None): snrth = -3
+        if (dc is None): dc = 0
+        if (aliasing is None): aliasing = 0
+        if (oldfd is None): oldfd = 0
+        if (wwauto is None): wwauto = 0
+         
+        if (n0 < 1.e-20):   n0 = 1.e-20
+        
+        freq = oldfreq
+        vec_power = numpy.zeros(oldspec.shape[1])
+        vec_fd = numpy.zeros(oldspec.shape[1])
+        vec_w = numpy.zeros(oldspec.shape[1])
+        vec_snr = numpy.zeros(oldspec.shape[1])
+        
+        oldspec = numpy.ma.masked_invalid(oldspec)
+
+        for ind in range(oldspec.shape[1]):
+                        
+            spec = oldspec[:,ind]
+            aux = spec*fwindow
+            max_spec = aux.max()
+            m = list(aux).index(max_spec)
+                       
+            #Smooth    
+            if (smooth == 0):   spec2 = spec
+            else:   spec2 = scipy.ndimage.filters.uniform_filter1d(spec,size=smooth)
+    
+            #    Calculo de Momentos
+            bb = spec2[list(range(m,spec2.size))]
+            bb = (bb<n0).nonzero()
+            bb = bb[0]
+            
+            ss = spec2[list(range(0,m + 1))]
+            ss = (ss<n0).nonzero()
+            ss = ss[0]
+            
+            if (bb.size == 0):
+                bb0 = spec.size - 1 - m
+            else:   
+                bb0 = bb[0] - 1
+                if (bb0 < 0):
+                    bb0 = 0
+                    
+            if (ss.size == 0):   ss1 = 1
+            else: ss1 = max(ss) + 1
+            
+            if (ss1 > m):   ss1 = m
+            
+            valid = numpy.asarray(list(range(int(m + bb0 - ss1 + 1)))) + ss1               
+            power = ((spec2[valid] - n0)*fwindow[valid]).sum()
+            fd = ((spec2[valid]- n0)*freq[valid]*fwindow[valid]).sum()/power
+            w = math.sqrt(((spec2[valid] - n0)*fwindow[valid]*(freq[valid]- fd)**2).sum()/power)
+            snr = (spec2.mean()-n0)/n0               
+            
+            if (snr < 1.e-20) :  
+                snr = 1.e-20
+            
+            vec_power[ind] = power
+            vec_fd[ind] = fd
+            vec_w[ind] = w
+            vec_snr[ind] = snr
+        
+        moments = numpy.vstack((vec_snr, vec_power, vec_fd, vec_w))
+        return moments    
+
+    def __DiffCoherent(self, spectra, cspectra, dataOut, noise, snrth, coh_th, hei_th):
+
+        nProf = dataOut.nProfiles
+        heights = dataOut.heightList
+        nHei = len(heights)
+        channels = dataOut.channelList
+        nChan = len(channels)
+        crosspairs = dataOut.groupList
+        nPairs = len(crosspairs)
+        #Separar espectros incoherentes de coherentes snr > 20 dB'
+        snr_th = 10**(snrth/10.0)
+        my_incoh_spectra = numpy.zeros([nChan, nProf,nHei], dtype='float')
+        my_incoh_cspectra = numpy.zeros([nPairs,nProf, nHei], dtype='complex')
+        my_incoh_aver = numpy.zeros([nChan, nHei])
+        my_coh_aver = numpy.zeros([nChan, nHei])
+
+        coh_spectra = numpy.zeros([nChan, nProf, nHei], dtype='float')
+        coh_cspectra = numpy.zeros([nPairs, nProf, nHei], dtype='complex')
+        coh_aver = numpy.zeros([nChan, nHei])
+ 
+        incoh_spectra = numpy.zeros([nChan, nProf, nHei], dtype='float')
+        incoh_cspectra = numpy.zeros([nPairs, nProf, nHei], dtype='complex')
+        incoh_aver = numpy.zeros([nChan, nHei])
+        power = numpy.sum(spectra, axis=1)
+        
+        if coh_th == None : coh_th = numpy.array([0.75,0.65,0.15]) # 0.65
+        if hei_th == None : hei_th = numpy.array([60,300,650])
+        for ic in range(2):
+            pair = crosspairs[ic]
+            #si el SNR es mayor que el SNR threshold los datos se toman coherentes
+            s_n0 = power[pair[0],:]/noise[pair[0]]
+            s_n1 = power[pair[1],:]/noise[pair[1]]
+            
+            valid1 =(s_n0>=snr_th).nonzero()
+            valid2 = (s_n1>=snr_th).nonzero()
+            #valid = valid2 + valid1 #numpy.concatenate((valid1,valid2), axis=None)
+            valid1 =  numpy.array(valid1[0])
+            valid2 =  numpy.array(valid2[0])
+            valid = valid1
+            for iv in range(len(valid2)):
+                #for ivv in range(len(valid1)) :
+                indv = numpy.array((valid1 == valid2[iv]).nonzero())
+                if len(indv[0]) == 0 :
+                   valid =  numpy.concatenate((valid,valid2[iv]), axis=None)
+            if len(valid)>0:
+                my_coh_aver[pair[0],valid]=1	    
+                my_coh_aver[pair[1],valid]=1
+            # si la coherencia es mayor a la coherencia threshold los datos se toman
+            #print my_coh_aver[0,:]
+            coh = numpy.squeeze(numpy.nansum(cspectra[ic,:,:], axis=0)/numpy.sqrt(numpy.nansum(spectra[pair[0],:,:], axis=0)*numpy.nansum(spectra[pair[1],:,:], axis=0)))
+            #print('coh',numpy.absolute(coh))
+            for ih in range(len(hei_th)):
+                hvalid = (heights>hei_th[ih]).nonzero()
+                hvalid = hvalid[0]
+                if len(hvalid)>0:
+                    valid = (numpy.absolute(coh[hvalid])>coh_th[ih]).nonzero()
+                    valid = valid[0]
+                    #print('hvalid:',hvalid)
+                    #print('valid', valid)
+                    if len(valid)>0:
+                        my_coh_aver[pair[0],hvalid[valid]] =1
+                        my_coh_aver[pair[1],hvalid[valid]] =1
+        
+            coh_echoes = (my_coh_aver[pair[0],:] == 1).nonzero()
+            incoh_echoes = (my_coh_aver[pair[0],:] != 1).nonzero()
+            incoh_echoes = incoh_echoes[0]
+            if len(incoh_echoes) > 0:
+                my_incoh_spectra[pair[0],:,incoh_echoes] = spectra[pair[0],:,incoh_echoes]
+                my_incoh_spectra[pair[1],:,incoh_echoes] = spectra[pair[1],:,incoh_echoes]
+                my_incoh_cspectra[ic,:,incoh_echoes] = cspectra[ic,:,incoh_echoes]
+                my_incoh_aver[pair[0],incoh_echoes] = 1
+                my_incoh_aver[pair[1],incoh_echoes] = 1
+
+        
+        for ic in range(2):
+            pair = crosspairs[ic]
+
+            valid1 =(my_coh_aver[pair[0],:]==1 ).nonzero()
+            valid2 = (my_coh_aver[pair[1],:]==1).nonzero()
+            valid1 = numpy.array(valid1[0])
+            valid2 = numpy.array(valid2[0])
+            valid = valid1
+            #print valid1 , valid2
+            for iv in range(len(valid2)):
+                #for ivv in range(len(valid1)) :
+                indv = numpy.array((valid1 == valid2[iv]).nonzero())
+                if len(indv[0]) == 0 :
+                   valid =  numpy.concatenate((valid,valid2[iv]), axis=None)
+            #print valid
+            #valid = numpy.concatenate((valid1,valid2), axis=None)
+            valid1 =(my_coh_aver[pair[0],:] !=1 ).nonzero()
+            valid2 = (my_coh_aver[pair[1],:] !=1).nonzero()
+            valid1 = numpy.array(valid1[0])
+            valid2 = numpy.array(valid2[0])
+            incoh_echoes = valid1
+            #print valid1, valid2
+            #incoh_echoes= numpy.concatenate((valid1,valid2), axis=None)
+            for iv in range(len(valid2)):
+                #for ivv in range(len(valid1)) :
+                indv = numpy.array((valid1 == valid2[iv]).nonzero())
+                if len(indv[0]) == 0 :
+                   incoh_echoes = numpy.concatenate(( incoh_echoes,valid2[iv]), axis=None)
+            #print incoh_echoes
+            if len(valid)>0:
+                #print pair
+                coh_spectra[pair[0],:,valid] = spectra[pair[0],:,valid]
+                coh_spectra[pair[1],:,valid] = spectra[pair[1],:,valid]
+                coh_cspectra[ic,:,valid] = cspectra[ic,:,valid]
+                coh_aver[pair[0],valid]=1
+                coh_aver[pair[1],valid]=1
+            if len(incoh_echoes)>0:
+                incoh_spectra[pair[0],:,incoh_echoes] = spectra[pair[0],:,incoh_echoes]
+                incoh_spectra[pair[1],:,incoh_echoes] = spectra[pair[1],:,incoh_echoes]
+                incoh_cspectra[ic,:,incoh_echoes] = cspectra[ic,:,incoh_echoes]
+                incoh_aver[pair[0],incoh_echoes]=1
+                incoh_aver[pair[1],incoh_echoes]=1
+
+        return  my_incoh_spectra ,my_incoh_cspectra,my_incoh_aver,my_coh_aver, incoh_spectra, coh_spectra, incoh_cspectra, coh_cspectra, incoh_aver, coh_aver
+
+    def __CleanCoherent(self,snrth, spectra, cspectra, coh_aver,dataOut, noise,clean_coh_echoes,index):
+
+        nProf = dataOut.nProfiles
+        heights = dataOut.heightList
+        nHei = len(heights)
+        channels = dataOut.channelList
+        nChan = len(channels)
+        crosspairs = dataOut.groupList
+        nPairs = len(crosspairs)
+        
+        #data = dataOut.data_pre[0]
+        absc = dataOut.abscissaList[:-1]
+        #noise = dataOut.noise
+        #nChannel = data.shape[0]
+        data_param = numpy.zeros((nChan, 4, spectra.shape[2]))
+        clean_coh_spectra = spectra.copy()
+        clean_coh_cspectra = cspectra.copy()
+        clean_coh_aver = coh_aver.copy()
+
+        spwd_th=[10,6]  #spwd_th[0] --> For satellites ; spwd_th[1] --> For special events like SUN.
+        coh_th = 0.75
+
+        rtime0 = [6,18] # periodo sin ESF
+        rtime1 = [10.5,13.5] # periodo con alta coherencia y alto ancho espectral (esperado): SOL.
+
+        time = index*5./60
+        if clean_coh_echoes == 1 :
+           for ind in range(nChan):
+              data_param[ind,:,:] = self.__calculateMoments( spectra[ind,:,:] , absc , noise[ind] )
+        #print data_param[:,3]
+           spwd = data_param[:,3]
+            #print spwd.shape
+        #  SPECB_JULIA,header=anal_header,jspectra=spectra,vel=velocities,hei=heights, num_aver=1, mode_fit=0,smoothing=smoothing,jvelr=velr,jspwd=spwd,jsnr=snr,jnoise=noise,jstdvnoise=stdvnoise
+           #spwd1=[ 1.65607,      1.43416,     0.500373,     0.208361,     0.000000,      26.7767,      22.5936,      26.7530,      20.6962,      29.1098,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,      28.0300,      27.0511,      27.8810,      26.3126,      27.8445,      24.6181,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000,     0.000000]
+           #spwd=numpy.array([spwd1,spwd1,spwd1,spwd1])
+           #print spwd.shape, heights.shape,coh_aver.shape
+      # para obtener spwd
+           for ic in range(nPairs):
+              pair = crosspairs[ic]
+              coh = numpy.squeeze(numpy.sum(cspectra[ic,:,:], axis=1)/numpy.sqrt(numpy.sum(spectra[pair[0],:,:], axis=1)*numpy.sum(spectra[pair[1],:,:], axis=1)))
+              for ih in range(nHei) :
+        # Considering heights higher than 200km in order to avoid removing phenomena like EEJ.
+                 if heights[ih] >= 200 and coh_aver[pair[0],ih] == 1 and coh_aver[pair[1],ih] == 1 :
+          # Checking coherence
+                    if (numpy.abs(coh[ih]) <= coh_th) or (time >= rtime0[0] and time <= rtime0[1]) :
+            # Checking spectral widths
+                       if (spwd[pair[0],ih] > spwd_th[0]) or (spwd[pair[1],ih] > spwd_th[0]) :
+              # satelite
+                          clean_coh_spectra[pair,ih,:] = 0.0
+                          clean_coh_cspectra[ic,ih,:] =  0.0
+                          clean_coh_aver[pair,ih] = 0
+                       else :
+                            if ((spwd[pair[0],ih] < spwd_th[1]) or (spwd[pair[1],ih] < spwd_th[1])) :
+                # Especial event like sun.
+                               clean_coh_spectra[pair,ih,:] = 0.0
+                               clean_coh_cspectra[ic,ih,:] =  0.0
+                               clean_coh_aver[pair,ih] = 0
+
+        return clean_coh_spectra, clean_coh_cspectra, clean_coh_aver
+
+       #def CleanRayleigh(self,dataOut,spectra,cspectra,out_spectra,out_cspectra,sat_spectra,sat_cspectra,crosspairs,heights, channels, nProf,nHei,nChan,nPairs,nIncohInt,nBlocks):
+    def CleanRayleigh(self,dataOut,spectra,cspectra,save_drifts):
+        #import matplotlib.pyplot as plt
+        #for k in range(149):
+
+         #   self.bloque0[:,:,:,k]   = spectra[:,:,0:nHei]
+         #   self.bloques[:,:,:,k]   = cspectra[:,:,0:nHei]
+        #if self.i==nBlocks:
+         #   self.i==0
+        rfunc = cspectra.copy() #self.bloques
+        n_funct = len(rfunc[0,:,0,0])
+        val_spc = spectra*0.0 #self.bloque0*0.0
+        val_cspc = cspectra*0.0 #self.bloques*0.0
+        in_sat_spectra = spectra.copy()  #self.bloque0
+        in_sat_cspectra = cspectra.copy()  #self.bloques            
+
+        #print( rfunc.shape)
+        min_hei = 200
+        nProf = dataOut.nProfiles
+        heights = dataOut.heightList
+        nHei = len(heights)
+        channels = dataOut.channelList
+        nChan = len(channels)
+        crosspairs = dataOut.groupList
+        nPairs = len(crosspairs)
+        hval=(heights >= min_hei).nonzero()
+        ih=hval[0]
+        #print numpy.absolute(rfunc[:,0,0,14])
+        for ih in range(hval[0][0],nHei):
+            for ifreq in range(nProf):
+                for ii in range(n_funct):
+                    
+                    func2clean = 10*numpy.log10(numpy.absolute(rfunc[:,ii,ifreq,ih]))
+                    #print numpy.amin(func2clean)
+                    val = (numpy.isfinite(func2clean)==True).nonzero()
+                    if len(val)>0:                   
+                       min_val = numpy.around(numpy.amin(func2clean)-2) #> (-40)
+                       if min_val <= -40 : min_val = -40
+                       max_val = numpy.around(numpy.amax(func2clean)+2) #< 200
+                       if max_val >= 200 : max_val = 200
+                       #print min_val, max_val
+                       step = 1
+                            #Getting bins and the histogram
+                       x_dist = min_val + numpy.arange(1 + ((max_val-(min_val))/step))*step
+                       y_dist,binstep = numpy.histogram(func2clean,bins=range(int(min_val),int(max_val+2),step))                                                
+                       mean = numpy.sum(x_dist * y_dist) / numpy.sum(y_dist)
+                       sigma = numpy.sqrt(numpy.sum(y_dist * (x_dist - mean)**2) / numpy.sum(y_dist))
+                       parg = [numpy.amax(y_dist),mean,sigma]
+                       try :
+                           gauss_fit, covariance = curve_fit(fit_func, x_dist, y_dist,p0=parg)
+                           mode = gauss_fit[1]
+                           stdv = gauss_fit[2] 
+                       except:
+                           mode = mean
+                           stdv = sigma 
+                       #  7.84616      53.9307      3.61863
+                       #stdv = 3.61863 # 2.99089
+                       #mode = 53.9307 #7.79008
+
+                       #Removing echoes greater than mode + 3*stdv
+                       factor_stdv = 2.5
+                       noval = (abs(func2clean - mode)>=(factor_stdv*stdv)).nonzero()
+                       
+                       if len(noval[0]) > 0:
+                            novall = ((func2clean - mode) >= (factor_stdv*stdv)).nonzero()
+                            cross_pairs = crosspairs[ii]
+                                #Getting coherent echoes which are removed.
+                            if len(novall[0]) > 0:
+                                    #val_spc[(0,1),novall[a],ih] = 1
+                                    #val_spc[,(2,3),novall[a],ih] = 1
+                                val_spc[novall[0],cross_pairs[0],ifreq,ih] = 1
+                                val_spc[novall[0],cross_pairs[1],ifreq,ih] = 1
+                                val_cspc[novall[0],ii,ifreq,ih] = 1
+                                #print("OUT NOVALL 1")
+                                #Removing coherent from ISR data
+                            spectra[noval,cross_pairs[0],ifreq,ih] = numpy.nan
+                            spectra[noval,cross_pairs[1],ifreq,ih] = numpy.nan
+                            cspectra[noval,ii,ifreq,ih] = numpy.nan
+                    #no sale es para savedrifts >2
+            '''                channels = channels 
+                            cross_pairs = cross_pairs
+                                #print("OUT NOVALL 2")
+
+                            vcross0 = (cross_pairs[0] == channels[ii]).nonzero()
+                            vcross1 = (cross_pairs[1] == channels[ii]).nonzero()
+                            vcross = numpy.concatenate((vcross0,vcross1),axis=None)
+                                #print('vcros =', vcross)
+                        
+                                #Getting coherent echoes which are removed.
+                            if len(novall) > 0:
+                                    #val_spc[novall,ii,ifreq,ih] = 1
+                                 val_spc[ii,ifreq,ih,novall] = 1
+                                 if len(vcross) > 0:
+                                    val_cspc[vcross,ifreq,ih,novall] = 1                                    
+
+                                #Removing coherent from ISR data.
+                            self.bloque0[ii,ifreq,ih,noval] = numpy.nan
+                            if len(vcross) > 0:
+                                self.bloques[vcross,ifreq,ih,noval] = numpy.nan    
+            '''
+            #Getting average of the spectra and cross-spectra from incoherent echoes.
+        out_spectra = numpy.zeros([nChan,nProf,nHei], dtype=float) #+numpy.nan
+        out_cspectra = numpy.zeros([nPairs,nProf,nHei], dtype=complex) #+numpy.nan
+        for ih in range(nHei):
+            for ifreq in range(nProf):
+                for ich in range(nChan):                    
+                    tmp = spectra[:,ich,ifreq,ih] 
+                    valid = (numpy.isfinite(tmp[:])==True).nonzero()
+                    #print('TMP',tmp)              
+                    if len(valid[0]) >0 :
+                       out_spectra[ich,ifreq,ih] = numpy.nansum(tmp)/len(valid[0])
+                    #for icr in range(nPairs):
+                for icr in range(nPairs):
+                    tmp = numpy.squeeze(cspectra[:,icr,ifreq,ih])
+                    valid = (numpy.isfinite(tmp)==True).nonzero()
+                    if len(valid[0]) > 0:
+                        out_cspectra[icr,ifreq,ih] = numpy.nansum(tmp)/len(valid[0])
+       # print('##########################################################')
+            #Removing fake coherent echoes (at least 4 points around the point)
+            
+        val_spectra = numpy.sum(val_spc,0)
+        val_cspectra = numpy.sum(val_cspc,0)
+        
+        val_spectra = self.REM_ISOLATED_POINTS(val_spectra,4)
+        val_cspectra = self.REM_ISOLATED_POINTS(val_cspectra,4)
+        
+        for i in range(nChan):
+            for j in range(nProf):
+                for k in range(nHei):
+                    if numpy.isfinite(val_spectra[i,j,k]) and val_spectra[i,j,k] < 1 :
+                        val_spc[:,i,j,k] = 0.0
+        for i in range(nPairs):
+            for j in range(nProf):
+                for k in range(nHei):
+                    if numpy.isfinite(val_cspectra[i,j,k]) and val_cspectra[i,j,k] < 1 :
+                        val_cspc[:,i,j,k] = 0.0
+
+        tmp_sat_spectra = spectra.copy()
+        tmp_sat_spectra = tmp_sat_spectra*numpy.nan
+        tmp_sat_cspectra = cspectra.copy()
+        tmp_sat_cspectra = tmp_sat_cspectra*numpy.nan
+
+        val = (val_spc > 0).nonzero()
+        if len(val[0]) > 0:              
+                tmp_sat_spectra[val] = in_sat_spectra[val]
+            
+        val = (val_cspc > 0).nonzero()
+        if len(val[0]) > 0:
+                tmp_sat_cspectra[val] = in_sat_cspectra[val]
+
+            #Getting average of the spectra and cross-spectra from incoherent echoes.
+        sat_spectra = numpy.zeros((nChan,nProf,nHei), dtype=float)
+        sat_cspectra = numpy.zeros((nPairs,nProf,nHei), dtype=complex)
+        for ih in range(nHei):
+            for ifreq in range(nProf):
+                for ich in range(nChan):
+                    tmp = numpy.squeeze(tmp_sat_spectra[:,ich,ifreq,ih])
+                    valid = (numpy.isfinite(tmp)).nonzero()                    
+                    if len(valid[0]) > 0:
+                        sat_spectra[ich,ifreq,ih] = numpy.nansum(tmp)/len(valid[0])
+
+                for icr in range(nPairs):
+                    tmp = numpy.squeeze(tmp_sat_cspectra[:,icr,ifreq,ih])
+                    valid = (numpy.isfinite(tmp)).nonzero()
+                    if len(valid[0]) > 0:
+                        sat_cspectra[icr,ifreq,ih] = numpy.nansum(tmp)/len(valid[0])
+            #self.__dataReady= True
+            #sat_spectra, sat_cspectra= sat_spectra, sat_cspectra          
+        #if not self.__dataReady:
+            #return None, None
+        return out_spectra, out_cspectra,sat_spectra,sat_cspectra
+    def REM_ISOLATED_POINTS(self,array,rth):
+        if rth == None : rth = 4
+ 
+        num_prof = len(array[0,:,0])
+        num_hei = len(array[0,0,:])
+        n2d = len(array[:,0,0])
+ 
+        for ii in range(n2d) :
+          #print ii,n2d
+          tmp = array[ii,:,:]
+          #print tmp.shape, array[ii,101,:],array[ii,102,:]
+          #indxs = WHERE(FINITE(tmp) AND tmp GT 0,cindxs)
+          tmp = numpy.reshape(tmp,num_prof*num_hei)
+          indxs1 = (numpy.isfinite(tmp)==True).nonzero()
+          indxs2 = (tmp > 0).nonzero()
+          
+          indxs1 = (indxs1[0])
+          indxs2 = indxs2[0]
+          #indxs1 = numpy.array(indxs1[0])
+          #indxs2 = numpy.array(indxs2[0])
+          indxs = None
+          #print indxs1 , indxs2
+          for iv in range(len(indxs2)):
+                indv = numpy.array((indxs1 == indxs2[iv]).nonzero())
+                #print len(indxs2), indv
+                if len(indv[0]) > 0  :
+                   indxs =  numpy.concatenate((indxs,indxs2[iv]), axis=None)
+          indxs = indxs[1:]
+          #print indxs, len(indxs)
+          if len(indxs) < 4 :
+            array[ii,:,:] = 0.
+            return
+          
+          xpos = numpy.mod(indxs ,num_hei)
+          ypos = (indxs / num_hei)
+          sx = numpy.argsort(xpos) # Ordering respect to "x" (time)
+          #print sx
+          xpos = xpos[sx]
+          ypos = ypos[sx]
+          # *********************************** Cleaning isolated points **********************************
+          ic = 0
+          while True : 
+            r = numpy.sqrt(list(numpy.power((xpos[ic]-xpos),2)+ numpy.power((ypos[ic]-ypos),2)))
+            #no_coh = WHERE(FINITE(r) AND (r LE rth),cno_coh)
+            #plt.plot(r)
+            #plt.show()
+            no_coh1 = (numpy.isfinite(r)==True).nonzero()
+            no_coh2 = (r <= rth).nonzero()
+            #print r, no_coh1, no_coh2
+            no_coh1 = numpy.array(no_coh1[0])
+            no_coh2 = numpy.array(no_coh2[0])
+            no_coh = None
+          #print valid1 , valid2
+            for iv in range(len(no_coh2)):
+                indv = numpy.array((no_coh1 == no_coh2[iv]).nonzero())
+                if len(indv[0]) > 0  :
+                   no_coh =  numpy.concatenate((no_coh,no_coh2[iv]), axis=None)
+            no_coh = no_coh[1:]
+            #print len(no_coh), no_coh
+            if len(no_coh) < 4 :
+               #print xpos[ic], ypos[ic], ic
+               xpos[ic] = numpy.nan
+               ypos[ic] = numpy.nan
+            
+            ic = ic + 1      
+            if  (ic == len(indxs)) : 
+                break
+          #print( xpos, ypos)
+
+          indxs = (numpy.isfinite(list(xpos))==True).nonzero()
+          #print indxs[0] 
+          if len(indxs[0]) < 4 :
+             array[ii,:,:] = 0.
+             return
+    
+          xpos = xpos[indxs[0]]
+          ypos = ypos[indxs[0]]
+          for i in range(0,len(ypos)):
+    	      ypos[i]=int(ypos[i])
+          junk = tmp
+          tmp = junk*0.0
+          
+          tmp[list(xpos + (ypos*num_hei))] = junk[list(xpos + (ypos*num_hei))] 
+          array[ii,:,:] = numpy.reshape(tmp,(num_prof,num_hei))
+          
+          #print array.shape
+          #tmp = numpy.reshape(tmp,(num_prof,num_hei))
+          #print tmp.shape
+          
+        return array
+    def moments(self,doppler,yarray,npoints):
+        ytemp = yarray
+        #val = WHERE(ytemp GT 0,cval)    
+        #if cval == 0 : val = range(npoints-1)
+        val = (ytemp > 0).nonzero()
+        val = val[0]
+                #print('hvalid:',hvalid)
+                #print('valid', valid)
+        if len(val) == 0 : val = range(npoints-1) 
+        
+        ynew = 0.5*(ytemp[val[0]]+ytemp[val[len(val)-1]])
+        ytemp[len(ytemp):] = [ynew]
+
+        index = 0
+        index = numpy.argmax(ytemp)
+        ytemp = numpy.roll(ytemp,int(npoints/2)-1-index)
+        ytemp = ytemp[0:npoints-1]
+
+        fmom = numpy.sum(doppler*ytemp)/numpy.sum(ytemp)+(index-(npoints/2-1))*numpy.abs(doppler[1]-doppler[0])
+        smom = numpy.sum(doppler*doppler*ytemp)/numpy.sum(ytemp)
+        return [fmom,numpy.sqrt(smom)]
 
 
+
+
+
+
+
+   
+    def run(self, dataOut, getSNR = True, path=None, file=None, groupList=None, filec=None,coh_th=None, hei_th=None):
+        nChannels = dataOut.nChannels
+        nHeights= dataOut.heightList.size
+        nProf = dataOut.nProfiles
+        tini=time.localtime(dataOut.utctime)
+        if (tini.tm_min % 5) == 0 and (tini.tm_sec < 5 and self.fint==0): 
+           self.index = 0
+           jspc = self.buffer
+           jcspc = self.buffer2
+           jnoise = self.buffer3
+           self.buffer = dataOut.data_spc
+           self.buffer2 = dataOut.data_cspc
+           self.buffer3 = dataOut.noise
+           self.fint = 1
+           if numpy.any(jspc) :
+               jspc= numpy.reshape(jspc,(int(len(jspc)/4),nChannels,nProf,nHeights))
+               jcspc= numpy.reshape(jcspc,(int(len(jcspc)/2),2,nProf,nHeights))
+               jnoise= numpy.reshape(jnoise,(int(len(jnoise)/4),nChannels))
+           else:
+               dataOut.flagNoData = True
+               return dataOut
+        else :
+           if (tini.tm_min % 5) == 0 : self.fint = 1
+           else : self.fint = 0
+           self.index += 1
+           if numpy.any(self.buffer):       
+              self.buffer = numpy.concatenate((self.buffer,dataOut.data_spc), axis=0)
+              self.buffer2 = numpy.concatenate((self.buffer2,dataOut.data_cspc), axis=0)
+              self.buffer3 = numpy.concatenate((self.buffer3,dataOut.noise), axis=0)
+           else:
+               self.buffer = dataOut.data_spc
+               self.buffer2 = dataOut.data_cspc
+               self.buffer3 = dataOut.noise
+           dataOut.flagNoData = True
+           return dataOut
         if path != None:
             sys.path.append(path)
-        self.dataOut.library = importlib.import_module(file)
+        self.library = importlib.import_module(file)
 
         #To be inserted as a parameter
         groupArray = numpy.array(groupList)
-#         groupArray = numpy.array([[0,1],[2,3]])
-        self.dataOut.groupList = groupArray
+        #groupArray = numpy.array([[0,1],[2,3]]) 
+        dataOut.groupList = groupArray
 
         nGroups = groupArray.shape[0]
-        nChannels = self.dataIn.nChannels
-        nHeights=self.dataIn.heightList.size
+        nChannels = dataOut.nChannels
+        nHeights = dataOut.heightList.size
 
         #Parameters Array
-        self.dataOut.data_param = None
+        dataOut.data_param = None
+        dataOut.data_paramC = None
 
         #Set constants
-        constants = self.dataOut.library.setConstants(self.dataIn)
-        self.dataOut.constants = constants
-        M = self.dataIn.normFactor
-        N = self.dataIn.nFFTPoints
-        ippSeconds = self.dataIn.ippSeconds
-        K = self.dataIn.nIncohInt
-        pairsArray = numpy.array(self.dataIn.pairsList)
+        constants = self.library.setConstants(dataOut)
+        dataOut.constants = constants
+        M = dataOut.normFactor
+        N = dataOut.nFFTPoints
+        ippSeconds = dataOut.ippSeconds
+        K = dataOut.nIncohInt
+        pairsArray = numpy.array(dataOut.pairsList)
 
+        snrth= 20
+        spectra = dataOut.data_spc
+        cspectra = dataOut.data_cspc
+        nProf = dataOut.nProfiles
+        heights = dataOut.heightList
+        nHei = len(heights)        
+        channels = dataOut.channelList
+        nChan = len(channels)
+        nIncohInt = dataOut.nIncohInt
+        crosspairs = dataOut.groupList
+        noise = dataOut.noise
+        jnoise = jnoise/N
+        noise = numpy.nansum(jnoise,axis=0)#/len(jnoise)
+        power = numpy.sum(spectra, axis=1)
+        nPairs = len(crosspairs)
+        absc = dataOut.abscissaList[:-1]
+
+        if not self.isConfig:
+            self.isConfig = True
+
+        index = tini.tm_hour*12+tini.tm_min/5
+        jspc = jspc/N/N
+        jcspc = jcspc/N/N
+        tmp_spectra,tmp_cspectra,sat_spectra,sat_cspectra = self.CleanRayleigh(dataOut,jspc,jcspc,2)
+        jspectra = tmp_spectra*len(jspc[:,0,0,0])
+        jcspectra = tmp_cspectra*len(jspc[:,0,0,0])
+        my_incoh_spectra ,my_incoh_cspectra,my_incoh_aver,my_coh_aver, incoh_spectra, coh_spectra, incoh_cspectra, coh_cspectra, incoh_aver, coh_aver = self.__DiffCoherent(jspectra, jcspectra, dataOut, noise, snrth, coh_th, hei_th)
+        clean_coh_spectra, clean_coh_cspectra, clean_coh_aver = self.__CleanCoherent(snrth, coh_spectra, coh_cspectra, coh_aver, dataOut, noise,1,index)                                        
+        dataOut.data_spc = incoh_spectra
+        dataOut.data_cspc = incoh_cspectra
+        
+        clean_num_aver = incoh_aver*len(jspc[:,0,0,0])
+        coh_num_aver = clean_coh_aver*len(jspc[:,0,0,0])
         #List of possible combinations
         listComb = itertools.combinations(numpy.arange(groupArray.shape[1]),2)
         indCross = numpy.zeros(len(list(listComb)), dtype = 'int')
@@ -1499,14 +2760,13 @@ class SpectralFitting(Operation):
         if getSNR:
             listChannels = groupArray.reshape((groupArray.size))
             listChannels.sort()
-            noise = self.dataIn.getNoise()
-            self.dataOut.data_snr = self.__getSNR(self.dataIn.data_spc[listChannels,:,:], noise[listChannels])
-
-        for i in range(nGroups):
+            dataOut.data_SNR = self.__getSNR(dataOut.data_spc[listChannels,:,:], noise[listChannels])
+        if dataOut.data_paramC is None:
+                    dataOut.data_paramC = numpy.zeros((nGroups*4, nHeights,2))*numpy.nan 
+        for i in range(nGroups): 
             coord = groupArray[i,:]
-
             #Input data array
-            data = self.dataIn.data_spc[coord,:,:]/(M*N)
+            data = dataOut.data_spc[coord,:,:]/(M*N)
             data = data.reshape((data.shape[0]*data.shape[1],data.shape[2]))
 
             #Cross Spectra data array for Covariance Matrixes
@@ -1515,69 +2775,161 @@ class SpectralFitting(Operation):
                 pairsSel = numpy.array([coord[x],coord[y]])
                 indCross[ind] = int(numpy.where(numpy.all(pairsArray == pairsSel, axis = 1))[0][0])
                 ind += 1
-            dataCross = self.dataIn.data_cspc[indCross,:,:]/(M*N)
-            dataCross = dataCross**2/K
-
+            dataCross = dataOut.data_cspc[indCross,:,:]/(M*N)
+            dataCross = dataCross**2
+            nhei = nHeights
+            poweri = numpy.sum(dataOut.data_spc[:,1:nProf-0,:],axis=1)/clean_num_aver[:,:]
+            if i == 0 : my_noises = numpy.zeros(4,dtype=float) #FLTARR(4)
+            n0i = numpy.nanmin(poweri[0+i*2,0:nhei-0])/(nProf-1)
+            n1i = numpy.nanmin(poweri[1+i*2,0:nhei-0])/(nProf-1)
+            n0 = n0i
+            n1=  n1i
+            my_noises[2*i+0] = n0
+            my_noises[2*i+1] = n1
+            snrth = -15.0 #-16 -10
+            snrth = 10**(snrth/10.0)
+            jvelr = numpy.zeros(nHeights, dtype = 'float')
+            hvalid = [0]
             for h in range(nHeights):
-
-                #Input
+                smooth = clean_num_aver[i+1,h]
+                signalpn0 = (dataOut.data_spc[i*2,1:(nProf-0),h])/smooth
+                signalpn1 = (dataOut.data_spc[i*2+1,1:(nProf-0),h])/smooth
+                signal0 = signalpn0-n0
+                signal1 = signalpn1-n1
+                snr0 = numpy.sum(signal0/n0)/(nProf-1)
+                snr1 = numpy.sum(signal1/n1)/(nProf-1)
+                maxp0 = numpy.argmax(signal0)
+                maxp1 = numpy.argmax(signal1)
+                jvelr[h] = (absc[maxp0]+absc[maxp1])/2.
+                if snr0 > 0.1 and snr1 > 0.1: hvalid = numpy.concatenate((hvalid,h), axis=None)
+                #print(maxp0,absc[maxp0],snr0,jvelr[h])
+            
+            if len(hvalid)> 1: fd0 = numpy.median(jvelr[hvalid[1:]])*-1
+            else: fd0 = numpy.nan 
+ 
+            for h in range(nHeights):
                 d = data[:,h]
-
+                smooth = clean_num_aver[i+1,h] #dataOut.data_spc[:,1:nProf-0,:]
+                signalpn0 = (dataOut.data_spc[i*2,1:(nProf-0),h])/smooth
+                signalpn1 = (dataOut.data_spc[i*2+1,1:(nProf-0),h])/smooth
+                signal0 = signalpn0-n0
+                signal1 = signalpn1-n1
+                snr0 = numpy.sum(signal0/n0)/(nProf-1)
+                snr1 = numpy.sum(signal1/n1)/(nProf-1)
+                if snr0 > snrth and snr1 > snrth and clean_num_aver[i+1,h] > 0 :
                 #Covariance Matrix
-                D = numpy.diag(d**2/K)
-                ind = 0
-                for pairs in listComb:
+                    D = numpy.diag(d**2)
+                    ind = 0
+                    for pairs in listComb:
                     #Coordinates in Covariance Matrix
-                    x = pairs[0]
-                    y = pairs[1]
+                        x = pairs[0]    
+                        y = pairs[1]
                     #Channel Index
-                    S12 = dataCross[ind,:,h]
-                    D12 = numpy.diag(S12)
+                        S12 = dataCross[ind,:,h]
+                        D12 = numpy.diag(S12)
                     #Completing Covariance Matrix with Cross Spectras
-                    D[x*N:(x+1)*N,y*N:(y+1)*N] = D12
-                    D[y*N:(y+1)*N,x*N:(x+1)*N] = D12
-                    ind += 1
-                Dinv=numpy.linalg.inv(D)
-                L=numpy.linalg.cholesky(Dinv)
-                LT=L.T
+                        D[x*N:(x+1)*N,y*N:(y+1)*N] = D12
+                        D[y*N:(y+1)*N,x*N:(x+1)*N] = D12
+                        ind += 1
+                    #diagD = numpy.zeros(256)
+                    #if h == 17 : 
+                    #    for ii in range(256): diagD[ii] =  D[ii,ii]
+                    #Dinv=numpy.linalg.inv(D)
+                    #L=numpy.linalg.cholesky(Dinv)
+                    try:
+                       Dinv=numpy.linalg.inv(D)
+                       L=numpy.linalg.cholesky(Dinv)
+                    except:
+                       Dinv = D*numpy.nan
+                       L= D*numpy.nan
+                    LT=L.T
 
-                dp = numpy.dot(LT,d)
-
+                    dp = numpy.dot(LT,d)
+                
                 #Initial values
-                data_spc = self.dataIn.data_spc[coord,:,h]
-
-                if (h>0)and(error1[3]<5):
-                    p0 = self.dataOut.data_param[i,:,h-1]
-                else:
-                    p0 = numpy.array(self.dataOut.library.initialValuesFunction(data_spc, constants, i))
-
-                try:
+                    data_spc = dataOut.data_spc[coord,:,h]
+                    if (h>6)and(error1[3]<25):
+                        p0 = dataOut.data_param[i,:,h-1]
+                    else:
+                        p0 = numpy.array(self.library.initialValuesFunction(data_spc, constants))# sin el i(data_spc, constants, i)
+                    p0[3] = fd0
+                    try:
                     #Least Squares
-                    minp,covp,infodict,mesg,ier = optimize.leastsq(self.__residFunction,p0,args=(dp,LT,constants),full_output=True)
-#                   minp,covp = optimize.leastsq(self.__residFunction,p0,args=(dp,LT,constants))
+                        minp,covp,infodict,mesg,ier = optimize.leastsq(self.__residFunction,p0,args=(dp,LT,constants),full_output=True)
+                    #minp,covp = optimize.leastsq(self.__residFunction,p0,args=(dp,LT,constants))
                     #Chi square error
-                    error0 = numpy.sum(infodict['fvec']**2)/(2*N)
+                        error0 = numpy.sum(infodict['fvec']**2)/(2*N)
                     #Error with Jacobian
-                    error1 = self.dataOut.library.errorFunction(minp,constants,LT)
-                except:
+                        error1 = self.library.errorFunction(minp,constants,LT)
+
+                    except:
+                        minp = p0*numpy.nan
+                        error0 = numpy.nan
+                        error1 = p0*numpy.nan
+                else :
+                    data_spc = dataOut.data_spc[coord,:,h]
+                    p0 = numpy.array(self.library.initialValuesFunction(data_spc, constants))
                     minp = p0*numpy.nan
                     error0 = numpy.nan
-                    error1 = p0*numpy.nan
+                    error1 = p0*numpy.nan                                         
+                if dataOut.data_param is None:
+                    dataOut.data_param = numpy.zeros((nGroups, p0.size, nHeights))*numpy.nan
+                    dataOut.data_error = numpy.zeros((nGroups, p0.size + 1, nHeights))*numpy.nan
+                
+                dataOut.data_error[i,:,h] = numpy.hstack((error0,error1))
+                dataOut.data_param[i,:,h] = minp
+            for ht in range(nHeights-1) :
+                smooth = coh_num_aver[i+1,ht] #datc[0,ht,0,beam] 
+                dataOut.data_paramC[4*i,ht,1] = smooth
+                signalpn0 = (clean_coh_spectra[i*2  ,1:(nProf-0),ht])/smooth #coh_spectra
+                signalpn1 = (clean_coh_spectra[i*2+1,1:(nProf-0),ht])/smooth   
+                val0 = (signalpn0 > 0).nonzero()
+                val0 = val0[0]
+                if len(val0) == 0 : val0_npoints = nProf 
+                else : val0_npoints = len(val0) 
+                
+                val1 = (signalpn1 > 0).nonzero()
+                val1 = val1[0]
+                if len(val1) == 0 : val1_npoints = nProf
+                else : val1_npoints = len(val1)
 
-                #Save
-                if self.dataOut.data_param is None:
-                    self.dataOut.data_param = numpy.zeros((nGroups, p0.size, nHeights))*numpy.nan
-                    self.dataOut.data_error = numpy.zeros((nGroups, p0.size + 1, nHeights))*numpy.nan
+                dataOut.data_paramC[0+4*i,ht,0] = numpy.sum((signalpn0/val0_npoints))/n0
+                dataOut.data_paramC[1+4*i,ht,0] = numpy.sum((signalpn1/val1_npoints))/n1
+        
+                signal0 = (signalpn0-n0) # > 0
+                vali = (signal0 < 0).nonzero()
+                vali = vali[0]
+                if len(vali) > 0 : signal0[vali] = 0
+                signal1 = (signalpn1-n1) #> 0
+                vali = (signal1 < 0).nonzero()
+                vali = vali[0]
+                if len(vali) > 0 : signal1[vali] = 0
+                snr0 = numpy.sum(signal0/n0)/(nProf-1)
+                snr1 = numpy.sum(signal1/n1)/(nProf-1)
+                doppler = absc[1:]
+                if snr0 >= snrth and snr1 >= snrth and smooth :
+                    signalpn0_n0 = signalpn0
+                    signalpn0_n0[val0] = signalpn0[val0] - n0
+                    mom0 = self.moments(doppler,signalpn0-n0,nProf)
+                    signalpn1_n1 = signalpn1
+                    signalpn1_n1[val1] = signalpn1[val1] - n1
+                    mom1 = self.moments(doppler,signalpn1_n1,nProf)
+                    dataOut.data_paramC[2+4*i,ht,0] = (mom0[0]+mom1[0])/2.
+                    dataOut.data_paramC[3+4*i,ht,0] = (mom0[1]+mom1[1])/2.
 
-                self.dataOut.data_error[i,:,h] = numpy.hstack((error0,error1))
-                self.dataOut.data_param[i,:,h] = minp
-        return
+        dataOut.data_spc = jspectra
+        dataOut.spc_noise = my_noises*nProf*M
+        if getSNR:
+            listChannels = groupArray.reshape((groupArray.size))
+            listChannels.sort()
 
+            dataOut.data_snr = self.__getSNR(dataOut.data_spc[listChannels,:,:], my_noises[listChannels])
+        return dataOut
+    
     def __residFunction(self, p, dp, LT, constants):
 
-        fm = self.dataOut.library.modelFunction(p, constants)
+        fm = self.library.modelFunction(p, constants)
         fmp=numpy.dot(LT,fm)
-
         return  dp-fmp
 
     def __getSNR(self, z, noise):
@@ -1587,7 +2939,7 @@ class SpectralFitting(Operation):
         SNR = SNR.T
         return SNR
 
-    def __chisq(p,chindex,hindex):
+    def __chisq(self, p, chindex, hindex):
         #similar to Resid but calculates CHI**2
         [LT,d,fm]=setupLTdfm(p,chindex,hindex)
         dp=numpy.dot(LT,d)
@@ -1640,7 +2992,6 @@ class WindProfiler(Operation):
 
     def __calculateMatA(self, dir_cosu, dir_cosv, dir_cosw, horOnly):
 
-#
         if horOnly:
             A = numpy.c_[dir_cosu,dir_cosv]
         else:
@@ -1656,7 +3007,6 @@ class WindProfiler(Operation):
         minid = listPhi.index(min(listPhi))
 
         rango = list(range(len(phi)))
-   #     rango = numpy.delete(rango,maxid)
 
         heiRang1 = heiRang*math.cos(phi[maxid])
         heiRangAux = heiRang*math.cos(phi[minid])
@@ -1686,17 +3036,11 @@ class WindProfiler(Operation):
     def __calculateVelUVW(self, A, velRadial):
 
         #Operacion Matricial
-#         velUVW = numpy.zeros((velRadial.shape[1],3))
-#         for ind in range(velRadial.shape[1]):
-#             velUVW[ind,:] = numpy.dot(A,velRadial[:,ind])
-#         velUVW = velUVW.transpose()
         velUVW = numpy.zeros((A.shape[0],velRadial.shape[1]))
         velUVW[:,:] = numpy.dot(A,velRadial)
 
 
         return velUVW
-
-#     def techniqueDBS(self, velRadial0, dirCosx, disrCosy, azimuth, correct, horizontalOnly, heiRang, SNR0):
 
     def techniqueDBS(self, kwargs):
         """
@@ -1774,17 +3118,6 @@ class WindProfiler(Operation):
 
         return distx, disty, dist, ang
         #Calculo de Matrices
-#         nPairs = len(pairs)
-#         ang1 = numpy.zeros((nPairs, 2, 1))
-#         dist1 = numpy.zeros((nPairs, 2, 1))
-#
-#         for j in range(nPairs):
-#             dist1[j,0,0] = dist[pairs[j][0]]
-#             dist1[j,1,0] = dist[pairs[j][1]]
-#             ang1[j,0,0] = ang[pairs[j][0]]
-#             ang1[j,1,0] = ang[pairs[j][1]]
-#
-#         return distx,disty, dist1,ang1
 
 
     def __calculateVelVer(self, phase, lagTRange, _lambda):
@@ -1812,26 +3145,6 @@ class WindProfiler(Operation):
 
         return vel
 
-#     def __getPairsAutoCorr(self, pairsList, nChannels):
-#
-#         pairsAutoCorr = numpy.zeros(nChannels, dtype = 'int')*numpy.nan
-#
-#         for l in range(len(pairsList)):
-#             firstChannel = pairsList[l][0]
-#             secondChannel = pairsList[l][1]
-#
-#             #Obteniendo pares de Autocorrelacion
-#             if firstChannel == secondChannel:
-#                 pairsAutoCorr[firstChannel] = int(l)
-#
-#         pairsAutoCorr = pairsAutoCorr.astype(int)
-#
-#         pairsCrossCorr = range(len(pairsList))
-#         pairsCrossCorr = numpy.delete(pairsCrossCorr,pairsAutoCorr)
-#
-#         return pairsAutoCorr, pairsCrossCorr
-
-#     def techniqueSA(self, pairsSelected, pairsList, nChannels, tau, azimuth, _lambda, position_x, position_y, lagTRange, correctFactor):
     def techniqueSA(self, kwargs):
 
         """
@@ -1859,22 +3172,10 @@ class WindProfiler(Operation):
         _lambda = kwargs['_lambda']
 
         #Cross Correlation pairs obtained
-#         pairsAutoCorr, pairsCrossCorr = self.__getPairsAutoCorr(pairssList, nChannels)
-#         pairsArray = numpy.array(pairsList)[pairsCrossCorr]
-#         pairsSelArray = numpy.array(pairsSelected)
-#         pairs = []
-#
-#         #Wind estimation pairs obtained
-#         for i in range(pairsSelArray.shape[0]/2):
-#             ind1 = numpy.where(numpy.all(pairsArray == pairsSelArray[2*i], axis = 1))[0][0]
-#             ind2 = numpy.where(numpy.all(pairsArray == pairsSelArray[2*i + 1], axis = 1))[0][0]
-#             pairs.append((ind1,ind2))
 
         indtau = tau.shape[0]/2
         tau1 = tau[:indtau,:]
         tau2 = tau[indtau:-1,:]
-#         tau1 = tau1[pairs,:]
-#         tau2 = tau2[pairs,:]
         phase1 = tau[-1,:]
 
         #---------------------------------------------------------------------
@@ -1884,11 +3185,6 @@ class WindProfiler(Operation):
         winds = stats.nanmean(winds, axis=0)
         #---------------------------------------------------------------------
         #Metodo General
-#         distx, disty, dist = self.calculateDistance(position_x,position_y,pairsCrossCorr, pairsList, azimuth)
-#         #Calculo Coeficientes de Funcion de Correlacion
-#         F,G,A,B,H = self.calculateCoef(tau1,tau2,distx,disty,n)
-#         #Calculo de Velocidades
-#         winds = self.calculateVelUV(F,G,A,B,H)
 
         #---------------------------------------------------------------------
         winds[2,:] = self.__calculateVelVer(phase1, lagTRange, _lambda)
@@ -1950,8 +3246,6 @@ class WindProfiler(Operation):
                 azim = meteorAux[:, 3]*numpy.pi/180
 
                 n = numpy.cos(zen)
-        #         m = (1 - n**2)/(1 - numpy.tan(azim)**2)
-        #         l = m*numpy.tan(azim)
                 l = numpy.sin(zen)*numpy.sin(azim)
                 m = numpy.sin(zen)*numpy.cos(azim)
 
@@ -2016,7 +3310,6 @@ class WindProfiler(Operation):
 
         for t in uniqueTime:
             metArray1 = metArray[utctime==t,:]
-#         phaseDerThresh = numpy.pi/4 #reducir Phase thresh
             tmet = metArray1[:,1].astype(int)
             hmet = metArray1[:,2].astype(int)
 
@@ -2167,29 +3460,9 @@ class WindProfiler(Operation):
         elif technique == 'SA':
 
             #Parameters
-#             position_x = kwargs['positionX']
-#             position_y = kwargs['positionY']
-#             azimuth = kwargs['azimuth']
-#
-#             if kwargs.has_key('crosspairsList'):
-#                 pairs = kwargs['crosspairsList']
-#             else:
-#                 pairs = None
-#
-#             if kwargs.has_key('correctFactor'):
-#                 correctFactor = kwargs['correctFactor']
-#             else:
-#                 correctFactor = 1
-
-#             tau = dataOut.data_param
-#             _lambda = dataOut.C/dataOut.frequency
-#             pairsList = dataOut.groupList
-#             nChannels = dataOut.nChannels
-
             kwargs['groupList'] = dataOut.groupList
             kwargs['tau'] = dataOut.data_param
             kwargs['_lambda'] = dataOut.C/dataOut.frequency
-#             dataOut.data_output = self.techniqueSA(pairs, pairsList, nChannels, tau, azimuth, _lambda, position_x, position_y, absc, correctFactor)
             dataOut.data_output = self.techniqueSA(kwargs)
             dataOut.utctimeInit = dataOut.utctime
             dataOut.outputInterval = dataOut.timeInterval
@@ -2218,7 +3491,6 @@ class WindProfiler(Operation):
             dataOut.outputInterval = nHours*3600
 
             if self.__isConfig == False:
-#                 self.__initime = dataOut.datatime.replace(minute = 0, second = 0, microsecond = 03)
                 #Get Initial LTC time
                 self.__initime = datetime.datetime.utcfromtimestamp(dataOut.utctime)
                 self.__initime = (self.__initime.replace(minute = 0, second = 0, microsecond = 0) - datetime.datetime(1970, 1, 1)).total_seconds()
@@ -2280,7 +3552,6 @@ class WindProfiler(Operation):
 
             if self.__isConfig == False:
                 dataOut.outputInterval = nMins*60
-#                 self.__initime = dataOut.datatime.replace(minute = 0, second = 0, microsecond = 03)
                 #Get Initial LTC time
                 initime = datetime.datetime.utcfromtimestamp(dataOut.utctime)
                 minuteAux = initime.minute
@@ -2324,8 +3595,6 @@ class EWDriftsEstimation(Operation):
         minid = listPhi.index(min(listPhi))
 
         rango = list(range(len(phi)))
-   #     rango = numpy.delete(rango,maxid)
-
         heiRang1 = heiRang*math.cos(phi[maxid])
         heiRangAux = heiRang*math.cos(phi[minid])
         indOut = (heiRang1 < heiRangAux[0]).nonzero()
@@ -2337,13 +3606,23 @@ class EWDriftsEstimation(Operation):
         for i in rango:
             x = heiRang*math.cos(phi[i])
             y1 = velRadial[i,:]
-            f1 = interpolate.interp1d(x,y1,kind = 'cubic')
+            vali= (numpy.isfinite(y1)==True).nonzero()
+            y1=y1[vali]
+            x = x[vali]
+            f1 = interpolate.interp1d(x,y1,kind = 'cubic',bounds_error=False)
 
+            #heiRang1 = x*math.cos(phi[maxid])
             x1 = heiRang1
             y11 = f1(x1)
 
             y2 = SNR[i,:]
-            f2 = interpolate.interp1d(x,y2,kind = 'cubic')
+            #print 'snr ', y2
+            x = heiRang*math.cos(phi[i])
+            vali= (y2 != -1).nonzero()
+            y2 = y2[vali]
+            x = x[vali]
+            #print 'snr  ',y2
+            f2 = interpolate.interp1d(x,y2,kind = 'cubic',bounds_error=False)
             y21 = f2(x1)
 
             velRadial1[i,:] = y11
@@ -2351,35 +3630,180 @@ class EWDriftsEstimation(Operation):
 
         return heiRang1, velRadial1, SNR1
 
-    def run(self, dataOut, zenith, zenithCorrection):
+    def run(self, dataOut, zenith, zenithCorrection,fileDrifts):
+
         heiRang = dataOut.heightList
         velRadial = dataOut.data_param[:,3,:]
+        velRadialm = dataOut.data_param[:,2:4,:]*-1
+
+        rbufc=dataOut.data_paramC[:,:,0]
+        ebufc=dataOut.data_paramC[:,:,1]
         SNR = dataOut.data_snr
+        velRerr = dataOut.data_error[:,4,:]
+        #moments=numpy.vstack(([velRadialm[0,:]],[velRadialm[0,:]],[velRadialm[1,:]],[velRadialm[1,:]]))
+        channels = dataOut.channelList
+        nChan = len(channels)
+        my_nbeams = nChan/2
+        if my_nbeams == 2:
+           moments=numpy.vstack(([velRadialm[0,:]],[velRadialm[0,:]],[velRadialm[1,:]],[velRadialm[1,:]]))
+        else : 
+           moments=numpy.vstack(([velRadialm[0,:]],[velRadialm[0,:]]))
+        dataOut.moments=moments
+        # Coherent
+        smooth_wC = ebufc[0,:]
+        p_w0C = rbufc[0,:]
+        p_w1C = rbufc[1,:]
+        w_wC = rbufc[2,:]*-1 #*radial_sign(radial EQ 1)
+        t_wC = rbufc[3,:]
+        #my_nbeams = 2
+        if my_nbeams == 1:
+           w = velRadial[0,:]
+           winds = velRadial.copy()
+           w_err = velRerr[0,:]
+           snr1 = 10*numpy.log10(SNR[0])
+        if my_nbeams == 2:
+           zenith = numpy.array(zenith)
+           zenith -= zenithCorrection
+           zenith *= numpy.pi/180
+           if  zenithCorrection != 0 :
+               heiRang1, velRadial1, SNR1 = self.__correctValues(heiRang, numpy.abs(zenith), velRadial, SNR)
+           else :
+               heiRang1 = heiRang
+               velRadial1 = velRadial
+               SNR1 = SNR
+            
+           alp = zenith[0]
+           bet = zenith[1]
 
-        zenith = numpy.array(zenith)
-        zenith -= zenithCorrection
-        zenith *= numpy.pi/180
+           w_w = velRadial1[0,:]
+           w_e = velRadial1[1,:]
+           w_w_err = velRerr[0,:]
+           w_e_err = velRerr[1,:]
 
-        heiRang1, velRadial1, SNR1 = self.__correctValues(heiRang, numpy.abs(zenith), velRadial, SNR)
+           val = (numpy.isfinite(w_w)==False).nonzero()
+           val = val[0]
+           bad = val
+           if len(bad) > 0 :
+               w_w[bad] = w_wC[bad]
+               w_w_err[bad]= numpy.nan
+           # if my_nbeams == 2:
+           smooth_eC=ebufc[4,:]
+           p_e0C = rbufc[4,:]
+           p_e1C = rbufc[5,:]
+           w_eC = rbufc[6,:]*-1
+           t_eC = rbufc[7,:]
+           val = (numpy.isfinite(w_e)==False).nonzero()
+           val = val[0]
+           bad = val
+           if len(bad) > 0 :
+               w_e[bad] = w_eC[bad]
+               w_e_err[bad]= numpy.nan
+                
+           w = (w_w*numpy.sin(bet) - w_e*numpy.sin(alp))/(numpy.cos(alp)*numpy.sin(bet) - numpy.cos(bet)*numpy.sin(alp))   
+           u = (w_w*numpy.cos(bet) - w_e*numpy.cos(alp))/(numpy.sin(alp)*numpy.cos(bet) - numpy.sin(bet)*numpy.cos(alp))   
 
-        alp = zenith[0]
-        bet = zenith[1]
+           w_err = numpy.sqrt((w_w_err*numpy.sin(bet))**2.+(w_e_err*numpy.sin(alp))**2.)/ numpy.absolute(numpy.cos(alp)*numpy.sin(bet)-numpy.cos(bet)*numpy.sin(alp))
+           u_err = numpy.sqrt((w_w_err*numpy.cos(bet))**2.+(w_e_err*numpy.cos(alp))**2.)/ numpy.absolute(numpy.cos(alp)*numpy.sin(bet)-numpy.cos(bet)*numpy.sin(alp))
+        
+           winds = numpy.vstack((w,u))
 
-        w_w = velRadial1[0,:]
-        w_e = velRadial1[1,:]
-
-        w = (w_w*numpy.sin(bet) - w_e*numpy.sin(alp))/(numpy.cos(alp)*numpy.sin(bet) - numpy.cos(bet)*numpy.sin(alp))
-        u = (w_w*numpy.cos(bet) - w_e*numpy.cos(alp))/(numpy.sin(alp)*numpy.cos(bet) - numpy.sin(bet)*numpy.cos(alp))
-
-        winds = numpy.vstack((u,w))
-
-        dataOut.heightList = heiRang1
+           dataOut.heightList = heiRang1
+           snr1 = 10*numpy.log10(SNR1[0])
         dataOut.data_output = winds
-        dataOut.data_snr = SNR1
-
+        #snr1 = 10*numpy.log10(SNR1[0])
+        dataOut.data_snr1 = numpy.reshape(snr1,(1,snr1.shape[0]))
         dataOut.utctimeInit = dataOut.utctime
         dataOut.outputInterval = dataOut.timeInterval
-        return
+        
+        hei_aver0 = 218 
+        jrange = 450 #900 para HA drifts
+        deltah = 15 # para EWDrifts 15.0 MP 15 #dataOut.spacing(0)
+        h0 = 0.0 #dataOut.first_height(0)
+        heights = dataOut.heightList
+        nhei = len(heights)
+         
+        range1 = numpy.arange(nhei) * deltah + h0
+ 
+        #jhei = WHERE(range1 GE hei_aver0 , jcount)
+        jhei = (range1 >= hei_aver0).nonzero()
+        if len(jhei[0]) > 0 :
+            h0_index = jhei[0][0] # Initial height for getting averages 218km
+ 
+        mynhei = 7
+        nhei_avg = int(jrange/deltah)
+        h_avgs = int(nhei_avg/mynhei)
+        nhei_avg = h_avgs*(mynhei-1)+mynhei
+ 
+        navgs = numpy.zeros(mynhei,dtype='float')
+        delta_h = numpy.zeros(mynhei,dtype='float')
+        range_aver = numpy.zeros(mynhei,dtype='float')
+        for ih in range( mynhei-1 ):
+            range_aver[ih] = numpy.sum(range1[h0_index+h_avgs*ih:h0_index+h_avgs*(ih+1)-0])/h_avgs
+            navgs[ih] = h_avgs
+            delta_h[ih] = deltah*h_avgs
+         
+        range_aver[mynhei-1] = numpy.sum(range1[h0_index:h0_index+6*h_avgs-0])/(6*h_avgs)
+        navgs[mynhei-1] = 6*h_avgs
+        delta_h[mynhei-1] = deltah*6*h_avgs
+        
+        wA = w[h0_index:h0_index+nhei_avg-0]
+        wA_err = w_err[h0_index:h0_index+nhei_avg-0]
+
+        for i in range(5) :
+            vals = wA[i*h_avgs:(i+1)*h_avgs-0]
+            errs = wA_err[i*h_avgs:(i+1)*h_avgs-0]
+            avg = numpy.nansum(vals/errs**2.)/numpy.nansum(1./errs**2.)
+            sigma = numpy.sqrt(1./numpy.nansum(1./errs**2.))
+            wA[6*h_avgs+i] = avg
+            wA_err[6*h_avgs+i] = sigma
+         
+ 
+        vals = wA[0:6*h_avgs-0]
+        errs=wA_err[0:6*h_avgs-0]
+        avg = numpy.nansum(vals/errs**2.)/numpy.nansum(1./errs**2)
+        sigma = numpy.sqrt(1./numpy.nansum(1./errs**2.))
+        wA[nhei_avg-1] = avg
+        wA_err[nhei_avg-1] = sigma
+ 
+        wA = wA[6*h_avgs:nhei_avg-0]
+        wA_err=wA_err[6*h_avgs:nhei_avg-0]
+        if my_nbeams == 2 :
+
+            uA = u[h0_index:h0_index+nhei_avg]
+            uA_err=u_err[h0_index:h0_index+nhei_avg]
+
+            for i in range(5) :
+                vals = uA[i*h_avgs:(i+1)*h_avgs-0]
+                errs=uA_err[i*h_avgs:(i+1)*h_avgs-0]
+                avg = numpy.nansum(vals/errs**2.)/numpy.nansum(1./errs**2.)
+                sigma = numpy.sqrt(1./numpy.nansum(1./errs**2.))
+                uA[6*h_avgs+i] = avg
+                uA_err[6*h_avgs+i]=sigma
+
+            vals = uA[0:6*h_avgs-0]
+            errs = uA_err[0:6*h_avgs-0]
+            avg = numpy.nansum(vals/errs**2.)/numpy.nansum(1./errs**2.)
+            sigma = numpy.sqrt(1./numpy.nansum(1./errs**2.))
+            uA[nhei_avg-1] = avg
+            uA_err[nhei_avg-1] = sigma
+            uA = uA[6*h_avgs:nhei_avg-0]
+            uA_err = uA_err[6*h_avgs:nhei_avg-0]
+            dataOut.drifts_avg = numpy.vstack((wA,uA))
+        if my_nbeams == 1: dataOut.drifts_avg = wA
+        tini=time.localtime(dataOut.utctime)
+        datefile= str(tini[0]).zfill(4)+str(tini[1]).zfill(2)+str(tini[2]).zfill(2)
+        nfile = fileDrifts+'/jro'+datefile+'drifts.txt'
+
+        f1 = open(nfile,'a')
+
+        datedriftavg=str(tini[0])+' '+str(tini[1])+' '+str(tini[2])+' '+str(tini[3])+' '+str(tini[4])
+        driftavgstr=str(dataOut.drifts_avg)
+
+        numpy.savetxt(f1,numpy.column_stack([tini[0],tini[1],tini[2],tini[3],tini[4]]),fmt='%4i')
+        numpy.savetxt(f1,dataOut.drifts_avg,fmt='%10.2f')
+        f1.close()
+
+        return dataOut
 
 #---------------    Non Specular Meteor    ----------------
 
@@ -2421,7 +3845,6 @@ class NonSpecularMeteorDetection(Operation):
             nPairs = data_ccf.shape[0]
             #----------------------    Coherence and Phase   --------------------------
             phase = numpy.zeros(data_ccf[:,0,:,:].shape)
-#             phase1 = numpy.copy(phase)
             coh1 = numpy.zeros(data_ccf[:,0,:,:].shape)
 
             for p in range(nPairs):
@@ -2429,42 +3852,16 @@ class NonSpecularMeteorDetection(Operation):
                 ch1 = pairsList[p][1]
                 ccf = data_ccf[p,0,:,:]/numpy.sqrt(data_acf[ch0,0,:,:]*data_acf[ch1,0,:,:])
                 phase[p,:,:] = ndimage.median_filter(numpy.angle(ccf), size = (5,1)) #median filter
-#                 phase1[p,:,:] = numpy.angle(ccf) #median filter
                 coh1[p,:,:] = ndimage.median_filter(numpy.abs(ccf), 5) #median filter
-#                 coh1[p,:,:] = numpy.abs(ccf) #median filter
             coh = numpy.nanmax(coh1, axis = 0)
-#             struc = numpy.ones((5,1))
-#             coh = ndimage.morphology.grey_dilation(coh, size=(10,1))
             #----------------------    Radial Velocity    ----------------------------
             phaseAux = numpy.mean(numpy.angle(data_acf[:,1,:,:]), axis = 0)
             velRad = phaseAux*lamb/(4*numpy.pi*tSamp)
 
             if allData:
                 boolMetFin = ~numpy.isnan(SNRm)
-#                 coh[:-1,:] = numpy.nanmean(numpy.abs(phase[:,1:,:] - phase[:,:-1,:]),axis=0)
             else:
                 #------------------------    Meteor mask    ---------------------------------
-#                 #SNR mask
-#                 boolMet = (SNRdB>SNRthresh)#|(~numpy.isnan(SNRdB))
-#
-#                 #Erase small objects
-#                 boolMet1 = self.__erase_small(boolMet, 2*sec, 5)
-#
-#                 auxEEJ = numpy.sum(boolMet1,axis=0)
-#                 indOver = auxEEJ>nProfiles*0.8  #Use this later
-#                 indEEJ = numpy.where(indOver)[0]
-#                 indNEEJ = numpy.where(~indOver)[0]
-#
-#                 boolMetFin = boolMet1
-#
-#                 if indEEJ.size > 0:
-#                     boolMet1[:,indEEJ] = False  #Erase heights with EEJ
-#
-#                     boolMet2 = coh > cohThresh
-#                     boolMet2 = self.__erase_small(boolMet2, 2*sec,5)
-#
-#                     #Final Meteor mask
-#                     boolMetFin = boolMet1|boolMet2
 
                 #Coherence mask
                 boolMet1 = coh > 0.75
@@ -2474,14 +3871,9 @@ class NonSpecularMeteorDetection(Operation):
                 #Derivative mask
                 derPhase = numpy.nanmean(numpy.abs(phase[:,1:,:] - phase[:,:-1,:]),axis=0)
                 boolMet2 = derPhase < 0.2
-#                 boolMet2 = ndimage.morphology.binary_opening(boolMet2)
-#                 boolMet2 = ndimage.morphology.binary_closing(boolMet2, structure = numpy.ones((10,1)))
                 boolMet2 = ndimage.median_filter(boolMet2,size=5)
                 boolMet2 = numpy.vstack((boolMet2,numpy.full((1,nHeights), True, dtype=bool)))
-#                 #Final mask
-#                 boolMetFin = boolMet2
                 boolMetFin = boolMet1&boolMet2
-#                 boolMetFin = ndimage.morphology.binary_dilation(boolMetFin)
             #Creating data_param
             coordMet = numpy.where(boolMetFin)
 
@@ -2502,17 +3894,13 @@ class NonSpecularMeteorDetection(Operation):
 
             #Radial Velocities
             phase = numpy.angle(data_acf[:,1,:,:])
-#             phase = ndimage.median_filter(numpy.angle(data_acf[:,1,:,:]), size = (1,5,1))
             velRad = phase*lamb/(4*numpy.pi*tSamp)
 
             #Spectral width
-#             acf1 = ndimage.median_filter(numpy.abs(data_acf[:,1,:,:]), size = (1,5,1))
-#             acf2 = ndimage.median_filter(numpy.abs(data_acf[:,2,:,:]), size = (1,5,1))
             acf1 = data_acf[:,1,:,:]
             acf2 = data_acf[:,2,:,:]
 
             spcWidth = (lamb/(2*numpy.sqrt(6)*numpy.pi*tSamp))*numpy.sqrt(numpy.log(acf1/acf2))
-#             velRad = ndimage.median_filter(velRad, size = (1,5,1))
             if allData:
                 boolMetFin = ~numpy.isnan(SNRdB)
             else:
@@ -2527,7 +3915,6 @@ class NonSpecularMeteorDetection(Operation):
                 #Spectral Width
                 boolMet3 = spcWidth < 30
                 boolMet3 = ndimage.median_filter(boolMet3, (1,5,5))
-#                 boolMetFin = self.__erase_small(boolMet1, 10,5)
                 boolMetFin = boolMet1&boolMet2&boolMet3
 
             #Creating data_param
@@ -2546,7 +3933,6 @@ class NonSpecularMeteorDetection(Operation):
             data_param[:,5] = velRad[cmet,tmet,hmet].T
             data_param[:,6] = spcWidth[cmet,tmet,hmet].T
 
-#         self.dataOut.data_param = data_int
         if len(data_param) == 0:
             dataOut.flagNoData = True
         else:
@@ -2652,37 +4038,14 @@ class SMDetection(Operation):
 
         #Getting Pairslist
         if channelPositions is None:
-#             channelPositions = [(2.5,0), (0,2.5), (0,0), (0,4.5), (-2,0)]   #T
             channelPositions = [(4.5,2), (2,4.5), (2,2), (2,0), (0,2)]   #Estrella
         meteorOps = SMOperations()
         pairslist0, distances = meteorOps.getPhasePairs(channelPositions)
         heiRang = dataOut.heightList
         #Get Beacon signal - No Beacon signal anymore
-#         newheis = numpy.where(self.dataOut.heightList>self.dataOut.radarControllerHeaderObj.Taus[tauindex])
-#
-#         if hei_ref != None:
-#             newheis = numpy.where(self.dataOut.heightList>hei_ref)
-#
-
-
         #****************REMOVING HARDWARE PHASE DIFFERENCES***************
         # see if the user put in pre defined phase shifts
         voltsPShift = dataOut.data_pre.copy()
-
-#         if predefinedPhaseShifts != None:
-#             hardwarePhaseShifts = numpy.array(predefinedPhaseShifts)*numpy.pi/180
-#
-# #         elif beaconPhaseShifts:
-# #             #get hardware phase shifts using beacon signal
-# #             hardwarePhaseShifts = self.__getHardwarePhaseDiff(self.dataOut.data_pre, pairslist, newheis, 10)
-# #             hardwarePhaseShifts = numpy.insert(hardwarePhaseShifts,centerReceiverIndex,0)
-#
-#         else:
-#             hardwarePhaseShifts = numpy.zeros(5)
-#
-#         voltsPShift = numpy.zeros((self.dataOut.data_pre.shape[0],self.dataOut.data_pre.shape[1],self.dataOut.data_pre.shape[2]), dtype = 'complex')
-#         for i in range(self.dataOut.data_pre.shape[0]):
-#             voltsPShift[i,:,:] = self.__shiftPhase(self.dataOut.data_pre[i,:,:], hardwarePhaseShifts[i])
 
         #******************END OF REMOVING HARDWARE PHASE DIFFERENCES*********
 
@@ -2693,7 +4056,6 @@ class SMDetection(Operation):
             voltsPShift[i] = voltsPShift[i] - voltsDC[i]
 
         #Don't considerate last heights, theyre used to calculate Hardware Phase Shift
-#         voltsPShift = voltsPShift[:,:,:newheis[0][0]]
 
         #************ FIND POWER OF DATA W/COH OR NON COH DETECTION (3.4) **********
         #Coherent Detection
@@ -2709,7 +4071,6 @@ class SMDetection(Operation):
         #********** FIND THE NOISE LEVEL AND POSSIBLE METEORS ****************
         #Get noise
         noise, noise1 = self.__getNoise(powerNet, noise_timeStep, dataOut.timeInterval)
-#         noise = self.getNoise1(powerNet, noise_timeStep, self.dataOut.timeInterval)
         #Get signal threshold
         signalThresh = noise_multiple*noise
         #Meteor echoes detection
@@ -2732,7 +4093,6 @@ class SMDetection(Operation):
         thresh = [phaseThresh, noise_multiple, SNRThresh]
         #Meteor reestimation  (Errors N 1, 6, 12, 17)
         listMeteors2, listMeteorsPower, listMeteorsVolts = self.__meteorReestimation(listMeteors1, voltsPShift, pairslist0, thresh, noise, dataOut.timeInterval, dataOut.frequency)
-#         listMeteors2, listMeteorsPower, listMeteorsVolts = self.meteorReestimation3(listMeteors2, listMeteorsPower, listMeteorsVolts, voltsPShift, pairslist, thresh, noise)
         #Estimation of decay times (Errors N 7, 8, 11)
         listMeteors3 = self.__estimateDecayTime(listMeteors2, listMeteorsPower, dataOut.timeInterval, dataOut.frequency)
         #*******************     END OF METEOR REESTIMATION    *******************
@@ -2762,24 +4122,6 @@ class SMDetection(Operation):
             jph = numpy.array([0,0,0,0])
             h = (hmin,hmax)
             arrayParameters = meteorOps.getMeteorParams(arrayParameters, azimuth, h, pairsList, distances, jph)
-
-#             #Calculate AOA (Error N 3, 4)
-#             #JONES ET AL. 1998
-#             error = arrayParameters[:,-1]
-#             AOAthresh = numpy.pi/8
-#             phases = -arrayParameters[:,9:13]
-#             arrayParameters[:,4:7], arrayParameters[:,-1] = meteorOps.getAOA(phases, pairsList, error, AOAthresh, azimuth)
-#
-#             #Calculate Heights (Error N 13 and 14)
-#             error = arrayParameters[:,-1]
-#             Ranges = arrayParameters[:,2]
-#             zenith = arrayParameters[:,5]
-#             arrayParameters[:,3], arrayParameters[:,-1] = meteorOps.getHeights(Ranges, zenith, error, hmin, hmax)
-#             error = arrayParameters[:,-1]
-        #*********************    END OF PARAMETERS CALCULATION    **************************
-
-        #***************************+     PASS DATA TO NEXT STEP    **********************
-#             arrayFinal = arrayParameters.reshape((1,arrayParameters.shape[0],arrayParameters.shape[1]))
             dataOut.data_param = arrayParameters
 
             if arrayParameters is None:
@@ -2806,7 +4148,6 @@ class SMDetection(Operation):
             phaseCCF = numpy.mean(phaseCCF, axis = 2)
             phaseOffset[:,i] = phaseCCF.transpose()
             nMin = nMax
-#         phaseDiff, phaseArrival = self.estimatePhaseDifference(voltage, pairslist)
 
         #Remove Outliers
         factor = 2
@@ -2828,7 +4169,6 @@ class SMDetection(Operation):
         nChannel = array.shape[0]
         nHeights = array.shape[2]
         numPairs = len(pairslist)
-#         phaseCCF = numpy.zeros((nChannel, 5, nHeights))
         phaseCCF = numpy.angle(self.__calculateCCF(array, pairslist, [-2,-1,0,1,2]))
 
         #Correct phases
@@ -2840,10 +4180,6 @@ class SMDetection(Operation):
                 signo = -numpy.sign(derPhaseCCF[indDer[0][i],indDer[1][i],indDer[2][i]])
                 phaseCCF[indDer[0][i],indDer[1][i]+1:,:] += signo*2*numpy.pi
 
-#         for j in range(numSides):
-#             phaseCCFAux = self.calculateCCF(arrayCenter, arraySides[j,:,:], [-2,1,0,1,2])
-#             phaseCCF[j,:,:] = numpy.angle(phaseCCFAux)
-#
         #Linear
         phaseInt = numpy.zeros((numPairs,1))
         angAllCCF = phaseCCF[:,[0,1,3,4],0]
@@ -2856,10 +4192,6 @@ class SMDetection(Operation):
 
         #Dealias
         phaseArrival = numpy.angle(numpy.exp(1j*phaseArrival))
-#         indAlias = numpy.where(phaseArrival > numpy.pi)
-#         phaseArrival[indAlias] -= 2*numpy.pi
-#         indAlias = numpy.where(phaseArrival < -numpy.pi)
-#         phaseArrival[indAlias] += 2*numpy.pi
 
         return phaseDiff, phaseArrival
 
@@ -2875,10 +4207,6 @@ class SMDetection(Operation):
 
         pairsarray = numpy.array(pairslist)
         indSides = pairsarray[:,1]
-#         indSides = numpy.array(range(nChannel))
-#         indSides = numpy.delete(indSides, indCenter)
-#
-#         listCenter = numpy.array_split(volts[indCenter,:,:], numBlocks, 0)
         listBlocks = numpy.array_split(volts, numBlocks, 1)
 
         startInd = 0
@@ -2889,7 +4217,6 @@ class SMDetection(Operation):
             endInd = endInd + listBlocks[i].shape[1]
 
             arrayBlock = listBlocks[i]
-#             arrayBlockCenter = listCenter[i]
 
             #Estimate the Phase Difference
             phaseDiff, aux = self.__estimatePhaseDifference(arrayBlock, pairslist)
@@ -2946,8 +4273,6 @@ class SMDetection(Operation):
 
             arrayBlock = listPower[i]
             noiseAux = numpy.mean(arrayBlock, 0)
-#             noiseAux = numpy.median(noiseAux)
-#             noiseAux = numpy.mean(arrayBlock)
             noise[startInd:endInd,:] = noise[startInd:endInd,:] + noiseAux
 
             noiseAux1 = numpy.mean(arrayBlock)
@@ -3085,7 +4410,6 @@ class SMDetection(Operation):
                 mEndDecayTime1 = powerNet0.size
             else:
                 mEndDecayTime1 = mEndDecayTime1[0] + mPeak - 1
-#             mPeak1 = meteorVolts0[mStart1:mEnd1 + 1].argmax()
 
             #meteorVolts1.- all Channels, from start to end
             meteorVolts1 = meteorVolts0[:,mStart1:mEnd1 + 1]
@@ -3097,11 +4421,9 @@ class SMDetection(Operation):
             #####################    END PARAMETERS REESTIMATION    #########################
 
             #####################   3.8 PHASE DIFFERENCE REESTIMATION  ########################
-#             if mEnd1 - mStart1 > 4:       #Error Number 6: echo less than 5 samples long; too short for analysis
             if meteorVolts2.shape[1] > 0:
                 #Phase Difference re-estimation
                 phaseDiff1, phaseDiffint = self.__estimatePhaseDifference(meteorVolts2, pairslist1)   #Phase Difference Estimation
-#                 phaseDiff1, phaseDiffint = self.estimatePhaseDifference(meteorVolts2, pairslist)
                 meteorVolts2 = meteorVolts2.reshape(meteorVolts2.shape[0], meteorVolts2.shape[1])
                 phaseDiff11 = numpy.reshape(phaseDiff1, (phaseDiff1.shape[0],1))
                 meteorVolts2[indSides,:] = self.__shiftPhase(meteorVolts2[indSides,:], phaseDiff11[0:4])     #Phase Shifting
@@ -3242,17 +4564,11 @@ class SMDetection(Operation):
                         signo = -numpy.sign(derPhaseCCF[indDer[0][i],indDer[1][i]])
                         angAllCCF[indDer[0][i],indDer[1][i]+1:] += signo*2*numpy.pi
 
-#                     fit = scipy.stats.linregress(numpy.array([-2,-1,1,2])*timeInterval, numpy.array([phaseLagN2s[i],phaseLagN1s[i],phaseLag1s[i],phaseLag2s[i]]))
                 for j in range(numPairs):
                     fit = stats.linregress(time, angAllCCF[j,:])
                     slopes[j] = fit[0]
 
                 #Remove Outlier
-#                 indOut = numpy.argmax(numpy.abs(slopes - numpy.mean(slopes)))
-#                 slopes = numpy.delete(slopes,indOut)
-#                 indOut = numpy.argmax(numpy.abs(slopes - numpy.mean(slopes)))
-#                 slopes = numpy.delete(slopes,indOut)
-
                 radialVelocity = -numpy.mean(slopes)*(0.25/numpy.pi)*(c/freq)
                 radialError = numpy.std(slopes)*(0.25/numpy.pi)*(c/freq)
                 meteorAux[-2] = radialError
@@ -3276,21 +4592,9 @@ class SMDetection(Operation):
         arrayParameters = numpy.zeros((len(listMeteors), 13))
 
         #Date inclusion
-#         date = re.findall(r'\((.*?)\)', date)
-#         date = date[0].split(',')
-#         date = map(int, date)
-#
-#         if len(date)<6:
-#             date.append(0)
-#
-#         date = [date[0]*10000 + date[1]*100 + date[2], date[3]*10000 + date[4]*100 + date[5]]
-#         arrayDate = numpy.tile(date, (len(listMeteors), 1))
         arrayDate = numpy.tile(date, (len(listMeteors)))
 
         #Meteor array
-#         arrayMeteors[:,0] = heiRang[arrayMeteors[:,0].astype(int)]
-#         arrayMeteors = numpy.hstack((arrayDate, arrayMeteors))
-
         #Parameters Array
         arrayParameters[:,0] = arrayDate #Date
         arrayParameters[:,1] = heiRang[arrayMeteors[:,0].astype(int)] #Range
@@ -3362,12 +4666,8 @@ class SMPhaseCalibration(Operation):
             phip2 = phases[:,pairi[1]]
             d2 = d[pairi[1]]
             #Calculating gamma
-#             jdcos = alp1/(k*d1)
-#             jgamma = numpy.angle(numpy.exp(1j*(d0*alp1/d1 - alp0)))
             jgamma = -phip2*d3/d2 - phip3
             jgamma = numpy.angle(numpy.exp(1j*jgamma))
-#             jgamma[jgamma>numpy.pi] -= 2*numpy.pi
-#             jgamma[jgamma<-numpy.pi] += 2*numpy.pi
 
             #Revised distribution
             jgammaArray = numpy.hstack((jgamma,jgamma+0.5*numpy.pi,jgamma-0.5*numpy.pi))
@@ -3453,18 +4753,11 @@ class SMPhaseCalibration(Operation):
 
                     alp3 = -alp2*d3/d2 - gammas[1]
                     alp5 = -alp4*d5/d4 - gammas[0]
-#                     jph[pairy[1]] = alpha_y[iy]
-#                     jph[pairy[0]] = -gammas[1] - alpha_y[iy]*d[pairy[1]]/d[pairy[0]]
-
-#                     jph[pairx[1]] = alpha_x[ix]
-#                     jph[pairx[0]] = -gammas[0] - alpha_x[ix]*d[pairx[1]]/d[pairx[0]]
                     jph[pairsList[0][1]] = alp4
                     jph[pairsList[0][0]] = alp5
                     jph[pairsList[1][0]] = alp3
                     jph[pairsList[1][1]] = alp2
                     jph_array[:,ix,iy] = jph
-#                     d = [2.0,2.5,2.5,2.0]
-                    #falta chequear si va a leer bien  los meteoros
                     meteorsArray1 = meteorOps.getMeteorParams(meteorsArray, azimuth, h, pairsList, d, jph)
                     error = meteorsArray1[:,-1]
                     ind1 = numpy.where(error==0)[0]
@@ -3488,7 +4781,6 @@ class SMPhaseCalibration(Operation):
         dataOut.outputInterval = nHours*3600
 
         if self.__isConfig == False:
-#                 self.__initime = dataOut.datatime.replace(minute = 0, second = 0, microsecond = 03)
             #Get Initial LTC time
             self.__initime = datetime.datetime.utcfromtimestamp(dataOut.utctime)
             self.__initime = (self.__initime.replace(minute = 0, second = 0, microsecond = 0) - datetime.datetime(1970, 1, 1)).total_seconds()
@@ -3513,11 +4805,8 @@ class SMPhaseCalibration(Operation):
             k = 2*numpy.pi/lamb
             azimuth = 0
             h = (hmin, hmax)
-#             pairs = ((0,1),(2,3)) #Estrella
-#             pairs = ((1,0),(2,3)) #T
 
             if channelPositions is None:
-#             channelPositions = [(2.5,0), (0,2.5), (0,0), (0,4.5), (-2,0)]   #T
                 channelPositions = [(4.5,2), (2,4.5), (2,2), (2,0), (0,2)]   #Estrella
             meteorOps = SMOperations()
             pairslist0, distances = meteorOps.getPhasePairs(channelPositions)
@@ -3533,7 +4822,6 @@ class SMPhaseCalibration(Operation):
                 pairs.append((3,2))
             else:
                 pairs.append((2,3))
-#             distances1 = [-distances[0]*lamb, distances[1]*lamb, -distances[2]*lamb, distances[3]*lamb]
 
             meteorsArray = self.__buffer
             error = meteorsArray[:,-1]
@@ -3545,7 +4833,6 @@ class SMPhaseCalibration(Operation):
 
             #Calculate Gammas
             gammas = self.__getGammas(pairs, distances, phases)
-#             gammas = numpy.array([-21.70409463,45.76935864])*numpy.pi/180
             #Calculate Phases
             phasesOff = self.__getPhases(azimuth, h, pairs, distances, gammas, meteorsArray)
             phasesOff = phasesOff.reshape((1,phasesOff.size))
@@ -3573,7 +4860,6 @@ class SMOperations():
         AOAthresh = numpy.pi/8
         error = arrayParameters[:,-1]
         phases = -arrayParameters[:,8:12] + jph
-#         phases = numpy.unwrap(phases)
         arrayParameters[:,3:6], arrayParameters[:,-1] = self.__getAOA(phases, pairsList, distances, error, AOAthresh, azimuth)
 
         #Calculate Heights (Error N 13 and 14)
@@ -3583,9 +4869,6 @@ class SMOperations():
         arrayParameters[:,2], arrayParameters[:,-1] = self.__getHeights(Ranges, zenith, error, hmin, hmax)
 
         #----------------------- Get Final data    ------------------------------------
-#         error = arrayParameters[:,-1]
-#         ind1 = numpy.where(error==0)[0]
-#         arrayParameters = arrayParameters[ind1,:]
 
         return arrayParameters
 
@@ -3630,8 +4913,6 @@ class SMOperations():
 
             ph0_aux = ph0 + ph1
             ph0_aux = numpy.angle(numpy.exp(1j*ph0_aux))
-#             ph0_aux[ph0_aux > numpy.pi] -= 2*numpy.pi
-#             ph0_aux[ph0_aux < -numpy.pi] += 2*numpy.pi
             #First Estimation
             cosdir0[:,i] = (ph0_aux)/(2*numpy.pi*(d0 - d1))
 
@@ -3884,3 +5165,53 @@ class SMOperations():
 #         error[indInvalid1] = 13
 #
 #         return heights, error
+
+class IGRFModel(Operation):
+    """Operation to calculate Geomagnetic parameters.
+
+    Parameters:
+    -----------
+    None
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='IGRFModel', optype='other')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+
+        self.aux=1
+
+    def run(self,dataOut):
+
+        try:
+            from schainpy.model.proc import mkfact_short_2020
+        except:
+            log.warning('You should install "mkfact_short_2020" module to process IGRF Model')
+
+        if self.aux==1:
+
+            #dataOut.TimeBlockSeconds_First_Time=time.mktime(time.strptime(dataOut.TimeBlockDate))
+            #### we do not use dataOut.datatime.ctime() because it's the time of the second (next) block
+            dataOut.TimeBlockSeconds_First_Time=dataOut.TimeBlockSeconds
+            dataOut.bd_time=time.gmtime(dataOut.TimeBlockSeconds_First_Time)
+            dataOut.year=dataOut.bd_time.tm_year+(dataOut.bd_time.tm_yday-1)/364.0
+            dataOut.ut=dataOut.bd_time.tm_hour+dataOut.bd_time.tm_min/60.0+dataOut.bd_time.tm_sec/3600.0
+
+            self.aux=0
+
+            dataOut.h=numpy.arange(0.0,15.0*dataOut.MAXNRANGENDT,15.0,dtype='float32')
+            dataOut.bfm=numpy.zeros(dataOut.MAXNRANGENDT,dtype='float32')
+            dataOut.bfm=numpy.array(dataOut.bfm,order='F')
+            dataOut.thb=numpy.zeros(dataOut.MAXNRANGENDT,dtype='float32')
+            dataOut.thb=numpy.array(dataOut.thb,order='F')
+            dataOut.bki=numpy.zeros(dataOut.MAXNRANGENDT,dtype='float32')
+            dataOut.bki=numpy.array(dataOut.bki,order='F')
+
+            mkfact_short_2020.mkfact(dataOut.year,dataOut.h,dataOut.bfm,dataOut.thb,dataOut.bki,dataOut.MAXNRANGENDT)
+
+        return dataOut
