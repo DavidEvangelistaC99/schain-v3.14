@@ -12,7 +12,6 @@ import itertools
 from multiprocessing import Pool, TimeoutError
 from multiprocessing.pool import ThreadPool
 import time
-#percy
 from scipy.optimize import fmin_l_bfgs_b #optimize with bounds on state papameters
 from .jroproc_base import ProcessingUnit, Operation, MPDecorator
 from schainpy.model.data.jrodata import Parameters, hildebrand_sekhon
@@ -308,6 +307,7 @@ class SpectralFilters(Operation):
             self.spc[i,novalid,:] = dataOut.noise[i]
         dataOut.data_pre[0] = self.spc
         return dataOut
+
 
 class GaussianFit(Operation):
 
@@ -1448,11 +1448,11 @@ class SpectralMoments(Operation):
             data_param[ind,:,:] = self.__calculateMoments( data[ind,:,:] , absc , noise[ind], nicoh=nIncohInt, smooth=smooth, type1=type1, fwindow=fwindow, id_ch=ind)
 
         if proc_type == 1:
-            dataOut.moments    = data_param[:,1:,:]
-            dataOut.data_dop   = data_param[:,2]
+            dataOut.moments = data_param[:,1:,:]
+            dataOut.data_dop = data_param[:,2]
             dataOut.data_width = data_param[:,1]
-            dataOut.data_snr   = data_param[:,0]
-            dataOut.data_pow   = data_param[:,6]  # to compare with type0 proccessing
+            dataOut.data_snr = data_param[:,0]
+            dataOut.data_pow = data_param[:,6]  # to compare with type0 proccessing
             dataOut.spcpar=numpy.stack((dataOut.data_dop,dataOut.data_width,dataOut.data_snr, data_param[:,3], data_param[:,4],data_param[:,5]),axis=2)
 
         else:
@@ -1466,7 +1466,7 @@ class SpectralMoments(Operation):
         return dataOut
 
     def __calculateMoments(self, oldspec, oldfreq, n0,
-                           nicoh = None, graph = None smooth = None, type1 = None, fwindow = None, snrth = None, dc = None, aliasing = None, oldfd = None, wwauto = None,id_ch=0):
+                           nicoh = None, graph = None, smooth = None, type1 = None, fwindow = None, snrth = None, dc = None, aliasing = None, oldfd = None, wwauto = None,id_ch=0):
 
         def __GAUSSWINFIT1(A, flagPDER=0):
             nonlocal truex, xvalid
@@ -1618,6 +1618,7 @@ class SpectralMoments(Operation):
             return yfit, a, converge, sigma, chisq, chi2
         
         if (nicoh is None): nicoh = 1
+        if (graph is None): graph = 0
         if (smooth is None): smooth = 0
         if (type1 is None): type1 = 0
         if (fwindow is None): fwindow = numpy.zeros(oldfreq.size) + 1
@@ -1778,7 +1779,7 @@ class SpectralMoments(Operation):
                     power = a[0] * np
                     fd = a[1]
                     sigma_fd = gaussfn[3][1]
-                    snr = max(power/ (max(a[3],n0) * len(oldxvalid)) * converge, 1.e-20)
+                    snr = max(power/ (max(a[3],n0) * len(oldxvalid)) * converge, 1e-20)
                     w = numpy.abs(a[2])
                     n1 = max(a[3], n0)
 
@@ -1885,6 +1886,37 @@ class SpectralMoments(Operation):
         if talk:
             print('noise =', noise)
         return noise
+    #------------------    Get SA Parameters    --------------------------
+
+    def GetSAParameters(self):
+        #SA en frecuencia
+        pairslist = self.dataOut.groupList
+        num_pairs = len(pairslist)
+
+        vel = self.dataOut.abscissaList
+        spectra = self.dataOut.data_pre
+        cspectra = self.dataIn.data_cspc
+        delta_v = vel[1] - vel[0]
+
+        #Calculating the power spectrum
+        spc_pow = numpy.sum(spectra, 3)*delta_v
+        #Normalizing Spectra
+        norm_spectra = spectra/spc_pow
+        #Calculating the norm_spectra at peak
+        max_spectra = numpy.max(norm_spectra, 3)
+
+        #Normalizing Cross Spectra
+        norm_cspectra = numpy.zeros(cspectra.shape)
+
+        for i in range(num_chan):
+            norm_cspectra[i,:,:] = cspectra[i,:,:]/numpy.sqrt(spc_pow[pairslist[i][0],:]*spc_pow[pairslist[i][1],:])
+
+        max_cspectra = numpy.max(norm_cspectra,2)
+        max_cspectra_index = numpy.argmax(norm_cspectra, 2)
+
+        for i in range(num_pairs):
+            cspc_par[i,:,:] = __calculateMoments(norm_cspectra)
+    #-------------------    Get Lags    ----------------------------------
 
 class JULIADriftsEstimation(Operation):
 
@@ -1958,7 +1990,7 @@ class JULIADriftsEstimation(Operation):
         parm = dataOut.spcpar[:,hvalid,:]
         # Primer filtrado: Umbral de SNR
         for i in range(nCh):
-            dataOut.spcpar[i,hvalid,:] = self.data_filter(parm[i,:,:])[0] 
+            dataOut.spcpar[i,hvalid,:] = self.data_filter(parm[i,:,:])[0]
         zenith = numpy.array(zenith)
         zenith -= zenithCorrection
         zenith *= numpy.pi/180
@@ -2191,7 +2223,6 @@ class SpectralFitting(Operation):
         return moments    
 
     def __DiffCoherent(self, spectra, cspectra, dataOut, noise, snrth, coh_th, hei_th):
-
         nProf = dataOut.nProfiles
         heights = dataOut.heightList
         nHei = len(heights)
@@ -2306,7 +2337,6 @@ class SpectralFitting(Operation):
                 incoh_cspectra[ic,:,incoh_echoes] = cspectra[ic,:,incoh_echoes]
                 incoh_aver[pair[0],incoh_echoes]=1
                 incoh_aver[pair[1],incoh_echoes]=1
-
         return  my_incoh_spectra ,my_incoh_cspectra,my_incoh_aver,my_coh_aver, incoh_spectra, coh_spectra, incoh_cspectra, coh_cspectra, incoh_aver, coh_aver
 
     def __CleanCoherent(self,snrth, spectra, cspectra, coh_aver,dataOut, noise,clean_coh_echoes,index):
@@ -2510,7 +2540,6 @@ class SpectralFitting(Operation):
         tmp_sat_spectra = tmp_sat_spectra*numpy.nan
         tmp_sat_cspectra = cspectra.copy()
         tmp_sat_cspectra = tmp_sat_cspectra*numpy.nan
-
         val = (val_spc > 0).nonzero()
         if len(val[0]) > 0:              
                 tmp_sat_spectra[val] = in_sat_spectra[val]
@@ -2550,7 +2579,6 @@ class SpectralFitting(Operation):
         for ii in range(n2d) :
           #print ii,n2d
           tmp = array[ii,:,:]
-          #print tmp.shape, array[ii,101,:],array[ii,102,:]
           #indxs = WHERE(FINITE(tmp) AND tmp GT 0,cindxs)
           tmp = numpy.reshape(tmp,num_prof*num_hei)
           indxs1 = (numpy.isfinite(tmp)==True).nonzero()
