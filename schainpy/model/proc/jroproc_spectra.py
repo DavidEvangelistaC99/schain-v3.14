@@ -10,7 +10,6 @@ to work with Spectra data type
 
 import time
 import itertools
-
 import numpy
 # repositorio
 from schainpy.model.proc.jroproc_base import ProcessingUnit, MPDecorator, Operation
@@ -155,7 +154,6 @@ class SpectraProc(ProcessingUnit):
 
             if self.dataIn.flagDataAsBlock:
                 nVoltProfiles = self.dataIn.data.shape[1]
-
                 if nVoltProfiles == nProfiles:
                     self.buffer = self.dataIn.data.copy()
                     self.profIndex = nVoltProfiles
@@ -171,6 +169,19 @@ class SpectraProc(ProcessingUnit):
                     self.profIndex += nVoltProfiles
                     self.id_min += nVoltProfiles
                     self.id_max += nVoltProfiles
+                elif nVoltProfiles > nProfiles:
+                    self.reader.bypass = True
+                    if self.profIndex == 0:
+                        self.id_min = 0
+                        self.id_max = nProfiles
+
+                    self.buffer = self.dataIn.data[:, self.id_min:self.id_max,:]
+                    self.profIndex += nProfiles
+                    self.id_min += nProfiles
+                    self.id_max += nProfiles
+                    if self.id_max == nVoltProfiles:
+                        self.reader.bypass = False
+            
                 else:
                     raise ValueError("The type object %s has %d profiles, it should just has %d profiles" % (
                         self.dataIn.type, self.dataIn.data.shape[1], nProfiles))
@@ -191,7 +202,8 @@ class SpectraProc(ProcessingUnit):
                 self.__getFft()
                 self.dataOut.flagNoData = False
                 self.firstdatatime = None
-                self.profIndex = 0
+                if not self.reader.bypass:
+                    self.profIndex = 0
         else:
             raise ValueError("The type of input object '%s' is not valid".format(
                 self.dataIn.type))
@@ -215,7 +227,7 @@ class SpectraProc(ProcessingUnit):
 
         return
     
-    def selectFFTs(self, minFFT, maxFFT ):
+    def selectFFTs(self, minFFT, maxFFT):
         """
         Selecciona un bloque de datos en base a un grupo de valores de puntos FFTs segun el rango 
         minFFT<= FFT <= maxFFT
@@ -274,16 +286,13 @@ class SpectraProc(ProcessingUnit):
             if val >= beacon_dB[0]:
                 beacon_heiIndexList.append(avg_dB.tolist().index(val))
 
-        #data_spc = data_spc[:,:,beacon_heiIndexList]
         data_cspc = None
         if self.dataOut.data_cspc is not None:
             data_cspc = self.dataOut.data_cspc[:, :, minIndex:maxIndex + 1]
-            #data_cspc = data_cspc[:,:,beacon_heiIndexList]
 
         data_dc = None
         if self.dataOut.data_dc is not None:
             data_dc = self.dataOut.data_dc[:, minIndex:maxIndex + 1]
-            #data_dc = data_dc[:,beacon_heiIndexList]
 
         self.dataOut.data_spc = data_spc
         self.dataOut.data_cspc = data_cspc
@@ -490,20 +499,20 @@ class removeInterference(Operation):
         for i in range(cspc.shape[0]):
             LinePower= numpy.sum(realCspc[i], axis=0)
             Threshold = numpy.amax(LinePower)-numpy.sort(LinePower)[len(Heights)-int(len(Heights)*0.1)]
-            SelectedHeights = Heights[ numpy.where( LinePower < Threshold ) ]
-            InterferenceSum = numpy.sum( realCspc[i,:,SelectedHeights], axis=0 )
+            SelectedHeights = Heights[ numpy.where(LinePower < Threshold) ]
+            InterferenceSum = numpy.sum(realCspc[i,:,SelectedHeights],axis=0)
             InterferenceThresholdMin = numpy.sort(InterferenceSum)[int(len(InterferenceSum)*0.98)]
             InterferenceThresholdMax = numpy.sort(InterferenceSum)[int(len(InterferenceSum)*0.99)]
             
             
-            InterferenceRange = numpy.where( ([InterferenceSum > InterferenceThresholdMin]))# , InterferenceSum < InterferenceThresholdMax]) )
+            InterferenceRange = numpy.where(([InterferenceSum > InterferenceThresholdMin]))# , InterferenceSum < InterferenceThresholdMax]) )
             #InterferenceRange = numpy.where( ([InterferenceRange < InterferenceThresholdMax]))
             if len(InterferenceRange)<int(cspc.shape[1]*0.3):
                 cspc[i,InterferenceRange,:] = numpy.NaN
             
         self.dataOut.data_cspc = cspc
         
-    def removeInterference(self, interf = 2, hei_interf = None, nhei_interf = None, offhei_interf = None):
+    def removeInterference(self, interf=2, hei_interf=None, nhei_interf=None, offhei_interf=None):
 
         jspectra = self.dataOut.data_spc
         jcspectra = self.dataOut.data_cspc
@@ -686,14 +695,38 @@ class removeInterference(Operation):
 
         return 1
 
-    def run(self, dataOut, interf = 2,hei_interf = None, nhei_interf = None, offhei_interf = None, mode=1):
+    def run(self, dataOut, interf=2,hei_interf=None, nhei_interf=None, offhei_interf=None, mode=1):
 
         self.dataOut = dataOut
 
         if mode == 1:
-            self.removeInterference(interf = 2,hei_interf = None, nhei_interf = None, offhei_interf = None)
+            self.removeInterference(interf=2,hei_interf=None, nhei_interf=None, offhei_interf=None)
         elif mode == 2:
             self.removeInterference2()
+
+        return self.dataOut
+
+
+class deflip(Operation):
+       
+    def run(self, dataOut):
+        # arreglo 1: (num_chan, num_profiles, num_heights)
+        self.dataOut = dataOut 
+ 
+        # JULIA-oblicua, indice 2
+        # arreglo 2: (num_profiles, num_heights)
+        jspectra = self.dataOut.data_spc[2]
+        jspectra_tmp=numpy.zeros(jspectra.shape)
+        num_profiles=jspectra.shape[0]
+        freq_dc = int(num_profiles / 2)
+        # Flip con for
+        for j in range(num_profiles):
+         jspectra_tmp[num_profiles-j-1]= jspectra[j]
+        # Intercambio perfil de DC con perfil inmediato anterior
+        jspectra_tmp[freq_dc-1]= jspectra[freq_dc-1]
+        jspectra_tmp[freq_dc]= jspectra[freq_dc]
+        # canal modificado es re-escrito en el arreglo de canales
+        self.dataOut.data_spc[2] = jspectra_tmp
 
         return self.dataOut
 
