@@ -12,7 +12,7 @@ import time
 import itertools
 
 import numpy
-
+# repositorio
 from schainpy.model.proc.jroproc_base import ProcessingUnit, MPDecorator, Operation
 from schainpy.model.data.jrodata import Spectra
 from schainpy.model.data.jrodata import hildebrand_sekhon
