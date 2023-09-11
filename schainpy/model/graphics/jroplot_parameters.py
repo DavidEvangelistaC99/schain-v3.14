@@ -52,6 +52,16 @@ class DoubleGaussianSpectraCutPlot(SpectraCutPlot):
     '''
     CODE = 'cut_gaussian_fit'
 
+
+class SpectralFitObliquePlot(SpectraPlot):
+    '''
+    Plot for Spectral Oblique
+    '''
+    CODE = 'spc_moments'
+    colormap = 'jet'
+    plot_type = 'pcolor'
+
+
 class SnrPlot(RTIPlot):
     '''
     Plot for SNR Data
@@ -74,12 +84,12 @@ class DopplerPlot(RTIPlot):
     '''
 
     CODE = 'dop'
-    colormap = 'jet'
+    colormap = 'RdBu_r'
 
     def update(self, dataOut):
 
         data = {
-            'dop': 10*numpy.log10(dataOut.data_dop)    
+            'dop': dataOut.data_dop
         }
 
         return data, {}
@@ -163,7 +173,6 @@ class SkyMapPlot(Plot):
                                                                                      len(x))
         self.titles[0] = title
 
-
 class GenericRTIPlot(Plot):
     '''
     Plot for data_xxxx object
@@ -179,7 +188,7 @@ class GenericRTIPlot(Plot):
         self.nrows = self.data.shape('param')[0]
         self.nplots = self.nrows
         self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.08, 'right':0.95, 'top': 0.95})
-        
+
         if not self.xlabel:
             self.xlabel = 'Time'
 
@@ -229,7 +238,10 @@ class GenericRTIPlot(Plot):
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                ax.collections.remove(ax.collections[0])
+                try:                   
+                   ax.collections.remove(ax.collections[0])
+                except:
+                   pass    
                 ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -297,7 +309,7 @@ class PolarMapPlot(Plot):
             if ax.firsttime:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                ax.plt = ax.pcolormesh(  # r, theta, numpy.ma.array(data, mask=numpy.isnan(data)),
+                ax.plt = ax.pcolormesh(# r, theta, numpy.ma.array(data, mask=numpy.isnan(data)),
                     x, y, numpy.ma.array(data, mask=numpy.isnan(data)),
                     vmin=self.zmin,
                     vmax=self.zmax,
@@ -306,7 +318,7 @@ class PolarMapPlot(Plot):
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
                 ax.collections.remove(ax.collections[0])
-                ax.plt = ax.pcolormesh(  # r, theta, numpy.ma.array(data, mask=numpy.isnan(data)),
+                ax.plt = ax.pcolormesh(# r, theta, numpy.ma.array(data, mask=numpy.isnan(data)),
                     x, y, numpy.ma.array(data, mask=numpy.isnan(data)),
                     vmin=self.zmin,
                     vmax=self.zmax,
@@ -367,4 +379,3 @@ class PolarMapPlot(Plot):
         self.save_labels = ['{}-{}'.format(lbl, label) for lbl in self.labels]
         self.titles = ['{} {}'.format(
             self.data.parameters[x], title) for x in self.channels]
-
