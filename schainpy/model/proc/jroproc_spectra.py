@@ -63,6 +63,11 @@ class SpectraProc(ProcessingUnit):
         self.dataOut.beam.codeList = self.dataIn.beam.codeList
         self.dataOut.beam.azimuthList = self.dataIn.beam.azimuthList
         self.dataOut.beam.zenithList = self.dataIn.beam.zenithList
+        self.dataOut.runNextUnit = self.dataIn.runNextUnit
+        try:
+            self.dataOut.step = self.dataIn.step
+        except:
+            pass
 
     def __getFft(self):
         """
@@ -116,8 +121,9 @@ class SpectraProc(ProcessingUnit):
         self.dataOut.blockSize = blocksize
         self.dataOut.flagShiftFFT = False
 
-    def run(self, nProfiles=None, nFFTPoints=None, pairsList=None, ippFactor=None, shift_fft=False):
-        
+    def run(self, nProfiles=None, nFFTPoints=None, pairsList=None, ippFactor=None, shift_fft=False, runNextUnit = 0):
+
+        self.dataIn.runNextUnit = runNextUnit
         if self.dataIn.type == "Spectra":
             self.dataOut.copy(self.dataIn)
             if shift_fft:
@@ -226,13 +232,13 @@ class SpectraProc(ProcessingUnit):
         self.dataOut.pairsList = pairs
 
         return
-    
-    def selectFFTs(self, minFFT, maxFFT):
+
+    def selectFFTs(self, minFFT, maxFFT ):
         """
-        Selecciona un bloque de datos en base a un grupo de valores de puntos FFTs segun el rango 
+        Selecciona un bloque de datos en base a un grupo de valores de puntos FFTs segun el rango
         minFFT<= FFT <= maxFFT
         """
-        
+
         if (minFFT > maxFFT):
             raise ValueError("Error selecting heights: Height range (%d,%d) is not valid" % (minFFT, maxFFT))
 
@@ -262,7 +268,7 @@ class SpectraProc(ProcessingUnit):
         self.selectFFTsByIndex(minIndex, maxIndex)
 
         return 1
-    
+
     def getBeaconSignal(self, tauindex=0, channelindex=0, hei_ref=None):
         newheis = numpy.where(
             self.dataOut.heightList > self.dataOut.radarControllerHeaderObj.Taus[tauindex])
@@ -304,7 +310,7 @@ class SpectraProc(ProcessingUnit):
 
     def selectFFTsByIndex(self, minIndex, maxIndex):
         """
-        
+
         """
 
         if (minIndex < 0) or (minIndex > maxIndex):
@@ -327,7 +333,7 @@ class SpectraProc(ProcessingUnit):
         self.dataOut.data_spc = data_spc
         self.dataOut.data_cspc = data_cspc
         self.dataOut.data_dc = data_dc
-        
+
         self.dataOut.ippSeconds = self.dataOut.ippSeconds*(self.dataOut.nFFTPoints / numpy.shape(data_cspc)[1])
         self.dataOut.nFFTPoints = numpy.shape(data_cspc)[1]
         self.dataOut.profilesPerBlock = numpy.shape(data_cspc)[1]
@@ -466,7 +472,7 @@ class removeDC(Operation):
             xx_inv = numpy.linalg.inv(xx)
             xx_aux = xx_inv[0, :]
 
-            for ich in range(num_chan):                
+            for ich in range(num_chan):
                 yy = jspectra[ich, ind_vel, :]
                 jspectra[ich, freq_dc, :] = numpy.dot(xx_aux, yy)
 
@@ -490,12 +496,12 @@ class removeDC(Operation):
 class removeInterference(Operation):
 
     def removeInterference2(self):
-        
+
         cspc = self.dataOut.data_cspc
         spc = self.dataOut.data_spc
-        Heights = numpy.arange(cspc.shape[2]) 
+        Heights = numpy.arange(cspc.shape[2])
         realCspc = numpy.abs(cspc)
-        
+
         for i in range(cspc.shape[0]):
             LinePower= numpy.sum(realCspc[i], axis=0)
             Threshold = numpy.amax(LinePower)-numpy.sort(LinePower)[len(Heights)-int(len(Heights)*0.1)]
@@ -784,7 +790,7 @@ class IncohInt(Operation):
         if n is not None:
             self.n = int(n)
         else:
-            
+
             self.__integrationtime = int(timeInterval)
             self.n = None
             self.__byTime = True
@@ -901,7 +907,7 @@ class IncohInt(Operation):
 
             dataOut.data_spc = avgdata_spc
             dataOut.data_cspc = avgdata_cspc
-            dataOut.data_dc = avgdata_dc            
+            dataOut.data_dc = avgdata_dc
             dataOut.nIncohInt *= self.n
             dataOut.utctime = avgdatatime
             dataOut.flagNoData = False
@@ -909,10 +915,10 @@ class IncohInt(Operation):
         return dataOut
 
 class dopplerFlip(Operation):
-       
+
     def run(self, dataOut):
         # arreglo 1: (num_chan, num_profiles, num_heights)
-        self.dataOut = dataOut 
+        self.dataOut = dataOut
         # JULIA-oblicua, indice 2
         # arreglo 2: (num_profiles, num_heights)
         jspectra = self.dataOut.data_spc[2]

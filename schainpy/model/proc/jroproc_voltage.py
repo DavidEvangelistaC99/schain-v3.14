@@ -5,8 +5,7 @@ from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecora
 from schainpy.model.data.jrodata import Voltage,hildebrand_sekhon
 from schainpy.utils import log
 from time import time
-
-
+# voltage proc master
 
 class VoltageProc(ProcessingUnit):
 
@@ -18,13 +17,15 @@ class VoltageProc(ProcessingUnit):
         self.flip = 1
         self.setupReq = False
 
-    def run(self):
+    def run(self, runNextUnit = 0):
 
         if self.dataIn.type == 'AMISR':
             self.__updateObjFromAmisrInput()
 
         if self.dataIn.type == 'Voltage':
             self.dataOut.copy(self.dataIn)
+            self.dataOut.runNextUnit = runNextUnit
+
 
     def __updateObjFromAmisrInput(self):
 
@@ -164,8 +165,12 @@ class selectHeights(Operation):
 
         self.dataOut = dataOut
 
-        if minHei and maxHei:
+        if type(minHei) == int or type(minHei) == float:
+            v_minHei= True 
+        else:
+            v_minHei= False
 
+        if v_minHei and maxHei:
             if (minHei < self.dataOut.heightList[0]):
                 minHei = self.dataOut.heightList[0]
 
@@ -175,7 +180,6 @@ class selectHeights(Operation):
             minIndex = 0
             maxIndex = 0
             heights = self.dataOut.heightList
-
             inda = numpy.where(heights >= minHei)
             indb = numpy.where(heights <= maxHei)
 
@@ -188,7 +192,8 @@ class selectHeights(Operation):
                 maxIndex = indb[0][-1]
             except:
                 maxIndex = len(heights)
-
+        print(minIndex)
+        print(maxIndex)
         self.selectHeightsByIndex(minIndex, maxIndex)
 
         return self.dataOut
@@ -211,6 +216,8 @@ class selectHeights(Operation):
         """
 
         if self.dataOut.type == 'Voltage':
+            print(minIndex)
+            print(maxIndex)
             if (minIndex < 0) or (minIndex > maxIndex):
                 raise ValueError("Height index range (%d,%d) is not valid" % (minIndex, maxIndex))
 
@@ -647,7 +654,6 @@ class CohInt(Operation):
         if not self.isConfig:
             self.setup(n=n, stride=stride, timeInterval=timeInterval, overlapping=overlapping, byblock=byblock, **kwargs)
             self.isConfig = True
-
         if dataOut.flagDataAsBlock:
             """
             Si la data es leida por bloques, dimension = [nChannels, nProfiles, nHeis]
@@ -853,7 +859,6 @@ class Decoder(Operation):
         dataOut.nBaud = self.nBaud
 
         dataOut.data = datadec
-
         dataOut.heightList = dataOut.heightList[0:datadec.shape[-1]]
 
         dataOut.flagDecodeData = True #asumo q la data esta decodificada
@@ -865,7 +870,6 @@ class Decoder(Operation):
         self.__profIndex += 1
 
         return dataOut
-    #        dataOut.flagDeflipData = True #asumo q la data no esta sin flip
 
 
 class ProfileConcat(Operation):

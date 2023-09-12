@@ -293,12 +293,12 @@ class ReadUnitConf(ProcUnitConf):
         if name == None:
             if 'Reader' in datatype:
                 name = datatype
-                datatype = name.replace('Reader','')
+                datatype = name.replace('Reader', '')
             else:
                 name = '{}Reader'.format(datatype)
         if datatype == None:
             if 'Reader' in name:
-                datatype = name.replace('Reader','')
+                datatype = name.replace('Reader', '')
             else:
                 datatype = name
                 name = '{}Reader'.format(name)
