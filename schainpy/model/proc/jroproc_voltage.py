@@ -192,8 +192,6 @@ class selectHeights(Operation):
                 maxIndex = indb[0][-1]
             except:
                 maxIndex = len(heights)
-        print(minIndex)
-        print(maxIndex)
         self.selectHeightsByIndex(minIndex, maxIndex)
 
         return self.dataOut
