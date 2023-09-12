@@ -214,8 +214,6 @@ class selectHeights(Operation):
         """
 
         if self.dataOut.type == 'Voltage':
-            print(minIndex)
-            print(maxIndex)
             if (minIndex < 0) or (minIndex > maxIndex):
                 raise ValueError("Height index range (%d,%d) is not valid" % (minIndex, maxIndex))
 
