@@ -157,7 +157,6 @@ class SpectraProc(ProcessingUnit):
                                            nProfiles,
                                            self.dataIn.nHeights),
                                           dtype='complex')
-                print("W",self.buffer.shape)
 
             if self.dataIn.flagDataAsBlock:
                 nVoltProfiles = self.dataIn.data.shape[1]
@@ -194,7 +193,6 @@ class SpectraProc(ProcessingUnit):
                         self.dataIn.type, self.dataIn.data.shape[1], nProfiles))
                     self.dataOut.flagNoData = True
             else:
-                print(self.profIndex,self.dataIn.data.copy().shape)
                 self.buffer[:, self.profIndex, :] = self.dataIn.data.copy()
                 self.profIndex += 1
 
