@@ -252,6 +252,7 @@ class SpectraLagProc(ProcessingUnit):
             else:
                 self.dataOut.nLags = nLags
                 self.dataOut.DPL=self.dataIn.DPL
+                #self.dataOut.NDP=self.dataIn.NDP
                 self.dataOut.datalags=self.dataIn.datalags
                 self.dataOut.dataLag_spc=[]
                 self.dataOut.dataLag_cspc=[]
@@ -3966,6 +3967,7 @@ class SpectraDataToFaraday(Operation): #ISR MODE
         tmpx_abr=numpy.zeros((dataOut.nHeights,dataOut.DPL,2),'float32')
         tmpx_abi=numpy.zeros((dataOut.nHeights,dataOut.DPL,2),'float32')
         '''
+        #print("DPL",dataOut.DPL)
         #print("NDP",dataOut.NDP)
         tmpx=numpy.zeros((dataOut.NDP,dataOut.DPL,2),'float32')
         tmpx_a2=numpy.zeros((dataOut.NDP,dataOut.DPL,2),'float32')
@@ -4889,9 +4891,9 @@ class SpcVoltageDataToHybrid(SpectraDataToFaraday):
         #print(dataOut.nIncohInt,dataOut.nProfiles)
         for l in range(dataOut.DPL):
             if(l==0 or (l>=3 and l <=6)):
-                dataOut.rnint2[l]=1.0/(dataOut.nIncohInt*dataOut.nProfiles_DP)
+                dataOut.rnint2[l]=1.0/(dataOut.nIncohInt*dataOut.nProfiles)
             else:
-                dataOut.rnint2[l]=2*(1.0/(dataOut.nIncohInt*dataOut.nProfiles_DP))
+                dataOut.rnint2[l]=2*(1.0/(dataOut.nIncohInt*dataOut.nProfiles))
 
     def run(self,dataOut):
 
@@ -4899,6 +4901,7 @@ class SpcVoltageDataToHybrid(SpectraDataToFaraday):
         dataOut.lat=-11.95
         dataOut.lon=-76.87
 
+        data_to_remov_eej = dataOut.dataLag_spc[:,:,:,0]
         #dataOut.NDP=dataOut.nHeights
         #dataOut.NR=len(dataOut.channelList)
         #dataOut.DH=dataOut.heightList[1]-dataOut.heightList[0]
@@ -4906,8 +4909,8 @@ class SpcVoltageDataToHybrid(SpectraDataToFaraday):
 
         self.normFactor(dataOut)
 
-        dataOut.nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint*10
-
+        #dataOut.nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint*10
+        dataOut.NDP=dataOut.nHeights
         self.ConvertData(dataOut)
 
         dataOut.kabxys_integrated[4][:,(1,2,7,8,9,10),0] *= 2 #Corrects the zero padding
@@ -4915,8 +4918,21 @@ class SpcVoltageDataToHybrid(SpectraDataToFaraday):
         dataOut.kabxys_integrated[8][:,(1,2,7,8,9,10),0] *= 2 #Corrects the zero padding
         dataOut.kabxys_integrated[10][:,(1,2,7,8,9,10),0] *= 2 #Corrects the zero padding
         #print(numpy.sum(dataOut.kabxys_integrated[4][:,1,0]))
-        dataOut.MAXNRANGENDT = max(dataOut.NRANGE,dataOut.NDP)
+
+        if hasattr(dataOut, 'NRANGE'):
+            dataOut.MAXNRANGENDT = max(dataOut.NRANGE,dataOut.NDT)
+        else:
+            dataOut.MAXNRANGENDT = dataOut.NDP
+
+        #dataOut.MAXNRANGENDT = max(dataOut.NRANGE,dataOut.NDP)
         #print(dataOut.rnint2)
+        dataOut.DH=dataOut.heightList[1]-dataOut.heightList[0]
+        dataOut.H0=int(dataOut.heightList[0])
         #print(dataOut.nis)
         #exit(1)
+        self.noise(dataOut)
+
+        if gmtime(dataOut.utctime).tm_hour >= 22. or gmtime(dataOut.utctime).tm_hour < 12.:
+            self.get_eej_index(data_to_remov_eej,dataOut)
+
         return dataOut

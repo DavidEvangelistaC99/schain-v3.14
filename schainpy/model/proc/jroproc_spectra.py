@@ -476,7 +476,8 @@ class GetSNR(Operation):
         #dataOut.data_snr = numpy.where(10*numpy.log10(dataOut.data_snr)<.1, numpy.nan, dataOut.data_snr)
         #dataOut.data_snr = numpy.where(10*numpy.log10(dataOut.data_snr)<.0, numpy.nan, dataOut.data_snr)
         #dataOut.data_snr = numpy.where(dataOut.data_snr<.05, numpy.nan, dataOut.data_snr)
-        dataOut.snl = numpy.where(dataOut.data_snr<.01, numpy.nan, dataOut.snl)
+        #dataOut.snl = numpy.where(dataOut.data_snr<.01, numpy.nan, dataOut.snl)
+        dataOut.snl = numpy.where(dataOut.snl<-1, numpy.nan, dataOut.snl)
         '''
         import matplotlib.pyplot as plt
         #plt.plot(10*numpy.log10(dataOut.data_snr[0]),dataOut.heightList)
@@ -960,12 +961,12 @@ class IncohInt(Operation):
 
 class dopplerFlip(Operation):
 
-    def run(self, dataOut):
+    def run(self, dataOut, chann = None):
         # arreglo 1: (num_chan, num_profiles, num_heights)
         self.dataOut = dataOut
         # JULIA-oblicua, indice 2
         # arreglo 2: (num_profiles, num_heights)
-        jspectra = self.dataOut.data_spc[2]
+        jspectra = self.dataOut.data_spc[chann]
         jspectra_tmp = numpy.zeros(jspectra.shape)
         num_profiles = jspectra.shape[0]
         freq_dc = int(num_profiles / 2)
@@ -976,6 +977,6 @@ class dopplerFlip(Operation):
         jspectra_tmp[freq_dc-1]= jspectra[freq_dc-1]
         jspectra_tmp[freq_dc]= jspectra[freq_dc]
         # canal modificado es re-escrito en el arreglo de canales
-        self.dataOut.data_spc[2] = jspectra_tmp
+        self.dataOut.data_spc[chann] = jspectra_tmp
 
         return self.dataOut

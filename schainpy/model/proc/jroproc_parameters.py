@@ -1667,7 +1667,7 @@ class Oblique_Gauss_Fit(Operation):
             for hei in itertools.chain(l1, l2):
             #for hei in range(79,81):
                 #if numpy.isnan(dataOut.data_snr[0,hei]) or numpy.isnan(numpy.log10(dataOut.data_snr[0,hei])):
-                if numpy.isnan(dataOut.snl[0,hei]) or dataOut.snl[0,hei]<.0:
+                if numpy.isnan(dataOut.snl[0,hei]):# or dataOut.snl[0,hei]<.0:
 
                     continue #Avoids the analysis when there is only noise
 
@@ -3419,7 +3419,7 @@ class SpectralFitting(Operation):
 
         return fun, popt[0], popt[1], popt[2], popt[3]
 
-    def windowing_single_direct(self,spc_mod,x,A,B,C,D,nFFTPoints,timeInterval):
+    def windowing_single_direct_V0(self,spc_mod,x,A,B,C,D,nFFTPoints,timeInterval):
         '''
         Written by R. Flores
         '''
@@ -3501,6 +3501,88 @@ class SpectralFitting(Operation):
 
         return fun, popt[0], popt[1], popt[2], popt[3]
 
+    def windowing_single_direct(self,spc_mod,x,A,B,C,D,nFFTPoints,timeInterval):
+        '''
+        Written by R. Flores
+        '''
+        from scipy.optimize import curve_fit,fmin
+
+        def gaussian(x, a, b, c, d):
+            val = a * numpy.exp(-(x - b)**2 / (2*c**2)) + d
+            return val
+
+        def R_gaussian(x, a, b, c, d):
+            N = int(numpy.shape(x)[0])
+            val = (a*numpy.exp(-2*c**2*x**2 + 2*x*1.j*b))*(numpy.sqrt(2*numpy.pi)*c)/((numpy.pi)) + d*signal.unit_impulse(N)*numpy.shape(x)[0]/2
+
+            return 2*val/numpy.shape(val)[0]
+
+        def T(x,N):
+            T = 1-abs(x)/N
+            return T
+
+        def R_T_spc_fun(x, a, b, c, d, nFFTPoints, timeInterval): #"x" should be time
+
+            #timeInterval = 2
+            x_double = numpy.linspace(0,timeInterval,nFFTPoints)
+            x_double_m = numpy.flip(x_double)
+            x_double_aux = numpy.linspace(0,x_double[-2],nFFTPoints)
+            x_double_t = numpy.concatenate((x_double_m,x_double_aux))
+            x_double_t /= max(x_double_t)
+
+
+            R_T_sum_1 = R_gaussian(x, a, b, c, d)
+
+            R_T_sum_1_flip = numpy.copy(numpy.flip(R_T_sum_1))
+            R_T_sum_1_flip[-1] = R_T_sum_1_flip[0]
+            R_T_sum_1_flip = numpy.roll(R_T_sum_1_flip,1)
+
+            R_T_sum_1_flip.imag *= -1
+
+            R_T_sum_1_total = numpy.concatenate((R_T_sum_1,R_T_sum_1_flip))
+            R_T_sum_1_total *= x_double_t #times trian_fun
+
+            R_T_sum_1_total = R_T_sum_1_total[:nFFTPoints] + R_T_sum_1_total[nFFTPoints:]
+
+            R_T_spc_1 = numpy.fft.fft(R_T_sum_1_total).real
+            R_T_spc_1 = numpy.fft.fftshift(R_T_spc_1)
+
+            freq = numpy.fft.fftfreq(nFFTPoints, d=timeInterval/nFFTPoints)
+
+            freq = numpy.fft.fftshift(freq)
+
+            freq *= 6/2 #lambda/2
+
+            return R_T_spc_1
+
+        y = spc_mod
+
+        #from scipy.stats import norm
+
+        # estimate starting values from the data
+
+        a = A-D
+        b = B
+        c = C
+        d = D
+
+        # define a least squares function to optimize
+        import matplotlib.pyplot as plt
+        #ippSeconds = 2
+        t_range = numpy.linspace(0,timeInterval,nFFTPoints)
+        #aui = R_T_spc_fun(t_range,a,b,c,d,nFFTPoints,timeInterval)
+
+        def minfunc(params):
+            return sum((y-R_T_spc_fun(t_range,params[0],params[1],params[2],params[3],nFFTPoints,timeInterval))**2/1)#y**2)
+
+        # fit
+        x0_value = numpy.array([a,b,c,d])
+        popt = least_squares(minfunc,x0=x0_value,verbose=0)
+
+        fun = R_T_spc_fun(t_range,popt.x[0],popt.x[1],popt.x[2],popt.x[3],nFFTPoints,timeInterval)
+
+        return fun, popt.x[0], popt.x[1], popt.x[2], popt.x[3]
+
     # **********************************************************************************************
     index = 0
     fint = 0
@@ -3508,6 +3590,8 @@ class SpectralFitting(Operation):
     buffer2 = 0
     buffer3 = 0
     def run(self, dataOut, getSNR = True, path=None, file=None, groupList=None, filec=None,coh_th=None, hei_th=None,taver=None,Gaussian_Windowed=0):
+        #print("dataOut.timeInterval: ", dataOut.timeInterval)
+        #exit(1)
         nChannels = dataOut.nChannels
         nHeights= dataOut.heightList.size
         nProf = dataOut.nProfiles
@@ -3608,8 +3692,10 @@ class SpectralFitting(Operation):
         jcspectra = tmp_cspectra*len(jspc[:,0,0,0])
         my_incoh_spectra ,my_incoh_cspectra,my_incoh_aver,my_coh_aver, incoh_spectra, coh_spectra, incoh_cspectra, coh_cspectra, incoh_aver, coh_aver = self.__DiffCoherent(jspectra, jcspectra, dataOut, noise, snrth,coh_th, hei_th)
         clean_coh_spectra, clean_coh_cspectra, clean_coh_aver = self.__CleanCoherent(snrth, coh_spectra, coh_cspectra, coh_aver, dataOut, noise,1,index)
-        dataOut.data_spc = incoh_spectra
-        dataOut.data_cspc = incoh_cspectra
+        dataOut.data_spc = incoh_spectra # Original R. Flores
+        dataOut.data_cspc = incoh_cspectra #Original R. Flores
+        #dataOut.data_spc = jspectra #R. Flores
+        #dataOut.data_cspc = jcspectra #R. Flores
         #dataOut.data_spc = tmp_spectra
         #dataOut.data_cspc = tmp_cspectra
 
