@@ -2855,16 +2855,22 @@ class SpectralFitting(Operation):
                         p0 = dataOut.data_param[i,:,h-1]
                     else:
                         p0 = numpy.array(self.library.initialValuesFunction(data_spc*w, constants))# sin el i(data_spc, constants, i)
+                    #print("AQUI REEMPLAZAS CON EL fd0",fd0)
                     p0[3] = fd0
                     if filec != None:
                        p0 = self.weightf.Vrfit(p0,tini.tm_year,tini.tm_yday,index,h,i)
+                    
+                    #print("minP0-ANTES DE OPTIMIZE")
+                    #print(p0)
                     try:
-                    #Least Squares
+                        #Least Squares
                         minp,covp,infodict,mesg,ier = optimize.leastsq(self.__residFunction,p0,args=(dp,LT,constants),full_output=True)
-                    #minp,covp = optimize.leastsq(self.__residFunction,p0,args=(dp,LT,constants))
-                    #Chi square error
+                        print("VERIFICAR SI ESTA VARIANDO minp--------------------------------", minp[3])
+                        print("COMPARACION ---- p0[3],fd0",p0[3],fd0)
+                        #minp,covp = optimize.leastsq(self.__residFunction,p0,args=(dp,LT,constants))
+                        #Chi square error
                         error0 = numpy.sum(infodict['fvec']**2)/(2*N)
-                    #Error with Jacobian
+                        #Error with Jacobian
                         error1 = self.library.errorFunction(minp,constants,LT)
 
                     except:
@@ -2880,7 +2886,7 @@ class SpectralFitting(Operation):
                 if dataOut.data_param is None:
                     dataOut.data_param = numpy.zeros((nGroups, p0.size, nHeights))*numpy.nan
                     dataOut.data_error = numpy.zeros((nGroups, p0.size + 1, nHeights))*numpy.nan
-                
+                print("CLASE  SF minp- ?????",minp)
                 dataOut.data_error[i,:,h] = numpy.hstack((error0,error1))
                 dataOut.data_param[i,:,h] = minp
             for ht in range(nHeights-1) :
@@ -3648,6 +3654,7 @@ class EWDriftsEstimation(Operation):
         else : 
            moments=numpy.vstack(([velRadialm[0,:]],[velRadialm[0,:]]))
         dataOut.moments=moments
+        print("CLASE EWD Estimation",moments)
         # Coherent
         smooth_wC = ebufc[0,:]
         p_w0C = rbufc[0,:]
@@ -5034,127 +5041,10 @@ class SMOperations():
                 chan1Y = chan1
                 chan2Y = chan2
                 distances[2:4] = numpy.array([d1,d2])
-#         axisXsides = numpy.reshape(axisX[ix,:],4)
-#
-#         channelCentX = int(numpy.intersect1d(pairX[0,:], pairX[1,:])[0])
-#         channelCentY = int(numpy.intersect1d(pairY[0,:], pairY[1,:])[0])
-#
-#         ind25X = numpy.where(pairX[0,:] != channelCentX)[0][0]
-#         ind20X = numpy.where(pairX[1,:] != channelCentX)[0][0]
-#         channel25X = int(pairX[0,ind25X])
-#         channel20X = int(pairX[1,ind20X])
-#         ind25Y = numpy.where(pairY[0,:] != channelCentY)[0][0]
-#         ind20Y = numpy.where(pairY[1,:] != channelCentY)[0][0]
-#         channel25Y = int(pairY[0,ind25Y])
-#         channel20Y = int(pairY[1,ind20Y])
 
-#         pairslist = [(channelCentX, channel25X),(channelCentX, channel20X),(channelCentY,channel25Y),(channelCentY, channel20Y)]
         pairslist = [(chanCX, chan1X),(chanCX, chan2X),(chanCY,chan1Y),(chanCY, chan2Y)]
 
-        return pairslist, distances
-#     def __getAOA(self, phases, pairsList, error, AOAthresh, azimuth):
-#
-#         arrayAOA = numpy.zeros((phases.shape[0],3))
-#         cosdir0, cosdir = self.__getDirectionCosines(phases, pairsList)
-#
-#         arrayAOA[:,:2] = self.__calculateAOA(cosdir, azimuth)
-#         cosDirError = numpy.sum(numpy.abs(cosdir0 - cosdir), axis = 1)
-#         arrayAOA[:,2] = cosDirError
-#
-#         azimuthAngle = arrayAOA[:,0]
-#         zenithAngle = arrayAOA[:,1]
-#
-#         #Setting Error
-#         #Number 3: AOA not fesible
-#         indInvalid = numpy.where(numpy.logical_and((numpy.logical_or(numpy.isnan(zenithAngle), numpy.isnan(azimuthAngle))),error == 0))[0]
-#         error[indInvalid] = 3
-#         #Number 4: Large difference in AOAs obtained from different antenna baselines
-#         indInvalid = numpy.where(numpy.logical_and(cosDirError > AOAthresh,error == 0))[0]
-#         error[indInvalid] = 4
-#         return arrayAOA, error
-#
-#     def __getDirectionCosines(self, arrayPhase, pairsList):
-#
-#         #Initializing some variables
-#         ang_aux = numpy.array([-8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8])*2*numpy.pi
-#         ang_aux = ang_aux.reshape(1,ang_aux.size)
-#
-#         cosdir = numpy.zeros((arrayPhase.shape[0],2))
-#         cosdir0 = numpy.zeros((arrayPhase.shape[0],2))
-#
-#
-#         for i in range(2):
-#             #First Estimation
-#             phi0_aux = arrayPhase[:,pairsList[i][0]] + arrayPhase[:,pairsList[i][1]]
-#             #Dealias
-#             indcsi = numpy.where(phi0_aux > numpy.pi)
-#             phi0_aux[indcsi] -= 2*numpy.pi
-#             indcsi = numpy.where(phi0_aux < -numpy.pi)
-#             phi0_aux[indcsi] += 2*numpy.pi
-#             #Direction Cosine 0
-#             cosdir0[:,i] = -(phi0_aux)/(2*numpy.pi*0.5)
-#
-#             #Most-Accurate Second Estimation
-#             phi1_aux =  arrayPhase[:,pairsList[i][0]] - arrayPhase[:,pairsList[i][1]]
-#             phi1_aux = phi1_aux.reshape(phi1_aux.size,1)
-#             #Direction Cosine 1
-#             cosdir1 = -(phi1_aux + ang_aux)/(2*numpy.pi*4.5)
-#
-#             #Searching the correct Direction Cosine
-#             cosdir0_aux = cosdir0[:,i]
-#             cosdir0_aux = cosdir0_aux.reshape(cosdir0_aux.size,1)
-#             #Minimum Distance
-#             cosDiff = (cosdir1 - cosdir0_aux)**2
-#             indcos = cosDiff.argmin(axis = 1)
-#             #Saving Value obtained
-#             cosdir[:,i] = cosdir1[numpy.arange(len(indcos)),indcos]
-#
-#         return cosdir0, cosdir
-#
-#     def __calculateAOA(self, cosdir, azimuth):
-#         cosdirX = cosdir[:,0]
-#         cosdirY = cosdir[:,1]
-#
-#         zenithAngle = numpy.arccos(numpy.sqrt(1 - cosdirX**2 - cosdirY**2))*180/numpy.pi
-#         azimuthAngle = numpy.arctan2(cosdirX,cosdirY)*180/numpy.pi + azimuth #0 deg north, 90 deg east
-#         angles = numpy.vstack((azimuthAngle, zenithAngle)).transpose()
-#
-#         return angles
-#
-#     def __getHeights(self, Ranges, zenith, error, minHeight, maxHeight):
-#
-#         Ramb = 375  #Ramb = c/(2*PRF)
-#         Re = 6371   #Earth Radius
-#         heights = numpy.zeros(Ranges.shape)
-#
-#         R_aux = numpy.array([0,1,2])*Ramb
-#         R_aux = R_aux.reshape(1,R_aux.size)
-#
-#         Ranges = Ranges.reshape(Ranges.size,1)
-#
-#         Ri = Ranges + R_aux
-#         hi = numpy.sqrt(Re**2 + Ri**2 + (2*Re*numpy.cos(zenith*numpy.pi/180)*Ri.transpose()).transpose()) - Re
-#
-#         #Check if there is a height between 70 and 110 km
-#         h_bool = numpy.sum(numpy.logical_and(hi > minHeight, hi < maxHeight), axis = 1)
-#         ind_h = numpy.where(h_bool == 1)[0]
-#
-#         hCorr = hi[ind_h, :]
-#         ind_hCorr = numpy.where(numpy.logical_and(hi > minHeight, hi < maxHeight))
-#
-#         hCorr = hi[ind_hCorr]
-#         heights[ind_h] = hCorr
-#
-#         #Setting Error
-#         #Number 13: Height unresolvable echo: not valid height within 70 to 110 km
-#         #Number 14: Height ambiguous echo: more than one possible height within 70 to 110 km
-#
-#         indInvalid2 = numpy.where(numpy.logical_and(h_bool > 1, error == 0))[0]
-#         error[indInvalid2] = 14
-#         indInvalid1 = numpy.where(numpy.logical_and(h_bool == 0, error == 0))[0]
-#         error[indInvalid1] = 13
-#
-#         return heights, error
+        return pairslist, distances     
 
 class IGRFModel(Operation):
     """Operation to calculate Geomagnetic parameters.
