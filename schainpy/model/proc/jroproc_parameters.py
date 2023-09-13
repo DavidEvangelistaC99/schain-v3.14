@@ -23,6 +23,7 @@ import warnings
 from numpy import NaN
 from scipy.optimize.optimize import OptimizeWarning
 warnings.filterwarnings('ignore')
+import pdb
 
 
 SPEED_OF_LIGHT = 299792458
@@ -2732,7 +2733,6 @@ class SpectralFitting(Operation):
             dataOut.nIncohInt= int(dataOut.nIncohInt)
             dataOut.nProfiles = int(dataOut.nProfiles)
             dataOut.nCohInt = int(dataOut.nCohInt)
-            print('sale',dataOut.nProfiles,dataOut.nHeights)
             #dataOut.nFFTPoints=nprofs
             #dataOut.normFactor = nprofs
             dataOut.channelList = channelList
@@ -2741,8 +2741,6 @@ class SpectralFitting(Operation):
             vmax = (300000000/49920000.0/2) / (dataOut.ippSeconds)
             #dataOut.ippSeconds=ipp
             absc = vmax*( numpy.arange(nProf,dtype='float')-nProf/2.)/nProf
-            print('sale 2',dataOut.ippSeconds,M,N)
-            print('Empieza procesamiento offline')
             if path != None:
                 sys.path.append(path)
             self.library = importlib.import_module(file)
@@ -2786,6 +2784,7 @@ class SpectralFitting(Operation):
             jvelr = numpy.zeros(nHeights, dtype = 'float')
             hvalid = [0]
             coh2 = abs(dataOut.data_cspc[i,1:nProf,:])**2/(dataOut.data_spc[0+i*2,1:nProf-0,:]*dataOut.data_spc[1+i*2,1:nProf-0,:])
+
             for h in range(nHeights):
                 smooth = clean_num_aver[i+1,h]
                 signalpn0 = (dataOut.data_spc[i*2,1:(nProf-0),h])/smooth
@@ -2821,7 +2820,7 @@ class SpectralFitting(Operation):
                 snr0 = numpy.sum(signal0/n0)/(nProf-1)
                 snr1 = numpy.sum(signal1/n1)/(nProf-1)
                 if snr0 > snrth and snr1 > snrth and clean_num_aver[i+1,h] > 0 :
-                #Covariance Matrix
+                    #Covariance Matrix
                     D = numpy.diag(d**2)
                     ind = 0
                     for pairs in listComb:
@@ -2846,27 +2845,23 @@ class SpectralFitting(Operation):
                     LT=L.T
 
                     dp = numpy.dot(LT,d)
-                #Initial values
+                    #Initial values
                     data_spc = dataOut.data_spc[coord,:,h]
                     w = data_spc/data_spc
                     if filec != None:
                        w = self.weightf.weightfit(w,tini.tm_year,tini.tm_yday,index,h,i)
                     if (h>6)and(error1[3]<25):
-                        p0 = dataOut.data_param[i,:,h-1]
+                        p0 = dataOut.data_param[i,:,h-1].copy()
                     else:
                         p0 = numpy.array(self.library.initialValuesFunction(data_spc*w, constants))# sin el i(data_spc, constants, i)
-                    #print("AQUI REEMPLAZAS CON EL fd0",fd0)
                     p0[3] = fd0
+
                     if filec != None:
                        p0 = self.weightf.Vrfit(p0,tini.tm_year,tini.tm_yday,index,h,i)
                     
-                    #print("minP0-ANTES DE OPTIMIZE")
-                    #print(p0)
                     try:
                         #Least Squares
                         minp,covp,infodict,mesg,ier = optimize.leastsq(self.__residFunction,p0,args=(dp,LT,constants),full_output=True)
-                        print("VERIFICAR SI ESTA VARIANDO minp--------------------------------", minp[3])
-                        print("COMPARACION ---- p0[3],fd0",p0[3],fd0)
                         #minp,covp = optimize.leastsq(self.__residFunction,p0,args=(dp,LT,constants))
                         #Chi square error
                         error0 = numpy.sum(infodict['fvec']**2)/(2*N)
@@ -2882,13 +2877,13 @@ class SpectralFitting(Operation):
                     p0 = numpy.array(self.library.initialValuesFunction(data_spc, constants))
                     minp = p0*numpy.nan
                     error0 = numpy.nan
-                    error1 = p0*numpy.nan                                       
+                    error1 = p0*numpy.nan                                      
                 if dataOut.data_param is None:
                     dataOut.data_param = numpy.zeros((nGroups, p0.size, nHeights))*numpy.nan
                     dataOut.data_error = numpy.zeros((nGroups, p0.size + 1, nHeights))*numpy.nan
-                print("CLASE  SF minp- ?????",minp)
                 dataOut.data_error[i,:,h] = numpy.hstack((error0,error1))
                 dataOut.data_param[i,:,h] = minp
+
             for ht in range(nHeights-1) :
                 smooth = coh_num_aver[i+1,ht] #datc[0,ht,0,beam] 
                 dataOut.data_paramC[4*i,ht,1] = smooth
@@ -2927,7 +2922,6 @@ class SpectralFitting(Operation):
                     mom1 = self.moments(doppler,signalpn1_n1,nProf)
                     dataOut.data_paramC[2+4*i,ht,0] = (mom0[0]+mom1[0])/2.
                     dataOut.data_paramC[3+4*i,ht,0] = (mom0[1]+mom1[1])/2.
-
         dataOut.data_spc = jspectra
         dataOut.spc_noise = my_noises*nProf*M
         if numpy.any(proc): dataOut.spc_noise = my_noises*nProf*M
@@ -3654,7 +3648,6 @@ class EWDriftsEstimation(Operation):
         else : 
            moments=numpy.vstack(([velRadialm[0,:]],[velRadialm[0,:]]))
         dataOut.moments=moments
-        print("CLASE EWD Estimation",moments)
         # Coherent
         smooth_wC = ebufc[0,:]
         p_w0C = rbufc[0,:]
