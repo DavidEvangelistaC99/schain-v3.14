@@ -171,16 +171,18 @@ class HDFReader(Reader, ProcessingUnit):
         startTime = self.startTime
         endTime = self.endTime
         thisUtcTime = self.data['utctime'] + self.utcoffset
+
         self.interval = numpy.min(thisUtcTime[1:] - thisUtcTime[:-1])
         thisDatetime = datetime.datetime.utcfromtimestamp(thisUtcTime[0])
 
         thisDate = thisDatetime.date()
         thisTime = thisDatetime.time()
-
         startUtcTime = (datetime.datetime.combine(thisDate, startTime) - datetime.datetime(1970, 1, 1)).total_seconds()
         endUtcTime = (datetime.datetime.combine(thisDate, endTime) - datetime.datetime(1970, 1, 1)).total_seconds()
-
+        
         ind = numpy.where(numpy.logical_and(thisUtcTime >= startUtcTime, thisUtcTime < endUtcTime))[0]
+        if len(ind)==0:
+           raise schainpy.admin.SchainError("[Reading] Date time selected invalid [%s - %s]: No *%s files in %s)" % (startTime, endTime, self.ext, self.path))
 
         self.blockList = ind
         self.blocksPerFile = len(ind)
