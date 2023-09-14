@@ -430,7 +430,6 @@ class SpectraProc(ProcessingUnit):
 
         return 1
 
-
 class GetSNR(Operation):
     '''
     Written by R. Flores
@@ -535,17 +534,17 @@ class removeInterference(Operation):
         for i in range(cspc.shape[0]):
             LinePower= numpy.sum(realCspc[i], axis=0)
             Threshold = numpy.amax(LinePower)-numpy.sort(LinePower)[len(Heights)-int(len(Heights)*0.1)]
-            SelectedHeights = Heights[ numpy.where(LinePower < Threshold) ]
-            InterferenceSum = numpy.sum(realCspc[i,:,SelectedHeights],axis=0)
+            SelectedHeights = Heights[ numpy.where( LinePower < Threshold ) ]
+            InterferenceSum = numpy.sum( realCspc[i,:,SelectedHeights], axis=0 )
             InterferenceThresholdMin = numpy.sort(InterferenceSum)[int(len(InterferenceSum)*0.98)]
             InterferenceThresholdMax = numpy.sort(InterferenceSum)[int(len(InterferenceSum)*0.99)]
-            
-            
-            InterferenceRange = numpy.where(([InterferenceSum > InterferenceThresholdMin]))# , InterferenceSum < InterferenceThresholdMax]) )
+
+
+            InterferenceRange = numpy.where( ([InterferenceSum > InterferenceThresholdMin]))# , InterferenceSum < InterferenceThresholdMax]) )
             #InterferenceRange = numpy.where( ([InterferenceRange < InterferenceThresholdMax]))
             if len(InterferenceRange)<int(cspc.shape[1]*0.3):
                 cspc[i,InterferenceRange,:] = numpy.NaN
-            
+
         self.dataOut.data_cspc = cspc
         
     def removeInterference(self, interf=2, hei_interf=None, nhei_interf=None, offhei_interf=None):

@@ -74,7 +74,7 @@ if __name__ == '__main__':
                                                 walk=1,
                                                 expLabel='150EEJ',
                                                 getByBlock=1,
-						delay=20)
+						                        delay=20)
 
 #    opObj00 = readUnitConfObj.addOperation(name='printInfo')
 #    opObj00 = readUnitConfObj.addOperation(name='printNumberOfBlock')
