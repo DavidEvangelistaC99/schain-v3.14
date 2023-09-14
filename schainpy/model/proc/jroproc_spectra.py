@@ -430,6 +430,36 @@ class SpectraProc(ProcessingUnit):
 
         return 1
 
+
+class GetSNR(Operation):
+    '''
+    Written by R. Flores
+    '''
+    """Operation to get SNR.
+
+    Parameters:
+    -----------
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='GetSNR', optype='other')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+
+    def run(self,dataOut):
+
+        noise = dataOut.getNoise(ymin_index=-10) #Región superior donde solo debería de haber ruido
+        dataOut.data_snr = (dataOut.data_spc.sum(axis=1)-noise[:,None]*dataOut.nFFTPoints)/(noise[:,None]*dataOut.nFFTPoints) #It works apparently
+        dataOut.snl = numpy.log10(dataOut.data_snr)
+        dataOut.snl = numpy.where(dataOut.data_snr<.01, numpy.nan, dataOut.snl)
+
+        return dataOut
+
 class removeDC(Operation):
 
     def run(self, dataOut, mode=2):
