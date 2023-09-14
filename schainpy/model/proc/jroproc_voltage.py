@@ -305,7 +305,7 @@ class selectHeights(Operation):
             self.dataOut.data_spc = data_spc
             self.dataOut.data_cspc = data_cspc
             self.dataOut.data_dc = data_dc
-
+            
             self.dataOut.heightList = self.dataOut.heightList[minIndex:maxIndex + 1]
 
         return 1
@@ -346,7 +346,19 @@ class filterByHeights(Operation):
 
         return dataOut
 
+class setOffset(Operation):
 
+    def run(self, dataOut, offset=None):
+
+        if not offset:
+            offset = 0.0
+
+        newHeiRange = dataOut.heightList - offset
+
+        dataOut.heightList = newHeiRange
+
+        return dataOut        
+        
 class setH0(Operation):
 
     def run(self, dataOut, h0, deltaHeight=None):
