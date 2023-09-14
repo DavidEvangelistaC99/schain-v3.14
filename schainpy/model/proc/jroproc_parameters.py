@@ -23,7 +23,6 @@ import warnings
 from numpy import NaN
 from scipy.optimize.optimize import OptimizeWarning
 warnings.filterwarnings('ignore')
-import pdb
 
 
 SPEED_OF_LIGHT = 299792458
@@ -212,7 +211,7 @@ class RemoveWideGC(Operation):
         self.i = 0
         self.ich = 0
         self.ir = 0
-    
+
     def run(self, dataOut, ClutterWidth=2.5):
 
         self.spc = dataOut.data_pre[0].copy()
@@ -238,11 +237,11 @@ class RemoveWideGC(Operation):
                 junk = numpy.append(numpy.insert(numpy.squeeze(self.spc[ich,gc_values,ir]),0,HSn),HSn)
                 j1index = numpy.squeeze(numpy.where(numpy.diff(junk)>0))
                 j2index = numpy.squeeze(numpy.where(numpy.diff(junk)<0))
-                if ((numpy.size(j1index)<=1) | (numpy.size(j2index)<=1)) : 
+                if ((numpy.size(j1index)<=1) | (numpy.size(j2index)<=1)) :
                     continue
                 junk3 = numpy.squeeze(numpy.diff(j1index))
                 junk4 = numpy.squeeze(numpy.diff(j2index))
-                
+
                 valleyindex = j2index[numpy.where(junk4>1)]
                 peakindex = j1index[numpy.where(junk3>1)]
 
@@ -252,7 +251,7 @@ class RemoveWideGC(Operation):
                 if numpy.size(isvalid) >1 :
                     vindex = numpy.argmax(self.spc[ich,gc_values[peakindex[isvalid]],ir])
                     isvalid = isvalid[vindex]
-                
+
                 # clutter peak
                 gcpeak = peakindex[isvalid]
                 vl = numpy.where(valleyindex < gcpeak)
@@ -274,7 +273,7 @@ class RemoveWideGC(Operation):
         return dataOut
 
 class SpectralFilters(Operation):
-    ''' This class allows to replace the novalid values with noise for each channel 
+    ''' This class allows to replace the novalid values with noise for each channel
         This applies to CLAIRE RADAR
 
         PositiveLimit :    RightLimit of novalid data
@@ -663,7 +662,9 @@ class GaussianFit(Operation):
         return num_intg*sum((numpy.log(y_data)-numpy.log(self.y_model2(x,state)))**2)#/(64-9.)
 
 class Oblique_Gauss_Fit(Operation):
-
+    '''
+    Written by R. Flores
+    '''
     def __init__(self):
         Operation.__init__(self)
 
@@ -714,7 +715,6 @@ class Oblique_Gauss_Fit(Operation):
 
         return gaussian(x, popt[0], popt[1], popt[2], popt[3]), popt[0], popt[1], popt[2], popt[3]
 
-
     def Gauss_fit_2(self,spc,x,nGauss):
 
 
@@ -750,13 +750,7 @@ class Oblique_Gauss_Fit(Operation):
             print("ERROR")
 
         d = numpy.mean(y[-100:])
-
-        # define a least squares function to optimize
         popt,pcov = curve_fit(gaussian,x,y,p0=[a,b,c,d])
-        #popt,fopt,niter,funcalls = fmin(minfunc,[a,b,c,d])
-
-
-        #return gaussian(x, popt[0], popt[1], popt[2], popt[3]), popt[0], popt[1], popt[2], popt[3]
         return gaussian(x, popt[0], popt[1], popt[2], popt[3]),popt[0], popt[1], popt[2], popt[3]
 
     def Double_Gauss_fit(self,spc,x,A1,B1,C1,A2,B2,C2,D):
@@ -807,14 +801,675 @@ class Oblique_Gauss_Fit(Operation):
         d = D
 
         # fit
-
         popt,pcov = curve_fit(double_gaussian,x,y,p0=[a1,b1,c1,a2,b2,c2,d])
-
         error = numpy.sqrt(numpy.diag(pcov))
 
         return popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6], error[0], error[1], error[2], error[3], error[4], error[5], error[6]
 
-    def run(self, dataOut):
+    def windowing_double(self,spc,x,A1,B1,C1,A2,B2,C2,D):
+        from scipy.optimize import curve_fit,fmin
+
+        def R_gaussian(x, a, b, c):
+                N = int(numpy.shape(x)[0])
+                val = a * numpy.exp(-((x)*c*2*2*numpy.pi)**2 / (2))* numpy.exp(1.j*b*x*4*numpy.pi)
+                return val
+
+        def T(x,N):
+            T = 1-abs(x)/N
+            return T
+
+        def R_T_spc_fun(x, a1, b1, c1, a2, b2, c2, d):
+
+            N = int(numpy.shape(x)[0])
+
+            x_max = x[-1]
+
+            x_pos = x[1600:]
+            x_neg = x[:1600]
+
+            R_T_neg_1 = R_gaussian(x, a1, b1, c1)[:1600]*T(x_neg,-x[0])
+            R_T_pos_1 = R_gaussian(x, a1, b1, c1)[1600:]*T(x_pos,x[-1])
+            R_T_sum_1 = R_T_pos_1 + R_T_neg_1
+            R_T_spc_1 = numpy.fft.fft(R_T_sum_1).real
+            R_T_spc_1 = numpy.fft.fftshift(R_T_spc_1)
+            max_val_1 = numpy.max(R_T_spc_1)
+            R_T_spc_1 = R_T_spc_1*a1/max_val_1
+
+            R_T_neg_2 = R_gaussian(x, a2, b2, c2)[:1600]*T(x_neg,-x[0])
+            R_T_pos_2 = R_gaussian(x, a2, b2, c2)[1600:]*T(x_pos,x[-1])
+            R_T_sum_2 = R_T_pos_2 + R_T_neg_2
+            R_T_spc_2 = numpy.fft.fft(R_T_sum_2).real
+            R_T_spc_2 = numpy.fft.fftshift(R_T_spc_2)
+            max_val_2 = numpy.max(R_T_spc_2)
+            R_T_spc_2 = R_T_spc_2*a2/max_val_2
+
+            R_T_d = d*numpy.fft.fftshift(signal.unit_impulse(N))
+            R_T_d_neg = R_T_d[:1600]*T(x_neg,-x[0])
+            R_T_d_pos = R_T_d[1600:]*T(x_pos,x[-1])
+            R_T_d_sum = R_T_d_pos + R_T_d_neg
+            R_T_spc_3 = numpy.fft.fft(R_T_d_sum).real
+            R_T_spc_3 = numpy.fft.fftshift(R_T_spc_3)
+
+            R_T_final = R_T_spc_1 + R_T_spc_2 + R_T_spc_3
+
+            return R_T_final
+
+        y = spc#gaussian(x, a, meanY, sigmaY) + a*0.1*numpy.random.normal(0, 1, size=len(x))
+
+        from scipy.stats import norm
+        mean,std=norm.fit(spc)
+
+        # estimate starting values from the data
+        a1 = A1
+        b1 = B1
+        c1 = C1#numpy.std(spc)
+
+        a2 = A2#y.max()
+        b2 = B2#x[numpy.argmax(y)]
+        c2 = C2#numpy.std(spc)
+        d = D
+
+        ippSeconds = 250*20*1.e-6/3
+
+        x_t = ippSeconds * (numpy.arange(1600) -1600 / 2.)
+
+        x_t = numpy.linspace(x_t[0],x_t[-1],3200)
+
+        x_freq = numpy.fft.fftfreq(1600,d=ippSeconds)
+        x_freq = numpy.fft.fftshift(x_freq)
+
+        # define a least squares function to optimize
+        def minfunc(params):
+            return sum((y-R_T_spc_fun(x_t,params[0],params[1],params[2],params[3],params[4],params[5],params[6]))**2/1)#y**2)
+
+        # fit
+        popt_full = fmin(minfunc,[a1,b1,c1,a2,b2,c2,d],full_output=True)
+        popt = popt_full[0]
+
+        return popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6]
+
+    def Double_Gauss_fit_weight(self,spc,x,A1,B1,C1,A2,B2,C2,D):
+        from scipy.optimize import curve_fit,fmin
+
+        def double_gaussian(x, a1, b1, c1, a2, b2, c2, d):
+            val = a1 * numpy.exp(-(x - b1)**2 / (2*c1**2)) + a2 * numpy.exp(-(x - b2)**2 / (2*c2**2)) + d
+            return val
+
+        y = spc
+
+        from scipy.stats import norm
+        mean,std=norm.fit(spc)
+
+        # estimate starting values from the data
+        a1 = A1
+        b1 = B1
+        c1 = C1#numpy.std(spc)
+
+        a2 = A2#y.max()
+        b2 = B2#x[numpy.argmax(y)]
+        c2 = C2#numpy.std(spc)
+        d = D
+
+        y_clean = signal.medfilt(y)
+        # define a least squares function to optimize
+        def minfunc(params):
+            return sum((y-double_gaussian(x,params[0],params[1],params[2],params[3],params[4],params[5],params[6]))**2/(y_clean**2/1))
+
+        # fit
+        popt_full = fmin(minfunc,[a1,b1,c1,a2,b2,c2,d], disp =False, full_output=True)
+        #print("nIter", popt_full[2])
+        popt = popt_full[0]
+        #popt,pcov = curve_fit(double_gaussian,x,y,p0=[a1,b1,c1,a2,b2,c2,d])
+
+        #return double_gaussian(x, popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6]), popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6]
+        return popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6]
+
+    def DH_mode(self,spectra,VelRange):
+
+        from scipy.optimize import curve_fit
+
+        def double_gauss(x, a1,b1,c1, a2,b2,c2, d):
+            val = a1 * numpy.exp(-(x - b1)**2 / (2*c1**2)) + a2 * numpy.exp(-(x - b2)**2 / (2*c2**2)) + d
+            return val
+
+        spec = (spectra.copy()).flatten()
+        amp=spec.max()
+        params=numpy.array([amp,-400,30,amp/4,-200,150,1.0e7])
+        #try:
+        popt,pcov=curve_fit(double_gauss, VelRange, spec, p0=params,bounds=([0,-460,0,0,-400,120,0],[numpy.inf,-340,50,numpy.inf,0,250,numpy.inf]))
+
+        error = numpy.sqrt(numpy.diag(pcov))
+            #doppler_2=popt[4]
+            #err_2 = numpy.sqrt(pcov[4][4])
+
+        #except:
+            #pass
+            #doppler_2=numpy.NAN
+            #err_2 = numpy.NAN
+
+        #return doppler_2, err_2
+
+        return popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6], error[0], error[1], error[2], error[3], error[4], error[5], error[6]
+
+    def Tri_Marco(self,spc,freq,a1,b1,c1,a2,b2,c2,d):
+
+        from scipy.optimize import least_squares
+
+        freq_max = numpy.max(numpy.abs(freq))
+        spc_max = numpy.max(spc)
+
+        def tri_gaussian(x, a1, b1, c1, a2, b2, c2, a3, b3, c3, d):
+            z1 = (x-b1)/c1
+            z2 = (x-b2)/c2
+            z3 = (x-b3)/c3
+            val = a1 * numpy.exp(-z1**2/2) + a2 * numpy.exp(-z2**2/2) + a3 * numpy.exp(-z3**2/2) + d
+            return val
+
+        from scipy.signal import medfilt
+        Nincoh = 20
+        spcm = medfilt(spc,11)/numpy.sqrt(Nincoh)
+        c1 = abs(c1)
+        c2 = abs(c2)
+
+        # define a least squares function to optimize
+        def lsq_func(params):
+            return (spc-tri_gaussian(freq,params[0],params[1],params[2],params[3],params[4],params[5],params[6],params[7],params[8],params[9]))/spcm
+
+        # fit
+        bounds=([0,-numpy.inf,0,0,-numpy.inf,0,0,0,0,0],[numpy.inf,-100,numpy.inf,numpy.inf,0,numpy.inf,numpy.inf,600,numpy.inf,numpy.inf])
+
+        params_scale = [spc_max,freq_max,freq_max,spc_max,freq_max,freq_max,spc_max,freq_max,freq_max,spc_max]
+        #print(a1,b1,c1,a2,b2,c2,d)
+        popt = least_squares(lsq_func,[a1,b1,c1,a2,b2,c2,a2/4,-b1,c1,d],x_scale=params_scale,bounds=bounds)
+
+        A1f = popt.x[0]; B1f = popt.x[1]; C1f = popt.x[2]
+        A2f = popt.x[3]; B2f = popt.x[4]; C2f = popt.x[5]
+        A3f = popt.x[6]; B3f = popt.x[7]; C3f = popt.x[8]
+        Df = popt.x[9]
+
+        return A1f, B1f, C1f, A2f, B2f, C2f, Df
+
+    def Tri_Marco(self,spc,freq,a1,b1,c1,a2,b2,c2,d):
+
+        from scipy.optimize import least_squares
+
+        freq_max = numpy.max(numpy.abs(freq))
+        spc_max = numpy.max(spc)
+
+        def duo_gaussian(x, a1, b1, c1, a2, b2, c2, d):
+            z1 = (x-b1)/c1
+            z2 = (x-b2)/c2
+            #z3 = (x-b3)/c3
+            val = a1 * numpy.exp(-z1**2/2) + a2 * numpy.exp(-z2**2/2) + d
+            return val
+
+        from scipy.signal import medfilt
+        Nincoh = 20
+        spcm = medfilt(spc,11)/numpy.sqrt(Nincoh)
+        c1 = abs(c1)
+        c2 = abs(c2)
+
+        # define a least squares function to optimize
+        def lsq_func(params):
+            return (spc-tri_gaussian(freq,params[0],params[1],params[2],params[3],params[4],params[5],params[6]))/spcm
+
+        # fit
+        bounds=([0,-numpy.inf,0,0,-numpy.inf,0,0],[numpy.inf,-100,numpy.inf,numpy.inf,0,numpy.inf,numpy.inf])
+
+        params_scale = [spc_max,freq_max,freq_max,spc_max,freq_max,freq_max,spc_max]
+        popt = least_squares(lsq_func,[a1,b1,c1,a2,b2,c2,d],x_scale=params_scale,bounds=bounds)
+
+        A1f = popt.x[0]; B1f = popt.x[1]; C1f = popt.x[2]
+        A2f = popt.x[3]; B2f = popt.x[4]; C2f = popt.x[5]
+        #A3f = popt.x[6]; B3f = popt.x[7]; C3f = popt.x[8]
+        Df = popt.x[9]
+
+        return A1f, B1f, C1f, A2f, B2f, C2f, Df
+
+    def double_gaussian_skew(self,x, a1, b1, c1, a2, b2, c2, k2, d):
+        z1 = (x-b1)/c1
+        z2 = (x-b2)/c2
+        h2 = 1-k2*z2
+        h2[h2<0] = 0
+        y2 = -1/k2*numpy.log(h2)
+        val = a1 * numpy.exp(-z1**2/2) + a2 * numpy.exp(-y2**2/2)/(1-k2*z2) + d
+        return val
+
+    def gaussian(self, x, a, b, c, d):
+        z = (x-b)/c
+        val = a * numpy.exp(-z**2/2) + d
+        return val
+
+    def double_gaussian(self, x, a1, b1, c1, a2, b2, c2, d):
+        z1 = (x-b1)/c1
+        z2 = (x-b2)/c2
+        val = a1 * numpy.exp(-z1**2/2) + a2 * numpy.exp(-z2**2/2) + d
+        return val
+
+    def double_gaussian_double_skew(self,x, a1, b1, c1, k1, a2, b2, c2, k2, d):
+
+        z1 = (x-b1)/c1
+        h1 = 1-k1*z1
+        h1[h1<0] = 0
+        y1 = -1/k1*numpy.log(h1)
+
+        z2 = (x-b2)/c2
+        h2 = 1-k2*z2
+        h2[h2<0] = 0
+        y2 = -1/k2*numpy.log(h2)
+
+        val = a1 * numpy.exp(-y1**2/2)/(1-k1*z1) + a2 * numpy.exp(-y2**2/2)/(1-k2*z2) + d
+        return val
+
+    def gaussian_skew(self,x, a2, b2, c2, k2, d):
+        z2 = (x-b2)/c2
+        h2 = 1-k2*z2
+        h2[h2<0] = 0
+        y2 = -1/k2*numpy.log(h2)
+        val = a2 * numpy.exp(-y2**2/2)/(1-k2*z2) + d
+        return val
+
+    def triple_gaussian_skew(self,x, a1, b1, c1, a2, b2, c2, k2, a3, b3, c3, k3, d):
+        z1 = (x-b1)/c1
+        z2 = (x-b2)/c2
+        z3 = (x-b3)/c3
+        h2 = 1-k2*z2
+        h2[h2<0] = 0
+        y2 = -1/k2*numpy.log(h2)
+        h3 = 1-k3*z3
+        h3[h3<0] = 0
+        y3 = -1/k3*numpy.log(h3)
+        val = a1 * numpy.exp(-z1**2/2) + a2 * numpy.exp(-y2**2/2)/(1-k2*z2) + a3 * numpy.exp(-y3**2/2)/(1-k3*z3) + d
+        return val
+
+    def Double_Gauss_Skew_fit_weight_bound_no_inputs(self,spc,freq):
+
+        from scipy.optimize import least_squares
+
+        freq_max = numpy.max(numpy.abs(freq))
+        spc_max = numpy.max(spc)
+
+        from scipy.signal import medfilt
+        Nincoh = 20
+        spcm = medfilt(spc,11)/numpy.sqrt(Nincoh)
+
+        # define a least squares function to optimize
+        def lsq_func(params):
+            return (spc-self.double_gaussian_skew(freq,params[0],params[1],params[2],params[3],params[4],params[5],params[6],params[7]))/spcm
+
+        # fit
+        bounds=([0,-numpy.inf,0,0,-400,0,0,0],[numpy.inf,-340,numpy.inf,numpy.inf,0,numpy.inf,numpy.inf,numpy.inf])
+
+        params_scale = [spc_max,freq_max,freq_max,spc_max,freq_max,freq_max,1,spc_max]
+        x0_value = numpy.array([spc_max,-400,30,spc_max/4,-200,150,1,1.0e7])
+        popt = least_squares(lsq_func,x0=x0_value,x_scale=params_scale,bounds=bounds,verbose=0)
+        A1f = popt.x[0]; B1f = popt.x[1]; C1f = popt.x[2]
+        A2f = popt.x[3]; B2f = popt.x[4]; C2f = popt.x[5]; K2f = popt.x[6]
+        Df = popt.x[7]
+
+        aux = self.gaussian_skew(freq, A2f, B2f, C2f, K2f, Df)
+        doppler = freq[numpy.argmax(aux)]
+
+        return A1f, B1f, C1f, A2f, B2f, C2f, K2f, Df, doppler
+
+    def Double_Gauss_Double_Skew_fit_weight_bound_no_inputs(self,spc,freq,Nincoh,hei):
+
+        from scipy.optimize import least_squares
+
+        freq_max = numpy.max(numpy.abs(freq))
+        spc_max = numpy.max(spc)
+
+        #from scipy.signal import medfilt
+        #Nincoh = 20
+        #Nincoh = 80
+        Nincoh = Nincoh
+        #spcm = medfilt(spc,11)/numpy.sqrt(Nincoh)
+        spcm = spc/numpy.sqrt(Nincoh)
+
+        # define a least squares function to optimize
+        def lsq_func(params):
+            return (spc-self.double_gaussian_double_skew(freq,params[0],params[1],params[2],params[3],params[4],params[5],params[6],params[7],params[8]))/spcm
+
+        # fit
+        bounds=([0,-numpy.inf,0,-5,0,-400,0,0,0],[numpy.inf,-200,numpy.inf,5,numpy.inf,0,numpy.inf,numpy.inf,numpy.inf])
+
+        params_scale = [spc_max,freq_max,freq_max,1,spc_max,freq_max,freq_max,1,spc_max]
+
+        dop1_x0 = freq[numpy.argmax(spc)]
+        if dop1_x0 < 0:
+          dop2_x0 = dop1_x0 + 100
+        if dop1_x0 > 0:
+          dop2_x0 = dop1_x0 - 100
+
+        x0_value = numpy.array([spc_max,dop1_x0,30,-.1,spc_max/4, dop2_x0,150,1,1.0e7])
+        popt = least_squares(lsq_func,x0=x0_value,x_scale=params_scale,bounds=bounds,verbose=0)
+        J = popt.jac
+
+        try:
+            cov = numpy.linalg.inv(J.T.dot(J))
+            error = numpy.sqrt(numpy.diagonal(cov))
+        except:
+            error = numpy.ones((9))*numpy.NAN
+
+        A1f = popt.x[0]; B1f = popt.x[1]; C1f = popt.x[2]; K1f = popt.x[3]
+        A2f = popt.x[4]; B2f = popt.x[5]; C2f = popt.x[6]; K2f = popt.x[7]
+        Df = popt.x[8]
+        aux1 = self.gaussian_skew(freq, A1f, B1f, C1f, K1f, Df)
+        doppler1 = freq[numpy.argmax(aux1)]
+
+        aux2 = self.gaussian_skew(freq, A2f, B2f, C2f, K2f, Df)
+        doppler2 = freq[numpy.argmax(aux2)]
+        #print("error",error)
+        #exit(1)
+
+
+        return A1f, B1f, C1f, K1f, A2f, B2f, C2f, K2f, Df, doppler1, doppler2, error
+
+    def Double_Gauss_fit_weight_bound_no_inputs(self,spc,freq,Nincoh):
+
+        from scipy.optimize import least_squares
+
+        freq_max = numpy.max(numpy.abs(freq))
+        spc_max = numpy.max(spc)
+
+        from scipy.signal import medfilt
+        Nincoh = 20
+        Nincoh = 80
+        Nincoh = Nincoh
+        spcm = medfilt(spc,11)/numpy.sqrt(Nincoh)
+
+        # define a least squares function to optimize
+        def lsq_func(params):
+            return (spc-self.double_gaussian(freq,params[0],params[1],params[2],params[3],params[4],params[5],params[6]))/spcm
+
+        # fit
+    #    bounds=([0,-460,0,0,-400,120,0],[numpy.inf,-340,50,numpy.inf,0,250,numpy.inf])
+    #    bounds=([0,-numpy.inf,0,0,-numpy.inf,0,-numpy.inf,0],[numpy.inf,-200,numpy.inf,numpy.inf,0,numpy.inf,0,numpy.inf])
+        #print(a1,b1,c1,a2,b2,c2,k2,d)
+
+        dop1_x0 = freq[numpy.argmax(spcm)]
+
+        bounds=([0,-numpy.inf,0,0,dop1_x0-50,0,0],[numpy.inf,-300,numpy.inf,numpy.inf,0,numpy.inf,numpy.inf])
+        params_scale = [spc_max,freq_max,freq_max,spc_max,freq_max,freq_max,spc_max]
+        x0_value = numpy.array([spc_max,-400.5,30,spc_max/4,dop1_x0,150,1.0e7])
+        popt = least_squares(lsq_func,x0=x0_value,x_scale=params_scale,bounds=bounds,verbose=0)
+        J = popt.jac
+
+        try:
+            cov = numpy.linalg.inv(J.T.dot(J))
+            error = numpy.sqrt(numpy.diagonal(cov))
+        except:
+            error = numpy.ones((7))*numpy.NAN
+
+        A1f = popt.x[0]; B1f = popt.x[1]; C1f = popt.x[2]
+        A2f = popt.x[3]; B2f = popt.x[4]; C2f = popt.x[5]
+        Df = popt.x[6]
+        return A1f, B1f, C1f, A2f, B2f, C2f, Df, error
+
+    def Double_Gauss_Double_Skew_fit_weight_bound_with_inputs(self, spc, freq, a1, b1, c1, a2, b2, c2, k2, d):
+
+        from scipy.optimize import least_squares
+
+        freq_max = numpy.max(numpy.abs(freq))
+        spc_max = numpy.max(spc)
+
+        from scipy.signal import medfilt
+        Nincoh = dataOut.nIncohInt
+        spcm = medfilt(spc,11)/numpy.sqrt(Nincoh)
+
+        # define a least squares function to optimize
+        def lsq_func(params):
+            return (spc-self.double_gaussian_double_skew(freq,params[0],params[1],params[2],params[3],params[4],params[5],params[6],params[7],params[8]))/spcm
+
+
+        bounds=([0,-numpy.inf,0,-numpy.inf,0,-400,0,0,0],[numpy.inf,-340,numpy.inf,0,numpy.inf,0,numpy.inf,numpy.inf,numpy.inf])
+
+        params_scale = [spc_max,freq_max,freq_max,1,spc_max,freq_max,freq_max,1,spc_max]
+
+        x0_value = numpy.array([a1,b1,c1,-.1,a2,b2,c2,k2,d])
+
+        popt = least_squares(lsq_func,x0=x0_value,x_scale=params_scale,bounds=bounds,verbose=0)
+
+        A1f = popt.x[0]; B1f = popt.x[1]; C1f = popt.x[2]; K1f = popt.x[3]
+        A2f = popt.x[4]; B2f = popt.x[5]; C2f = popt.x[6]; K2f = popt.x[7]
+        Df = popt.x[8]
+
+        aux = self.gaussian_skew(freq, A2f, B2f, C2f, K2f, Df)
+        doppler = x[numpy.argmax(aux)]
+
+        return A1f, B1f, C1f, K1f, A2f, B2f, C2f, K2f, Df, doppler
+
+    def Triple_Gauss_Skew_fit_weight_bound_no_inputs(self,spc,freq):
+
+        from scipy.optimize import least_squares
+
+        freq_max = numpy.max(numpy.abs(freq))
+        spc_max = numpy.max(spc)
+
+        from scipy.signal import medfilt
+        Nincoh = 20
+        spcm = medfilt(spc,11)/numpy.sqrt(Nincoh)
+
+        # define a least squares function to optimize
+        def lsq_func(params):
+            return (spc-self.triple_gaussian_skew(freq,params[0],params[1],params[2],params[3],params[4],params[5],params[6],params[7],params[8],params[9],params[10],params[11]))/spcm
+
+        # fit
+        bounds=([0,-numpy.inf,0,0,-400,0,0,0,0,0,0,0],[numpy.inf,-340,numpy.inf,numpy.inf,0,numpy.inf,numpy.inf,numpy.inf,numpy.inf,numpy.inf,numpy.inf,numpy.inf])
+
+        params_scale = [spc_max,freq_max,freq_max,spc_max,freq_max,freq_max,1,spc_max,freq_max,freq_max,1,spc_max]
+        x0_value = numpy.array([spc_max,-400,30,spc_max/4,-200,150,1,spc_max/4,400,150,1,1.0e7])
+        popt = least_squares(lsq_func,x0=x0_value,x_scale=params_scale,bounds=bounds,verbose=0)
+
+        A1f = popt.x[0]; B1f = popt.x[1]; C1f = popt.x[2]
+        A2f = popt.x[3]; B2f = popt.x[4]; C2f = popt.x[5]; K2f = popt.x[6]
+        A3f = popt.x[7]; B3f = popt.x[8]; C3f = popt.x[9]; K3f = popt.x[10]
+        Df = popt.x[11]
+
+        aux = self.gaussian_skew(freq, A2f, B2f, C2f, K2f, Df)
+        doppler = freq[numpy.argmax(aux)]
+
+        return A1f, B1f, C1f, A2f, B2f, C2f, K2f, A3f, B3f, C3f, K3f, Df, doppler
+
+    def CEEJ_Skew_fit_weight_bound_no_inputs(self,spc,freq,Nincoh):
+
+        from scipy.optimize import least_squares
+
+        freq_max = numpy.max(numpy.abs(freq))
+        spc_max = numpy.max(spc)
+
+        from scipy.signal import medfilt
+        Nincoh = 20
+        Nincoh = 80
+        Nincoh = Nincoh
+        spcm = medfilt(spc,11)/numpy.sqrt(Nincoh)
+
+        # define a least squares function to optimize
+        def lsq_func(params):
+            return (spc-self.gaussian_skew(freq,params[0],params[1],params[2],params[3],params[4]))#/spcm
+
+
+        bounds=([0,0,0,-numpy.inf,0],[numpy.inf,numpy.inf,numpy.inf,0,numpy.inf])
+
+        params_scale = [spc_max,freq_max,freq_max,1,spc_max]
+
+        x0_value = numpy.array([spc_max,freq[numpy.argmax(spc)],30,-.1,numpy.mean(spc[:50])])
+
+        popt = least_squares(lsq_func,x0=x0_value,x_scale=params_scale,bounds=bounds,verbose=0)
+
+        J = popt.jac
+
+        try:
+            error = numpy.ones((9))*numpy.NAN
+            cov = numpy.linalg.inv(J.T.dot(J))
+            error[:4] = numpy.sqrt(numpy.diagonal(cov))[:4]
+            error[-1] = numpy.sqrt(numpy.diagonal(cov))[-1]
+        except:
+            error = numpy.ones((9))*numpy.NAN
+
+        A1f = popt.x[0]; B1f = popt.x[1]; C1f = popt.x[2]; K1f = popt.x[3]
+        Df = popt.x[4]
+
+        aux1 = self.gaussian_skew(freq, A1f, B1f, C1f, K1f, Df)
+        doppler1 = freq[numpy.argmax(aux1)]
+        #print("CEEJ ERROR:",error)
+
+        return A1f, B1f, C1f, K1f, numpy.NAN, numpy.NAN, numpy.NAN, numpy.NAN, Df, doppler1, numpy.NAN, error
+
+    def CEEJ_fit_weight_bound_no_inputs(self,spc,freq,Nincoh):
+
+        from scipy.optimize import least_squares
+
+        freq_max = numpy.max(numpy.abs(freq))
+        spc_max = numpy.max(spc)
+
+        from scipy.signal import medfilt
+        Nincoh = 20
+        Nincoh = 80
+        Nincoh = Nincoh
+        spcm = medfilt(spc,11)/numpy.sqrt(Nincoh)
+
+        # define a least squares function to optimize
+        def lsq_func(params):
+            return (spc-self.gaussian(freq,params[0],params[1],params[2],params[3]))#/spcm
+
+
+        bounds=([0,0,0,0],[numpy.inf,numpy.inf,numpy.inf,numpy.inf])
+
+        params_scale = [spc_max,freq_max,freq_max,spc_max]
+
+        x0_value = numpy.array([spc_max,freq[numpy.argmax(spcm)],30,numpy.mean(spc[:50])])
+
+        popt = least_squares(lsq_func,x0=x0_value,x_scale=params_scale,bounds=bounds,verbose=0)
+
+        J = popt.jac
+
+        try:
+            error = numpy.ones((4))*numpy.NAN
+            cov = numpy.linalg.inv(J.T.dot(J))
+            error = numpy.sqrt(numpy.diagonal(cov))
+        except:
+            error = numpy.ones((4))*numpy.NAN
+
+        A1f = popt.x[0]; B1f = popt.x[1]; C1f = popt.x[2]
+        Df = popt.x[3]
+
+        return A1f, B1f, C1f, Df, error
+
+    def Simple_fit_bound(self,spc,freq,Nincoh):
+
+        freq_max = numpy.max(numpy.abs(freq))
+        spc_max = numpy.max(spc)
+
+        Nincoh = Nincoh
+
+        def lsq_func(params):
+            return (spc-self.gaussian(freq,params[0],params[1],params[2],params[3]))
+
+        bounds=([0,-50,0,0],[numpy.inf,+50,numpy.inf,numpy.inf])
+
+        params_scale = [spc_max,freq_max,freq_max,spc_max]
+
+        x0_value = numpy.array([spc_max,-20.5,5,1.0e7])
+
+        popt = least_squares(lsq_func,x0=x0_value,x_scale=params_scale,bounds=bounds,verbose=0)
+
+        J = popt.jac
+
+        try:
+            cov = numpy.linalg.inv(J.T.dot(J))
+            error = numpy.sqrt(numpy.diagonal(cov))
+        except:
+            error = numpy.ones((4))*numpy.NAN
+
+        A1f = popt.x[0]; B1f = popt.x[1]; C1f = popt.x[2]
+        Df = popt.x[3]
+
+        return A1f, B1f, C1f, Df, error
+
+    def clean_outliers(self,param):
+
+        threshold = 700
+
+        param = numpy.where(param < -threshold, numpy.nan, param)
+        param = numpy.where(param > +threshold, numpy.nan, param)
+
+        return param
+
+    def windowing_single(self,spc,x,A,B,C,D,nFFTPoints):
+        from scipy.optimize import curve_fit,fmin
+
+        def R_gaussian(x, a, b, c):
+                N = int(numpy.shape(x)[0])
+                val = a * numpy.exp(-((x)*c*2*2*numpy.pi)**2 / (2))* numpy.exp(1.j*b*x*4*numpy.pi)
+                return val
+
+        def T(x,N):
+            T = 1-abs(x)/N
+            return T
+
+        def R_T_spc_fun(x, a, b, c, d, nFFTPoints):
+
+            N = int(numpy.shape(x)[0])
+
+            x_max = x[-1]
+
+            x_pos = x[int(nFFTPoints/2):]
+            x_neg = x[:int(nFFTPoints/2)]
+
+            R_T_neg_1 = R_gaussian(x, a, b, c)[:int(nFFTPoints/2)]*T(x_neg,-x[0])
+            R_T_pos_1 = R_gaussian(x, a, b, c)[int(nFFTPoints/2):]*T(x_pos,x[-1])
+            R_T_sum_1 = R_T_pos_1 + R_T_neg_1
+            R_T_spc_1 = numpy.fft.fft(R_T_sum_1).real
+            R_T_spc_1 = numpy.fft.fftshift(R_T_spc_1)
+            max_val_1 = numpy.max(R_T_spc_1)
+            R_T_spc_1 = R_T_spc_1*a/max_val_1
+
+            R_T_d = d*numpy.fft.fftshift(signal.unit_impulse(N))
+            R_T_d_neg = R_T_d[:int(nFFTPoints/2)]*T(x_neg,-x[0])
+            R_T_d_pos = R_T_d[int(nFFTPoints/2):]*T(x_pos,x[-1])
+            R_T_d_sum = R_T_d_pos + R_T_d_neg
+            R_T_spc_3 = numpy.fft.fft(R_T_d_sum).real
+            R_T_spc_3 = numpy.fft.fftshift(R_T_spc_3)
+
+            R_T_final = R_T_spc_1 + R_T_spc_3
+
+            return R_T_final
+
+        y = spc#gaussian(x, a, meanY, sigmaY) + a*0.1*numpy.random.normal(0, 1, size=len(x))
+
+        from scipy.stats import norm
+        mean,std=norm.fit(spc)
+
+        # estimate starting values from the data
+        a = A
+        b = B
+        c = C#numpy.std(spc)
+        d = D
+        '''
+        ippSeconds = 250*20*1.e-6/3
+
+        x_t = ippSeconds * (numpy.arange(1600) -1600 / 2.)
+
+        x_t = numpy.linspace(x_t[0],x_t[-1],3200)
+
+        x_freq = numpy.fft.fftfreq(1600,d=ippSeconds)
+        x_freq = numpy.fft.fftshift(x_freq)
+        '''
+        # define a least squares function to optimize
+        def minfunc(params):
+            return sum((y-R_T_spc_fun(x,params[0],params[1],params[2],params[3],params[4],params[5],params[6]))**2/1)#y**2)
+
+        # fit
+
+        popt_full = fmin(minfunc,[a,b,c,d],full_output=True)
+        #print("nIter", popt_full[2])
+        popt = popt_full[0]
+
+        #return R_T_spc_fun(x_t,popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6]), popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6]
+        return popt[0], popt[1], popt[2], popt[3]
+
+    def run(self, dataOut, mode = 0, Hmin1 = None, Hmax1 = None, Hmin2 = None, Hmax2 = None, Dop = 'Shift'):
 
         pwcode = 1
 
@@ -828,39 +1483,381 @@ class Oblique_Gauss_Fit(Operation):
         dataOut.power = numpy.average(z, axis=1)
         dataOut.powerdB = 10 * numpy.log10(dataOut.power)
 
-
         x = dataOut.getVelRange(0)
-        
+
         dataOut.Oblique_params = numpy.ones((1,7,dataOut.nHeights))*numpy.NAN
         dataOut.Oblique_param_errors = numpy.ones((1,7,dataOut.nHeights))*numpy.NAN
+        dataOut.dplr_2_u = numpy.ones((1,1,dataOut.nHeights))*numpy.NAN
+
+        if mode == 6:
+            dataOut.Oblique_params = numpy.ones((1,9,dataOut.nHeights))*numpy.NAN
+        elif mode == 7:
+            dataOut.Oblique_params = numpy.ones((1,13,dataOut.nHeights))*numpy.NAN
+        elif mode == 8:
+            dataOut.Oblique_params = numpy.ones((1,10,dataOut.nHeights))*numpy.NAN
+        elif mode == 9:
+            dataOut.Oblique_params = numpy.ones((1,11,dataOut.nHeights))*numpy.NAN
+            dataOut.Oblique_param_errors = numpy.ones((1,9,dataOut.nHeights))*numpy.NAN
+        elif mode == 11:
+            dataOut.Oblique_params = numpy.ones((1,7,dataOut.nHeights))*numpy.NAN
+            dataOut.Oblique_param_errors = numpy.ones((1,7,dataOut.nHeights))*numpy.NAN
+        elif mode == 10: #150 km
+            dataOut.Oblique_params = numpy.ones((1,4,dataOut.nHeights))*numpy.NAN
+            dataOut.Oblique_param_errors = numpy.ones((1,4,dataOut.nHeights))*numpy.NAN
+            dataOut.snr_log10 = numpy.ones((1,dataOut.nHeights))*numpy.NAN
 
         dataOut.VelRange = x
 
 
-        l1=range(22,36)
-        l2=range(58,99)
 
-        for hei in itertools.chain(l1, l2):
+        #l1=range(22,36) #+62
+        #l1=range(32,36)
+        #l2=range(58,99) #+62
 
-            try:
-                spc = dataOut.data_spc[0,:,hei]
+        #if Hmin1 == None or Hmax1 == None or Hmin2 == None or Hmax2 == None:
 
-                spc_fit, A1, B1, C1, D1 = self.Gauss_fit_2(spc,x,'first')
+        minHei1 = 105.
+        maxHei1 = 122.5
+        maxHei1 = 130.5
 
-                spc_diff = spc - spc_fit
-                spc_diff[spc_diff < 0] = 0
+        if mode == 10: #150 km
+            minHei1 = 100
+            maxHei1 = 100
 
-                spc_fit_diff, A2, B2, C2, D2 = self.Gauss_fit_2(spc_diff,x,'second')
+        inda1 = numpy.where(dataOut.heightList >= minHei1)
+        indb1 = numpy.where(dataOut.heightList <= maxHei1)
 
-                D = (D1+D2)
+        minIndex1 = inda1[0][0]
+        maxIndex1 = indb1[0][-1]
 
-                dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_param_errors[0,0,hei],dataOut.Oblique_param_errors[0,1,hei],dataOut.Oblique_param_errors[0,2,hei],dataOut.Oblique_param_errors[0,3,hei],dataOut.Oblique_param_errors[0,4,hei],dataOut.Oblique_param_errors[0,5,hei],dataOut.Oblique_param_errors[0,6,hei] = self.Double_Gauss_fit_2(spc,x,A1,B1,C1,A2,B2,C2,D)
-                #spc_double_fit,dataOut.Oblique_params = self.Double_Gauss_fit(spc,x,A1,B1,C1,A2,B2,C2,D)
-            
-            except:
-                ###dataOut.Oblique_params[0,:,hei] = dataOut.Oblique_params[0,:,hei]*numpy.NAN
-                pass
-            
+        minHei2 = 150.
+        maxHei2 = 201.25
+        maxHei2 = 225.3
+
+        if mode == 10: #150 km
+            minHei2 = 110
+            maxHei2 = 165
+
+        inda2 = numpy.where(dataOut.heightList >= minHei2)
+        indb2 = numpy.where(dataOut.heightList <= maxHei2)
+
+        minIndex2 = inda2[0][0]
+        maxIndex2 = indb2[0][-1]
+
+        l1=range(minIndex1,maxIndex1)
+        l2=range(minIndex2,maxIndex2)
+
+        if mode == 4:
+            '''
+            for ind in range(dataOut.nHeights):
+                if(dataOut.heightList[ind]>=168 and dataOut.heightList[ind]<188):
+                    try:
+                        dataOut.Oblique_params[0,0,ind],dataOut.Oblique_params[0,1,ind],dataOut.Oblique_params[0,2,ind],dataOut.Oblique_params[0,3,ind],dataOut.Oblique_params[0,4,ind],dataOut.Oblique_params[0,5,ind],dataOut.Oblique_params[0,6,ind],dataOut.Oblique_param_errors[0,0,ind],dataOut.Oblique_param_errors[0,1,ind],dataOut.Oblique_param_errors[0,2,ind],dataOut.Oblique_param_errors[0,3,ind],dataOut.Oblique_param_errors[0,4,ind],dataOut.Oblique_param_errors[0,5,ind],dataOut.Oblique_param_errors[0,6,ind] = self.DH_mode(dataOut.data_spc[0,:,ind],dataOut.VelRange)
+                    except:
+                        pass
+                        '''
+            for ind in itertools.chain(l1, l2):
+
+                try:
+                    dataOut.Oblique_params[0,0,ind],dataOut.Oblique_params[0,1,ind],dataOut.Oblique_params[0,2,ind],dataOut.Oblique_params[0,3,ind],dataOut.Oblique_params[0,4,ind],dataOut.Oblique_params[0,5,ind],dataOut.Oblique_params[0,6,ind],dataOut.Oblique_param_errors[0,0,ind],dataOut.Oblique_param_errors[0,1,ind],dataOut.Oblique_param_errors[0,2,ind],dataOut.Oblique_param_errors[0,3,ind],dataOut.Oblique_param_errors[0,4,ind],dataOut.Oblique_param_errors[0,5,ind],dataOut.Oblique_param_errors[0,6,ind] = self.DH_mode(dataOut.data_spc[0,:,ind],dataOut.VelRange)
+                    dataOut.dplr_2_u[0,0,ind] = dataOut.Oblique_params[0,4,ind]/numpy.sin(numpy.arccos(102/dataOut.heightList[ind]))
+                except:
+                    pass
+
+        else:
+            for hei in itertools.chain(l1, l2):
+                if numpy.isnan(dataOut.snl[0,hei]) or dataOut.snl[0,hei]<.0:
+
+                    continue #Avoids the analysis when there is only noise
+
+                try:
+                    spc = dataOut.data_spc[0,:,hei]
+
+                    if mode == 6: #Skew Weighted Bounded
+                        dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_params[0,7,hei],dataOut.Oblique_params[0,8,hei] = self.Double_Gauss_Skew_fit_weight_bound_no_inputs(spc,x)
+                        dataOut.dplr_2_u[0,0,hei] = dataOut.Oblique_params[0,8,hei]/numpy.sin(numpy.arccos(100./dataOut.heightList[hei]))
+
+                    elif mode == 7: #Triple Skew Weighted Bounded
+                        dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_params[0,7,hei],dataOut.Oblique_params[0,8,hei],dataOut.Oblique_params[0,9,hei],dataOut.Oblique_params[0,10,hei],dataOut.Oblique_params[0,11,hei],dataOut.Oblique_params[0,12,hei] = self.Triple_Gauss_Skew_fit_weight_bound_no_inputs(spc,x)
+                        dataOut.dplr_2_u[0,0,hei] = dataOut.Oblique_params[0,12,hei]/numpy.sin(numpy.arccos(100./dataOut.heightList[hei]))
+
+                    elif mode == 8: #Double Skewed Weighted Bounded with inputs
+                        a1, b1, c1, a2, b2, c2, k2, d, dopp = self.Double_Gauss_Skew_fit_weight_bound_no_inputs(spc,x)
+                        dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_params[0,7,hei],dataOut.Oblique_params[0,8,hei],dataOut.Oblique_params[0,9,hei] = self.Double_Gauss_Skew_fit_weight_bound_no_inputs(spc,x, a1, b1, c1, a2, b2, c2, k2, d)
+                        dataOut.dplr_2_u[0,0,hei] = dataOut.Oblique_params[0,9,hei]/numpy.sin(numpy.arccos(100./dataOut.heightList[hei]))
+
+                    elif mode == 9: #Double Skewed Weighted Bounded no inputs
+                        #if numpy.max(spc) <= 0:
+                        from scipy.signal import medfilt
+                        spcm = medfilt(spc,11)
+                        if x[numpy.argmax(spcm)] <= 0:
+                            #print("EEJ", dataOut.heightList[hei], hei)
+                            #if hei != 70:
+                                #continue
+                            #else:
+                            dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_params[0,7,hei],dataOut.Oblique_params[0,8,hei],dataOut.Oblique_params[0,9,hei],dataOut.Oblique_params[0,10,hei],dataOut.Oblique_param_errors[0,:,hei] = self.Double_Gauss_Double_Skew_fit_weight_bound_no_inputs(spcm,x,dataOut.nIncohInt,dataOut.heightList[hei])
+                            #if dataOut.Oblique_params[0,-2,hei] < -500 or dataOut.Oblique_params[0,-2,hei] > 500 or dataOut.Oblique_params[0,-1,hei] < -500 or dataOut.Oblique_params[0,-1,hei] > 500:
+                            #    dataOut.Oblique_params[0,:,hei] *= numpy.NAN
+                            dataOut.dplr_2_u[0,0,hei] = dataOut.Oblique_params[0,10,hei]/numpy.sin(numpy.arccos(100./dataOut.heightList[hei]))
+
+                        else:
+                            #print("CEEJ")
+                            dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_params[0,7,hei],dataOut.Oblique_params[0,8,hei],dataOut.Oblique_params[0,9,hei],dataOut.Oblique_params[0,10,hei],dataOut.Oblique_param_errors[0,:,hei] = self.CEEJ_Skew_fit_weight_bound_no_inputs(spcm,x,dataOut.nIncohInt)
+                            #if dataOut.Oblique_params[0,-2,hei] < -500 or dataOut.Oblique_params[0,-2,hei] > 500 or dataOut.Oblique_params[0,-1,hei] < -500 or dataOut.Oblique_params[0,-1,hei] > 500:
+                            #    dataOut.Oblique_params[0,:,hei] *= numpy.NAN
+                            dataOut.dplr_2_u[0,0,hei] = dataOut.Oblique_params[0,10,hei]/numpy.sin(numpy.arccos(100./dataOut.heightList[hei]))
+                    elif mode == 11: #Double Weighted Bounded no inputs
+                        #if numpy.max(spc) <= 0:
+                        from scipy.signal import medfilt
+                        spcm = medfilt(spc,11)
+
+                        if x[numpy.argmax(spcm)] <= 0:
+                            #print("EEJ")
+                            #print("EEJ",dataOut.heightList[hei])
+                            dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_param_errors[0,:,hei] = self.Double_Gauss_fit_weight_bound_no_inputs(spc,x,dataOut.nIncohInt)
+                            #if dataOut.Oblique_params[0,-2,hei] < -500 or dataOut.Oblique_params[0,-2,hei] > 500 or dataOut.Oblique_params[0,-1,hei] < -500 or dataOut.Oblique_params[0,-1,hei] > 500:
+                            #    dataOut.Oblique_params[0,:,hei] *= numpy.NAN
+                        else:
+                            #print("CEEJ",dataOut.heightList[hei])
+                            dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_param_errors[0,:,hei] = self.CEEJ_fit_weight_bound_no_inputs(spc,x,dataOut.nIncohInt)
+
+                    elif mode == 10: #150km
+                        dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_param_errors[0,:,hei] = self.Simple_fit_bound(spc,x,dataOut.nIncohInt)
+                        snr = (dataOut.power[0,hei]*factor - dataOut.Oblique_params[0,3,hei])/dataOut.Oblique_params[0,3,hei]
+                        dataOut.snr_log10[0,hei] = numpy.log10(snr)
+
+                    else:
+                        spc_fit, A1, B1, C1, D1 = self.Gauss_fit_2(spc,x,'first')
+
+                        spc_diff = spc - spc_fit
+                        spc_diff[spc_diff < 0] = 0
+
+                        spc_fit_diff, A2, B2, C2, D2 = self.Gauss_fit_2(spc_diff,x,'second')
+
+                        D = (D1+D2)
+
+                        if mode == 0: #Double Fit
+                            dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei],dataOut.Oblique_param_errors[0,0,hei],dataOut.Oblique_param_errors[0,1,hei],dataOut.Oblique_param_errors[0,2,hei],dataOut.Oblique_param_errors[0,3,hei],dataOut.Oblique_param_errors[0,4,hei],dataOut.Oblique_param_errors[0,5,hei],dataOut.Oblique_param_errors[0,6,hei] = self.Double_Gauss_fit_2(spc,x,A1,B1,C1,A2,B2,C2,D)
+                        #spc_double_fit,dataOut.Oblique_params = self.Double_Gauss_fit(spc,x,A1,B1,C1,A2,B2,C2,D)
+
+                        elif mode == 1: #Double Fit Windowed
+                            dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei] = self.windowing_double(spc,dataOut.getFreqRange(0),A1,B1,C1,A2,B2,C2,D)
+
+                        elif mode == 2: #Double Fit Weight
+                            dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei] = self.Double_Gauss_fit_weight(spc,x,A1,B1,C1,A2,B2,C2,D)
+
+                        elif mode == 3: #Simple Fit
+                            dataOut.Oblique_params[0,0,hei] = A1
+                            dataOut.Oblique_params[0,1,hei] = B1
+                            dataOut.Oblique_params[0,2,hei] = C1
+                            dataOut.Oblique_params[0,3,hei] = A2
+                            dataOut.Oblique_params[0,4,hei] = B2
+                            dataOut.Oblique_params[0,5,hei] = C2
+                            dataOut.Oblique_params[0,6,hei] = D
+
+                        elif mode == 5: #Triple Fit Weight
+                            if hei in l1:
+                                dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei] = self.duo_Marco(spc,x,A1,B1,C1,A2,B2,C2,D)
+                                dataOut.dplr_2_u[0,0,hei] = dataOut.Oblique_params[0,4,hei]/numpy.sin(numpy.arccos(102/dataOut.heightList[hei]))
+                                #print(dataOut.Oblique_params[0,0,hei])
+                                #print(dataOut.dplr_2_u[0,0,hei])
+                            else:
+                                dataOut.Oblique_params[0,0,hei],dataOut.Oblique_params[0,1,hei],dataOut.Oblique_params[0,2,hei],dataOut.Oblique_params[0,3,hei],dataOut.Oblique_params[0,4,hei],dataOut.Oblique_params[0,5,hei],dataOut.Oblique_params[0,6,hei] = self.Double_Gauss_fit_weight(spc,x,A1,B1,C1,A2,B2,C2,D)
+                                dataOut.dplr_2_u[0,0,hei] = dataOut.Oblique_params[0,4,hei]/numpy.sin(numpy.arccos(102/dataOut.heightList[hei]))
+
+
+                except:
+                    ###dataOut.Oblique_params[0,:,hei] = dataOut.Oblique_params[0,:,hei]*numpy.NAN
+                    pass
+
+        #exit(1)
+        dataOut.paramInterval = dataOut.nProfiles*dataOut.nCohInt*dataOut.ippSeconds
+        dataOut.lat=-11.95
+        dataOut.lon=-76.87
+        '''
+        dataOut.Oblique_params = numpy.where(dataOut.Oblique_params<-700, numpy.nan, dop_t1)
+        dataOut.Oblique_params = numpy.where(dataOut.Oblique_params<+700, numpy.nan, dop_t1)
+        Aquí debo exceptuar las amplitudes
+        '''
+        if mode == 9: #Double Skew Gaussian
+            #dataOut.Dop_EEJ_T1 = dataOut.Oblique_params[:,-2,:] #Pos[Max_value]
+            #dataOut.Dop_EEJ_T1 = dataOut.Oblique_params[:,1,:] #Shift
+            dataOut.Spec_W_T1 = dataOut.Oblique_params[:,2,:]
+            #dataOut.Dop_EEJ_T2 = dataOut.Oblique_params[:,-1,:] #Pos[Max_value]
+            #dataOut.Dop_EEJ_T2 = dataOut.Oblique_params[:,5,:] #Shift
+            dataOut.Spec_W_T2 = dataOut.Oblique_params[:,6,:]
+            if Dop == 'Shift':
+                dataOut.Dop_EEJ_T1 = dataOut.Oblique_params[:,1,:] #Shift
+                dataOut.Dop_EEJ_T2 = dataOut.Oblique_params[:,5,:] #Shift
+            elif Dop == 'Max':
+                dataOut.Dop_EEJ_T1 = dataOut.Oblique_params[:,-2,:] #Pos[Max_value]
+                dataOut.Dop_EEJ_T2 = dataOut.Oblique_params[:,-1,:] #Pos[Max_value]
+
+            dataOut.Err_Dop_EEJ_T1 = dataOut.Oblique_param_errors[:,1,:] #En realidad este es el error?
+            dataOut.Err_Spec_W_T1 = dataOut.Oblique_param_errors[:,2,:]
+            dataOut.Err_Dop_EEJ_T2 = dataOut.Oblique_param_errors[:,5,:] #En realidad este es el error?
+            dataOut.Err_Spec_W_T2 = dataOut.Oblique_param_errors[:,6,:]
+
+        elif mode == 11: #Double Gaussian
+            dataOut.Dop_EEJ_T1 = dataOut.Oblique_params[:,1,:]
+            dataOut.Spec_W_T1 = dataOut.Oblique_params[:,2,:]
+            dataOut.Dop_EEJ_T2 = dataOut.Oblique_params[:,4,:]
+            dataOut.Spec_W_T2 = dataOut.Oblique_params[:,5,:]
+
+            dataOut.Err_Dop_EEJ_T1 = dataOut.Oblique_param_errors[:,1,:]
+            dataOut.Err_Spec_W_T1 = dataOut.Oblique_param_errors[:,2,:]
+            dataOut.Err_Dop_EEJ_T2 = dataOut.Oblique_param_errors[:,4,:]
+            dataOut.Err_Spec_W_T2 = dataOut.Oblique_param_errors[:,5,:]
+
+        #print("Before: ", dataOut.Dop_EEJ_T2)
+        dataOut.Spec_W_T1 = self.clean_outliers(dataOut.Spec_W_T1)
+        dataOut.Spec_W_T2 = self.clean_outliers(dataOut.Spec_W_T2)
+        dataOut.Dop_EEJ_T1 = self.clean_outliers(dataOut.Dop_EEJ_T1)
+        dataOut.Dop_EEJ_T2 = self.clean_outliers(dataOut.Dop_EEJ_T2)
+        #print("After: ", dataOut.Dop_EEJ_T2)
+        dataOut.Err_Spec_W_T1 = self.clean_outliers(dataOut.Err_Spec_W_T1)
+        dataOut.Err_Spec_W_T2 = self.clean_outliers(dataOut.Err_Spec_W_T2)
+        dataOut.Err_Dop_EEJ_T1 = self.clean_outliers(dataOut.Err_Dop_EEJ_T1)
+        dataOut.Err_Dop_EEJ_T2 = self.clean_outliers(dataOut.Err_Dop_EEJ_T2)
+        #print("Before data_snr: ", dataOut.data_snr)
+        #dataOut.data_snr = numpy.where(numpy.isnan(dataOut.Dop_EEJ_T1), numpy.nan, dataOut.data_snr)
+        dataOut.snl = numpy.where(numpy.isnan(dataOut.Dop_EEJ_T1), numpy.nan, dataOut.snl)
+
+        #print("After data_snr: ", dataOut.data_snr)
+        dataOut.mode = mode
+        dataOut.flagNoData = numpy.all(numpy.isnan(dataOut.Dop_EEJ_T1)) #Si todos los valores son NaN no se prosigue
+        ###dataOut.flagNoData = False #Descomentar solo para ploteo sino mantener comentado (para guardado)
+
+        return dataOut
+
+class Gaussian_Windowed(Operation):
+    '''
+    Written by R. Flores
+    '''
+    def __init__(self):
+        Operation.__init__(self)
+
+    def windowing_single(self,spc,x,A,B,C,D,nFFTPoints):
+        from scipy.optimize import curve_fit,fmin
+
+        def gaussian(x, a, b, c, d):
+            val = a * numpy.exp(-(x - b)**2 / (2*c**2)) + d
+            return val
+
+        def R_gaussian(x, a, b, c):
+                N = int(numpy.shape(x)[0])
+                val = a * numpy.exp(-((x)*c*2*2*numpy.pi)**2 / (2))* numpy.exp(1.j*b*x*4*numpy.pi)
+                return val
+
+        def T(x,N):
+            T = 1-abs(x)/N
+            return T
+
+        def R_T_spc_fun(x, a, b, c, d, nFFTPoints):
+
+            N = int(numpy.shape(x)[0])
+
+            x_max = x[-1]
+
+            x_pos = x[nFFTPoints:]
+            x_neg = x[:nFFTPoints]
+            #print([int(nFFTPoints/2))
+            #print("x: ", x)
+            #print("x_neg: ", x_neg)
+            #print("x_pos: ", x_pos)
+
+
+            R_T_neg_1 = R_gaussian(x, a, b, c)[:nFFTPoints]*T(x_neg,-x[0])
+            R_T_pos_1 = R_gaussian(x, a, b, c)[nFFTPoints:]*T(x_pos,x[-1])
+            #print(T(x_pos,x[-1]),x_pos,x[-1])
+            #print(R_T_neg_1.shape,R_T_pos_1.shape)
+            R_T_sum_1 = R_T_pos_1 + R_T_neg_1
+            R_T_spc_1 = numpy.fft.fft(R_T_sum_1).real
+            R_T_spc_1 = numpy.fft.fftshift(R_T_spc_1)
+            max_val_1 = numpy.max(R_T_spc_1)
+            R_T_spc_1 = R_T_spc_1*a/max_val_1
+
+            R_T_d = d*numpy.fft.fftshift(signal.unit_impulse(N))
+            R_T_d_neg = R_T_d[:nFFTPoints]*T(x_neg,-x[0])
+            R_T_d_pos = R_T_d[nFFTPoints:]*T(x_pos,x[-1])
+            R_T_d_sum = R_T_d_pos + R_T_d_neg
+            R_T_spc_3 = numpy.fft.fft(R_T_d_sum).real
+            R_T_spc_3 = numpy.fft.fftshift(R_T_spc_3)
+
+            R_T_final = R_T_spc_1 + R_T_spc_3
+
+            return R_T_final
+
+        y = spc#gaussian(x, a, meanY, sigmaY) + a*0.1*numpy.random.normal(0, 1, size=len(x))
+
+        from scipy.stats import norm
+        mean,std=norm.fit(spc)
+
+        # estimate starting values from the data
+        a = A
+        b = B
+        c = C#numpy.std(spc)
+        d = D
+        #'''
+        #ippSeconds = 250*20*1.e-6/3
+
+        #x_t = ippSeconds * (numpy.arange(nFFTPoints) - nFFTPoints / 2.)
+
+        #x_t = numpy.linspace(x_t[0],x_t[-1],3200)
+        #print("x_t: ", x_t)
+        #print("nFFTPoints: ", nFFTPoints)
+        x_vel = numpy.linspace(x[0],x[-1],int(2*nFFTPoints))
+        #print("x_vel: ", x_vel)
+        #x_freq = numpy.fft.fftfreq(1600,d=ippSeconds)
+        #x_freq = numpy.fft.fftshift(x_freq)
+        #'''
+        # define a least squares function to optimize
+        def minfunc(params):
+            #print("y.shape: ", numpy.shape(y))
+            return sum((y-R_T_spc_fun(x_vel,params[0],params[1],params[2],params[3],nFFTPoints))**2/1)#y**2)
+
+        # fit
+
+        popt_full = fmin(minfunc,[a,b,c,d], disp=False)
+        #print("nIter", popt_full[2])
+        popt = popt_full#[0]
+
+        fun = gaussian(x, popt[0], popt[1], popt[2], popt[3])
+
+        #return R_T_spc_fun(x_t,popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6]), popt[0], popt[1], popt[2], popt[3], popt[4], popt[5], popt[6]
+        return fun, popt[0], popt[1], popt[2], popt[3]
+
+    def run(self, dataOut):
+
+        from scipy.signal import medfilt
+        import matplotlib.pyplot as plt
+        dataOut.moments = numpy.ones((dataOut.nChannels,4,dataOut.nHeights))*numpy.NAN
+        dataOut.VelRange = dataOut.getVelRange(0)
+        for nChannel in range(dataOut.nChannels):
+            for hei in range(dataOut.heightList.shape[0]):
+                #print("ipp: ", dataOut.ippSeconds)
+                spc = numpy.copy(dataOut.data_spc[nChannel,:,hei])
+
+                #print(VelRange)
+                #print(dataOut.getFreqRange(64))
+                spcm = medfilt(spc,11)
+                spc_max = numpy.max(spcm)
+                dop1_x0 = dataOut.VelRange[numpy.argmax(spcm)]
+                D = numpy.min(spcm)
+
+                fun, A, B, C, D = self.windowing_single(spc,dataOut.VelRange,spc_max,dop1_x0,abs(dop1_x0),D,dataOut.nFFTPoints)
+                dataOut.moments[nChannel,0,hei] = A
+                dataOut.moments[nChannel,1,hei] = B
+                dataOut.moments[nChannel,2,hei] = C
+                dataOut.moments[nChannel,3,hei] = D
+                '''
+                plt.figure()
+                plt.plot(VelRange,spc,marker='*',linestyle='')
+                plt.plot(VelRange,fun)
+                plt.title(dataOut.heightList[hei])
+                plt.show()
+                '''
+
         return dataOut
 
 class PrecipitationProc(Operation):
@@ -1223,7 +2220,7 @@ class FullSpectralAnalysis(Operation):
         # spwd limit - updated by D. Scipión 30.03.2021
         widthlimit = 10
         '''************************* SPC is normalized ********************************'''
-        spc_norm = spc.copy() 
+        spc_norm = spc.copy()
         # For each channel
         for i in range(nChan):
             spc_sub = spc_norm[i,:] - noise[i]  # only the signal power
@@ -1242,9 +2239,9 @@ class FullSpectralAnalysis(Operation):
             >= 0, as it is the modulus squared of the signals (complex * it's conjugate)
         """
         # initial conditions
-        popt = [1e-10,0,1e-10] 
+        popt = [1e-10,0,1e-10]
         # Spectra average
-        SPCMean = numpy.average(SPC_Samples,0) 
+        SPCMean = numpy.average(SPC_Samples,0)
         # Moments in frequency
         SPCMoments = self.Moments(SPCMean[xvalid], xSamples_zoom)
 
@@ -1621,6 +2618,8 @@ class SpectralMoments(Operation):
         if (nicoh is None): nicoh = 1
         if (graph is None): graph = 0
         if (smooth is None): smooth = 0
+        elif (self.smooth < 3): smooth = 0
+
         if (type1 is None): type1 = 0
         if (fwindow is None): fwindow = numpy.zeros(oldfreq.size) + 1
         if (snrth is None): snrth = -20.0
