@@ -37,6 +37,12 @@ class HDFReader(Reader, ProcessingUnit):
         Dictionary with the description of the HDF5 file
     extras : dict, optional
         Dictionary with extra metadata to be be added to `dataOut`
+
+    Attention:   Be carefull, add  attribute utcoffset, in the last part of reader in order to work in Local Time without time problems.
+
+    -----------
+    utcoffset='-18000'
+
     
     Examples
     --------
@@ -65,6 +71,7 @@ class HDFReader(Reader, ProcessingUnit):
         'timeZone': 300
     }
     
+
     reader = project.addReadUnit(
         name='HDFReader',
         path='/path/to/files',
@@ -72,15 +79,10 @@ class HDFReader(Reader, ProcessingUnit):
         endDate='2019/01/31',
         startTime='00:00:00',
         endTime='23:59:59',
+        utcoffset='-18000'
         # description=json.dumps(desc),
         # extras=json.dumps(extras),
         )
-
-    ATTENTION:
-    Add  attribute:
-
-    utcoffset='-18000'
-    in the last part of reader in order to work in Local Time
 
     """
 
