@@ -44,7 +44,8 @@ class SpectraPlot(Plot):
         data['spc'] = spc
         data['rti'] = dataOut.getPower()
         data['noise'] = 10 * numpy.log10(dataOut.getNoise() / dataOut.normFactor)
-        extrapoints = spc.shape[1] % dataOut.nFFTPoints        
+        extrapoints = spc.shape[1] % dataOut.nFFTPoints       
+        extrapoints=1 
         meta['xrange'] = (dataOut.getFreqRange(extrapoints) / 1000., dataOut.getAcfRange(extrapoints), dataOut.getVelRange(extrapoints))
         if self.CODE == 'spc_moments':
             data['moments'] = dataOut.moments
@@ -70,7 +71,7 @@ class SpectraPlot(Plot):
             self.xlabel = "Velocity (m/s)"
 
         self.titles = []
-
+        
         y = self.data.yrange
         self.y = y
 
