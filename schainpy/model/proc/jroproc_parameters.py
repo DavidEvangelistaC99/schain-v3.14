@@ -12,6 +12,7 @@ import itertools
 from multiprocessing import Pool, TimeoutError
 from multiprocessing.pool import ThreadPool
 import time
+
 from scipy.optimize import fmin_l_bfgs_b #optimize with bounds on state papameters
 from .jroproc_base import ProcessingUnit, Operation, MPDecorator
 from schainpy.model.data.jrodata import Parameters, hildebrand_sekhon
@@ -328,8 +329,6 @@ class GaussianFit(Operation):
         Operation.__init__(self)
         self.i=0
 
-
-    # def run(self, dataOut, num_intg=7, pnoise=1., SNRlimit=-9): #num_intg: Incoherent integrations, pnoise: Noise, vel_arr: range of velocities, similar to the ftt points
     def run(self, dataOut, SNRdBlimit=-9, method='generalized'):
         """This routine will find a couple of generalized Gaussians to a power spectrum
         methods: generalized, squared
@@ -714,6 +713,7 @@ class Oblique_Gauss_Fit(Operation):
 
 
         return gaussian(x, popt[0], popt[1], popt[2], popt[3]), popt[0], popt[1], popt[2], popt[3]
+
 
     def Gauss_fit_2(self,spc,x,nGauss):
 
@@ -2979,34 +2979,44 @@ class JULIADriftsEstimation(Operation):
 
     def run(self, dataOut, zenith, zenithCorrection,heights=None, statistics=0, otype=0):
 
+        dataOut.lat=-11.95
+        dataOut.lon=-76.87
         nCh=dataOut.spcpar.shape[0]
         nHei=dataOut.spcpar.shape[1]
         nParam=dataOut.spcpar.shape[2]
-        # Solo las alturas de interes
-        hei=dataOut.heightList
-        hvalid=numpy.where([hei >= heights[0]][0] & [hei <= heights[1]][0])[0]
-        nhvalid=len(hvalid)
-        parm = numpy.zeros((nCh,nhvalid,nParam))
-        parm = dataOut.spcpar[:,hvalid,:]
+        # Selección de alturas
+
+        if not heights:
+            parm = numpy.zeros((nCh,nHei,nParam))
+            parm[:] = dataOut.spcpar[:]
+        else:
+            hei=dataOut.heightList
+            hvalid=numpy.where([hei >= heights[0]][0] & [hei <= heights[1]][0])[0]
+            nhvalid=len(hvalid)
+            dataOut.heightList = hei[hvalid]      
+            parm = numpy.zeros((nCh,nhvalid,nParam))
+            parm[:] = dataOut.spcpar[:,hvalid,:]
+
+        
         # Primer filtrado: Umbral de SNR
         for i in range(nCh):
-            dataOut.spcpar[i,hvalid,:] = self.data_filter(parm[i,:,:])[0]
+            parm[i,:,:] = self.data_filter(parm[i,:,:])[0]
+
         zenith = numpy.array(zenith)
         zenith -= zenithCorrection
         zenith *= numpy.pi/180
         alpha = zenith[0]
         beta = zenith[1]
-
-        dopplerCH0 = dataOut.spcpar[0,:,0]
-        dopplerCH1 = dataOut.spcpar[1,:,0]
-        swCH0 = dataOut.spcpar[0,:,1]
-        swCH1 = dataOut.spcpar[1,:,1]
-        snrCH0 = 10*numpy.log10(dataOut.spcpar[0,:,2])
-        snrCH1 = 10*numpy.log10(dataOut.spcpar[1,:,2])
-        noiseCH0 = dataOut.spcpar[0,:,3]
-        noiseCH1 = dataOut.spcpar[1,:,3]
-        wErrCH0 = dataOut.spcpar[0,:,5]
-        wErrCH1 = dataOut.spcpar[1,:,5]
+        dopplerCH0 = parm[0,:,0]
+        dopplerCH1 = parm[1,:,0]
+        swCH0 = parm[0,:,1]
+        swCH1 = parm[1,:,1]
+        snrCH0 = 10*numpy.log10(parm[0,:,2])
+        snrCH1 = 10*numpy.log10(parm[1,:,2])
+        noiseCH0 = parm[0,:,3]
+        noiseCH1 = parm[1,:,3]
+        wErrCH0 = parm[0,:,5]
+        wErrCH1 = parm[1,:,5]
 
         # Vertical and zonal calculation according to geometry
         sinB_A = numpy.sin(beta)*numpy.cos(alpha) - numpy.sin(alpha)* numpy.cos(beta)
@@ -3020,7 +3030,8 @@ class JULIADriftsEstimation(Operation):
 
         # for statistics150km
         if statistics:
-            print('Implemented offline.')          
+            print('Implemented offline.')
+
         if otype == 0:
             winds = numpy.vstack((snr, drift, zonal, noise, sw, w_w_err, w_e_err)) # to process statistics drifts
         elif otype == 3:
@@ -3034,6 +3045,10 @@ class JULIADriftsEstimation(Operation):
 
         dataOut.utctimeInit = dataOut.utctime
         dataOut.outputInterval = dataOut.timeInterval
+        try:
+            dataOut.flagNoData = numpy.all(numpy.isnan(dataOut.data_output[0]))  # NAN vectors are not written MADRIGAL CASE
+        except:
+            print("Check there is no Data")
 
         return dataOut
 
