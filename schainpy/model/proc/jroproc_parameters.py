@@ -1455,6 +1455,7 @@ class SpectralMoments(Operation):
 
         for ind in range(nChannel):
             data_param[ind,:,:] = self.__calculateMoments( data[ind,:,:] , absc , noise[ind], nicoh=nIncohInt, smooth=smooth, type1=type1, fwindow=fwindow)
+            #print('snr:',data_param[:,0])
 
         if proc_type == 1:
             dataOut.moments = data_param[:,1:,:]
@@ -1963,68 +1964,52 @@ class JULIADriftsEstimation(Operation):
 
     def run(self, dataOut, zenith, zenithCorrection,heights=None, statistics=0, otype=0):
 
-        nCh=dataOut.spcpar.shape[0]
+
+        dataOut.lat=-11.95
+        dataOut.lon=-76.87
         
+        nCh=dataOut.spcpar.shape[0]    
         nHei=dataOut.spcpar.shape[1]
         nParam=dataOut.spcpar.shape[2]
-        # Solo las alturas de interes
-        hei=dataOut.heightList
-        hvalid=numpy.where([hei >= heights[0]][0] & [hei <= heights[1]][0])[0]
-        nhvalid=len(hvalid)
-        parm = numpy.zeros((nCh,nhvalid,nParam))
-        parm = dataOut.spcpar[:,hvalid,:]
+        # Selección de alturas
+
+        if not heights:
+            parm = numpy.zeros((nCh,nHei,nParam))
+            parm[:] = dataOut.spcpar[:]
+        else:
+            hei=dataOut.heightList
+            hvalid=numpy.where([hei >= heights[0]][0] & [hei <= heights[1]][0])[0]
+            nhvalid=len(hvalid)
+            dataOut.heightList = hei[hvalid]      
+            parm = numpy.zeros((nCh,nhvalid,nParam))
+            parm[:] = dataOut.spcpar[:,hvalid,:]
+
         
         # Primer filtrado: Umbral de SNR
-        #snrth=-19
         for i in range(nCh):
-            #print('snr:',parm[i,:,2])
-            #dataOut.spcpar[i,hvalid,:] = self.data_filter(parm[i,:,:],snrth)[0]
-            dataOut.spcpar[i,hvalid,:] = self.data_filter(parm[i,:,:])[0]
-        #print('dataOut.spcpar[0,:,2]',dataOut.spcpar[0,:,2])
-        #print('dataOut.spcpar[1,:,2]',dataOut.spcpar[1,:,2])
+            parm[i,:,:] = self.data_filter(parm[i,:,:])[0]
+
         zenith = numpy.array(zenith)
         zenith -= zenithCorrection
         zenith *= numpy.pi/180
         alpha = zenith[0]
         beta = zenith[1]
-
-        dopplerCH0 = dataOut.spcpar[0,:,0]
-        dopplerCH1 = dataOut.spcpar[1,:,0]
-        swCH0 = dataOut.spcpar[0,:,1]
-        swCH1 = dataOut.spcpar[1,:,1]
-        snrCH0 = 10*numpy.log10(dataOut.spcpar[0,:,2])
-        snrCH1 = 10*numpy.log10(dataOut.spcpar[1,:,2])
-        noiseCH0 = dataOut.spcpar[0,:,3]
-        noiseCH1 = dataOut.spcpar[1,:,3]
-        wErrCH0 = dataOut.spcpar[0,:,5]
-        wErrCH1 = dataOut.spcpar[1,:,5]
+        dopplerCH0 = parm[0,:,0]
+        dopplerCH1 = parm[1,:,0]
+        swCH0 = parm[0,:,1]
+        swCH1 = parm[1,:,1]
+        snrCH0 = 10*numpy.log10(parm[0,:,2])
+        snrCH1 = 10*numpy.log10(parm[1,:,2])
+        noiseCH0 = parm[0,:,3]
+        noiseCH1 = parm[1,:,3]
+        wErrCH0 = parm[0,:,5]
+        wErrCH1 = parm[1,:,5]
 
         # Vertical and zonal calculation according to geometry
         sinB_A = numpy.sin(beta)*numpy.cos(alpha) - numpy.sin(alpha)* numpy.cos(beta)
         drift = -(dopplerCH0 * numpy.sin(beta) - dopplerCH1 * numpy.sin(alpha))/ sinB_A
-        '''
-        print('drift.shape:',drift.shape)
-        print('drift min:', numpy.nanmin(drift))
-        print('drift max:', numpy.nanmax(drift))
-        '''
-
-        '''
-        print('shape:', dopplerCH0[hvalid].shape)
-        print('dopplerCH0:', dopplerCH0[hvalid])
-        print('dopplerCH1:', dopplerCH1[hvalid])
-        print('drift:', drift[hvalid])
-        '''
         zonal = (dopplerCH0 * numpy.cos(beta) - dopplerCH1 * numpy.cos(alpha))/ sinB_A
-        '''
-        print('zonal min:', numpy.nanmin(zonal))
-        print('zonal max:', numpy.nanmax(zonal))
-        '''
-        #print('zonal:', zonal[hvalid])
         snr = (snrCH0 + snrCH1)/2
-        '''
-        print('snr min:', 10*numpy.log10(numpy.nanmin(snr)))
-        print('snr max:', 10*numpy.log10(numpy.nanmax(snr)))
-        '''
         noise = (noiseCH0 + noiseCH1)/2
         sw = (swCH0 + swCH1)/2
         w_w_err= numpy.sqrt(numpy.power(wErrCH0 * numpy.sin(beta)/numpy.abs(sinB_A),2) + numpy.power(wErrCH1 * numpy.sin(alpha)/numpy.abs(sinB_A),2))
@@ -2033,7 +2018,7 @@ class JULIADriftsEstimation(Operation):
         # for statistics150km
         if statistics:
             print('Implemented offline.')
-            
+
         if otype == 0:
             winds = numpy.vstack((snr, drift, zonal, noise, sw, w_w_err, w_e_err)) # to process statistics drifts
         elif otype == 3:
@@ -2042,13 +2027,14 @@ class JULIADriftsEstimation(Operation):
             winds = numpy.vstack((snrCH0, drift, snrCH1, zonal)) # to generic plot: 4 RTI's
 
         snr1 = numpy.vstack((snrCH0, snrCH1))
-        
         dataOut.data_output = winds
         dataOut.data_snr = snr1     
 
         dataOut.utctimeInit = dataOut.utctime
         dataOut.outputInterval = dataOut.timeInterval
-
+        
+        dataOut.flagNoData = numpy.all(numpy.isnan(dataOut.data_output[0]))  # NAN vectors are not written
+        
         return dataOut
         
 class SALags(Operation):
