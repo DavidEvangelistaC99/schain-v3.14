@@ -196,7 +196,6 @@ class HDFReader(Reader, ProcessingUnit):
                                                                       self.blocksPerFile,
                                                                       thisDatetime))
             self.setNextFile()
-            #self.readFirstHeader()
 
         return
 
