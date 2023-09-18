@@ -76,6 +76,12 @@ class HDFReader(Reader, ProcessingUnit):
         # extras=json.dumps(extras),
         )
 
+    ATTENTION:
+    Add  attribute:
+
+    utcoffset='-18000'
+    in the last part of reader in order to work in Local Time
+
     """
 
     __attrs__ = ['path', 'startDate', 'endDate', 'startTime', 'endTime', 'description', 'extras']
@@ -96,7 +102,6 @@ class HDFReader(Reader, ProcessingUnit):
         self.utcoffset = 0
 
     def setup(self, **kwargs):
-
         self.set_kwargs(**kwargs)
         if not self.ext.startswith('.'):
             self.ext = '.{}'.format(self.ext)            
@@ -179,13 +184,18 @@ class HDFReader(Reader, ProcessingUnit):
         thisTime = thisDatetime.time()
         startUtcTime = (datetime.datetime.combine(thisDate, startTime) - datetime.datetime(1970, 1, 1)).total_seconds()
         endUtcTime = (datetime.datetime.combine(thisDate, endTime) - datetime.datetime(1970, 1, 1)).total_seconds()
-        
         ind = numpy.where(numpy.logical_and(thisUtcTime >= startUtcTime, thisUtcTime < endUtcTime))[0]
-        if len(ind)==0:
-           raise schainpy.admin.SchainError("[Reading] Date time selected invalid [%s - %s]: No *%s files in %s)" % (startTime, endTime, self.ext, self.path))
 
         self.blockList = ind
         self.blocksPerFile = len(ind)
+
+        if len(ind)==0:
+            print("[Reading] Block No. %d/%d -> %s [Skipping]" % (self.blockIndex,
+                                                                      self.blocksPerFile,
+                                                                      thisDatetime))
+            self.setNextFile()
+            self.readFirstHeader()
+
         return
 
     def __readMetadata(self):
