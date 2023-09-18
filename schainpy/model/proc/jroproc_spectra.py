@@ -945,12 +945,12 @@ class IncohInt(Operation):
 
 class dopplerFlip(Operation):
 
-    def run(self, dataOut, chann = None):
+    def run(self, dataOut):
         # arreglo 1: (num_chan, num_profiles, num_heights)
         self.dataOut = dataOut
         # JULIA-oblicua, indice 2
         # arreglo 2: (num_profiles, num_heights)
-        jspectra = self.dataOut.data_spc[chann]
+        jspectra = self.dataOut.data_spc[2]
         jspectra_tmp = numpy.zeros(jspectra.shape)
         num_profiles = jspectra.shape[0]
         freq_dc = int(num_profiles / 2)
@@ -961,6 +961,6 @@ class dopplerFlip(Operation):
         jspectra_tmp[freq_dc-1]= jspectra[freq_dc-1]
         jspectra_tmp[freq_dc]= jspectra[freq_dc]
         # canal modificado es re-escrito en el arreglo de canales
-        self.dataOut.data_spc[chann] = jspectra_tmp
+        self.dataOut.data_spc[2] = jspectra_tmp
 
         return self.dataOut
