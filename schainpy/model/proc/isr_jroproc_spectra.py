@@ -10,8 +10,9 @@ to work with Spectra data type
 
 import time
 import itertools
+
 import numpy
-# repositorio
+
 from schainpy.model.proc.jroproc_base import ProcessingUnit, MPDecorator, Operation
 from schainpy.model.data.jrodata import Spectra
 from schainpy.model.data.jrodata import hildebrand_sekhon
@@ -125,6 +126,7 @@ class SpectraProc(ProcessingUnit):
 
         self.dataIn.runNextUnit = runNextUnit
         if self.dataIn.type == "Spectra":
+
             self.dataOut.copy(self.dataIn)
             if shift_fft:
                 #desplaza a la derecha en el eje 2 determinadas posiciones
@@ -146,10 +148,16 @@ class SpectraProc(ProcessingUnit):
 
             if nProfiles == None:
                 nProfiles = nFFTPoints
-
+            #print(self.dataOut.ipp)
+            #exit(1)
             if ippFactor == None:
                 self.dataOut.ippFactor = 1
-            
+            #if ippFactor is not None:
+                #self.dataOut.ippFactor = ippFactor
+            #print(ippFactor)
+            #print(self.dataOut.ippFactor)
+            #exit(1)
+
             self.dataOut.nFFTPoints = nFFTPoints
 
             if self.buffer is None:
@@ -160,6 +168,7 @@ class SpectraProc(ProcessingUnit):
 
             if self.dataIn.flagDataAsBlock:
                 nVoltProfiles = self.dataIn.data.shape[1]
+
                 if nVoltProfiles == nProfiles:
                     self.buffer = self.dataIn.data.copy()
                     self.profIndex = nVoltProfiles
@@ -169,25 +178,14 @@ class SpectraProc(ProcessingUnit):
                     if self.profIndex == 0:
                         self.id_min = 0
                         self.id_max = nVoltProfiles
-
+                    #print(self.id_min)
+                    #print(self.id_max)
+                    #print(numpy.shape(self.buffer))
                     self.buffer[:, self.id_min:self.id_max,
                                 :] = self.dataIn.data
                     self.profIndex += nVoltProfiles
                     self.id_min += nVoltProfiles
                     self.id_max += nVoltProfiles
-                elif nVoltProfiles > nProfiles:
-                    self.reader.bypass = True
-                    if self.profIndex == 0:
-                        self.id_min = 0
-                        self.id_max = nProfiles
-
-                    self.buffer = self.dataIn.data[:, self.id_min:self.id_max,:]
-                    self.profIndex += nProfiles
-                    self.id_min += nProfiles
-                    self.id_max += nProfiles
-                    if self.id_max == nVoltProfiles:
-                        self.reader.bypass = False
-            
                 else:
                     raise ValueError("The type object %s has %d profiles, it should just has %d profiles" % (
                         self.dataIn.type, self.dataIn.data.shape[1], nProfiles))
@@ -208,11 +206,11 @@ class SpectraProc(ProcessingUnit):
                 self.__getFft()
                 self.dataOut.flagNoData = False
                 self.firstdatatime = None
-                #if not self.reader.bypass:
                 self.profIndex = 0
         else:
             raise ValueError("The type of input object '%s' is not valid".format(
                 self.dataIn.type))
+
 
     def __selectPairs(self, pairsList):
 
@@ -292,13 +290,16 @@ class SpectraProc(ProcessingUnit):
             if val >= beacon_dB[0]:
                 beacon_heiIndexList.append(avg_dB.tolist().index(val))
 
+        #data_spc = data_spc[:,:,beacon_heiIndexList]
         data_cspc = None
         if self.dataOut.data_cspc is not None:
             data_cspc = self.dataOut.data_cspc[:, :, minIndex:maxIndex + 1]
+            #data_cspc = data_cspc[:,:,beacon_heiIndexList]
 
         data_dc = None
         if self.dataOut.data_dc is not None:
             data_dc = self.dataOut.data_dc[:, minIndex:maxIndex + 1]
+            #data_dc = data_dc[:,beacon_heiIndexList]
 
         self.dataOut.data_spc = data_spc
         self.dataOut.data_cspc = data_cspc
@@ -342,6 +343,7 @@ class SpectraProc(ProcessingUnit):
 
     def getNoise(self, minHei=None, maxHei=None, minVel=None, maxVel=None):
         # validacion de rango
+        print("NOISeeee")
         if minHei == None:
             minHei = self.dataOut.heightList[0]
 
@@ -450,12 +452,48 @@ class GetSNR(Operation):
 
         Operation.__init__(self, **kwargs)
 
+
     def run(self,dataOut):
 
+        #noise = dataOut.getNoise()
         noise = dataOut.getNoise(ymin_index=-10) #Región superior donde solo debería de haber ruido
+        #print("Noise: ", noise)
+        #print("Noise_dB: ", 10*numpy.log10(noise/dataOut.normFactor))
+        #print("Heights: ", dataOut.heightList)
+        #dataOut.data_snr = (dataOut.data_spc.sum(axis=1))/(noise[:,None]*dataOut.normFactor)
+        ################dataOut.data_snr = (dataOut.data_spc.sum(axis=1))/(noise[:,None]*dataOut.nFFTPoints) #Before 12Jan2023
+        #dataOut.data_snr = (dataOut.data_spc.sum(axis=1)-noise[:,None])/(noise[:,None])
         dataOut.data_snr = (dataOut.data_spc.sum(axis=1)-noise[:,None]*dataOut.nFFTPoints)/(noise[:,None]*dataOut.nFFTPoints) #It works apparently
         dataOut.snl = numpy.log10(dataOut.data_snr)
-        dataOut.snl = numpy.where(dataOut.data_snr<.01, numpy.nan, dataOut.snl)
+        #print("snl: ", dataOut.snl)
+        #exit(1)
+        #print(dataOut.heightList[-11])
+        #print(numpy.shape(dataOut.heightList))
+        #print(dataOut.data_snr)
+        #print(dataOut.data_snr[0,-11])
+        #exit(1)
+        #dataOut.data_snr = numpy.where(10*numpy.log10(dataOut.data_snr)<.5, numpy.nan, dataOut.data_snr)
+        #dataOut.data_snr = numpy.where(10*numpy.log10(dataOut.data_snr)<.1, numpy.nan, dataOut.data_snr)
+        #dataOut.data_snr = numpy.where(10*numpy.log10(dataOut.data_snr)<.0, numpy.nan, dataOut.data_snr)
+        #dataOut.data_snr = numpy.where(dataOut.data_snr<.05, numpy.nan, dataOut.data_snr)
+        #dataOut.snl = numpy.where(dataOut.data_snr<.01, numpy.nan, dataOut.snl)
+        dataOut.snl = numpy.where(dataOut.snl<-1, numpy.nan, dataOut.snl)
+        '''
+        import matplotlib.pyplot as plt
+        #plt.plot(10*numpy.log10(dataOut.data_snr[0]),dataOut.heightList)
+        plt.plot(dataOut.data_snr[0],dataOut.heightList)#,marker='*')
+        plt.xlim(-1,10)
+        plt.axvline(1,color='k')
+        plt.axvline(.1,color='k',linestyle='--')
+        plt.grid()
+        plt.show()
+        '''
+        #dataOut.data_snr = 10*numpy.log10(dataOut.data_snr)
+        #dataOut.data_snr = numpy.expand_dims(dataOut.data_snr,axis=0)
+        #print(dataOut.data_snr.shape)
+        #exit(1)
+        #print("Before: ", dataOut.data_snr[0])
+
 
         return dataOut
 
@@ -546,8 +584,8 @@ class removeInterference(Operation):
                 cspc[i,InterferenceRange,:] = numpy.NaN
 
         self.dataOut.data_cspc = cspc
-        
-    def removeInterference(self, interf=2, hei_interf=None, nhei_interf=None, offhei_interf=None):
+
+    def removeInterference(self, interf = 2, hei_interf = None, nhei_interf = None, offhei_interf = None):
 
         jspectra = self.dataOut.data_spc
         jcspectra = self.dataOut.data_cspc
@@ -730,38 +768,14 @@ class removeInterference(Operation):
 
         return 1
 
-    def run(self, dataOut, interf=2,hei_interf=None, nhei_interf=None, offhei_interf=None, mode=1):
+    def run(self, dataOut, interf = 2,hei_interf = None, nhei_interf = None, offhei_interf = None, mode=1):
 
         self.dataOut = dataOut
 
         if mode == 1:
-            self.removeInterference(interf=2,hei_interf=None, nhei_interf=None, offhei_interf=None)
+            self.removeInterference(interf = 2,hei_interf = None, nhei_interf = None, offhei_interf = None)
         elif mode == 2:
             self.removeInterference2()
-
-        return self.dataOut
-
-
-class deflip(Operation):
-       
-    def run(self, dataOut):
-        # arreglo 1: (num_chan, num_profiles, num_heights)
-        self.dataOut = dataOut 
- 
-        # JULIA-oblicua, indice 2
-        # arreglo 2: (num_profiles, num_heights)
-        jspectra = self.dataOut.data_spc[2]
-        jspectra_tmp=numpy.zeros(jspectra.shape)
-        num_profiles=jspectra.shape[0]
-        freq_dc = int(num_profiles / 2)
-        # Flip con for
-        for j in range(num_profiles):
-         jspectra_tmp[num_profiles-j-1]= jspectra[j]
-        # Intercambio perfil de DC con perfil inmediato anterior
-        jspectra_tmp[freq_dc-1]= jspectra[freq_dc-1]
-        jspectra_tmp[freq_dc]= jspectra[freq_dc]
-        # canal modificado es re-escrito en el arreglo de canales
-        self.dataOut.data_spc[2] = jspectra_tmp
 
         return self.dataOut
 
@@ -920,7 +934,7 @@ class IncohInt(Operation):
     def run(self, dataOut, n=None, timeInterval=None, overlapping=False):
         if n == 1:
             return dataOut
-        
+        print("JERE")
         dataOut.flagNoData = True
 
         if not self.isConfig:
@@ -935,6 +949,8 @@ class IncohInt(Operation):
         if self.__dataReady:
 
             dataOut.data_spc = avgdata_spc
+            print(numpy.sum(dataOut.data_spc))
+            exit(1)
             dataOut.data_cspc = avgdata_cspc
             dataOut.data_dc = avgdata_dc
             dataOut.nIncohInt *= self.n
