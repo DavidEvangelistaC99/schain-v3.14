@@ -10,8 +10,9 @@ to work with Spectra data type
 
 import time
 import itertools
+
 import numpy
-# repositorio
+
 from schainpy.model.proc.jroproc_base import ProcessingUnit, MPDecorator, Operation
 from schainpy.model.data.jrodata import Spectra
 from schainpy.model.data.jrodata import hildebrand_sekhon
@@ -213,6 +214,7 @@ class SpectraProc(ProcessingUnit):
         else:
             raise ValueError("The type of input object '%s' is not valid".format(
                 self.dataIn.type))
+
 
     def __selectPairs(self, pairsList):
 
@@ -945,12 +947,12 @@ class IncohInt(Operation):
 
 class dopplerFlip(Operation):
 
-    def run(self, dataOut):
+    def run(self, dataOut, chann = None):
         # arreglo 1: (num_chan, num_profiles, num_heights)
         self.dataOut = dataOut
         # JULIA-oblicua, indice 2
         # arreglo 2: (num_profiles, num_heights)
-        jspectra = self.dataOut.data_spc[2]
+        jspectra = self.dataOut.data_spc[chann]
         jspectra_tmp = numpy.zeros(jspectra.shape)
         num_profiles = jspectra.shape[0]
         freq_dc = int(num_profiles / 2)
@@ -961,6 +963,6 @@ class dopplerFlip(Operation):
         jspectra_tmp[freq_dc-1]= jspectra[freq_dc-1]
         jspectra_tmp[freq_dc]= jspectra[freq_dc]
         # canal modificado es re-escrito en el arreglo de canales
-        self.dataOut.data_spc[2] = jspectra_tmp
+        self.dataOut.data_spc[chann] = jspectra_tmp
 
         return self.dataOut
