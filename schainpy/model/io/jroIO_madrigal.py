@@ -48,7 +48,9 @@ DEF_HEADER = {
 
 MNEMONICS = {
     10: 'jro',
+    12: 'jmp',
     11: 'jbr',
+    14: 'jmp', #Added by R. Flores
     840: 'jul',
     13: 'jas',
     1000: 'pbr',
