@@ -144,8 +144,11 @@ class HDFReader(Reader, ProcessingUnit):
 
         self.__readMetadata()
         self.__readData()
-        self.__setBlockList()        
-
+        self.__setBlockList()     
+        # similar to master
+        if 'type' in self.meta:
+            self.dataOut = eval(self.meta['type'])()   
+        # similar to master
         for attr in self.meta:
             setattr(self.dataOut, attr, self.meta[attr])
 
@@ -181,6 +184,13 @@ class HDFReader(Reader, ProcessingUnit):
 
         self.blockList = ind
         self.blocksPerFile = len(ind)
+        # similar to master
+        if len(ind)==0:
+            print("[Reading] Block No. %d/%d -> %s [Skipping]" % (self.blockIndex,
+                                                                      self.blocksPerFile,
+                                                                      thisDatetime))
+            self.setNextFile()
+        # similar to master
         return
 
     def __readMetadata(self):
@@ -274,10 +284,10 @@ class HDFReader(Reader, ProcessingUnit):
             self.setNextFile()
 
         self.getData()
-
+        ''' # this block is missing in master.        
         if 'type' in self.meta:
             self.dataOut.type = self.meta['type'].decode('utf-8')
-
+        '''
         return
 
 @MPDecorator
