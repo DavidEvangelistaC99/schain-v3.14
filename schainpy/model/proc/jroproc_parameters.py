@@ -1419,7 +1419,7 @@ class SpectralMoments(Operation):
 
     '''
 
-    def run(self, dataOut, proc_type=0):
+    def run(self, dataOut, proc_type=0, exp='150EEJ'):
 
         absc = dataOut.abscissaList[:-1]
         #noise = dataOut.noise
@@ -1428,12 +1428,14 @@ class SpectralMoments(Operation):
         data_param = numpy.zeros((nChannel, 4 + proc_type*3, nHei))
 
         if proc_type == 1:
+            type1= 0
             fwindow = numpy.zeros(absc.size) + 1
-            b=64            
-            #b=16
-            fwindow[0:absc.size//2 - b] = 0
-            fwindow[absc.size//2 + b:] = 0
-            type1 = 1 # moments calculation
+            if exp == '150EEJ':
+                b=64
+                fwindow[0:absc.size//2 - b] = 0
+                fwindow[absc.size//2 + b:] = 0
+                type1= 1
+            vers = 1 # new           
             nProfiles = dataOut.nProfiles
             nCohInt = dataOut.nCohInt
             nIncohInt = dataOut.nIncohInt
@@ -1449,12 +1451,12 @@ class SpectralMoments(Operation):
             data = dataOut.data_pre[0]
             noise = dataOut.noise
             fwindow = None
-            type1 = 0
+            vers = 0  # old
             nIncohInt = None
             smooth=None
 
         for ind in range(nChannel):
-            data_param[ind,:,:] = self.__calculateMoments( data[ind,:,:] , absc , noise[ind], nicoh=nIncohInt, smooth=smooth, type1=type1, fwindow=fwindow)
+            data_param[ind,:,:] = self.__calculateMoments( data[ind,:,:] , absc , noise[ind], nicoh=nIncohInt, smooth=smooth, type1=type1, fwindow=fwindow, vers=vers)
             #print('snr:',data_param[:,0])
 
         if proc_type == 1:
@@ -1478,7 +1480,7 @@ class SpectralMoments(Operation):
         return dataOut
 
     def __calculateMoments(self, oldspec, oldfreq, n0,
-                           nicoh = None, graph = None, smooth = None, type1 = None, fwindow = None, snrth = None, dc = None, aliasing = None, oldfd = None, wwauto = None):
+                           nicoh = None, graph = None, smooth = None, type1 = None, fwindow = None, snrth = None, dc = None, aliasing = None, oldfd = None, wwauto = None, vers= None):
 
         def __GAUSSWINFIT1(A, flagPDER=0):
             nonlocal truex, xvalid
@@ -1633,6 +1635,7 @@ class SpectralMoments(Operation):
         if (nicoh is None): nicoh = 1
         if (smooth is None): smooth = 0
         if (type1 is None): type1 = 0
+        if (vers is None): vers = 0        
         if (fwindow is None): fwindow = numpy.zeros(oldfreq.size) + 1
         if (snrth is None): snrth = -20.0
         if (dc is None): dc = 0
@@ -1679,7 +1682,7 @@ class SpectralMoments(Operation):
             else:
                 fp = freq[m]
 
-            if type1==0:
+            if vers ==0:
 
                 # Moments Estimation
                 bb = spec2[numpy.arange(m,spec2.size)]
@@ -1759,7 +1762,7 @@ class SpectralMoments(Operation):
 
                 # Here start gaussean adjustment
 
-                if snr > numpy.power(10,0.1*snrth):
+                if type1 == 1 and snr > numpy.power(10,0.1*snrth):
     
                     a = numpy.zeros(4,dtype='f4')
                     a[0] = snr * n0
@@ -1808,7 +1811,7 @@ class SpectralMoments(Operation):
                 vec_sigma_fd[ind] = sigma_fd
                 vec_power[ind] = power  # to compare with type 0 proccessing
 
-        if type1==1:
+        if vers==1:
             #return numpy.vstack((vec_fd,  vec_w, vec_snr, vec_n1, vec_fp, vec_sigma_fd, vec_power))
             return numpy.vstack((vec_snr,  vec_w, vec_fd, vec_n1, vec_fp, vec_sigma_fd, vec_power))   # snr and fd exchanged to compare doppler of both types
         else:
