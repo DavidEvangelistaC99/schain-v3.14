@@ -3392,6 +3392,7 @@ class SpectralFitting(Operation):
                 incoh_aver[pair[1],incoh_echoes]=1
         return  my_incoh_spectra ,my_incoh_cspectra,my_incoh_aver,my_coh_aver, incoh_spectra, coh_spectra, incoh_cspectra, coh_cspectra, incoh_aver, coh_aver
 
+
     def __CleanCoherent(self,snrth, spectra, cspectra, coh_aver,dataOut, noise,clean_coh_echoes,index):
 
         nProf = dataOut.nProfiles
@@ -3718,14 +3719,6 @@ class SpectralFitting(Operation):
             dataOut.clean_num_aver                                = clean_num_aver
             dataOut.coh_num_aver                                  = coh_num_aver
 
-            #List of possible combinations
-            #listComb = itertools.combinations(numpy.arange(groupArray.shape[1]),2)
-            #indCross = numpy.zeros(len(list(listComb)), dtype = 'int')
-            #if getSNR:
-            #    listChannels = groupArray.reshape((groupArray.size))
-            #    listChannels.sort()
-            #    print("AQUI ESTOY")
-            #    dataOut.data_SNR = self.__getSNR(dataOut.data_spc[listChannels,:,:], noise[listChannels])
         else:
             clean_num_aver = dataOut.clean_num_aver
             coh_num_aver = dataOut.coh_num_aver
@@ -3940,13 +3933,12 @@ class SpectralFitting(Operation):
         dataOut.spc_noise = my_noises*self.nProf*self.M
         if numpy.any(proc): dataOut.spc_noise = my_noises*self.nProf*self.M
         if getSNR:
-            print("self.groupArray",self.groupArray.size,self.groupArray)
             listChannels = self.groupArray.reshape((self.groupArray.size))
             listChannels.sort()
             # TEST
             noise_C = numpy.zeros(self.nChannels)
             noise_C = dataOut.getNoise()
-            print("noise_C",noise_C)
+            #print("noise_C",noise_C)
             dataOut.data_snr = self.__getSNR(dataOut.data_spc[listChannels,:,:],noise_C/(600.0*1.15))# PRUEBA *nProf*M
             #dataOut.data_snr = self.__getSNR(dataOut.data_spc[listChannels,:,:], noise_C[listChannels])# PRUEBA *nProf*M
         dataOut.flagNoData = False
@@ -3962,11 +3954,6 @@ class SpectralFitting(Operation):
 
         avg = numpy.average(z, axis=1)
         SNR = (avg.T-noise)/noise
-        print("------------------------------------------------------")
-        print("T - Noise", noise.shape)
-        print("T - Noise", 10*numpy.log10(noise[0]))
-        print("T - avg.T" , avg.T.shape)
-        print("T - avg.T" , 10*numpy.log10(avg.T[:,0]))
         SNR = SNR.T
         return SNR
 
@@ -4736,7 +4723,7 @@ class EWDriftsEstimation(Operation):
         dataOut.data_output = winds
         #snr1 = 10*numpy.log10(SNR1[0])# estaba comentado
         dataOut.data_snr1 = numpy.reshape(snr1,(1,snr1.shape[0]))
-        print("data_snr1",dataOut.data_snr1)
+        #print("data_snr1",dataOut.data_snr1)
         dataOut.utctimeInit = dataOut.utctime
         dataOut.outputInterval = dataOut.timeInterval
 
