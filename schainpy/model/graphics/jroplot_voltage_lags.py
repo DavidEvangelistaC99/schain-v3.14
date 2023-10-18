@@ -756,6 +756,89 @@ class EDensityPlot(Plot):
             plt.legend(loc='upper left',fontsize=8.5)
             #plt.legend(loc='lower left',fontsize=8.5)
 
+class RelativeDenPlot(Plot):
+    '''
+    Written by R. Flores
+    '''
+    '''
+    Plot for electron density
+    '''
+
+    CODE = 'den'
+    #plot_name = 'Electron Density'
+    plot_type = 'scatterbuffer'
+
+    def setup(self):
+
+        self.ncols = 1
+        self.nrows = 1
+        self.nplots = 1
+        self.ylabel = 'Range [km]'
+        self.xlabel = r'$\mathrm{N_e}$ Relative Electron Density ($\mathrm{1/cm^3}$)'
+        self.titles = ['Electron Density']
+        self.width = 3.5
+        self.height = 5.5
+        self.colorbar = False
+        self.plots_adjust.update({'left': 0.17, 'right': 0.88, 'bottom': 0.1})
+
+    def update(self, dataOut):
+        data = {}
+        meta = {}
+
+        data['den_power'] = dataOut.ph2
+        data['den_error'] = dataOut.sdp2
+
+        meta['yrange'] = dataOut.heightList
+
+        return data, meta
+
+    def plot(self):
+
+        y = self.data.yrange
+
+        ax = self.axes[0]
+
+        data = self.data[-1]
+
+        DenPow = data['den_power']
+        errDenPow = data['den_error']
+
+        if ax.firsttime:
+            self.autoxticks=False
+            ax.errorbar(DenPow, y, fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power',markersize=2,linestyle='-')
+
+            plt.legend(loc='upper left',fontsize=8.5)
+            #plt.legend(loc='lower left',fontsize=8.5)
+            ax.set_xscale("log", nonposx='clip')
+            grid_y_ticks=numpy.arange(numpy.nanmin(y),numpy.nanmax(y),50)
+            self.ystep_given=100
+            ax.set_yticks(grid_y_ticks,minor=True)
+            locmaj = LogLocator(base=10,numticks=12)
+            ax.xaxis.set_major_locator(locmaj)
+            locmin = LogLocator(base=10.0,subs=(0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9),numticks=12)
+            ax.xaxis.set_minor_locator(locmin)
+            ax.xaxis.set_minor_formatter(NullFormatter())
+            ax.grid(which='minor')
+
+        else:
+            dataBefore = self.data[-2]
+            DenPowBefore = dataBefore['den_power']
+            self.clear_figures()
+            ax.errorbar(DenPow, y, fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power',markersize=2,linestyle='-')
+            ax.errorbar(DenPowBefore, y, elinewidth=1.0,color='r',linewidth=0.5,linestyle="dashed")
+
+            ax.set_xscale("log", nonposx='clip')
+            grid_y_ticks=numpy.arange(numpy.nanmin(y),numpy.nanmax(y),50)
+            ax.set_yticks(grid_y_ticks,minor=True)
+            locmaj = LogLocator(base=10,numticks=12)
+            ax.xaxis.set_major_locator(locmaj)
+            locmin = LogLocator(base=10.0,subs=(0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9),numticks=12)
+            ax.xaxis.set_minor_locator(locmin)
+            ax.xaxis.set_minor_formatter(NullFormatter())
+            ax.grid(which='minor')
+            plt.legend(loc='upper left',fontsize=8.5)
+            #plt.legend(loc='lower left',fontsize=8.5)
+
 class FaradayAnglePlot(Plot):
     '''
     Written by R. Flores

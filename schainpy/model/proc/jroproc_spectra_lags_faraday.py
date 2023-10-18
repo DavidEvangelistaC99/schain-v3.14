@@ -2877,8 +2877,8 @@ class IntegrationFaradaySpectraNoLags(Operation):
         self.__lastdatatime = 0
 
         self.__buffer_spc = []
-        #self.__buffer_cspc = []
-        self.__buffer_cspc = None
+        self.__buffer_cspc = []
+        #self.__buffer_cspc = None
         self.__buffer_dc = 0
 
         self.__profIndex = 0
@@ -3210,9 +3210,9 @@ class IntegrationFaradaySpectraNoLags(Operation):
         #print(self.__buffer_spc[:,1,3,20,0])
         #print(self.__buffer_spc[:,1,5,37,0])
         data_spc = numpy.sum(self.__buffer_spc,axis=0)
-        print("data_spc: ", data_spc[0,:,0])
-        print("data_spc: ", data_spc[0,:,7])
-        print("shape: ", numpy.shape(data_spc))
+        #print("data_spc: ", data_spc[0,:,0])
+        #print("data_spc: ", data_spc[0,:,7])
+        #print("shape: ", numpy.shape(data_spc))
         #exit(1)
         #data_cspc = numpy.sum(self.__buffer_cspc,axis=0)
         if self.__buffer_cspc is not None:
@@ -3228,8 +3228,8 @@ class IntegrationFaradaySpectraNoLags(Operation):
         n = self.__profIndex
 
         self.__buffer_spc = []
-        #self.__buffer_cspc = []
-        self.__buffer_cspc = None
+        self.__buffer_cspc = []
+        #self.__buffer_cspc = None
         self.__buffer_dc = 0
         self.__profIndex = 0
 
@@ -3292,12 +3292,13 @@ class IntegrationFaradaySpectraNoLags(Operation):
         #print(numpy.shape(dataOut.data_spc))
         #print(numpy.shape(dataOut.data_cspc))
         #exit(1)
-        dataOut.data_cspc = None
+        #dataOut.data_cspc = None
         if not self.isConfig:
             self.setup(dataOut, n, timeInterval, overlapping,DPL )
             self.isConfig = True
 
         if not self.ByLags:
+            #print("dataOut.data_cspc: ", dataOut.data_cspc)
             self.nProfiles=dataOut.nProfiles
             self.nChannels=dataOut.nChannels
             self.nHeights=dataOut.nHeights
@@ -3320,6 +3321,7 @@ class IntegrationFaradaySpectraNoLags(Operation):
 
                 dataOut.data_spc = numpy.squeeze(avgdata_spc)
                 dataOut.data_cspc = numpy.squeeze(avgdata_cspc)
+                dataOut.data_cspc = numpy.expand_dims(dataOut.data_cspc, axis=0)
                 dataOut.data_dc = avgdata_dc
             else:
                 dataOut.dataLag_spc = avgdata_spc
@@ -4290,7 +4292,7 @@ class SpectraDataToFaraday_MST(Operation): #MST MODE
         dataOut.pan = dataOut.tnoise[0]
         dataOut.pbn = dataOut.tnoise[1]
 
-    def noise(self,dataOut):
+    def noise(self,dataOut,minIndex,maxIndex):
 
         dataOut.noise_lag = numpy.zeros((dataOut.nChannels),'float32')
         #print("Lags")
@@ -4312,9 +4314,9 @@ class SpectraDataToFaraday_MST(Operation): #MST MODE
         #dataOut.noise_lag[1] = dataOut.getNoise(ymin_index=80,ymax_index=106)[1]
         if dataOut.flagDecodeData:
             #dataOut.noise_lag[1] = dataOut.getNoise(ymin_index=150,ymax_index=200)[1]
-            dataOut.noise_lag[1] = dataOut.getNoise()[1]
+            dataOut.noise_lag[1] = dataOut.getNoise(ymin_index=minIndex,ymax_index=maxIndex)[1]
         else:
-            dataOut.noise_lag[1] = dataOut.getNoise()[1]
+            dataOut.noise_lag[1] = dataOut.getNoise(ymin_index=minIndex,ymax_index=maxIndex)[1]
             #else:
                 #dataOut.noise_lag[1,lag] = numpy.mean(dataOut.noise_lag[1,:6])
             #dataOut.noise_lag[:,lag] = dataOut.getNoise(ymin_index=33,ymax_index=46)
@@ -4324,9 +4326,9 @@ class SpectraDataToFaraday_MST(Operation): #MST MODE
         dataOut.data_spc = dataOut.dataLag_spc[:,:,:,0]
         if dataOut.flagDecodeData:
             #dataOut.noise_lag[0] = dataOut.getNoise(ymin_index=150,ymax_index=200)[0]
-            dataOut.noise_lag[0] = dataOut.getNoise()[0]
+            dataOut.noise_lag[0] = dataOut.getNoise(ymin_index=minIndex,ymax_index=maxIndex)[0]
         else:
-            dataOut.noise_lag[0] = dataOut.getNoise()[0]
+            dataOut.noise_lag[0] = dataOut.getNoise(ymin_index=minIndex,ymax_index=maxIndex)[0]
 
         dataOut.tnoise = dataOut.noise_lag/float(dataOut.nProfiles*dataOut.nIncohInt)
         #dataOut.tnoise /= float(dataOut.nProfiles*dataOut.nIncohInt)
@@ -4392,12 +4394,7 @@ class SpectraDataToFaraday_MST(Operation): #MST MODE
         input()
         '''
 
-
-
-
-
-
-    def run(self,dataOut):
+    def run(self,dataOut,ymin_noise = None,ymax_noise = None):
 
         dataOut.paramInterval=0#int(dataOut.nint*dataOut.header[7][0]*2 )
         dataOut.lat=-11.95
@@ -4421,28 +4418,52 @@ class SpectraDataToFaraday_MST(Operation): #MST MODE
             dataOut.data_spc /= dataOut.windowOfFilter
             dataOut.data_cspc /= dataOut.windowOfFilter
             '''
-        #print(dataOut.data_spc.shape)
-        print("*****************Sum: ", numpy.sum(dataOut.data_spc[0]))
-        print("*******************normFactor: *******************", dataOut.normFactor)
+        #print("dataOut.data_spc.shape: ", dataOut.data_spc.shape)
+        #print("dataOut.data_cspc.shape: ", dataOut.data_cspc.shape)
+        #print("*****************Sum: ", numpy.sum(dataOut.data_spc[0]))
+        #print("*******************normFactor: *******************", dataOut.normFactor)
         dataOut.dataLag_spc = numpy.stack((dataOut.data_spc, dataOut.data_spc), axis=-1)
         dataOut.dataLag_cspc = numpy.stack((dataOut.data_cspc, dataOut.data_cspc), axis=-1)
         #print(dataOut.dataLag_spc.shape)
         dataOut.DPL = numpy.shape(dataOut.dataLag_spc)[-1]
+
         #exit(1)
         self.ConvertData(dataOut)
-        self.noise(dataOut)
+
+        inda = numpy.where(dataOut.heightList >= ymin_noise)
+        indb = numpy.where(dataOut.heightList <= ymax_noise)
+
+        minIndex = inda[0][0]
+        maxIndex = indb[0][-1]
+
+        #print("ymin_noise: ", dataOut.heightList[minIndex])
+        #print("ymax_noise: ", dataOut.heightList[maxIndex])
+
+        self.noise(dataOut,minIndex,maxIndex)
         dataOut.NAVG=16#dataOut.rnint2[0] #CHECK THIS!
         dataOut.MAXNRANGENDT=dataOut.NDP
-        '''
-        if dataOut.flagDecodeData:
-            print(dataOut.kabxys_integrated[4][:,0,0])
+        #'''
+        if 0:
+            #print(dataOut.kabxys_integrated[4][:,0,0])
+            #print("dataOut.heightList: ", dataOut.heightList)
+            #print("dataOut.pbn: ", dataOut.pbn)
+            print("INSIDE")
             import matplotlib.pyplot as plt
-            plt.plot(dataOut.kabxys_integrated[4][:,0,0],dataOut.heightList)
-            plt.axvline(dataOut.pan)
-            plt.xlim(1.1*1e3,0.6*1e6)
-            plt.ylim(30,90)
+            #print("dataOut.getPower(): ", dataOut.getPower())
+            plt.plot(10*numpy.log10(dataOut.kabxys_integrated[4][:,0,0]),dataOut.heightList)
+            #plt.plot(10**((dataOut.getPower()[1])/10),dataOut.heightList)
+            #plt.plot(dataOut.getPower()[0],dataOut.heightList)
+            #plt.plot(dataOut.dataLag_spc[:,:,:,0],dataOut.heightList)
+            plt.axvline(10*numpy.log10(dataOut.pan))
+            #print(dataOut.nProfiles)
+            #plt.axvline(10*numpy.log10(1*dataOut.getNoise(ymin_index=minIndex,ymax_index=maxIndex)[0]/dataOut.normFactor))
+            #print("10*numpy.log10(dataOut.getNoise(ymin_index=minIndex,ymax_index=maxIndex)[1]/dataOut.normFactor): ", 10*numpy.log10(dataOut.getNoise(ymin_index=minIndex,ymax_index=maxIndex)[1]/dataOut.normFactor))
+            #plt.xlim(1,25000)
+            #plt.xlim(15,20)
+            #plt.ylim(30,90)
+            plt.grid()
             plt.show()
-            '''
+            #'''
         dataOut.DPL = 1
         return dataOut
 

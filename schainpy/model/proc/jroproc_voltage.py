@@ -3115,6 +3115,8 @@ class DoublePulseACFs(Operation):
                     dataOut.p[i,j]=pa+pb-(dataOut.pan+dataOut.pbn)
                     '''
                 #print("init 2.6",pa,dataOut.pan)
+                #dataOut.pan = 23600/2
+                #dataOut.pbn = 23600/2
                 dataOut.p[i,j]=pa+pb-(dataOut.pan+dataOut.pbn)
                 #print(i,j,dataOut.p[i,j])
                 dataOut.sdp[i,j]=2*dataOut.rnint2[j]*((pa+pb)*(pa+pb))
@@ -3122,7 +3124,16 @@ class DoublePulseACFs(Operation):
 
                 rhorp=dataOut.kabxys_integrated[8][i,j,0]+dataOut.kabxys_integrated[11][i,j,0]
                 rhoip=dataOut.kabxys_integrated[10][i,j,0]-dataOut.kabxys_integrated[9][i,j,0]
-
+                '''
+                import matplotlib.pyplot as plt
+                plt.plot(numpy.abs(dataOut.kabxys_integrated[4][:,j,0]+dataOut.kabxys_integrated[5][:,j,0])+numpy.abs(dataOut.kabxys_integrated[6][:,j,0]+dataOut.kabxys_integrated[7][:,j,0]),dataOut.heightList)
+                plt.axvline((dataOut.pan+dataOut.pbn))
+                plt.xlim(20000,30000)
+                #plt.plot(numpy.abs(dataOut.kabxys_integrated[4][:,j,0]+dataOut.kabxys_integrated[5][:,j,0])+numpy.abs(dataOut.kabxys_integrated[6][:,j,0]+dataOut.kabxys_integrated[7][:,j,0])-(dataOut.pan+dataOut.pbn),dataOut.heightList)
+                #plt.xlim(1,10000)
+                plt.grid()
+                plt.show()
+                '''
                 if ((pa>dataOut.pan)&(pb>dataOut.pbn)):
 
                     ss4=numpy.abs((pa-dataOut.pan)*(pb-dataOut.pbn))
@@ -3206,6 +3217,18 @@ class DoublePulseACFs(Operation):
         #print("p: ",dataOut.p[33,:])
         #exit(1)
         #'''
+        '''
+        import matplotlib.pyplot as plt
+        #plt.plot(numpy.abs(dataOut.kabxys_integrated[4][:,j,0]+dataOut.kabxys_integrated[5][:,j,0])+numpy.abs(dataOut.kabxys_integrated[6][:,j,0]+dataOut.kabxys_integrated[7][:,j,0]),dataOut.heightList)
+        #plt.axvline((dataOut.pan+dataOut.pbn))
+        print(numpy.shape(dataOut.p))
+        plt.plot(dataOut.p[:,0]*dataOut.heightList*dataOut.heightList,dataOut.heightList)
+
+        #plt.xlim(1,100000000)
+        plt.xlim(100,100000000)
+        plt.grid()
+        plt.show()
+        '''
         #print(numpy.sum(dataOut.rhor))
         #exit(1)
         return dataOut
@@ -3442,9 +3465,19 @@ class FaradayAngleAndDPPower(Operation):
         dataOut.flagTeTiCorrection = False
         #print("ph2: ", numpy.sum(dataOut.ph2[:16]))
         #print("ph2: ", numpy.sum(dataOut.ph2[16:32]))
+        '''
+        import matplotlib.pyplot as plt
+        #plt.plot(numpy.abs(dataOut.kabxys_integrated[4][:,j,0]+dataOut.kabxys_integrated[5][:,j,0])+numpy.abs(dataOut.kabxys_integrated[6][:,j,0]+dataOut.kabxys_integrated[7][:,j,0]),dataOut.heightList)
+        #plt.axvline((dataOut.pan+dataOut.pbn))
+        #print(numpy.shape(dataOut.p))
+        plt.plot(dataOut.ph2,dataOut.heightList)
 
+        plt.xlim(1000,1000000000)
+        #plt.ylim(50,400)
+        plt.grid()
+        plt.show()
         #exit(1)
-
+        '''
         return dataOut
 
 

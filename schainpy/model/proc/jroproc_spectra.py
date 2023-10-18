@@ -779,6 +779,73 @@ class removeInterference(Operation):
 
         return self.dataOut
 
+class removeInterferenceAtFreq(Operation):
+    '''
+    Written by R. Flores
+    '''
+    """Operation to remove interfernce at a known frequency(s).
+
+    Parameters:
+    -----------
+    None
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='removeInterferenceAtFreq')
+
+    """
+
+    def __init__(self):
+
+        Operation.__init__(self)
+
+    def run(self, dataOut, freq = None, freqList = None):
+
+        VelRange = dataOut.getVelRange()
+        #print("VelRange: ", VelRange)
+
+        freq_ids = []
+
+        if freq is not None:
+            #print("freq")
+            #if freq < 0:
+            inda = numpy.where(VelRange >= freq)
+            minIndex = inda[0][0]
+            #print(numpy.shape(dataOut.dataLag_spc))
+            dataOut.data_spc[:,minIndex,:] = numpy.nan
+
+            #inda = numpy.where(VelRange >= ymin_noise)
+            #indb = numpy.where(VelRange <= ymax_noise)
+
+            #minIndex = inda[0][0]
+            #maxIndex = indb[0][-1]
+
+        elif freqList is not None:
+            #print("freqList")
+            for freq in freqList:
+                #if freq < 0:
+                inda = numpy.where(VelRange >= freq)
+                minIndex = inda[0][0]
+                #print(numpy.shape(dataOut.dataLag_spc))
+                if freq > 0:
+                    #dataOut.data_spc[:,minIndex-1,:] = numpy.nan
+                    freq_ids.append(minIndex-1)
+                else:
+                    #dataOut.data_spc[:,minIndex,:] = numpy.nan
+                    freq_ids.append(minIndex)
+        else:
+            raise ValueError("freq or freqList should be specified ...")
+
+        #freq_ids = numpy.array(freq_ids).flatten()
+
+        avg = numpy.mean(dataOut.data_spc[:,[t for t in range(dataOut.data_spc.shape[0]) if t not in freq_ids],:],axis=1)
+
+        for p in list(freq_ids):
+            dataOut.data_spc[:,p,:] = avg#numpy.nan
+
+
+        return dataOut
 
 class IncohInt(Operation):
 

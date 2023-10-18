@@ -360,13 +360,14 @@ class HDFWriter(Operation):
         Operation.__init__(self)
         return
 
-    def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None):
+    def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None, uniqueChannel=False):
         self.path = path
         self.blocksPerFile = blocksPerFile
         self.metadataList = metadataList
         self.dataList = [s.strip() for s in dataList]
         self.setType = setType
         self.description = description
+        self.uniqueChannel = uniqueChannel
 
         if self.metadataList is None:
             self.metadataList = self.dataOut.metadata_list
@@ -388,6 +389,9 @@ class HDFWriter(Operation):
             elif isinstance(dataAux, (int, float, numpy.integer, numpy.float)):
                 dsDict['nDim'] = 0
             else:
+                if uniqueChannel: #Creates extra dimension to avoid the creation of multiple channels
+                    dataAux = numpy.expand_dims(dataAux, axis=0)
+
                 dsDict['nDim'] = len(dataAux.shape)
                 dsDict['shape'] = dataAux.shape
                 dsDict['dsNumber'] = dataAux.shape[0]
@@ -422,18 +426,19 @@ class HDFWriter(Operation):
             return False
 
     def run(self, dataOut, path, blocksPerFile=10, metadataList=None,
-            dataList=[], setType=None, description={}):
+            dataList=[], setType=None, description={}, uniqueChannel= False):
 
         self.dataOut = dataOut
         if not(self.isConfig):
             self.setup(path=path, blocksPerFile=blocksPerFile,
                        metadataList=metadataList, dataList=dataList,
-                       setType=setType, description=description)
+                       setType=setType, description=description, uniqueChannel=uniqueChannel)
 
             self.isConfig = True
             self.setNextFile()
 
         self.putData()
+
         return
 
     def setNextFile(self):
@@ -490,7 +495,7 @@ class HDFWriter(Operation):
         self.writeData(self.fp)
 
     def getLabel(self, name, x=None):
-
+        #print("x: ", x)
         if x is None:
             if 'Data' in self.description:
                 data = self.description['Data']
@@ -558,7 +563,7 @@ class HDFWriter(Operation):
 
         dtsets = []
         data = []
-
+        #print("self.dsList: ", self.dsList)
         for dsInfo in self.dsList:
             if dsInfo['nDim'] == 0:
                 ds = grp.create_dataset(
@@ -582,6 +587,11 @@ class HDFWriter(Operation):
                         dtype=dsInfo['dtype'])
                     dtsets.append(ds)
                     data.append((dsInfo['variable'], i))
+
+                if self.uniqueChannel: #Deletes extra dimension created to avoid the creation of multiple channels
+                    dataAux = getattr(self.dataOut, dsInfo['variable'])
+                    dataAux = dataAux[0]
+
         fp.flush()
 
         log.log('Creating file: {}'.format(fp.filename), self.name)
