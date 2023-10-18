@@ -390,8 +390,10 @@ class HDFWriter(Operation):
                 dsDict['nDim'] = 0
             else:
                 if uniqueChannel: #Creates extra dimension to avoid the creation of multiple channels
-                    dataAux = numpy.expand_dims(dataAux, axis=0)
-
+                    #dataAux = numpy.expand_dims(dataAux, axis=0)
+                    setattr(self.dataOut, self.dataList[i], numpy.expand_dims(getattr(self.dataOut, self.dataList[i]), axis=0))
+                    dataAux = getattr(self.dataOut, self.dataList[i])
+                #print(getattr(self.dataOut, self.dataList[i]))
                 dsDict['nDim'] = len(dataAux.shape)
                 dsDict['shape'] = dataAux.shape
                 dsDict['dsNumber'] = dataAux.shape[0]
@@ -588,10 +590,6 @@ class HDFWriter(Operation):
                     dtsets.append(ds)
                     data.append((dsInfo['variable'], i))
 
-                if self.uniqueChannel: #Deletes extra dimension created to avoid the creation of multiple channels
-                    dataAux = getattr(self.dataOut, dsInfo['variable'])
-                    dataAux = dataAux[0]
-
         fp.flush()
 
         log.log('Creating file: {}'.format(fp.filename), self.name)
@@ -614,6 +612,8 @@ class HDFWriter(Operation):
                 ds[self.blockIndex] = getattr(self.dataOut, attr)
             else:
                 ds[self.blockIndex] = getattr(self.dataOut, attr)[ch]
+                if self.uniqueChannel: #Deletes extra dimension created to avoid the creation of multiple channels
+                    setattr(self.dataOut, attr, getattr(self.dataOut, attr)[0])
 
         self.fp.flush()
         self.blockIndex += 1
