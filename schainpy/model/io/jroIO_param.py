@@ -390,9 +390,9 @@ class HDFWriter(Operation):
                 dsDict['nDim'] = 0
             else:
                 if uniqueChannel: #Creates extra dimension to avoid the creation of multiple channels
-                    #dataAux = numpy.expand_dims(dataAux, axis=0)
-                    setattr(self.dataOut, self.dataList[i], numpy.expand_dims(getattr(self.dataOut, self.dataList[i]), axis=0))
-                    dataAux = getattr(self.dataOut, self.dataList[i])
+                    dataAux = numpy.expand_dims(dataAux, axis=0)
+                    #setattr(self.dataOut, self.dataList[i], numpy.expand_dims(getattr(self.dataOut, self.dataList[i]), axis=0))
+                    #dataAux = getattr(self.dataOut, self.dataList[i])
                 #print(getattr(self.dataOut, self.dataList[i]))
                 dsDict['nDim'] = len(dataAux.shape)
                 dsDict['shape'] = dataAux.shape
@@ -581,6 +581,8 @@ class HDFWriter(Operation):
                     sgrp = grp.create_group(label)
                 else:
                     sgrp = grp
+                if self.uniqueChannel: #Creates extra dimension to avoid the creation of multiple channels
+                    setattr(self.dataOut, dsInfo['variable'], numpy.expand_dims(getattr(self.dataOut, dsInfo['variable']), axis=0))
                 for i in range(dsInfo['dsNumber']):
                     ds = sgrp.create_dataset(
                         self.getLabel(dsInfo['variable'], i),
