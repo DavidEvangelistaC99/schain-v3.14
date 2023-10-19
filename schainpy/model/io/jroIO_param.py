@@ -611,6 +611,8 @@ class HDFWriter(Operation):
             if ch == -1:
                 ds[self.blockIndex] = getattr(self.dataOut, attr)
             else:
+                if self.uniqueChannel and self.blockIndex != 0: #Creates extra dimension to avoid the creation of multiple channels
+                    setattr(self.dataOut, attr, numpy.expand_dims(getattr(self.dataOut, attr), axis=0))
                 ds[self.blockIndex] = getattr(self.dataOut, attr)[ch]
                 if self.uniqueChannel: #Deletes extra dimension created to avoid the creation of multiple channels
                     setattr(self.dataOut, attr, getattr(self.dataOut, attr)[0])
