@@ -1401,11 +1401,13 @@ class SpectralMoments(Operation):
 
         Configuration Parameters:
 
-            dirCosx    :     Cosine director in X axis
-            dirCosy    :     Cosine director in Y axis
+            proc_type :     (0) First spectral moments routine (Default), 
+                            (1) Spectral moment routine similar to JULIA.
+            mode_fit  :     (0) No gaussian fit
+                            (1) One gaussian fit for 150Km processing.
 
-            elevation  :
-            azimuth    :
+            exp       :     '150EEJ' To select 128 points window
+                            'ESF_EW' To select full window.
 
         Input:
             channelList    :    simple channel list to select e.g. [2,3,7]
@@ -1419,7 +1421,7 @@ class SpectralMoments(Operation):
 
     '''
 
-    def run(self, dataOut, proc_type=0, exp='150EEJ'):
+    def run(self, dataOut, proc_type=0, mode_fit=0, exp='150EEJ'):
 
         absc = dataOut.abscissaList[:-1]
         #noise = dataOut.noise
@@ -1428,13 +1430,12 @@ class SpectralMoments(Operation):
         data_param = numpy.zeros((nChannel, 4 + proc_type*3, nHei))
 
         if proc_type == 1:
-            type1= 0
+            type1 = mode_fit
             fwindow = numpy.zeros(absc.size) + 1
             if exp == '150EEJ':
                 b=64
                 fwindow[0:absc.size//2 - b] = 0
                 fwindow[absc.size//2 + b:] = 0
-                type1= 1
             vers = 1 # new           
             nProfiles = dataOut.nProfiles
             nCohInt = dataOut.nCohInt
@@ -1638,6 +1639,7 @@ class SpectralMoments(Operation):
         if (vers is None): vers = 0        
         if (fwindow is None): fwindow = numpy.zeros(oldfreq.size) + 1
         if (snrth is None): snrth = -20.0
+        #if (snrth is None): snrth = -21.0 # abs test
         if (dc is None): dc = 0
         if (aliasing is None): aliasing = 0
         if (oldfd is None): oldfd = 0
@@ -1915,6 +1917,7 @@ class JULIADriftsEstimation(Operation):
     
     #def data_filter(self, parm, snrth=-19.5, swth=20, wErrth=500):
     def data_filter(self, parm, snrth=-20, swth=20, wErrth=500):
+    #def data_filter(self, parm, snrth=-21, swth=20, wErrth=500): # abs test
 
         Sz0 = parm.shape # Sz0: h,p
         drift = parm[:,0]
@@ -1965,7 +1968,39 @@ class JULIADriftsEstimation(Operation):
 
         return new_parm, th
 
-    def run(self, dataOut, zenith, zenithCorrection,heights=None, statistics=0, otype=0):
+    def statistics150km(self, veloc , sigma , threshold , currTime=None, \
+                        amountdata=2, clearAll = None, timeFactor=None):
+
+        step = threshold/2
+        factor = 2  
+        avg_threshold = 100
+
+        # Calcula la mediana en todas las alturas por tiempo
+        val1=numpy.nanmedian(veloc)
+
+        # Calcula la media ponderada en todas las alturas por tiempo
+        val2 = self.newtotal(veloc/numpy.power(sigma,2))/self.newtotal(1/numpy.power(sigma,2))
+
+            
+        # Verifica la cercanía de los valores calculados de mediana y media, si son cercanos escoge la media ponderada
+        op1=numpy.abs(val2-val1)
+        op2=threshold/factor
+        cond = op1 < op2
+
+        veloc_prof = val2 if cond else val1
+        sigma_prof = numpy.nan
+        sets=numpy.array([-1])
+              
+        if op1 > avg_threshold: #Si son muy lejanos no toma en cuenta estos datos
+            veloc_prof = numpy.nan
+
+        # Se calcula nuevamente media ponderada, en base a estimado inicial de la media
+        # a fin de eliminar valores que están muy lejanos a dicho valor
+        junk = numpy.where(numpy.abs(veloc-veloc_prof) < threshold/factor)[0]
+
+        return junk
+
+    def run(self, dataOut, zenith, zenithCorrection,heights=None, otype=0, nchan=2, chan=0):
 
 
         dataOut.lat=-11.95
@@ -1986,6 +2021,7 @@ class JULIADriftsEstimation(Operation):
             dataOut.heightList = hei[hvalid]      
             parm = numpy.zeros((nCh,nhvalid,nParam))
             parm[:] = dataOut.spcpar[:,hvalid,:]
+            print('parm:',parm.shape)
 
         
         # Primer filtrado: Umbral de SNR
@@ -2008,28 +2044,78 @@ class JULIADriftsEstimation(Operation):
         wErrCH0 = parm[0,:,5]
         wErrCH1 = parm[1,:,5]
 
-        # Vertical and zonal calculation according to geometry
-        sinB_A = numpy.sin(beta)*numpy.cos(alpha) - numpy.sin(alpha)* numpy.cos(beta)
-        drift = -(dopplerCH0 * numpy.sin(beta) - dopplerCH1 * numpy.sin(alpha))/ sinB_A
-        zonal = (dopplerCH0 * numpy.cos(beta) - dopplerCH1 * numpy.cos(alpha))/ sinB_A
-        snr = (snrCH0 + snrCH1)/2
-        noise = (noiseCH0 + noiseCH1)/2
-        sw = (swCH0 + swCH1)/2
-        w_w_err= numpy.sqrt(numpy.power(wErrCH0 * numpy.sin(beta)/numpy.abs(sinB_A),2) + numpy.power(wErrCH1 * numpy.sin(alpha)/numpy.abs(sinB_A),2))
-        w_e_err= numpy.sqrt(numpy.power(wErrCH0 * numpy.cos(beta)/numpy.abs(-1*sinB_A),2) + numpy.power(wErrCH1 * numpy.cos(alpha)/numpy.abs(-1*sinB_A),2))		
+        # Vertical and zonal calculation: nchan=2 by default
+        # Only vertical calculation, for offline processing with only one channel with good signal
+        if nchan == 1:
+            if chan == 1:
+                drift = - dopplerCH1
+                snr = snrCH1
+                noise = noiseCH1
+                sw = swCH1
+                w_w_err = wErrCH1
+            elif chan == 0:
+                drift = - dopplerCH0
+                snr = snrCH0
+                noise = noiseCH0
+                sw = swCH0
+                w_w_err = wErrCH0
+                            
+        elif nchan == 2:
+            sinB_A = numpy.sin(beta)*numpy.cos(alpha) - numpy.sin(alpha)* numpy.cos(beta)
+            drift = -(dopplerCH0 * numpy.sin(beta) - dopplerCH1 * numpy.sin(alpha))/ sinB_A
+            zonal = (dopplerCH0 * numpy.cos(beta) - dopplerCH1 * numpy.cos(alpha))/ sinB_A
+            snr = (snrCH0 + snrCH1)/2
+            noise = (noiseCH0 + noiseCH1)/2
+            sw = (swCH0 + swCH1)/2
+            w_w_err= numpy.sqrt(numpy.power(wErrCH0 * numpy.sin(beta)/numpy.abs(sinB_A),2) + numpy.power(wErrCH1 * numpy.sin(alpha)/numpy.abs(sinB_A),2))
+            w_e_err= numpy.sqrt(numpy.power(wErrCH0 * numpy.cos(beta)/numpy.abs(-1*sinB_A),2) + numpy.power(wErrCH1 * numpy.cos(alpha)/numpy.abs(-1*sinB_A),2))		
 
-        # for statistics150km
-        if statistics:
-            print('Implemented offline.')
+        # 150Km statistics to clean data
 
+        clean_drift = drift.copy()
+
+        clean_drift[:] = numpy.nan
+        if nchan == 2:
+            clean_zonal = zonal.copy()
+            clean_zonal[:] = numpy.nan
+        
+        # Drifts
+        driftstdv_th = 20*2
+
+        sets1 = self.statistics150km(drift, w_w_err, driftstdv_th)
+
+        if sets1.size != 1:
+            clean_drift[sets1] = drift[sets1]
+
+        novalid=numpy.where(numpy.isnan(clean_drift))[0]; cnovalid=novalid.size
+        if cnovalid > 0: drift[novalid] = numpy.nan
+        if cnovalid > 0: snr[novalid] = numpy.nan
+
+        # Zonal
+        if nchan == 2:
+            zonalstdv_th = 30*2  
+            sets2 = self.statistics150km(zonal, w_e_err, zonalstdv_th)
+
+            if sets2.size != 1:
+                clean_zonal[sets2] = zonal[sets2]
+
+            novalid=numpy.where(numpy.isnan(clean_zonal))[0]; cnovalid=novalid.size
+            if cnovalid > 0: zonal[novalid] = numpy.nan
+            if cnovalid > 0: snr[novalid] = numpy.nan
+        
+        
         if otype == 0:
             winds = numpy.vstack((snr, drift, zonal, noise, sw, w_w_err, w_e_err)) # to process statistics drifts
+        elif otype == 2:
+            winds = numpy.vstack((snr, drift)) # one channel good signal: 2 RTI's            
         elif otype == 3:
             winds = numpy.vstack((snr, drift, zonal)) # to generic plot: 3 RTI's
         elif otype == 4:
             winds = numpy.vstack((snrCH0, drift, snrCH1, zonal)) # to generic plot: 4 RTI's
 
         snr1 = numpy.vstack((snrCH0, snrCH1))
+        print('winds:',winds.shape)
+        print('snrCH0:',snrCH0.shape)
         dataOut.data_output = winds
         dataOut.data_snr = snr1     
 
