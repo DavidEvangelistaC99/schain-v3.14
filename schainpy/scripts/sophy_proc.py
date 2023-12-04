@@ -6,6 +6,9 @@ import time
 
 PATH = '/data'
 #PATH = "/media/soporte/TOSHIBAEXT/sophy/"
+
+
+
 # SNR ZMIN -40 A ZMAX -20
 PARAM = {
     'S':  {'zmin': -45, 'zmax':-25, 'colormap': 'jet'    , 'label': 'Power', 'wrname': 'power','cb_label': 'dBm', 'ch':0},
@@ -155,6 +158,8 @@ def main(args):
             op.addParameter(name='channels', value='0,')
             op.addParameter(name='zmin', value=PARAM[param]['zmin'])
             op.addParameter(name='zmax', value=PARAM[param]['zmax'])
+            op.addParameter(name='yrange', value=20, format='int')
+            op.addParameter(name='xrange', value=args.range, format='int')   
             op.addParameter(name='attr_data', value=param, format='str')
             op.addParameter(name='labels', value=[PARAM[param]['label'], PARAM[param]['label']])
             op.addParameter(name='save_code', value=param)
@@ -163,6 +168,10 @@ def main(args):
             op.addParameter(name='bgcolor', value='black')
             op.addParameter(name='localtime', value=False)
             op.addParameter(name='shapes', value='./shapes')
+            op.addParameter(name='latitude', value=conf['latitude'], format='float')                
+            op.addParameter(name='longitude', value=conf['longitude'], format='float')            
+            op.addParameter(name='map', value=True)
+
             if MASK: op.addParameter(name='mask', value=MASK, format='float')
             if args.server:
                 op.addParameter(name='server', value='190.187.237.239:4444')
@@ -354,7 +363,6 @@ def main(args):
         merge.addParameter(name='attr_data', value='data_param')
         merge.addParameter(name='mode', value='7') #RM
 
-
         for param in parameters:
 
             if args.plot:
@@ -367,9 +375,8 @@ def main(args):
                 op.addParameter(name='channels', value='0,')
                 op.addParameter(name='zmin', value=PARAM[param]['zmin'], format='int')
                 op.addParameter(name='zmax', value=PARAM[param]['zmax'], format='int')
-                op.addParameter(name='ymax', value=20, format='int')
-                op.addParameter(name='xmin', value=-50, format='int')
-                op.addParameter(name='xmax', value=50, format='int')
+                op.addParameter(name='yrange', value=20, format='int')
+                op.addParameter(name='xrange', value=args.range, format='int')
                 op.addParameter(name='attr_data', value=param, format='str')
                 op.addParameter(name='labels', value=[[PARAM[param]['label']], [PARAM[param]['label']]])
                 op.addParameter(name='save_code', value=param)
@@ -378,6 +385,10 @@ def main(args):
                 op.addParameter(name='bgcolor', value='black')
                 op.addParameter(name='localtime', value=False)
                 op.addParameter(name='shapes', value='./shapes')
+                op.addParameter(name='latitude', value=conf['latitude'], format='float')                
+                op.addParameter(name='longitude', value=conf['longitude'], format='float')
+                op.addParameter(name='map', value=False)
+
                 if MASK: op.addParameter(name='mask', value=MASK, format='float')
                 if args.server:
                     op.addParameter(name='server', value='190.187.237.239:4444')
@@ -412,10 +423,10 @@ def main(args):
                 writer.addParameter(name='mask', value=MASK, format='float')
                 writer.addParameter(name='localtime', value=False)
                 # meta
-                writer.addParameter(name='latitude', value='-12.040436')
-                writer.addParameter(name='longitude', value='-75.295893')
-                writer.addParameter(name='altitude', value='3379.2147')
-                writer.addParameter(name='heading', value='0')
+                writer.addParameter(name='latitude', value=conf['latitude'])
+                writer.addParameter(name='longitude', value=conf['longitude'])
+                writer.addParameter(name='altitude', value=conf['altitude'])
+                writer.addParameter(name='heading', value=conf['heading'])
                 writer.addParameter(name='radar_name', value='SOPHy')
                 writer.addParameter(name='institution', value='IGP')
                 writer.addParameter(name='contact', value='dscipion@igp.gob.pe')
@@ -447,7 +458,7 @@ if __name__ == '__main__':
                         help='Angles to process')
     parser.add_argument('--time_offset', default=0,
                         help='Fix time offset')
-    parser.add_argument('--range', default=0, type=float,
+    parser.add_argument('--range', default=60, type=float,
                         help='Max range to plot')
     parser.add_argument('--save', action='store_true',
                         help='Create output files')
