@@ -4,11 +4,10 @@ import warnings
 import numpy
 from mpl_toolkits.axisartist.grid_finder import FixedLocator, DictFormatter
 from matplotlib.patches import Circle
-import cartopy.crs as ccrs
 from cartopy.feature import ShapelyFeature
 import cartopy.io.shapereader as shpreader
 
-from schainpy.model.graphics.jroplot_base import Plot, plt
+from schainpy.model.graphics.jroplot_base import Plot, plt, ccrs
 from schainpy.model.graphics.jroplot_spectra import SpectraPlot, RTIPlot, CoherencePlot, SpectraCutPlot
 from schainpy.utils import log
 from schainpy.model.graphics.plotting_codes import cb_tables
@@ -515,19 +514,15 @@ class PolarMapPlot(Plot):
             self.data.parameters[x], title) for x in self.channels]
 
 class WeatherParamsPlot(Plot):
-    #CODE = 'RHI'
-    #plot_name = 'RHI'
+    
     plot_type = 'scattermap'
-    buffering = False
-    projection = ccrs.PlateCarree()
+    buffering = False    
 
     def setup(self):
 
         self.ncols = 1
         self.nrows = 1
         self.nplots= 1
-        self.ylabel= 'Height [km]'
-        self.xlabel= 'Distance from radar [km]'
 
         if self.channels is not None:
             self.nplots = len(self.channels)
@@ -629,9 +624,7 @@ class WeatherParamsPlot(Plot):
         z = data['data']
         r = data['r']
         self.titles = []
-
-        self.ymax = self.ymax if self.ymax else numpy.nanmax(r)
-        self.ymin = self.ymin if self.ymin else numpy.nanmin(r)
+        
         self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
         self.zmin = self.zmin if self.zmin is not None else numpy.nanmin(z)
 
@@ -643,14 +636,43 @@ class WeatherParamsPlot(Plot):
             len_aux = int(data['azi'].shape[0]/4)
             mean = numpy.mean(data['azi'][len_aux:-len_aux])
             x, y = r*numpy.cos(theta), r*numpy.sin(theta)
+            if self.yrange:
+                self.ylabel= 'Height [km]'
+                self.xlabel= 'Distance from radar [km]'
+                self.ymax = self.yrange
+                self.ymin = 0
+                self.xmax = self.xrange if self.xrange else numpy.nanmax(r)
+                self.xmin = -self.xrange if self.xrange else -numpy.nanmax(r)
+                self.setrhilimits = False
+            else:
+                self.ymin = 0
+                self.ymax = numpy.nanmax(r)
+                self.xmin = -numpy.nanmax(r)
+                self.xmax = numpy.nanmax(r)
+
         elif data['mode_op'] == 'PPI':
             r, theta = numpy.meshgrid(r, -numpy.radians(data['azi'])+numpy.pi/2)
             len_aux = int(data['ele'].shape[0]/4)
             mean = numpy.mean(data['ele'][len_aux:-len_aux])
             x, y = r*numpy.cos(theta)*numpy.cos(numpy.radians(mean)), r*numpy.sin(
                     theta)*numpy.cos(numpy.radians(mean))
-            x = km2deg(x) + -75.295893
-            y = km2deg(y) + -12.040436
+            x = km2deg(x) + self.longitude
+            y = km2deg(y) + self.latitude
+            if self.xrange:
+                self.ylabel= 'Latitude'
+                self.xlabel= 'Longitude'                
+
+                self.xmin = km2deg(-self.xrange) + self.longitude
+                self.xmax = km2deg(self.xrange) + self.longitude
+
+                self.ymin = km2deg(-self.xrange) + self.latitude
+                self.ymax = km2deg(self.xrange) + self.latitude
+            else:
+                self.xmin = km2deg(-numpy.nanmax(r)) + self.longitude
+                self.xmax = km2deg(numpy.nanmax(r)) + self.longitude
+
+                self.ymin = km2deg(-numpy.nanmax(r)) + self.latitude
+                self.ymax = km2deg(numpy.nanmax(r)) + self.latitude
 
         self.clear_figures()
 
@@ -664,9 +686,7 @@ class WeatherParamsPlot(Plot):
         else:
             norm = None
 
-        for i, ax in enumerate(axes):
-            if data['mode_op'] == 'PPI':
-                ax.set_extent([-75.745893, -74.845893, -12.490436, -11.590436])
+        for i, ax in enumerate(axes):            
 
             if norm is None:
                 ax.plt = ax.pcolormesh(x, y, z[i], cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
@@ -690,47 +710,48 @@ class WeatherParamsPlot(Plot):
             self.mode_value = round(mean,1)
 
             if data['mode_op'] == 'PPI':
-                gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
-                  linewidth=1, color='gray', alpha=0.5, linestyle='--')
-                gl.xlabel_style = {'size': 8}
-                gl.ylabel_style = {'size': 8}
-                gl.xlabels_top = False
-                gl.ylabels_right = False
-                #self.shapes="/home/soporte/workspace/sirm/volumes/schain/shapes/"
-                #print("self.shapes",self.shapes)
-                shape_p = os.path.join(self.shapes,'PER_ADM2/PER_ADM2.shp')
-                shape_d = os.path.join(self.shapes,'PER_ADM1/PER_ADM1.shp')
-                capitales = os.path.join(self.shapes,'CAPITALES/cap_provincia.shp')
-                vias = os.path.join(self.shapes,'Carreteras/VIAS_NACIONAL_250000.shp')
-                reader_d = shpreader.BasicReader(shape_p, encoding='latin1')
-                reader_p = shpreader.BasicReader(shape_d, encoding='latin1')
-                reader_c = shpreader.BasicReader(capitales, encoding='latin1')
-                reader_v = shpreader.BasicReader(vias, encoding='latin1')
-                caps = [x for x in reader_c.records()  if x.attributes["Departa"] in ("JUNIN", "LIMA", "AYACUCHO", "HUANCAVELICA")]
-                districts = [x for x in reader_d.records() if x.attributes["Name"] in ("JUNÍN", "CHANCHAMAYO", "CHUPACA", "CONCEPCIÓN", "HUANCAYO", "JAUJA", "SATIPO", "TARMA", "YAUYOS", "HUAROCHIRÍ", "CANTA", "HUANTA", "TAYACAJA")]
-                provs = [x for x in reader_p.records() if x.attributes["NAME"] in ("Junín", "Lima")]
-                vias = [x for x in reader_v.records() if x.attributes["DEP"] in ("JUNIN", "LIMA")]
+                if self.map:
+                    gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
+                    linewidth=1, color='gray', alpha=0.5, linestyle='--')
+                    gl.xlabel_style = {'size': 8}
+                    gl.ylabel_style = {'size': 8}
+                    gl.xlabels_top = False
+                    gl.ylabels_right = False
+                    shape_p = os.path.join(self.shapes,'PER_ADM2/PER_ADM2.shp')
+                    shape_d = os.path.join(self.shapes,'PER_ADM1/PER_ADM1.shp')
+                    capitales = os.path.join(self.shapes,'CAPITALES/cap_provincia.shp')
+                    vias = os.path.join(self.shapes,'Carreteras/VIAS_NACIONAL_250000.shp')
+                    reader_d = shpreader.BasicReader(shape_p, encoding='latin1')
+                    reader_p = shpreader.BasicReader(shape_d, encoding='latin1')
+                    reader_c = shpreader.BasicReader(capitales, encoding='latin1')
+                    reader_v = shpreader.BasicReader(vias, encoding='latin1')
+                    caps = [x for x in reader_c.records()  ]#if x.attributes["Departa"] in ("JUNIN", "LIMA", "ICA", "PIURA")]
+                    districts = [x for x in reader_d.records() ]# if x.attributes["Name"] in ("JUNÍN", "CHANCHAMAYO", "CHUPACA", "CONCEPCIÓN", "HUANCAYO", "JAUJA", "SATIPO", "TARMA", "YAUYOS", "HUAROCHIRÍ", "CANTA", "HUANTA", "TAYACAJA")]
+                    provs = [x for x in reader_p.records()]# if x.attributes["NAME"] in ("Junín", "Lima")]
+                    vias = [x for x in reader_v.records()]# if x.attributes["DEP"] in ("JUNIN", "LIMA")]
 
-                # Display limits and streets
-                shape_feature = ShapelyFeature([x.geometry for x in districts], ccrs.PlateCarree(), facecolor="none", edgecolor='grey', lw=0.5)
-                ax.add_feature(shape_feature)
-                shape_feature = ShapelyFeature([x.geometry for x in provs], ccrs.PlateCarree(), facecolor="none", edgecolor='white', lw=1)
-                ax.add_feature(shape_feature)
-                shape_feature = ShapelyFeature([x.geometry for x in vias], ccrs.PlateCarree(), facecolor="none", edgecolor='yellow', lw=1)
-                ax.add_feature(shape_feature)
+                    # Display limits and streets
+                    shape_feature = ShapelyFeature([x.geometry for x in districts], ccrs.PlateCarree(), facecolor="none", edgecolor='grey', lw=0.5)
+                    ax.add_feature(shape_feature)
+                    shape_feature = ShapelyFeature([x.geometry for x in provs], ccrs.PlateCarree(), facecolor="none", edgecolor='white', lw=1)
+                    ax.add_feature(shape_feature)
+                    shape_feature = ShapelyFeature([x.geometry for x in vias], ccrs.PlateCarree(), facecolor="none", edgecolor='yellow', lw=1)
+                    ax.add_feature(shape_feature)
 
-                for cap in caps:
-                    if cap.attributes['Nombre'] in ("LA OROYA", "CONCEPCIÓN", "HUANCAYO", "JAUJA", "CHUPACA", "YAUYOS", "HUANTA", "PAMPAS"):
+                    for cap in caps:
+                        #if cap.attributes['Nombre'] in ("LA OROYA", "CONCEPCIÓN", "HUANCAYO", "JAUJA", "CHUPACA", "YAUYOS", "HUANTA", "PAMPAS"):
                         ax.text(cap.attributes['X'], cap.attributes['Y'], cap.attributes['Nombre'].title(), size=7, color='white')
-                ax.text(-75.052003, -11.915552, 'Huaytapallana', size=7, color='cyan')
-                ax.plot(-75.052003, -11.915552, '*')
-
+                    #ax.text(-75.052003, -11.915552, 'Huaytapallana', size=7, color='cyan')
+                    #ax.plot(-75.052003, -11.915552, '*')
+                else:                    
+                    ax.grid(color='grey', alpha=0.5, linestyle='--', linewidth=1)
                 for R in (10, 20, 30 , 40, 50):
-                    circle = Circle((-75.295893, -12.040436), km2deg(R), facecolor='none',
-                        edgecolor='skyblue', linewidth=1, alpha=0.5)
-                    ax.add_patch(circle)
-                    ax.text(km2deg(R)*numpy.cos(numpy.radians(45))-75.295893,
-                        km2deg(R)*numpy.sin(numpy.radians(45))-12.040436,
-                        '{}km'.format(R), color='skyblue', size=7)
+                    if R <= self.xrange:
+                        circle = Circle((self.longitude, self.latitude), km2deg(R), facecolor='none',
+                            edgecolor='skyblue', linewidth=1, alpha=0.5)
+                        ax.add_patch(circle)
+                        ax.text(km2deg(R)*numpy.cos(numpy.radians(45))+self.longitude,
+                            km2deg(R)*numpy.sin(numpy.radians(45))+self.latitude,
+                            '{}km'.format(R), color='skyblue', size=7)
             elif data['mode_op'] == 'RHI':
                 ax.grid(color='grey', alpha=0.5, linestyle='--', linewidth=1)

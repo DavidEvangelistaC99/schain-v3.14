@@ -33,6 +33,8 @@ from matplotlib.patches import Polygon
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.ticker import FuncFormatter, LinearLocator, MultipleLocator
 
+import cartopy.crs as ccrs
+
 from .plotting_codes import register_cmap
 
 from schainpy.model.data.jrodata import PlotterData
@@ -218,7 +220,8 @@ class Plot(Operation):
         self.zlimits = kwargs.get('zlimits', None)
         self.xmin = kwargs.get('xmin', None)
         self.xmax = kwargs.get('xmax', None)
-        self.xrange = kwargs.get('xrange', 12)
+        self.yrange = kwargs.get('yrange', None)
+        self.xrange = kwargs.get('xrange', None)
         self.xscale = kwargs.get('xscale', None)
         self.ymin = kwargs.get('ymin', None)
         self.ymax = kwargs.get('ymax', None)
@@ -253,6 +256,9 @@ class Plot(Operation):
         self.mode = kwargs.get('mode', None)
         self.mask = kwargs.get('mask', False)
         self.shapes = kwargs.get('shapes', './')
+        self.map = kwargs.get('map', False)
+        self.latitude = kwargs.get('latitude', -12)
+        self.longitude = kwargs.get('longitude', -74)        
 
         if self.server:
             if not self.server.startswith('tcp://'):
@@ -264,6 +270,7 @@ class Plot(Operation):
 
         if isinstance(self.attr_data, str):
             self.attr_data = [self.attr_data]
+        
 
     def __setup_plot(self):
         '''
@@ -297,8 +304,12 @@ class Plot(Operation):
                              facecolor='w')
             self.figures['PPI'].append(fig_p)
             self.figures['RHI'].append(fig_r)
-            for n in range(self.nplots):     
-                ax_p = fig_p.add_subplot(self.nrows, self.ncols, n+1, polar=self.polar, projection=self.projection)                
+            for n in range(self.nplots):
+                if self.map:
+                    ax_p = fig_p.add_subplot(self.nrows, self.ncols, n+1, polar=self.polar, projection=ccrs.PlateCarree())
+                else:
+                    ax_p = fig_p.add_subplot(self.nrows, self.ncols, n+1, polar=self.polar)
+                    print('sin projection')
                 ax_r = fig_r.add_subplot(self.nrows, self.ncols, n+1, polar=self.polar)
                 ax_p.tick_params(labelsize=8)
                 ax_p.firsttime = True
@@ -323,7 +334,12 @@ class Plot(Operation):
                 fig = plt.figure(figsize=(self.width, self.height),
                                  edgecolor='k',
                                  facecolor='w')
-                ax_p = fig.add_subplot(1, 1, 1, polar=self.polar, projection=self.projection)                
+                if self.map:
+                    ax_p = fig.add_subplot(1, 1, 1, polar=self.polar, projection=ccrs.PlateCarree())
+                else:
+                    ax_p = fig.add_subplot(1, 1, 1, polar=self.polar)
+                    print('sin projection')
+                                
                 ax_r = fig.add_subplot(1, 1, 1, polar=self.polar)
                 ax_p.tick_params(labelsize=8)
                 ax_p.firsttime = True
@@ -399,7 +415,7 @@ class Plot(Operation):
             if ax.firsttime:
                 if self.xaxis != 'time':
                     xmin = self.xmin
-                    xmax = self.xmax
+                    xmax = self.xmax                    
                 else:
                     xmin = self.tmin
                     xmax = self.tmin + self.xrange*60*60
@@ -442,9 +458,10 @@ class Plot(Operation):
                         ax.cbar.set_label(self.cb_labels[n], size=8)
                 else:
                     ax.cbar = None
-                if self.mode == 'RHI':
-                    ax.set_xlim(xmin, xmax)
-                    ax.set_ylim(ymin, ymax)
+                #if self.mode == 'RHI':
+                ax.set_xlim(xmin, xmax)
+                ax.set_ylim(ymin, ymax)
+                
                 ax.firsttime = False
                 if self.grid:
                     ax.grid(True)
@@ -463,7 +480,6 @@ class Plot(Operation):
                         '%Y-%m-%d %H:%M:%S'),
                     self.time_label),
                     size=8)
-                ax.set_ylim(0, self.ymax)
                 if self.mode == 'PPI':
                     ax.set_yticks(ax.get_yticks(), labels=ax.get_yticks(), color='white')
                     ax.yaxis.labelpad = 28
