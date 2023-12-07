@@ -542,6 +542,7 @@ class Spectra(JROData):
         self.data_dc = None
         self.data_spc = None
         self.data_cspc = None
+        self.diffcspectra = None       # JULIA processing
         self.useLocalTime = True
         self.radarControllerHeaderObj = RadarControllerHeader()
         self.systemHeaderObj = SystemHeader()
@@ -568,6 +569,7 @@ class Spectra(JROData):
         self.spc_noise = None
         self.metadata_list = ['type', 'heightList', 'timeZone', 'pairsList', 'channelList', 'nCohInt',
             'code', 'nCode', 'nBaud', 'ippSeconds', 'ipp', 'nIncohInt', 'nFFTPoints', 'nProfiles', 'flagDecodeData']
+        
 
     def getNoisebyHildebrand(self, xmin_index=None, xmax_index=None, ymin_index=None, ymax_index=None):
         """
@@ -965,6 +967,8 @@ class Parameters(Spectra):
     noise_estimation = None
     GauSPC = None  # Fit gaussian SPC
     spc_noise = None
+    #
+    
 
     def __init__(self):
         '''
@@ -975,7 +979,11 @@ class Parameters(Spectra):
         self.type = "Parameters"
         self.timeZone = 0
         self.ippFactor = 1
-
+        # JULIA processing
+        self.diffcspectra = None
+        self.ccfpar = None             
+        # JULIA processing
+        
     def getTimeRange1(self, interval):
 
         datatime = []
