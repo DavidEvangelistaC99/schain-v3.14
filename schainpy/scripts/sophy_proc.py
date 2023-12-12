@@ -144,6 +144,7 @@ def main(args):
         op.addParameter(name='interval', value='0.04')
         op.addParameter(name='time_offset', value=time_offset)
         op.addParameter(name='mode', value=args.mode)
+        op.addParameter(name='heading', value=conf['heading'])
 
         for param in parameters:
             op = proc.addOperation(name='Block360')
@@ -352,6 +353,7 @@ def main(args):
         op.addParameter(name='interval', value='0.04')
         op.addParameter(name='time_offset', value=time_offset)
         op.addParameter(name='mode', value=args.mode)
+        op.addParameter(name='heading', value=conf['heading'])
 
         op = proc2.addOperation(name='Block360')
         op.addParameter(name='attr_data', value='data_param')
