@@ -725,10 +725,10 @@ class WeatherParamsPlot(Plot):
                     reader_p = shpreader.BasicReader(shape_d, encoding='latin1')
                     reader_c = shpreader.BasicReader(capitales, encoding='latin1')
                     reader_v = shpreader.BasicReader(vias, encoding='latin1')
-                    caps = [x for x in reader_c.records()  ]#if x.attributes["Departa"] in ("JUNIN", "LIMA", "ICA", "PIURA")]
-                    districts = [x for x in reader_d.records() ]# if x.attributes["Name"] in ("JUNÍN", "CHANCHAMAYO", "CHUPACA", "CONCEPCIÓN", "HUANCAYO", "JAUJA", "SATIPO", "TARMA", "YAUYOS", "HUAROCHIRÍ", "CANTA", "HUANTA", "TAYACAJA")]
-                    provs = [x for x in reader_p.records()]# if x.attributes["NAME"] in ("Junín", "Lima")]
-                    vias = [x for x in reader_v.records()]# if x.attributes["DEP"] in ("JUNIN", "LIMA")]
+                    caps = [x for x in reader_c.records() ]
+                    districts = [x for x in reader_d.records()]
+                    provs = [x for x in reader_p.records()]
+                    vias = [x for x in reader_v.records()]
 
                     # Display limits and streets
                     shape_feature = ShapelyFeature([x.geometry for x in districts], ccrs.PlateCarree(), facecolor="none", edgecolor='grey', lw=0.5)
@@ -738,14 +738,23 @@ class WeatherParamsPlot(Plot):
                     shape_feature = ShapelyFeature([x.geometry for x in vias], ccrs.PlateCarree(), facecolor="none", edgecolor='yellow', lw=1)
                     ax.add_feature(shape_feature)
 
-                    for cap in caps:
-                        #if cap.attributes['Nombre'] in ("LA OROYA", "CONCEPCIÓN", "HUANCAYO", "JAUJA", "CHUPACA", "YAUYOS", "HUANTA", "PAMPAS"):
+                    for cap in caps:                        
                         ax.text(cap.attributes['X'], cap.attributes['Y'], cap.attributes['Nombre'].title(), size=7, color='white')
                     #ax.text(-75.052003, -11.915552, 'Huaytapallana', size=7, color='cyan')
                     #ax.plot(-75.052003, -11.915552, '*')
                 else:                    
                     ax.grid(color='grey', alpha=0.5, linestyle='--', linewidth=1)
-                for R in (10, 20, 30 , 40, 50):
+                
+                if self.xrange<=10:
+                    ranges = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+                elif self.xrange<=30:
+                    ranges = [5, 10, 15, 20, 25, 30, 35]
+                elif self.xrange<=60:
+                    ranges = [10, 20, 30, 40, 50, 60]
+                elif self.xrange<=100:
+                    ranges = [15, 30, 45, 60, 75, 90]
+
+                for R in ranges:
                     if R <= self.xrange:
                         circle = Circle((self.longitude, self.latitude), km2deg(R), facecolor='none',
                             edgecolor='skyblue', linewidth=1, alpha=0.5)

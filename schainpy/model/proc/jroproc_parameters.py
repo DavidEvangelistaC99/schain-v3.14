@@ -4140,7 +4140,7 @@ class PedestalInformation(Operation):
                         self.fp.close()
                         self.fp = h5py.File(self.filename, 'r')
                         self.ele = self.fp['Data']['ele_pos'][:]
-                        self.azi = self.fp['Data']['azi_pos'][:] + 26.27
+                        self.azi = self.fp['Data']['azi_pos'][:] + 26.27 + self.heading
                         self.azi[self.azi>360] = self.azi[self.azi>360] - 360
                         log.log('Opening file: {}'.format(self.filename), self.name)
                         ok = True
@@ -4171,13 +4171,14 @@ class PedestalInformation(Operation):
             except:
                 return numpy.nan, numpy.nan, numpy.nan
 
-    def setup(self, dataOut, path, conf, samples, interval, mode):
+    def setup(self, dataOut, path, conf, samples, interval, mode, heading):
 
         self.path = path
         self.conf = conf
         self.samples = samples
         self.interval = interval
         self.mode = mode
+        self.heading = heading
         if mode is None:
             self.flagAskMode = True
         N = 0
@@ -4198,17 +4199,17 @@ class PedestalInformation(Operation):
                 self.utcfile = int(self.filename.split('/')[-1][4:14])
 
                 self.ele = self.fp['Data']['ele_pos'][:]
-                self.azi = self.fp['Data']['azi_pos'][:] + 26.27
+                self.azi = self.fp['Data']['azi_pos'][:] + 26.27 + self.heading
                 self.azi[self.azi>360] = self.azi[self.azi>360] - 360
                 break
             except:
                 log.warning('Waiting {}s for position file to be ready...'.format(self.delay), self.name)
                 time.sleep(self.delay)
 
-    def run(self, dataOut, path, conf=None, samples=1500, interval=0.04, time_offset=0, mode=None):
+    def run(self, dataOut, path, conf=None, samples=1500, interval=0.04, time_offset=0, mode=None, heading=0):
 
         if not self.isConfig:
-            self.setup(dataOut, path, conf, samples, interval, mode)
+            self.setup(dataOut, path, conf, samples, interval, mode, heading)
             self.isConfig   = True
 
         self.utctime = dataOut.utctime + time_offset
