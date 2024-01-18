@@ -110,10 +110,11 @@ class DigitalRFReader(ProcessingUnit):
         self.dataOut.nProfiles   = int(nProfiles)
 
         self.dataOut.heightList  = self.__firstHeigth + \
-            numpy.arange(self.__nSamples, dtype=numpy.float) * \
+            numpy.arange(self.__nSamples, dtype=numpy.float_) * \
             self.__deltaHeigth
 
-        self.dataOut.channelList = list(range(self.__num_subchannels))
+        #self.dataOut.channelList = list(range(self.__num_subchannels))
+        self.dataOut.channelList = list(range(len(self.__channelList)))
 
         self.dataOut.blocksize   = self.dataOut.nChannels * self.dataOut.nHeights
 
@@ -233,7 +234,7 @@ class DigitalRFReader(ProcessingUnit):
               nCode=1,
               nBaud=1,
               flagDecodeData=False,
-              code=numpy.ones((1, 1), dtype=numpy.int),
+              code=numpy.ones((1, 1), dtype=numpy.int_),
               **kwargs):
         '''
         In this method we should set all initial parameters.
@@ -403,8 +404,9 @@ class DigitalRFReader(ProcessingUnit):
         # por que en el otro metodo lo primero q se hace es sumar samplestoread
         self.__thisUnixSample = int(startUTCSecond * self.__sample_rate) - self.__samples_to_read
 
-        self.__data_buffer    = numpy.zeros(
-            (self.__num_subchannels, self.__samples_to_read), dtype=numpy.complex)
+        #self.__data_buffer    = numpy.zeros(
+        #    (self.__num_subchannels, self.__samples_to_read), dtype=numpy.complex)
+        self.__data_buffer    = numpy.zeros((int(len(channelList)), self.__samples_to_read), dtype=numpy.complex_)
 
         self.__setFileHeader()
         self.isConfig = True
@@ -436,7 +438,7 @@ class DigitalRFReader(ProcessingUnit):
         try:
             self.digitalReadObj.reload(complete_update=True)
         except:
-            self.digitalReadObj = digital_rf.DigitalRFReader(self.path) 
+            self.digitalReadObj = digital_rf.DigitalRFReader(self.path)
 
         start_index, end_index  = self.digitalReadObj.get_bounds(
             self.__channelNameList[self.__channelList[0]])
@@ -519,8 +521,8 @@ class DigitalRFReader(ProcessingUnit):
                                                                                              result.shape[0],
                                                                                              self.__samples_to_read))
                     break
-                
-                self.__data_buffer[indexSubchannel, :] = result * volt_scale
+
+                self.__data_buffer[indexChannel, :] = result * volt_scale
                 indexChannel+=1
 
                 dataOk       = True
@@ -587,7 +589,7 @@ class DigitalRFReader(ProcessingUnit):
                     return
 
                 print('[Reading] waiting %d seconds to read a new block' % seconds)
-                time.sleep(seconds)
+                sleep(seconds)
 
         self.dataOut.data                   = self.__data_buffer[:, self.__bufferIndex:self.__bufferIndex + self.__nSamples]
         self.dataOut.utctime                = ( self.__thisUnixSample + self.__bufferIndex) / self.__sample_rate
