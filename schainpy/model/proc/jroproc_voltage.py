@@ -629,7 +629,7 @@ class CohInt(Operation):
     def integrateByBlock(self, dataOut):
 
         times = int(dataOut.data.shape[1]/self.n)
-        avgdata = numpy.zeros((dataOut.nChannels, times, dataOut.nHeights), dtype=numpy.complex)
+        avgdata = numpy.zeros((dataOut.nChannels, times, dataOut.nHeights), dtype=numpy.complex_)
 
         id_min = 0
         id_max = self.n
@@ -719,7 +719,7 @@ class Decoder(Operation):
             raise ValueError('Number of heights (%d) should be greater than number of bauds (%d)' %(self.__nHeis, self.nBaud))
 
         #Frequency
-        __codeBuffer = numpy.zeros((self.nCode, self.__nHeis), dtype=numpy.complex)
+        __codeBuffer = numpy.zeros((self.nCode, self.__nHeis), dtype=numpy.complex_)
 
         __codeBuffer[:,0:self.nBaud] = self.code
 
@@ -729,14 +729,14 @@ class Decoder(Operation):
 
             self.ndatadec = self.__nHeis #- self.nBaud + 1
 
-            self.datadecTime = numpy.zeros((self.__nChannels, self.__nProfiles, self.ndatadec), dtype=numpy.complex)
+            self.datadecTime = numpy.zeros((self.__nChannels, self.__nProfiles, self.ndatadec), dtype=numpy.complex_)
 
         else:
 
             #Time
             self.ndatadec = self.__nHeis #- self.nBaud + 1
 
-            self.datadecTime = numpy.zeros((self.__nChannels, self.ndatadec), dtype=numpy.complex)
+            self.datadecTime = numpy.zeros((self.__nChannels, self.ndatadec), dtype=numpy.complex_)
 
     def __convolutionInFreq(self, data):
 
