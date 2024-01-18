@@ -178,7 +178,7 @@ class HDFReader(Reader, ProcessingUnit):
         startTime = self.startTime
         endTime = self.endTime
         thisUtcTime = self.data['utctime'] + self.utcoffset
-        self.interval = numpy.min(thisUtcTime[1:] - thisUtcTime[:-1])
+        #self.interval = numpy.min(thisUtcTime[1:] - thisUtcTime[:-1])
         thisDatetime = datetime.datetime.utcfromtimestamp(thisUtcTime[0])
 
         thisDate = thisDatetime.date()
