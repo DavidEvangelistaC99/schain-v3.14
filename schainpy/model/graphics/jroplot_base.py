@@ -32,6 +32,8 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.ticker import FuncFormatter, LinearLocator, MultipleLocator
+import matplotlib.cbook as cbook
+import matplotlib.image  as image
 
 import cartopy.crs as ccrs
 
@@ -41,6 +43,10 @@ from schainpy.model.data.jrodata import PlotterData
 from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecorator
 from schainpy.utils import log
 
+
+path = os.getcwd()
+global file_logo
+file_logo =os.path.join(path,"LogoIGP.png")
 
 EARTH_RADIUS = 6.3710e3
 
@@ -466,20 +472,23 @@ class Plot(Operation):
                 if self.grid:
                     ax.grid(True)
             if not self.polar:
-                ax.set_title('{} {} {}'.format(
+                ax.set_title('{} \n{} {} ({} LT)'.format(
                     self.titles[n],
                     self.getDateTime(self.data.max_time).strftime(
                         '%Y-%m-%d %H:%M:%S'),
-                    self.time_label),
+                    self.time_label,
+                    (self.getDateTime(self.data.max_time)-datetime.timedelta(hours=5)).strftime(
+                        '%Y-%m-%d %H:%M:%S')),
                     size=8)
             else:
-                #ax.set_title('{}'.format(self.titles[n]), size=8)
-                ax.set_title('{} {} {}'.format(
+                ax.set_title('{} \n{} {} ({} LT)'.format(
                     self.titles[n],
                     self.getDateTime(self.data.max_time).strftime(
                         '%Y-%m-%d %H:%M:%S'),
-                    self.time_label),
-                    size=8)
+                    self.time_label,
+                    (self.getDateTime(self.data.max_time)-datetime.timedelta(hours=5)).strftime(
+                        '%Y-%m-%d %H:%M:%S')),
+                    size=8)                
                 if self.mode == 'PPI':
                     ax.set_yticks(ax.get_yticks(), labels=ax.get_yticks(), color='white')
                     ax.yaxis.labelpad = 28
@@ -580,6 +589,11 @@ class Plot(Operation):
                         label
                         )
                     )
+                with cbook.get_sample_data(file_logo) as file:
+                     IM_LOGO = image.imread(file)
+                     IM_X    = 94
+                     IM_Y    = 90
+                logo=fig.figimage(IM_LOGO,IM_X,IM_Y,zorder=3,alpha=0.7)
             else:
                 figname = os.path.join(
                     self.save,
@@ -610,6 +624,7 @@ class Plot(Operation):
         if not os.path.isdir(os.path.dirname(figname)):
             os.makedirs(os.path.dirname(figname))
         fig.savefig(figname)
+        logo.remove()
 
     def send_to_server(self):
         '''
