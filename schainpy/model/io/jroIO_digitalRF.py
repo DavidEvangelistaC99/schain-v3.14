@@ -113,7 +113,7 @@ class DigitalRFReader(ProcessingUnit):
         self.dataOut.nProfiles   = int(nProfiles)
 
         self.dataOut.heightList  = self.__firstHeigth + \
-            numpy.arange(self.__nSamples, dtype=numpy.float) * \
+            numpy.arange(self.__nSamples, dtype=numpy.float_) * \
             self.__deltaHeigth
 
         #self.dataOut.channelList = list(range(self.__num_subchannels))
@@ -242,7 +242,7 @@ class DigitalRFReader(ProcessingUnit):
               nCode=1,
               nBaud=1,
               flagDecodeData=False,
-              code=numpy.ones((1, 1), dtype=numpy.int),
+              code=numpy.ones((1, 1), dtype=int),
               getByBlock=0,
               nProfileBlocks=1,
               **kwargs):
@@ -433,7 +433,7 @@ class DigitalRFReader(ProcessingUnit):
         #self.__data_buffer    = numpy.zeros(
         #    (self.__num_subchannels, self.__samples_to_read), dtype=numpy.complex)
         print("samplestoread",self.__samples_to_read)
-        self.__data_buffer    = numpy.zeros((int(len(channelList)), self.__samples_to_read), dtype=numpy.complex)
+        self.__data_buffer    = numpy.zeros((int(len(channelList)), self.__samples_to_read), dtype=numpy.complex_)
 
 
         self.__setFileHeader()
@@ -554,7 +554,7 @@ class DigitalRFReader(ProcessingUnit):
                     bot = 0
                     while(self.__flagDiscontinuousBlock):
                         bot +=1
-                        self.__thisUnixSample += self.__sample_rate
+                        self.__thisUnixSample += self.__samples_to_read
                         try:
                             result = result = self.digitalReadObj.read_vector_c81d(self.__thisUnixSample,self.__samples_to_read,thisChannelName, sub_channel=indexSubchannel)
                             self.__flagDiscontinuousBlock=False
