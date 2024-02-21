@@ -583,7 +583,9 @@ class WeatherParamsPlot(Plot):
 
         if self.mask:
             mask = dataOut.data_param[:,3,:] < self.mask
-            tmp = numpy.ma.masked_array(tmp, mask=mask)
+            tmp[mask] = numpy.nan
+            mask = numpy.nansum((tmp, numpy.roll(tmp, 1),numpy.roll(tmp, -1)), axis=0) == tmp
+            tmp[mask] = numpy.nan            
 
         r = dataOut.heightList
         delta_height = r[1]-r[0]
@@ -717,16 +719,16 @@ class WeatherParamsPlot(Plot):
                     gl.ylabel_style = {'size': 8}
                     gl.xlabels_top = False
                     gl.ylabels_right = False
+                    shape_d = os.path.join(self.shapes,'Distritos/PER_adm3.shp')
                     shape_p = os.path.join(self.shapes,'PER_ADM2/PER_ADM2.shp')
-                    shape_d = os.path.join(self.shapes,'PER_ADM1/PER_ADM1.shp')
-                    capitales = os.path.join(self.shapes,'CAPITALES/cap_provincia.shp')
+                    capitales = os.path.join(self.shapes,'CAPITALES/cap_distrito.shp')
                     vias = os.path.join(self.shapes,'Carreteras/VIAS_NACIONAL_250000.shp')
-                    reader_d = shpreader.BasicReader(shape_p, encoding='latin1')
-                    reader_p = shpreader.BasicReader(shape_d, encoding='latin1')
+                    reader_d = shpreader.BasicReader(shape_d, encoding='latin1')
+                    reader_p = shpreader.BasicReader(shape_p, encoding='latin1')
                     reader_c = shpreader.BasicReader(capitales, encoding='latin1')
                     reader_v = shpreader.BasicReader(vias, encoding='latin1')
-                    caps = [x for x in reader_c.records() ]
-                    districts = [x for x in reader_d.records()]
+                    caps = [x for x in reader_c.records() if x.attributes['DEPARTA']=='PIURA' and x.attributes['CATEGORIA']=='CIUDAD']
+                    districts = [x for x in reader_d.records() if x.attributes['NAME_1']=='Piura']
                     provs = [x for x in reader_p.records()]
                     vias = [x for x in reader_v.records()]
 
@@ -738,10 +740,11 @@ class WeatherParamsPlot(Plot):
                     shape_feature = ShapelyFeature([x.geometry for x in vias], ccrs.PlateCarree(), facecolor="none", edgecolor='yellow', lw=1)
                     ax.add_feature(shape_feature)
 
-                    for cap in caps:                        
-                        ax.text(cap.attributes['X'], cap.attributes['Y'], cap.attributes['Nombre'].title(), size=7, color='white')
-                    #ax.text(-75.052003, -11.915552, 'Huaytapallana', size=7, color='cyan')
-                    #ax.plot(-75.052003, -11.915552, '*')
+                    for cap in caps:
+                        if cap.attributes['NOMBRE'] in ('PIURA', 'SULLANA', 'PAITA', 'SECHURA', 'TALARA'):
+                            ax.text(cap.attributes['X'], cap.attributes['Y'], cap.attributes['NOMBRE'], size=8, color='white', weight='bold')
+                        elif cap.attributes['NOMBRE'] in ('NEGRITOS', 'SAN LUCAS', 'QUERECOTILLO', 'TAMBO GRANDE', 'CHULUCANAS', 'CATACAOS', 'LA UNION'):
+                            ax.text(cap.attributes['X'], cap.attributes['Y'], cap.attributes['NOMBRE'].title(), size=7, color='white')
                 else:                    
                     ax.grid(color='grey', alpha=0.5, linestyle='--', linewidth=1)
                 
