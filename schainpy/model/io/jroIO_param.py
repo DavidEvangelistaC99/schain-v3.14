@@ -440,7 +440,7 @@ class HDFWriter(Operation):
 
             if dataAux is None:
                 continue
-            elif isinstance(dataAux, (int, float, numpy.integer, numpy.float)):
+            elif isinstance(dataAux, (int, float, numpy.integer, numpy.float_)):
                 dsDict['nDim'] = 0
             else:
                 dsDict['nDim'] = len(dataAux.shape)

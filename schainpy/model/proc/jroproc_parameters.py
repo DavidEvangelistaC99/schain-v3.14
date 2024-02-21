@@ -4079,11 +4079,11 @@ class WeatherRadar(Operation):
 
         for i in range(len(self.variableList)):
             if self.variableList[i] == 'Z':
-                dataOut.data_param[:,4,:] =self.getReflectividad_D(dataOut=dataOut,type='N')
+                dataOut.data_param[:,4,:] = self.getReflectividad_D(dataOut=dataOut,type='N')
             if self.variableList[i] == 'D' and dataOut.nChannels>1:
-                dataOut.data_param[:,5,:] =self.getReflectividad_D(dataOut=dataOut,type='D')
+                dataOut.data_param[:,5,:] = self.getReflectividad_D(dataOut=dataOut,type='D')
             if self.variableList[i] == 'P' and dataOut.nChannels>1:
-                dataOut.data_param[:,6,:] =self.getFasediferencialPhiD_P(dataOut=dataOut, phase=True)
+                dataOut.data_param[:,6,:] = self.getFasediferencialPhiD_P(dataOut=dataOut, phase=True)
             if self.variableList[i] == 'R' and dataOut.nChannels>1:
                 dataOut.data_param[:,7,:] = self.getCoeficienteCorrelacionROhv_R(dataOut)
 
@@ -4422,7 +4422,7 @@ class MergeProc(ProcessingUnit):
     def __init__(self):
         ProcessingUnit.__init__(self)
 
-    def run(self, attr_data, mode=0):
+    def run(self, attr_data, mode=0, index=0):
 
         #exit(1)
         self.dataOut = getattr(self, self.inputs[0])
@@ -4473,30 +4473,25 @@ class MergeProc(ProcessingUnit):
             self.dataOut.NSCAN = 128
             #print(numpy.shape(self.dataOut.data_spc))
 
-            #exit(1)
-
         if mode==2: #HAE 2022
             data = numpy.sum([getattr(data, attr_data) for data in data_inputs],axis=0)
             setattr(self.dataOut, attr_data, data)
 
             self.dataOut.nIncohInt *= 2
-            #meta = self.dataOut.getFreqRange(1)/1000.
             self.dataOut.freqRange = self.dataOut.getFreqRange(1)/1000.
-
-            #exit(1)
 
         if mode==7: #RM
 
-            f = [getattr(data, attr_data) for data in data_inputs][0]
-            g = [getattr(data, attr_data) for data in data_inputs][1]
-            data = numpy.concatenate((f,g),axis=3)
+            f = [getattr(data, attr_data) for data in data_inputs][0][:,:,:,0:index]
+            g = [getattr(data, attr_data) for data in data_inputs][1][:,:,:,index:]            
+            data = numpy.concatenate((f,g), axis=3)
             setattr(self.dataOut, attr_data, data)
 
             # snr
             # self.dataOut.data_snr = numpy.concatenate((data_inputs[0].data_snr, data_inputs[1].data_snr), axis=2)
 
             # ranges
-            dh = self.dataOut.heightList[1]-self.dataOut.heightList[0]
-            heightList_2  = (self.dataOut.heightList[-1]+dh) + numpy.arange(g.shape[-1], dtype=numpy.float) * dh
+            # dh = self.dataOut.heightList[1]-self.dataOut.heightList[0]
+            # heightList_2  = (self.dataOut.heightList[-1]+dh) + numpy.arange(g.shape[-1], dtype=numpy.float) * dh
 
-            self.dataOut.heightList = numpy.concatenate((self.dataOut.heightList,heightList_2))
+            # self.dataOut.heightList = numpy.concatenate((self.dataOut.heightList,heightList_2))
