@@ -2595,6 +2595,10 @@ class CleanCohEchoes(Operation):
         #exit(1)
         if gmtime(dataOut.utctime).tm_hour >= 23. or gmtime(dataOut.utctime).tm_hour < 11.: #18-06 LT
             #print("Inside if we are in SpreadF Time: ",gmtime(dataOut.utctime).tm_hour)
+            #if gmtime(dataOut.utctime).tm_hour == 2 and gmtime(dataOut.utctime).tm_min == 10: #Year: 2023, DOY:310
+            #if gmtime(dataOut.utctime).tm_hour == 3 and gmtime(dataOut.utctime).tm_min == 10: #Year: 2023, DOY:312
+                #pass
+            #else:
             self.removeSpreadF(dataOut)
         #exit(1)
 
@@ -3921,7 +3925,7 @@ class NormalizeDPPowerRoberto_V2(Operation):
                 cf=temp[i]
         return cf
 
-    def normalize(self,dataOut):
+    def normalize_Before(self,dataOut):
 
         if self.aux==1:
             dataOut.cf=numpy.zeros(1,'float32')
@@ -3932,7 +3936,7 @@ class NormalizeDPPowerRoberto_V2(Operation):
         night_first1= 300.0#350.0
         night_end= 450.0
         day_first=200.0#220.0
-        day_end=500.0#400.0
+        day_end=350.0#400.0
         day_first_sunrise=200.0
         day_end_sunrise=300.0 #280.0
 
@@ -4033,7 +4037,7 @@ class NormalizeDPPowerRoberto_V2(Operation):
 
         #print(dataOut.cf,dataOut.cflast[0])
         time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime)
-        '''
+        #'''
         print("***Cleaning*** cflast: ", dataOut.cflast[0])
         print("***Cleaning*** cf: ", dataOut.cf)
         #if (time_text.hour == 5 and time_text.minute == 32): #Year: 2022, DOY:104
@@ -4041,15 +4045,15 @@ class NormalizeDPPowerRoberto_V2(Operation):
         #if (time_text.hour == 0 and time_text.minute == 22) or (time_text.hour == 0 and time_text.minute == 54) or (time_text.hour == 1 and time_text.minute == 48): #Year: 2022, DOY:242
         #if (time_text.hour == 1 and time_text.minute == 23) or (time_text.hour == 1 and time_text.minute == 44): #Year: 2022, DOY:243
             #dataOut.cf = dataOut.cflast[0]
-        #if (time_text.hour == 0 and time_text.minute == 4): #Year: 2022, DOY:244
-            #dataOut.cf = 0.08
+        if (time_text.hour == 0 and time_text.minute == 4): #Year: 2022, DOY:244
+            dataOut.cf = 0.08
             #print("here")
-        #if (time_text.hour == 2 and time_text.minute == 23): #Year: 2022, DOY:244
-            #dataOut.cf = 0.08
-        #if (time_text.hour == 2 and time_text.minute == 33): #Year: 2022, DOY:244
-            #dataOut.cf = 0.09
-        #if (time_text.hour == 3 and time_text.minute == 59) or (time_text.hour == 4 and time_text.minute == 20): #Year: 2022, DOY:244
-            #dataOut.cf = 0.09
+        if (time_text.hour == 2 and time_text.minute == 23): #Year: 2022, DOY:244
+            dataOut.cf = 0.08
+        if (time_text.hour == 2 and time_text.minute == 33): #Year: 2022, DOY:244
+            dataOut.cf = 0.09
+        if (time_text.hour == 3 and time_text.minute == 59) or (time_text.hour == 4 and time_text.minute == 20): #Year: 2022, DOY:244
+            dataOut.cf = 0.09
 
 
         #if (time_text.hour == 7 and time_text.minute == 18) or (time_text.hour == 7 and time_text.minute == 40) or (time_text.hour == 7 and time_text.minute == 50): #Year: 2023, DOY:028
@@ -4076,8 +4080,8 @@ class NormalizeDPPowerRoberto_V2(Operation):
         #if (time_text.hour == 9 and time_text.minute == 40) or (time_text.hour == 10 and time_text.minute == 30) or (time_text.hour == 12 and time_text.minute == 10) or (time_text.hour == 23 and time_text.minute == 40): #Year: 2023, DOY:265
         #if (time_text.hour == 6 and time_text.minute == 10) or (time_text.hour == 6 and time_text.minute == 50) or (time_text.hour == 7 and time_text.minute >= 10) or (time_text.hour == 8 and time_text.minute >= 10) or (time_text.hour == 9 and time_text.minute <= 20) or (time_text.hour == 9 and time_text.minute >= 40) or (time_text.hour == 11 and time_text.minute == 40) or (time_text.hour == 23 and time_text.minute == 50) or (time_text.hour == 2 and time_text.minute == 30): #Year: 2023, DOY:266
         #if (time_text.hour == 7 and time_text.minute >= 10) or (time_text.hour == 8 and time_text.minute <= 20) or (time_text.hour == 8 and time_text.minute >= 40) or (time_text.hour == 9) or (time_text.hour == 10) or (time_text.hour == 6 and time_text.minute == 0) or (time_text.hour == 23) or (time_text.hour == 0 and time_text.minute <= 10): #Year: 2023, DOY:267
-        if (time_text.hour == 7) or (time_text.hour == 8) or (time_text.hour == 9) or (time_text.hour == 10 and time_text.minute <= 30) or (time_text.hour == 23 and time_text.minute == 30) or (time_text.hour == 23 and time_text.minute == 40) or (time_text.hour == 0 and time_text.minute == 0): #Year: 2023, DOY:268
-
+        #if (time_text.hour == 7) or (time_text.hour == 8) or (time_text.hour == 9) or (time_text.hour == 10 and time_text.minute <= 30) or (time_text.hour == 23 and time_text.minute == 30) or (time_text.hour == 23 and time_text.minute == 40) or (time_text.hour == 0 and time_text.minute == 0): #Year: 2023, DOY:268
+        if (time_text.hour == 0 and time_text.minute == 4) or (time_text.hour == 0 and time_text.minute == 25) or (time_text.hour == 0 and time_text.minute == 57) or (time_text.hour == 1 and time_text.minute == 51) or (time_text.hour == 7 and time_text.minute == 29): #Year: 2022, DOY:244
             dataOut.cf = dataOut.cflast[0]
         #if (time_text.hour == 2 and time_text.minute == 50): #Year: 2023, DOY:265
             #dataOut.cf = 0.00145
@@ -4103,7 +4107,7 @@ class NormalizeDPPowerRoberto_V2(Operation):
         #if (time_text.hour == 0 and time_text.minute == 22) or (time_text.hour == 0 and time_text.minute == 33): #Year: 2023, DOY:031
         #if (time_text.hour == 7 and time_text.minute == 29): #Year: 2023, DOY:032
             #dataOut.cf = dataOut.cflast[0]
-            '''
+            #'''
         #dataOut.cf = 0.000057#0.0008136899
         #if time_text.hour >= 5 and time_text.hour < 11:
             #dataOut.cf = 0.001355828593659634
@@ -4128,6 +4132,265 @@ class NormalizeDPPowerRoberto_V2(Operation):
             dataOut.ph2[i]=(max(1.0, dataOut.ph2[i]))
             dataOut.dphi[i]=(max(1.0, dataOut.dphi[i]))
 
+    def normalize(self,dataOut):
+
+        if self.aux==1:
+            dataOut.cf=numpy.zeros(1,'float32')
+            dataOut.cflast=numpy.zeros(1,'float32')
+            self.aux=0
+
+        if (dataOut.ut_Faraday>=11.5 and dataOut.ut_Faraday<23):
+            i2=(500.-dataOut.range1[0])/dataOut.DH
+            i1=(200.-dataOut.range1[0])/dataOut.DH
+
+        else:
+            inda = numpy.where(dataOut.heightList >= 200) #200 km
+            minIndex = inda[0][0]
+            indb = numpy.where(dataOut.heightList < 700) # 700 km
+            maxIndex = indb[0][-1]
+            print(minIndex)
+            print(dataOut.heightList)
+
+            ph2max_idx = numpy.nanargmax(dataOut.ph2[minIndex:maxIndex])
+            print("dataOut.ph2[minIndex:maxIndex]: ", dataOut.ph2[minIndex:maxIndex])
+            print(ph2max_idx)
+            '''
+            if dataOut.flagTeTiCorrection:
+                import matplotlib.pyplot as plt
+                plt.figure()
+                plt.plot(dataOut.ph2[minIndex:maxIndex],dataOut.heightList[minIndex:maxIndex],'*-')
+                plt.show()
+                '''
+            ph2max_idx += minIndex
+
+            i2 = ph2max_idx + 6
+            i1 = ph2max_idx - 6
+            print("ELSE^^^^^^^^^^^^^^^^^^^^^")
+            print(dataOut.heightList[i1])
+            print(dataOut.heightList[i2])
+
+        try:
+            dataOut.heightList[i2]
+        except:
+            i2 -= 1
+
+        '''
+        if not dataOut.flagSpreadF:
+            i2=(420-dataOut.range1[0])/dataOut.DH
+        else:
+            i2=(620-dataOut.range1[0])/dataOut.DH
+            '''
+        #i1=(200 -dataOut.range1[0])/dataOut.DH
+        ##print(i1*dataOut.DH)
+        ##print(i2*dataOut.DH)
+
+        i1=int(i1)
+        i2=int(i2)
+        print("Bounds 1: ", dataOut.heightList[i1],dataOut.heightList[i2])
+        '''
+        print(dataOut.ph2)
+        import matplotlib.pyplot as plt
+        plt.plot(dataOut.ph2,dataOut.heightList)
+        plt.xlim(1.e5,1.e8)
+        plt.show()
+        '''
+        #print("Flag: ",dataOut.flagTeTiCorrection)
+        #print(dataOut.dphi[i1::])
+        #print(dataOut.ph2[:])
+
+        if dataOut.flagTeTiCorrection:
+            for i in range(dataOut.NSHTS):
+                dataOut.ph2[i]/=dataOut.cf
+                dataOut.sdp2[i]/=dataOut.cf
+
+        #'''
+        #if dataOut.flagSpreadF:
+        if hasattr(dataOut, 'flagSpreadF') and dataOut.flagSpreadF:
+            i2=int((700-dataOut.range1[0])/dataOut.DH)
+            #print(dataOut.ph2)
+            #print(dataOut.heightList)
+            nanindex = numpy.argwhere(numpy.isnan(dataOut.ph2))
+            #print("nanindex",nanindex)
+            i1 = nanindex[-1][0] #VER CUANDO i1>i2
+            if i1 != numpy.shape(dataOut.heightList)[0]:
+                i1 += 1+2 #Se suma uno para no tomar el nan, se suma 2 para no tomar datos nan de "phi" debido al calculo de la derivada
+            if i1 >= i2:
+                i1 = i2-4
+        #print("i1, i2",i1,i2)
+        #print(dataOut.heightList)
+        #print("Bounds: ", dataOut.heightList[i1],dataOut.heightList[i2])
+        #print(dataOut.dphi[33])
+        #print(dataOut.ph2[33])
+        #print(dataOut.dphi[i1::])
+        #print(dataOut.ph2[i1::])
+        #'''
+        print("Bounds 2: ", dataOut.heightList[i1],dataOut.heightList[i2])
+
+        try:
+            dataOut.cf=self.normal(dataOut.dphi[i1::], dataOut.ph2[i1::], i2-i1, 1)
+
+        except:
+            print("except")
+            dataOut.cf = numpy.nan
+
+        #print("cf: ",dataOut.cf)
+        #print(dataOut.ph2)
+        #input()
+        #  in case of spread F, normalize much higher
+        #print("dens: ", dataOut.dphi,dataOut.ph2)
+
+        night_first1= 300.0#350.0
+        night_end= 450.0
+        night_first1= 220.0#350.0
+        night_end= 400.0
+
+        if(dataOut.cf<dataOut.cflast[0]/10.0):
+            i1=(night_first1-dataOut.range1[0])/dataOut.DH
+            i2=(night_end-dataOut.range1[0])/dataOut.DH
+            i1=int(i1)
+            i2=int(i2)
+            try:
+                dataOut.cf=self.normal(dataOut.dphi[int(i1)::], dataOut.ph2[int(i1)::], int(i2-i1), 1)
+            except:
+                pass
+
+        #print(dataOut.cf,dataOut.cflast[0])
+        time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime)
+
+        print("Bounds 3: ", dataOut.heightList[i1],dataOut.heightList[i2])
+        '''
+        print("***Cleaning*** cflast: ", dataOut.cflast[0])
+        print("***Cleaning*** cf: ", dataOut.cf)
+        #if (time_text.hour == 5 and time_text.minute == 32): #Year: 2022, DOY:104
+        #if (time_text.hour == 0 and time_text.minute == 12): #Year: 2022, DOY:93
+        #if (time_text.hour == 0 and time_text.minute == 22) or (time_text.hour == 0 and time_text.minute == 54) or (time_text.hour == 1 and time_text.minute == 48): #Year: 2022, DOY:242
+        #if (time_text.hour == 1 and time_text.minute == 23) or (time_text.hour == 1 and time_text.minute == 44): #Year: 2022, DOY:243
+            #dataOut.cf = dataOut.cflast[0]
+        #if (time_text.hour == 7 and time_text.minute == 18) or (time_text.hour == 7 and time_text.minute == 40) or (time_text.hour == 7 and time_text.minute == 50): #Year: 2023, DOY:028
+            #dataOut.cf = 0.029844088
+        #if (time_text.hour == 0 and time_text.minute == 12) or (time_text.hour == 0 and time_text.minute == 22): #Year: 2023, DOY:028
+        #if (time_text.hour == 7 and time_text.minute == 8) or (time_text.hour == 7 and time_text.minute == 40) or (time_text.hour == 7 and time_text.minute == 50) or (time_text.hour == 8 and time_text.minute == 1) or (time_text.hour == 9 and time_text.minute == 48) or (time_text.hour == 9 and time_text.minute == 58): #Year: 2023, DOY:029
+            #dataOut.cf = dataOut.cflast[0]
+        #if (time_text.hour == 7 and time_text.minute == 29): #Year: 2023, DOY:029
+            #dataOut.cf = 0.025670702
+        #if (time_text.hour == 8 and time_text.minute == 12): #Year: 2023, DOY:029
+            #dataOut.cf = 0.036969288
+        #if (time_text.hour == 8 and time_text.minute == 22): #Year: 2023, DOY:029
+            #dataOut.cf = 0.0418645
+        #if (time_text.hour == 5 and time_text.minute == 10) or (time_text.hour == 5 and time_text.minute == 42) or (time_text.hour == 0 and time_text.minute == 22) or (time_text.hour == 0 and time_text.minute == 33): #Year: 2023, DOY:030
+        #if (time_text.hour == 5 and time_text.minute == 10): #Year: 2023, DOY:172
+        #if (time_text.hour == 5 and time_text.minute == 21) or (time_text.hour == 8 and time_text.minute == 44) or (time_text.hour == 9 and time_text.minute == 5) or (time_text.hour == 8 and time_text.minute == 54) or (time_text.hour == 8 and time_text.minute == 33) or (time_text.hour == 8 and time_text.minute == 22) or (time_text.hour == 8 and time_text.minute == 1) or (time_text.hour == 7 and time_text.minute == 50) or (time_text.hour == 7 and time_text.minute == 40) or (time_text.hour == 7 and time_text.minute == 8) or (time_text.hour == 6 and time_text.minute == 4) or (time_text.hour == 5 and time_text.minute == 53) or (time_text.hour == 10 and time_text.minute == 9) or (time_text.hour == 6 and time_text.minute == 36) or (time_text.hour == 10 and time_text.minute == 30) or (time_text.hour == 9 and time_text.minute == 26) or (time_text.hour == 9 and time_text.minute == 37) or (time_text.hour == 9 and time_text.minute == 48): #Year: 2023, DOY:175
+        #if (time_text.hour == 1 and time_text.minute == 43) or (time_text.hour == 1 and time_text.minute == 48) or (time_text.hour == 1 and time_text.minute == 54): #Year: 2023, DOY:191
+        #if (time_text.hour == 23 and time_text.minute == 50): #Year: 2023, DOY:247
+            #dataOut.cf = 0.0068
+        #if (time_text.hour == 0 and time_text.minute == 40): #Year: 2023, DOY:247
+        #if (time_text.hour == 23 and time_text.minute == 50) or (time_text.hour == 0 and time_text.minute == 0) or (time_text.hour == 7 and time_text.minute == 30) or (time_text.hour == 8 and time_text.minute == 30) or (time_text.hour == 8 and time_text.minute == 40) or (time_text.hour == 8 and time_text.minute == 50) or (time_text.hour == 9 and time_text.minute == 10) or (time_text.hour == 9 and time_text.minute == 20) or (time_text.hour == 9 and time_text.minute == 50): #Year: 2023, DOY:248
+        #if (time_text.hour == 7 and time_text.minute == 30) or (time_text.hour == 8 and time_text.minute == 20): #Year: 2023, DOY:250
+        #if (time_text.hour == 7 and time_text.minute == 0) or (time_text.hour == 7 and time_text.minute == 20) or (time_text.hour == 7 and time_text.minute == 30) or (time_text.hour == 8 and time_text.minute == 30) or (time_text.hour == 8 and time_text.minute == 40) or (time_text.hour == 8 and time_text.minute == 50) or (time_text.hour == 9 and time_text.minute == 0) or (time_text.hour == 9 and time_text.minute == 10) or (time_text.hour == 9 and time_text.minute == 30) or (time_text.hour == 10 and time_text.minute == 0) or (time_text.hour == 10 and time_text.minute == 10): #Year: 2023, DOY:269
+        #if (time_text.hour == 9 and time_text.minute == 40) or (time_text.hour == 10 and time_text.minute == 30) or (time_text.hour == 12 and time_text.minute == 10) or (time_text.hour == 23 and time_text.minute == 40): #Year: 2023, DOY:265
+        #if (time_text.hour == 6 and time_text.minute == 10) or (time_text.hour == 6 and time_text.minute == 50) or (time_text.hour == 7 and time_text.minute >= 10) or (time_text.hour == 8 and time_text.minute >= 10) or (time_text.hour == 9 and time_text.minute <= 20) or (time_text.hour == 9 and time_text.minute >= 40) or (time_text.hour == 11 and time_text.minute == 40) or (time_text.hour == 23 and time_text.minute == 50) or (time_text.hour == 2 and time_text.minute == 30): #Year: 2023, DOY:266
+        #if (time_text.hour == 7 and time_text.minute >= 10) or (time_text.hour == 8 and time_text.minute <= 20) or (time_text.hour == 8 and time_text.minute >= 40) or (time_text.hour == 9) or (time_text.hour == 10) or (time_text.hour == 6 and time_text.minute == 0) or (time_text.hour == 23) or (time_text.hour == 0 and time_text.minute <= 10): #Year: 2023, DOY:267
+        #if (time_text.hour == 7) or (time_text.hour == 8) or (time_text.hour == 9) or (time_text.hour == 10 and time_text.minute <= 30) or (time_text.hour == 23 and time_text.minute == 30) or (time_text.hour == 23 and time_text.minute == 40) or (time_text.hour == 0 and time_text.minute == 0): #Year: 2023, DOY:268
+        #if (time_text.hour == 2 and time_text.minute == 50): #Year: 2023, DOY:265
+            #dataOut.cf = 0.00145
+        #if (time_text.hour == 10 and time_text.minute == 20) or (time_text.hour == 10 and time_text.minute == 30) or (time_text.hour == 10 and time_text.minute == 40): #Year: 2023, DOY:269
+            #dataOut.cf = 0.0018814794
+        #if (time_text.hour == 11 and time_text.minute == 0): #Year: 2023, DOY:269
+            #dataOut.cf = 0.0016059145
+
+        #if (time_text.hour == 3 and time_text.minute == 40): #Year: 2023, DOY:249
+            #dataOut.cf = 0.0061
+        #if (time_text.hour == 4 and time_text.minute == 10): #Year: 2023, DOY:249
+            #dataOut.cf = 0.0065
+
+        #if (time_text.hour == 1 and time_text.minute == 38): #Year: 2023, DOY:191
+            #dataOut.cf = 0.00033544924
+        #if (time_text.hour == 23 and time_text.minute == 56): #Year: 2023, DOY:191
+            #dataOut.cf = 0.000311806775
+        #if (time_text.hour == 0 and time_text.minute == 2): #Year: 2023, DOY:191
+            #dataOut.cf = 0.0003127
+        #if (time_text.hour == 0 and time_text.minute == 44): #Year: 2023, DOY:191
+            #dataOut.cf = 0.00031403964500000003
+
+        #if (time_text.hour == 0 and time_text.minute == 22) or (time_text.hour == 0 and time_text.minute == 33): #Year: 2023, DOY:031
+        #if (time_text.hour == 7 and time_text.minute == 29): #Year: 2023, DOY:032
+        #if (time_text.hour == 6 and time_text.minute == 0): #Year: 2023, DOY:050
+            #dataOut.cf = 0.008
+        #if (time_text.hour == 7 and time_text.minute == 20): #Year: 2023, DOY:050
+            #dataOut.cf = 0.0077
+        #if (time_text.hour == 11 and time_text.minute == 10): #Year: 2023, DOY:050
+            #dataOut.cf = 0.014
+        #if (time_text.hour == 11 and time_text.minute == 20): #Year: 2023, DOY:050
+            #dataOut.cf = 0.010
+        #if (time_text.hour == 10 and time_text.minute == 30): #Year: 2023, DOY:050
+            #dataOut.cf = 0.012
+        #if (time_text.hour == 10 and time_text.minute == 40): #Year: 2023, DOY:050
+            #dataOut.cf = 0.014
+        #if (time_text.hour == 5 and time_text.minute == 10): #Year: 2023, DOY:050
+            #dataOut.cf = 0.01
+        #if (time_text.hour == 7 and time_text.minute == 10) or (time_text.hour == 8 and time_text.minute == 0) or (time_text.hour == 8 and time_text.minute == 10) or (time_text.hour == 8 and time_text.minute == 50) or (time_text.hour == 9 and time_text.minute == 10) or (time_text.hour == 9 and time_text.minute >= 40) or (time_text.hour == 10 and time_text.minute <= 20): #Year: 2024, DOY:050
+            #dataOut.cf = dataOut.cflast[0]
+        #if (time_text.hour == 3 and time_text.minute == 35): #Year: 2024, DOY:046
+            #dataOut.cf = 0.007
+        #if (time_text.hour == 4 and time_text.minute == 25) or (time_text.hour == 3 and time_text.minute == 55): #Year: 2024, DOY:046
+            #dataOut.cf = 0.0045
+        #if (time_text.hour == 4 and time_text.minute == 45): #Year: 2024, DOY:046
+            #dataOut.cf = 0.007
+        #if (time_text.hour == 11 and time_text.minute == 10): #Year: 2024, DOY:047
+            #dataOut.cf = 0.015
+        #if (time_text.hour == 3 and time_text.minute == 50): #Year: 2024, DOY:047
+            #dataOut.cf = 0.005
+        #if (time_text.hour == 7 and time_text.minute >= 20) or (time_text.hour == 9 and time_text.minute >= 10) or (time_text.hour == 10 and time_text.minute >= 10) or (time_text.hour == 11 and time_text.minute == 0) or (time_text.hour == 1 and time_text.minute == 10) or (time_text.hour == 4 and time_text.minute == 0) or (time_text.hour == 4 and time_text.minute == 20): #Year: 2024, DOY:047
+        #if (time_text.hour == 5 and time_text.minute == 30): #Year: 2024, DOY:049
+            #dataOut.cf = 0.004
+        #if (time_text.hour == 7 and time_text.minute == 20): #Year: 2024, DOY:049
+            #dataOut.cf = 0.006
+        #if (time_text.hour == 7 and time_text.minute == 30): #Year: 2024, DOY:049
+            #dataOut.cf = 0.009
+        #if (time_text.hour == 7 and time_text.minute == 40): #Year: 2024, DOY:049
+            #dataOut.cf = 0.010
+        #if (time_text.hour == 9 and time_text.minute == 10): #Year: 2024, DOY:049
+            #dataOut.cf = 0.007
+        #if (time_text.hour == 9 and time_text.minute == 20): #Year: 2024, DOY:049
+            #dataOut.cf = 0.009
+        #if (time_text.hour == 9 and time_text.minute >= 40): #Year: 2024, DOY:049
+            #dataOut.cf = 0.012
+        #if (time_text.hour == 3 and time_text.minute == 0) or (time_text.hour == 3 and time_text.minute == 50): #Year: 2024, DOY:049
+            #dataOut.cf = 0.0054
+        #if (time_text.hour == 6 and time_text.minute == 10): #Year: 2024, DOY:048
+            #dataOut.cf = 0.007
+        #if (time_text.hour == 6 and time_text.minute == 20): #Year: 2024, DOY:048
+            #dataOut.cf = 0.009
+        #if (time_text.hour == 9 and time_text.minute == 40): #Year: 2024, DOY:048
+            #dataOut.cf = 0.015
+        #if (time_text.hour == 6 and time_text.minute == 0) or (time_text.hour == 8 and time_text.minute == 50) or (time_text.hour == 9 and time_text.minute == 0) or (time_text.hour == 9 and time_text.minute == 30) or (time_text.hour == 10) or (time_text.hour == 11 and time_text.minute == 0) or (time_text.hour == 13 and time_text.minute == 50) or (time_text.hour == 14 and time_text.minute == 0) or (time_text.hour == 16 and time_text.minute == 0) or (time_text.hour == 16 and time_text.minute == 20) or (time_text.hour == 16 and time_text.minute == 50) or (time_text.hour == 17 and time_text.minute == 10) or (time_text.hour == 17 and time_text.minute == 50) or (time_text.hour == 19 and time_text.minute == 0) or (time_text.hour == 19 and time_text.minute == 20): #Year: 2024, DOY:049
+        #if (time_text.hour == 7 and time_text.minute == 50) or (time_text.hour == 8 and time_text.minute == 10) or (time_text.hour == 8 and time_text.minute == 20) or (time_text.hour == 8 and time_text.minute == 50) or (time_text.hour == 9 and time_text.minute <= 30) or (time_text.hour == 9 and time_text.minute == 50) or (time_text.hour == 10) or (time_text.hour == 11 and time_text.minute == 0): #Year: 2024, DOY:048
+        #if (time_text.hour == 18 and time_text.minute == 15) or (time_text.hour == 17 and time_text.minute == 55) or (time_text.hour == 17 and time_text.minute == 35) or (time_text.hour == 17 and time_text.minute == 25) or (time_text.hour == 17 and time_text.minute == 5) or (time_text.hour == 16 and time_text.minute == 25) or (time_text.hour == 16 and time_text.minute == 45) or (time_text.hour == 3 and time_text.minute == 5) or (time_text.hour == 3 and time_text.minute == 25) or (time_text.hour == 14 and time_text.minute == 15) or (time_text.hour == 15 and time_text.minute == 45) or (time_text.hour == 16 and time_text.minute == 25) or (time_text.hour == 18 and time_text.minute == 5): #Year: 2024, DOY:046
+            #dataOut.cf = dataOut.cflast[0]
+            '''
+        #dataOut.cf = 0.000057#0.0008136899
+        #if time_text.hour >= 5 and time_text.hour < 11:
+            #dataOut.cf = 0.001355828593659634
+        print("***Cleaning*** cf After: ", dataOut.cf)
+        #dataOut.cf = 1 #Without Normalization
+
+        dataOut.cflast[0]=dataOut.cf
+        #print("cf: ", dataOut.cf)
+
+        #print(dataOut.ph2)
+        #print(dataOut.sdp2)
+
+        ## normalize double pulse power and error bars to Faraday
+        for i in range(dataOut.NSHTS):
+            dataOut.ph2[i]*=dataOut.cf
+            dataOut.sdp2[i]*=dataOut.cf
+        #print(dataOut.ph2)
+        #print(dataOut.sdp2)
+        #exit(1)
+
+        for i in range(dataOut.NSHTS):
+            dataOut.ph2[i]=(max(1.0, dataOut.ph2[i]))
+            dataOut.dphi[i]=(max(1.0, dataOut.dphi[i]))
 
     def run(self,dataOut):
 
@@ -5002,7 +5265,7 @@ class DataSaveCleaner(Operation):
         dataOut.EPhyFinal[0,i1+1:]=missing
         '''
         #'''
-        if gmtime(dataOut.utctime).tm_hour >= 12. and gmtime(dataOut.utctime).tm_hour < 22.: #07-17 LT
+        if gmtime(dataOut.utctime).tm_hour >= 13. and gmtime(dataOut.utctime).tm_hour < 21.: #07-16 LT
             dataOut.DensityFinal[0,:13]=missing
             dataOut.EDensityFinal[0,:13]=missing
             dataOut.ElecTempFinal[0,:13]=missing
@@ -5013,14 +5276,17 @@ class DataSaveCleaner(Operation):
             dataOut.EPhyFinal[0,:13]=missing
             #'''
         else:
-            dataOut.DensityFinal[0,:dataOut.min_id_eej+1]=missing
-            dataOut.EDensityFinal[0,:dataOut.min_id_eej+1]=missing
-            dataOut.ElecTempFinal[0,:dataOut.min_id_eej+1]=missing
-            dataOut.EElecTempFinal[0,:dataOut.min_id_eej+1]=missing
-            dataOut.IonTempFinal[0,:dataOut.min_id_eej+1]=missing
-            dataOut.EIonTempFinal[0,:dataOut.min_id_eej+1]=missing
-            dataOut.PhyFinal[0,:dataOut.min_id_eej+1]=missing
-            dataOut.EPhyFinal[0,:dataOut.min_id_eej+1]=missing
+            if gmtime(dataOut.utctime).tm_hour == 9 and gmtime(dataOut.utctime).tm_min == 20:
+                pass
+            else:
+                dataOut.DensityFinal[0,:dataOut.min_id_eej+1]=missing
+                dataOut.EDensityFinal[0,:dataOut.min_id_eej+1]=missing
+                dataOut.ElecTempFinal[0,:dataOut.min_id_eej+1]=missing
+                dataOut.EElecTempFinal[0,:dataOut.min_id_eej+1]=missing
+                dataOut.IonTempFinal[0,:dataOut.min_id_eej+1]=missing
+                dataOut.EIonTempFinal[0,:dataOut.min_id_eej+1]=missing
+                dataOut.PhyFinal[0,:dataOut.min_id_eej+1]=missing
+                dataOut.EPhyFinal[0,:dataOut.min_id_eej+1]=missing
         '''
         if gmtime(dataOut.utctime).tm_hour >= 11. or gmtime(dataOut.utctime).tm_hour < 23.: #06-18 LT
             dataOut.DensityFinal[0,:13]=missing
@@ -5071,6 +5337,7 @@ class DataSaveCleaner(Operation):
         #if (time_text.hour >= 8 and time_text.hour < 11) or (time_text.hour == 11 and time_text.minute==2) or (time_text.hour == 11 and time_text.minute==13) or (time_text.hour == 11 and time_text.minute==24): #Year: 2022, DOY:243
         #if (time_text.hour >= 9 and time_text.hour < 11) or (time_text.hour == 8 and time_text.minute==12) or (time_text.hour == 8 and time_text.minute==22) or (time_text.hour == 8 and time_text.minute==33) or (time_text.hour == 8 and time_text.minute==44) or (time_text.hour == 8 and time_text.minute==54) or (time_text.hour == 11 and time_text.minute==2) or (time_text.hour == 11 and time_text.minute==13): #Year: 2022, DOY:245
         #if (time_text.hour >= 8 and time_text.hour < 11) or (time_text.hour == 1) or (time_text.hour == 0 and time_text.minute==15) or (time_text.hour == 0 and time_text.minute==25) or (time_text.hour == 0 and time_text.minute==36) or (time_text.hour == 0 and time_text.minute==47) or (time_text.hour == 0 and time_text.minute==57) or (time_text.hour == 2 and time_text.minute==1) or (time_text.hour == 11 and time_text.minute==2) or (time_text.hour == 11 and time_text.minute==13) or (time_text.hour == 11 and time_text.minute == 24) or (time_text.hour == 7 and time_text.minute==40) or (time_text.hour == 7 and time_text.minute==50) or (time_text.hour == 3 and time_text.minute==5) or (time_text.hour == 3 and time_text.minute==16) or (time_text.hour == 3 and time_text.minute==27): #Year: 2022, DOY:244
+        #if (time_text.hour >= 8 and time_text.hour < 11) or (time_text.hour == 11 and time_text.minute==2) or (time_text.hour == 11 and time_text.minute==13) or (time_text.hour == 11 and time_text.minute == 24) or (time_text.hour == 7 and time_text.minute==40) or (time_text.hour == 7 and time_text.minute==50) or (time_text.hour == 3 and time_text.minute==5): #Year: 2022, DOY:244
         #if (time_text.hour == 0 and time_text.minute == 8) or (time_text.hour == 0 and time_text.minute==18): #Year: 2023, DOY:027
         #if (time_text.hour >= 3 and time_text.hour < 5) or (time_text.hour == 6) or (time_text.hour == 7 and time_text.minute==8) or (time_text.hour == 8 and time_text.minute==1) or (time_text.hour == 8 and time_text.minute==12) or (time_text.hour == 8 and time_text.minute==22) or (time_text.hour == 8 and time_text.minute==33) or (time_text.hour == 9 and time_text.minute>=16) or (time_text.hour == 10) or (time_text.hour == 11 and time_text.minute==2): #Year: 2023, DOY:028
         #if (time_text.hour >=2 and time_text.hour < 5) or (time_text.hour == 10): #Year: 2023, DOY:029
@@ -5089,7 +5356,13 @@ class DataSaveCleaner(Operation):
         #if (time_text.hour == 8 and time_text.minute >= 10) or (time_text.hour == 9 and time_text.minute <= 20) or (time_text.hour == 1 and time_text.minute >= 20) or (time_text.hour == 2 and time_text.minute <= 30): #Year: 2023, DOY:265
         #if (time_text.hour == 0 and time_text.minute >= 10) or (time_text.hour == 1 and time_text.minute <= 40) or (time_text.hour == 2 and time_text.minute >= 40): #Year: 2023, DOY:266
         #if (time_text.hour == 5 and time_text.minute == 10) or (time_text.hour == 5 and time_text.minute == 20): #Year: 2023, DOY:267
-        if (time_text.hour == 3 and time_text.minute == 40) or (time_text.hour == 3 and time_text.minute == 50) or (time_text.hour == 4 and time_text.minute <= 20): #Year: 2023, DOY:268
+        #if (time_text.hour == 3 and time_text.minute == 40) or (time_text.hour == 3 and time_text.minute == 50) or (time_text.hour == 4 and time_text.minute <= 20): #Year: 2023, DOY:268
+        #if (time_text.hour == 2 and time_text.minute == 20): #Year: 2023, DOY:310
+        #if (time_text.hour == 12 and time_text.minute == 20): #Year: 2023, DOY:311
+        #if (time_text.hour == 3 and time_text.minute == 5) or (time_text.hour == 23 and time_text.minute == 25) or (time_text.hour == 23 and time_text.minute == 35) or (time_text.hour == 23 and time_text.minute == 45) or (time_text.hour == 2 and time_text.minute == 5) or (time_text.hour == 2 and time_text.minute == 45) or (time_text.hour == 3 and time_text.minute == 45): #Year: 2024, DOY:046
+        #if (time_text.hour == 1 and time_text.minute == 40) or (time_text.hour == 1 and time_text.minute == 10) or (time_text.hour == 3 and time_text.minute <= 10): #Year: 2024, DOY:047
+        #if (time_text.hour == 16 and time_text.minute == 30) or (time_text.hour == 0 and time_text.minute >= 30) or (time_text.hour == 1 and time_text.minute >= 30) or (time_text.hour == 2 and time_text.minute == 10) or (time_text.hour == 3 and time_text.minute == 20) or (time_text.hour == 3 and time_text.minute == 40): #Year: 2024, DOY:049
+        #if (time_text.hour == 5 and time_text.minute <= 10) or (time_text.hour == 1 and time_text.minute >= 40) or (time_text.hour == 2) or (time_text.hour == 3) or (time_text.hour == 4 and time_text.minute == 30): #Year: 2024, DOY:048
 
             dataOut.DensityFinal[0,:]=missing
             dataOut.EDensityFinal[0,:]=missing
@@ -5101,6 +5374,1184 @@ class DataSaveCleaner(Operation):
             dataOut.EPhyFinal[0,:]=missing
 
             dataOut.flagNoData = True #Remueve todo el perfil
+            '''
+        '''
+        if (time_text.hour == 5 and time_text.minute == 20): #Year: 2024, DOY:048
+            id_aux = 16
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute == 30): #Year: 2024, DOY:048
+            id_aux = 15
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute == 40) or (time_text.hour == 23 and time_text.minute >= 30) or (time_text.hour == 0): #Year: 2024, DOY:048
+            id_aux = 14
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 6 and time_text.minute == 0) or (time_text.hour == 6 and time_text.minute == 30) or (time_text.hour == 6 and time_text.minute == 40) or (time_text.hour == 6 and time_text.minute == 50) or (time_text.hour == 7 and time_text.minute == 0) or (time_text.hour == 7 and time_text.minute == 20) or (time_text.hour == 7 and time_text.minute >= 40) or (time_text.hour == 8 and time_text.minute == 0) or (time_text.hour == 8 and time_text.minute >= 40) or (time_text.hour == 21 and time_text.minute >= 20) or (time_text.hour == 22): #Year: 2024, DOY:048
+            id_aux = 10
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 6 and time_text.minute == 10) or (time_text.hour == 4 and time_text.minute == 10): #Year: 2024, DOY:048
+            id_aux = 24
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 6 and time_text.minute == 20) or (time_text.hour == 4 and time_text.minute == 20): #Year: 2024, DOY:048
+            id_aux = 25
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 7 and time_text.minute == 10) or (time_text.hour == 7 and time_text.minute == 30) or (time_text.hour == 8 and time_text.minute == 10) or (time_text.hour == 9) or (time_text.hour == 10) or (time_text.hour == 21 and time_text.minute <= 10): #Year: 2024, DOY:048
+            id_aux = 12
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if  (time_text.hour == 8 and time_text.minute == 20) or (time_text.hour == 8 and time_text.minute == 30): #Year: 2024, DOY:048
+            id_aux = 13
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if  (time_text.hour == 11) or (time_text.hour == 12): #Year: 2024, DOY:048
+            id_aux = 9
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if  (time_text.hour == 23 and time_text.minute <= 20): #Year: 2024, DOY:048
+            id_aux = 11
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if  (time_text.hour == 0 and time_text.minute >= 40) or (time_text.hour == 1 and time_text.minute <= 30) or (time_text.hour == 4 and time_text.minute == 40): #Year: 2024, DOY:048
+            id_aux = 27
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if  (time_text.hour == 4 and time_text.minute == 0): #Year: 2024, DOY:048
+            id_aux = 30
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute == 20) or (time_text.hour == 8 and time_text.minute == 20) or (time_text.hour == 10 and time_text.minute == 10) or (time_text.hour == 10 and time_text.minute == 20): #Year: 2024, DOY:048
+            id_aux = 30
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 8 and time_text.minute == 10): #Year: 2024, DOY:048
+            id_aux = 39
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 8 and time_text.minute >= 40) or (time_text.hour == 11 and time_text.minute == 30) or (time_text.hour == 12 and time_text.minute == 0) or (time_text.hour == 13 and time_text.minute == 50): #Year: 2024, DOY:048
+            id_aux = 32
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 9) or (time_text.hour == 14 and time_text.minute == 0): #Year: 2024, DOY:048
+            id_aux = 35
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 9 and time_text.minute == 50): #Year: 2024, DOY:048
+            id_aux = 27
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 10 and time_text.minute == 50) or (time_text.hour == 11 and time_text.minute == 10): #Year: 2024, DOY:048
+            id_aux = 26
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 12 and time_text.minute == 40): #Year: 2024, DOY:048
+            id_aux = 33
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 14 and time_text.minute == 10): #Year: 2024, DOY:048
+            id_aux = 36
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 14 and time_text.minute == 30): #Year: 2024, DOY:048
+            id_aux = 37
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 16 and time_text.minute == 20): #Year: 2024, DOY:048
+            id_aux = 40
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 4 and time_text.minute == 0): #Year: 2024, DOY:048
+            id_aux = 43
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+            '''
+        '''
+        if (time_text.hour == 5 and time_text.minute == 0) or (time_text.hour == 23 and time_text.minute == 50) or (time_text.hour == 0) or (time_text.hour == 1) or (time_text.hour == 3 and time_text.minute == 50) or (time_text.hour == 4 and time_text.minute <= 20): #Year: 2024, DOY:049
+            id_aux = 18
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute == 10) or (time_text.hour == 5 and time_text.minute == 20) or (time_text.hour == 4 and time_text.minute == 30): #Year: 2024, DOY:049
+            id_aux = 17
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute == 30) or (time_text.hour == 4 and time_text.minute == 40): #Year: 2024, DOY:049
+            id_aux = 16
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute == 40) or (time_text.hour == 23 and time_text.minute == 30) or (time_text.hour == 23 and time_text.minute == 40): #Year: 2024, DOY:049
+            id_aux = 15
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 6 and time_text.minute <= 50) or (time_text.hour == 7 and time_text.minute <= 10) or (time_text.hour == 7 and time_text.minute >= 30): #Year: 2024, DOY:049
+            id_aux = 13
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 7 and time_text.minute == 20) or (time_text.hour == 8) or (time_text.hour == 9) or (time_text.hour == 10) or (time_text.hour == 11 and time_text.minute == 0) or (time_text.hour == 21 and time_text.minute <= 10): #Year: 2024, DOY:049
+            id_aux = 12
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 11 and time_text.minute >= 10) or (time_text.hour == 12): #Year: 2024, DOY:049
+            id_aux = 9
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 21 and time_text.minute >= 20) or (time_text.hour == 22) or (time_text.hour == 23 and time_text.minute <= 20): #Year: 2024, DOY:049
+            id_aux = 10
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 3 and time_text.minute <= 10): #Year: 2024, DOY:049
+            id_aux = 33
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 3 and time_text.minute == 30): #Year: 2024, DOY:049
+            id_aux = 29
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 3 and time_text.minute == 50): #Year: 2024, DOY:049
+            id_aux = (33,34)
+            dataOut.DensityFinal[0,id_aux]=missing
+            dataOut.EDensityFinal[0,id_aux]=missing
+            dataOut.ElecTempFinal[0,id_aux]=missing
+            dataOut.EElecTempFinal[0,id_aux]=missing
+            dataOut.IonTempFinal[0,id_aux]=missing
+            dataOut.EIonTempFinal[0,id_aux]=missing
+            dataOut.PhyFinal[0,id_aux]=missing
+            dataOut.EPhyFinal[0,id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute == 40) or (time_text.hour == 13 and time_text.minute == 20): #Year: 2024, DOY:049
+            id_aux = 31
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 8 and time_text.minute == 0) or (time_text.hour == 9 and time_text.minute == 30): #Year: 2024, DOY:049
+            id_aux = 39
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 8 and time_text.minute == 10): #Year: 2024, DOY:049
+            id_aux = 38
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 9 and time_text.minute == 0) or (time_text.hour == 11 and time_text.minute == 50) or (time_text.hour == 12 and time_text.minute == 0) or (time_text.hour == 12 and time_text.minute >= 40) or (time_text.hour == 13 and time_text.minute == 30) or (time_text.hour == 14 and time_text.minute == 0): #Year: 2024, DOY:049
+            id_aux = 36
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 10 and time_text.minute <= 10) or (time_text.hour == 11 and time_text.minute == 0) or (time_text.hour == 11 and time_text.minute == 20) or (time_text.hour == 12 and time_text.minute == 30) or (time_text.hour == 13 and time_text.minute == 50): #Year: 2024, DOY:049
+            id_aux = 34
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 3 and time_text.minute == 0): #Year: 2024, DOY:049
+            id_aux = 41
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 3 and time_text.minute == 50): #Year: 2024, DOY:049
+            id_aux = 42
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 4 and time_text.minute == 10): #Year: 2024, DOY:049
+            id_aux = 45
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+            '''
+        '''
+        if (time_text.hour == 5 and time_text.minute == 0): #Year: 2024, DOY:047
+            id_aux = 17
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute == 10) or (time_text.hour == 5 and time_text.minute == 20) or (time_text.hour == 5 and time_text.minute == 30): #Year: 2024, DOY:047
+            id_aux = 15
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute == 40): #Year: 2024, DOY:047
+            id_aux = 14
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 0 and time_text.minute <= 10) or (time_text.hour == 23 and time_text.minute >= 30) or (time_text.hour == 10 and time_text.minute == 30) or (time_text.hour == 5 and time_text.minute == 50) or (time_text.hour == 6) or (time_text.hour == 7) or (time_text.hour == 8) or (time_text.hour == 11 and time_text.minute == 10): #Year: 2024, DOY:047
+            id_aux = 13
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 1 and time_text.minute == 30) or (time_text.hour == 9) or (time_text.hour == 10 and time_text.minute <= 20) or (time_text.hour == 10 and time_text.minute >= 40) or (time_text.hour == 11 and time_text.minute == 0) or (time_text.hour == 21 and time_text.minute <= 20): #Year: 2024, DOY:047
+            id_aux = 12
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 11 and time_text.minute >= 20) or (time_text.hour == 12): #Year: 2024, DOY:047
+            id_aux = 9
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 21 and time_text.minute >= 40) or (time_text.hour == 22) or (time_text.hour == 23 and time_text.minute <= 20): #Year: 2024, DOY:047
+            id_aux = 10
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 1 and time_text.minute == 20): #Year: 2024, DOY:047
+            id_aux = 38
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 3 and time_text.minute == 0): #Year: 2024, DOY:047
+            id_aux = 32
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 3 and time_text.minute == 10): #Year: 2024, DOY:047
+            id_aux = 29
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 3 and time_text.minute == 20) or (time_text.hour == 4 and time_text.minute == 0): #Year: 2024, DOY:047
+            id_aux = 24
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 3 and time_text.minute == 30) or (time_text.hour == 4 and time_text.minute == 10): #Year: 2024, DOY:047
+            id_aux = 22
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 3 and time_text.minute == 40): #Year: 2024, DOY:047
+            id_aux = 26
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 3 and time_text.minute == 50): #Year: 2024, DOY:047
+            id_aux = 25
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 4 and time_text.minute == 20): #Year: 2024, DOY:047
+            id_aux = 23
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 4 and time_text.minute == 30) or (time_text.hour == 4 and time_text.minute == 40): #Year: 2024, DOY:047
+            id_aux = 20
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 7 and time_text.minute == 10) or (time_text.hour == 11 and time_text.minute == 50): #Year: 2024, DOY:047
+            id_aux = 34
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 8 and time_text.minute == 20) or (time_text.hour == 11 and time_text.minute == 30): #Year: 2024, DOY:047
+            id_aux = 33
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 8 and time_text.minute == 30): #Year: 2024, DOY:047
+            id_aux = 40
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 9 and time_text.minute == 10): #Year: 2024, DOY:047
+            id_aux = 31
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 11 and time_text.minute <= 10) or (time_text.hour == 9 and time_text.minute == 40) or (time_text.hour == 10 and time_text.minute == 10): #Year: 2024, DOY:047
+            id_aux = 29
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 8 and time_text.minute == 30) or (time_text.hour == 15 and time_text.minute == 40): #Year: 2024, DOY:047
+            id_aux = 40
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 10 and time_text.minute == 30): #Year: 2024, DOY:047
+            id_aux = 26
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 12 and time_text.minute == 0): #Year: 2024, DOY:047
+            id_aux = 35
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 12 and time_text.minute == 30) or (time_text.hour == 12 and time_text.minute == 50): #Year: 2024, DOY:047
+            id_aux = 36
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+            '''
+        '''
+        if (time_text.hour == 13 and time_text.minute == 15): #Year: 2024, DOY:046
+            id_aux = 37
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 22) or (time_text.hour == 23 and time_text.minute == 5): #Year: 2024, DOY:046
+            id_aux = 10
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 23 and time_text.minute == 55) or (time_text.hour == 4 and time_text.minute == 5) or (time_text.hour == 4 and time_text.minute == 35): #Year: 2024, DOY:046
+            id_aux = 20
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 4 and time_text.minute == 45) or (time_text.hour == 3 and time_text.minute == 55) or (time_text.hour == 0 and time_text.minute == 35) or (time_text.hour == 1) or (time_text.hour == 2 and time_text.minute == 55) or (time_text.hour == 3 and time_text.minute == 55) or (time_text.hour == 4 and time_text.minute == 45): #Year: 2024, DOY:046
+            id_aux = 25
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 1 and time_text.minute == 25) or (time_text.hour == 3 and time_text.minute == 15): #Year: 2024, DOY:046
+            id_aux = 30
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 4 and time_text.minute == 15) or (time_text.hour == 4 and time_text.minute == 25): #Year: 2024, DOY:046
+            id_aux = 21
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 3 and time_text.minute == 25) or (time_text.hour == 3 and time_text.minute == 35): #Year: 2024, DOY:046
+            id_aux = 32
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+            '''
+        '''
+        if (time_text.hour == 5 and time_text.minute == 0): #Year: 2024, DOY:050
+            id_aux = 15
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute == 10): #Year: 2024, DOY:050
+            id_aux = 26
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute == 20) or (time_text.hour == 5 and time_text.minute == 30) or (time_text.hour == 6 and time_text.minute == 50) or (time_text.hour == 8 and time_text.minute == 50): #Year: 2024, DOY:050
+            id_aux = 13
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 5) or (time_text.hour == 6) or (time_text.hour == 7) or (time_text.hour == 8 and time_text.minute <= 20) or (time_text.hour == 8 and time_text.minute == 50) or (time_text.hour == 9) or (time_text.hour == 10 and time_text.minute <= 30) or (time_text.hour == 10 and time_text.minute == 50) or (time_text.hour == 11 and time_text.minute == 0) or (time_text.hour == 6 and time_text.minute == 30) or (time_text.hour == 7 and time_text.minute == 30) or (time_text.hour == 9 and time_text.minute == 0) or (time_text.hour == 9 and time_text.minute == 20) or (time_text.hour == 11 and time_text.minute == 10): #Year: 2024, DOY:050
+            id_aux = 12
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 11 and time_text.minute == 20) or (time_text.hour == 11 and time_text.minute == 30) or (time_text.hour == 11 and time_text.minute == 50) or (time_text.hour == 12 and time_text.minute <= 10) or (time_text.hour == 12 and time_text.minute >= 30): #Year: 2024, DOY:050
+            id_aux = 9
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 10 and time_text.minute == 40) or (time_text.hour == 11 and time_text.minute == 40) or (time_text.hour == 12 and time_text.minute == 20) or (time_text.hour == 8 and time_text.minute == 30) or (time_text.hour == 8 and time_text.minute == 40): #Year: 2024, DOY:050
+            id_aux = 10
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 6 and time_text.minute == 50) or (time_text.hour == 7 and time_text.minute == 20): #Year: 2024, DOY:050
+            id_aux = 39
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 8 and time_text.minute == 10): #Year: 2024, DOY:050
+            id_aux = 40
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 8 and time_text.minute >= 20) or (time_text.hour == 9 and time_text.minute == 20) or (time_text.hour == 9 and time_text.minute == 40) or (time_text.hour == 10 and time_text.minute == 30): #Year: 2024, DOY:050
+            id_aux = 36
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 9 and time_text.minute == 10) or (time_text.hour == 11 and time_text.minute == 20) or (time_text.hour == 12 and time_text.minute == 0): #Year: 2024, DOY:050
+            id_aux = 31
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 9 and time_text.minute == 40): #Year: 2024, DOY:050
+            id_aux = 27
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 9 and time_text.minute == 50): #Year: 2024, DOY:050
+            id_aux = 29
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 10 and time_text.minute == 10): #Year: 2024, DOY:050
+            id_aux = 26
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 11 and time_text.minute == 50): #Year: 2024, DOY:050
+            id_aux = 33
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+            '''
+        '''
+        if (time_text.hour == 5 and time_text.minute <= 10): #Year: 2023, DOY:313
+            id_aux = 15
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute >= 20 and time_text.minute <= 40): #Year: 2023, DOY:313
+            id_aux = 13
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 5 and time_text.minute == 50) or (time_text.hour == 6 and time_text.minute <= 30): #Year: 2023, DOY:313
+            id_aux = 11
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 6 and time_text.minute >= 40) or (time_text.hour == 7) or (time_text.hour == 8) or (time_text.hour == 9) or (time_text.hour == 10 and time_text.minute <= 10): #Year: 2023, DOY:313
+            id_aux = 10
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 10 and time_text.minute >= 20) or (time_text.hour == 11): #Year: 2023, DOY:313
+            id_aux = 9
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 10 and time_text.minute == 20) or (time_text.hour == 11 and time_text.minute == 0): #Year: 2023, DOY:313
+            id_aux = 40
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+            '''
+        '''
+        if (time_text.hour == 5) or (time_text.hour == 6 and time_text.minute <= 30) or (time_text.hour == 23 and time_text.minute >= 20) or (time_text.hour <= 4): #Year: 2023, DOY:312
+            id_aux = 16
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 6 and time_text.minute == 40) or (time_text.hour == 6 and time_text.minute == 50): #Year: 2023, DOY:312
+            id_aux = 15
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 7): #Year: 2023, DOY:312
+            id_aux = 13
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 8 and time_text.minute == 0): #Year: 2023, DOY:312
+            id_aux = 11
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 8) or (time_text.hour == 9) or (time_text.hour == 10 and time_text.minute <= 10): #Year: 2023, DOY:312
+            id_aux = 10
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 10 and time_text.minute >= 20) or (time_text.hour == 11): #Year: 2023, DOY:312
+            id_aux = 9
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 9 and time_text.minute == 30): #Year: 2023, DOY:312
+            id_aux = 39
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 11 and time_text.minute == 20): #Year: 2023, DOY:312
+            id_aux = 40
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+            '''
+        '''
+        if (time_text.hour == 9 and time_text.minute == 50): #Year: 2023, DOY:311
+            id_aux = 40
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour >= 5 and time_text.hour <= 8) or (time_text.hour == 9 and time_text.minute <= 30) or (time_text.hour == 23 and time_text.minute >= 30) or (time_text.hour <= 4): #Year: 2023, DOY:311
+            id_aux = 13
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 10 and time_text.minute <= 10) or (time_text.hour == 9 and time_text.minute == 40) or (time_text.hour == 9 and time_text.minute == 50): #Year: 2023, DOY:311
+            id_aux = 10
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 10 and time_text.minute >= 20) or (time_text.hour == 11): #Year: 2023, DOY:311
+            id_aux = 9
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 3 and time_text.minute == 10): #Year: 2023, DOY:311
+            id_aux = 16
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 1 and time_text.minute == 10) or (time_text.hour == 1 and time_text.minute == 20) or (time_text.hour == 1 and time_text.minute == 30): #Year: 2023, DOY:311
+            id_aux = 22
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 1 and time_text.minute == 40): #Year: 2023, DOY:311
+            id_aux = 21
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 1 and time_text.minute == 50): #Year: 2023, DOY:311
+            id_aux = 20
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 2 and time_text.minute <= 10): #Year: 2023, DOY:311
+            id_aux = 19
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 2 and time_text.minute == 20) or (time_text.hour == 2 and time_text.minute == 30): #Year: 2023, DOY:311
+            id_aux = 18
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+            '''
+        '''
+        if (time_text.hour == 23 and time_text.minute >= 10) or (time_text.hour <= 4): #Year: 2023, DOY:310
+            id_aux = 12
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 0 and time_text.minute == 0): #Year: 2023, DOY:310
+            id_aux = 28
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 1 and time_text.minute == 50): #Year: 2023, DOY:310
+            id_aux = 25
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 2 and time_text.minute == 0): #Year: 2023, DOY:310
+            id_aux = 26
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
             '''
         '''
         if (time_text.hour == 11 and time_text.minute == 40): #Year: 2023, DOY:268
@@ -7294,7 +8745,7 @@ class DataSaveCleaner(Operation):
             dataOut.EIonTempFinal[0,id_aux:]=missing
             dataOut.PhyFinal[0,id_aux:]=missing
             dataOut.EPhyFinal[0,id_aux:]=missing
-        if (time_text.hour == 21 and time_text.minute == 13): #Year: 2022, DOY:244
+        if (time_text.hour == 21 and time_text.minute == 13) or (time_text.hour == 2 and time_text.minute == 55): #Year: 2022, DOY:244
             id_aux = 26
             dataOut.DensityFinal[0,id_aux:]=missing
             dataOut.EDensityFinal[0,id_aux:]=missing
@@ -7484,6 +8935,56 @@ class DataSaveCleaner(Operation):
             dataOut.EIonTempFinal[0,id_aux:]=missing
             dataOut.PhyFinal[0,id_aux:]=missing
             dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 2 and time_text.minute == 1): #Year: 2022, DOY:244
+            id_aux = 40
+            dataOut.DensityFinal[0,id_aux:]=missing
+            dataOut.EDensityFinal[0,id_aux:]=missing
+            dataOut.ElecTempFinal[0,id_aux:]=missing
+            dataOut.EElecTempFinal[0,id_aux:]=missing
+            dataOut.IonTempFinal[0,id_aux:]=missing
+            dataOut.EIonTempFinal[0,id_aux:]=missing
+            dataOut.PhyFinal[0,id_aux:]=missing
+            dataOut.EPhyFinal[0,id_aux:]=missing
+        if (time_text.hour == 2 and time_text.minute == 1): #Year: 2022, DOY:244
+            id_aux = 26
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 1 and time_text.minute == 29): #Year: 2022, DOY:244
+            id_aux = 30
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 0 and time_text.minute == 25) or (time_text.hour == 0 and time_text.minute == 36) or (time_text.hour == 1 and time_text.minute == 8) or (time_text.hour == 1 and time_text.minute == 19) or (time_text.hour == 1 and time_text.minute == 29): #Year: 2022, DOY:244
+            id_aux = 20
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
+        if (time_text.hour == 1 and time_text.minute == 40) or (time_text.hour == 1 and time_text.minute == 51): #Year: 2022, DOY:244
+            id_aux = 34
+            dataOut.DensityFinal[0,:id_aux]=missing
+            dataOut.EDensityFinal[0,:id_aux]=missing
+            dataOut.ElecTempFinal[0,:id_aux]=missing
+            dataOut.EElecTempFinal[0,:id_aux]=missing
+            dataOut.IonTempFinal[0,:id_aux]=missing
+            dataOut.EIonTempFinal[0,:id_aux]=missing
+            dataOut.PhyFinal[0,:id_aux]=missing
+            dataOut.EPhyFinal[0,:id_aux]=missing
             '''
         '''
         if (time_text.hour <= 10): #Year: 2022, DOY:245
@@ -8475,13 +9976,18 @@ class SSheightProfiles(Operation):
             day_dif = 0 #day_19_Oct_2021: 3
             code_block = code[block-1-day_dif,:,:]
             '''
+            #print("hey i'm here!!!!!!!!!!!!!",code_block)
             if repeat is not None:
                 code_block = numpy.repeat(code_block, repeats=repeat, axis=1)
+                #print("REPEAT!!!!!!!!!!!!!",code_block)
 
         for i in range(self.buffer.shape[1]):
-
+            #exit(1)
             if code is not None:
-                self.buffer[:,i] = dataOut.data[:,i*self.step:i*self.step + self.nsamples]*code_block[dataOut.profileIndex,:]
+                #self.buffer[:,i] = dataOut.data[:,i*self.step:i*self.step + self.nsamples]*code_block[dataOut.profileIndex,:]
+                #print("BEFORE: ", dataOut.data[:,i*self.step:i*self.step + self.nsamples])
+                self.buffer[:,i] = dataOut.data[:,i*self.step:i*self.step + self.nsamples]*code_block
+                #print("AFTER: ", self.buffer[:,i])
 
             else:
 

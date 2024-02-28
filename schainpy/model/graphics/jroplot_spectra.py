@@ -805,6 +805,7 @@ class SpectrogramPlot(Plot):
         meta = {}
 
         maxHei = 1620#+12000
+        maxHei = 1180
         indb = numpy.where(dataOut.heightList <= maxHei)
         hei = indb[0][-1]
         #print(dataOut.heightList)

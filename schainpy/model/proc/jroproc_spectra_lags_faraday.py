@@ -533,10 +533,6 @@ class removeDCLagFlip(Operation):
             self.dataOut.data_cspc=self.dataOut.dataLag_cspc[:,:,:,self.dataOut.LagPlot]
             self.dataOut.data_dc=self.dataOut.dataLag_dc[:,:,self.dataOut.LagPlot]
 
-
-
-
-
         return self.dataOut
 
 
@@ -1410,6 +1406,7 @@ class IntegrationFaradaySpectra(Operation):
 
     def run(self, dataOut, n=None, timeInterval=None, overlapping=False):
         if n == 1:
+            dataOut.VelRange = dataOut.getVelRange(0)
             return dataOut
         #print("holo")
         dataOut.flagNoData = True
@@ -1448,7 +1445,7 @@ class IntegrationFaradaySpectra(Operation):
                 dataOut.data_cspc=dataOut.dataLag_cspc[:,:,:,dataOut.LagPlot]
                 dataOut.data_dc=dataOut.dataLag_dc[:,:,dataOut.LagPlot]
 
-
+            dataOut.VelRange = dataOut.getVelRange(0)
             dataOut.nIncohInt *= self.n
             dataOut.utctime = avgdatatime
             dataOut.flagNoData = False
@@ -4209,7 +4206,7 @@ class SpectraDataToFaraday(Operation): #ISR MODE
         #print("Noise dB: ",10*numpy.log10(dataOut.tnoise))
         #exit(1)
         #dataOut.pan=dataOut.tnoise[0]/float(dataOut.nProfiles_LP*dataOut.nIncohInt)
-        if gmtime(dataOut.utctime).tm_hour >= 22. or gmtime(dataOut.utctime).tm_hour < 12.:
+        if gmtime(dataOut.utctime).tm_hour >= 21. or gmtime(dataOut.utctime).tm_hour < 13.:
             self.get_eej_index(data_to_remov_eej,dataOut)
         print("done")
         #exit(1)
@@ -4921,7 +4918,8 @@ class SpcVoltageDataToHybrid(SpectraDataToFaraday):
         dataOut.paramInterval=0#int(dataOut.nint*dataOut.header[7][0]*2 )
         dataOut.lat=-11.95
         dataOut.lon=-76.87
-
+        #print(numpy.shape(dataOut.dataLag_spc))
+        #exit(1)
         data_to_remov_eej = dataOut.dataLag_spc[:,:,:,0]
         #dataOut.NDP=dataOut.nHeights
         #dataOut.NR=len(dataOut.channelList)
@@ -4931,7 +4929,9 @@ class SpcVoltageDataToHybrid(SpectraDataToFaraday):
         self.normFactor(dataOut)
 
         #dataOut.nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint*10
-        dataOut.NDP=dataOut.nHeights
+        #print(dataOut.nHeights)
+        #exit(1)
+        #dataOut.NDP=dataOut.nHeights
         self.ConvertData(dataOut)
 
         dataOut.kabxys_integrated[4][:,(1,2,7,8,9,10),0] *= 2 #Corrects the zero padding
@@ -4951,7 +4951,7 @@ class SpcVoltageDataToHybrid(SpectraDataToFaraday):
         dataOut.H0=int(dataOut.heightList[0])
         #print(dataOut.nis)
         #exit(1)
-        self.noise(dataOut)
+        #self.noise(dataOut)
 
         if gmtime(dataOut.utctime).tm_hour >= 22. or gmtime(dataOut.utctime).tm_hour < 12.:
             self.get_eej_index(data_to_remov_eej,dataOut)

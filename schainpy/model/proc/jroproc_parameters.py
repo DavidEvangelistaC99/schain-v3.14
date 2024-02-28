@@ -7234,6 +7234,8 @@ class MergeProc(ProcessingUnit):
         #print(data_inputs)
         #print("Run: ",self.dataOut.runNextUnit)
         #exit(1)
+        #print(self.dataOut.nHeights)
+        #exit(1)
         #print("a:", [getattr(data, attr_data) for data in data_inputs][1])
         #exit(1)
         if mode==0:

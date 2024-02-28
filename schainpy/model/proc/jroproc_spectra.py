@@ -455,8 +455,8 @@ class GetSNR(Operation):
 
     def run(self,dataOut):
 
-        #noise = dataOut.getNoise()
-        noise = dataOut.getNoise(ymin_index=-10) #Región superior donde solo debería de haber ruido
+        noise = dataOut.getNoise()
+        #noise = dataOut.getNoise(ymin_index=-10) #Región superior donde solo debería de haber ruido
         #print("Noise: ", noise)
         #print("Noise_dB: ", 10*numpy.log10(noise/dataOut.normFactor))
         #print("Heights: ", dataOut.heightList)
