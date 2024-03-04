@@ -43,7 +43,12 @@ class SpectraPlot(Plot):
         spc = 10 * numpy.log10(dataOut.data_spc / dataOut.normFactor)
         data['spc'] = spc
         data['rti'] = dataOut.getPower()
-        data['noise'] = 10 * numpy.log10(dataOut.getNoise() / dataOut.normFactor)
+        if hasattr(dataOut, 'LagPlot'): #Double Pulse
+            max_hei_id = dataOut.nHeights - 2*dataOut.LagPlot
+            data['noise'] = 10*numpy.log10(dataOut.getNoise(ymin_index=53,ymax_index=max_hei_id)/dataOut.normFactor)
+            data['noise'][0] = 10*numpy.log10(dataOut.getNoise(ymin_index=53)[0]/dataOut.normFactor)
+        else:
+            data['noise'] = 10 * numpy.log10(dataOut.getNoise() / dataOut.normFactor)
         extrapoints = spc.shape[1] % dataOut.nFFTPoints       
         extrapoints=1 
         meta['xrange'] = (dataOut.getFreqRange(extrapoints) / 1000., dataOut.getAcfRange(extrapoints), dataOut.getVelRange(extrapoints))
@@ -88,9 +93,11 @@ class SpectraPlot(Plot):
                 gau1 = data['gaussfit'][n][2,:,1]
             if ax.firsttime:
                 self.xmax = self.xmax if self.xmax else numpy.nanmax(x)
-                self.xmin = self.xmin if self.xmin else -self.xmax
-                self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
-                self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
+                self.xmin = self.xmin if self.xmin else numpy.nanmin(x)#-self.xmax
+                #self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
+                #self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -108,6 +115,8 @@ class SpectraPlot(Plot):
                     ax.plt_gau0 = ax.plot(gau0, y, color='r', lw=1)[0]
                     ax.plt_gau1 = ax.plot(gau1, y, color='y', lw=1)[0]
             else:
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
                 ax.plt.set_array(z[n].T.ravel())
                 if self.showprofile:
                     ax.plt_profile.set_data(data['rti'][n], y)
@@ -122,6 +131,8 @@ class SpectraPlot(Plot):
 class SpectraObliquePlot(Plot):
     '''
     Plot for Spectra data
+
+    Written by R. Flores
     '''
 
     CODE = 'spc_oblique'
@@ -152,10 +163,11 @@ class SpectraObliquePlot(Plot):
         data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
         meta['xrange'] = (dataOut.getFreqRange(1)/1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
         
-        data['shift1'] = dataOut.Oblique_params[0][1]
-        data['shift2'] = dataOut.Oblique_params[0][4]
-        data['shift1_error'] = dataOut.Oblique_param_errors[0][1]
-        data['shift2_error'] = dataOut.Oblique_param_errors[0][4]
+        data['shift1'] = dataOut.Dop_EEJ_T1[0]
+        data['shift2'] = dataOut.Dop_EEJ_T2[0]
+        data['max_val_2'] = dataOut.Oblique_params[0,-1,:]
+        data['shift1_error'] = dataOut.Err_Dop_EEJ_T1[0]
+        data['shift2_error'] = dataOut.Err_Dop_EEJ_T2[0]
         
         return data, meta 
 
@@ -175,14 +187,16 @@ class SpectraObliquePlot(Plot):
 
         y = self.data.yrange
         self.y = y
-        z = self.data['spc']
+        data = self.data[-1]
+        z = data['spc']
 
         for n, ax in enumerate(self.axes):
             noise = self.data['noise'][n][-1]
-            shift1 = self.data['shift1']
-            shift2 = self.data['shift2']
-            err1 = self.data['shift1_error']
-            err2 = self.data['shift2_error']
+            shift1 = data['shift1']
+            shift2 = data['shift2']
+            max_val_2 = data['max_val_2']
+            err1 = data['shift1_error']
+            err2 = data['shift2_error']
             if ax.firsttime:
                 self.xmax = self.xmax if self.xmax else numpy.nanmax(x)
                 self.xmin = self.xmin if self.xmin else -self.xmax
@@ -200,18 +214,21 @@ class SpectraObliquePlot(Plot):
                     ax.plt_noise = self.pf_axes[n].plot(numpy.repeat(noise, len(y)), y,
                                                         color="k", linestyle="dashed", lw=1)[0]
                 
-                self.ploterr1 = ax.errorbar(shift1, y, xerr=err1, fmt='k^', elinewidth=0.2, marker='x', linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
-                self.ploterr2 = ax.errorbar(shift2, y, xerr=err2, fmt='m^',elinewidth=0.2,marker='x',linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
+                self.ploterr1 = ax.errorbar(shift1, y, xerr=err1, fmt='k^', elinewidth=2.2, marker='o', linestyle='None',markersize=2.5,capsize=0.3,markeredgewidth=0.2)
+                self.ploterr2 = ax.errorbar(shift2, y, xerr=err2, fmt='m^',elinewidth=2.2,marker='o',linestyle='None',markersize=2.5,capsize=0.3,markeredgewidth=0.2)
+                self.ploterr3 = ax.errorbar(max_val_2, y, xerr=0, fmt='g^',elinewidth=2.2,marker='o',linestyle='None',markersize=2.5,capsize=0.3,markeredgewidth=0.2)
             else:
                 self.ploterr1.remove()
                 self.ploterr2.remove()
+                self.ploterr3.remove()
                 ax.plt.set_array(z[n].T.ravel())
                 if self.showprofile:
                     ax.plt_profile.set_data(self.data['rti'][n][-1], y)
                     ax.plt_noise.set_data(numpy.repeat(noise, len(y)), y)
-                    self.ploterr1 = ax.errorbar(shift1, y, xerr=err1, fmt='k^',elinewidth=0.2,marker='x',linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
-                    self.ploterr2 = ax.errorbar(shift2, y, xerr=err2, fmt='m^',elinewidth=0.2,marker='x',linestyle='None',markersize=0.5,capsize=0.3,markeredgewidth=0.2)
-
+                self.ploterr1 = ax.errorbar(shift1, y, xerr=err1, fmt='k^', elinewidth=2.2, marker='o', linestyle='None',markersize=2.5,capsize=0.3,markeredgewidth=0.2)
+                self.ploterr2 = ax.errorbar(shift2, y, xerr=err2, fmt='m^',elinewidth=2.2,marker='o',linestyle='None',markersize=2.5,capsize=0.3,markeredgewidth=0.2)
+                self.ploterr3 = ax.errorbar(max_val_2, y, xerr=0, fmt='g^',elinewidth=2.2,marker='o',linestyle='None',markersize=2.5,capsize=0.3,markeredgewidth=0.2)
+                    
             self.titles.append('CH {}: {:3.2f}dB'.format(n, noise))
 
 
@@ -680,6 +697,8 @@ class RTIPlot(Plot):
             self.zmin = self.zmin if self.zmin else numpy.min(self.z)
             self.zmax = self.zmax if self.zmax else numpy.max(self.z)
             if ax.firsttime:
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -691,6 +710,8 @@ class RTIPlot(Plot):
                     ax.plot_noise = self.pf_axes[n].plot(numpy.repeat(self.data['noise'][n][-1], len(self.y)), self.y,
                                                          color="k", linestyle="dashed", lw=1)[0]
             else:
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
                 ax.plt.remove()
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
@@ -708,7 +729,7 @@ class SpectrogramPlot(Plot):
     Plot for Spectrogram data
     '''
 
-    CODE = 'spectrogram'
+    CODE = 'Spectrogram_Profile'
     colormap = 'binary'
     plot_type = 'pcolorbuffer'
 
@@ -718,17 +739,66 @@ class SpectrogramPlot(Plot):
         self.nrows = len(self.data.channels)
         self.nplots = len(self.data.channels)
         self.xlabel = 'Time'
-        self.cb_label = 'dB'
+        #self.cb_label = 'dB'
         self.plots_adjust.update({'hspace':1.2, 'left': 0.1, 'bottom': 0.12, 'right':0.95})
-        self.titles = ['{} Channel {} \n H = {} km ({} - {})'.format(
-            self.CODE.upper(), x, self.data.heightList[self.data.hei], self.data.heightList[self.data.hei],self.data.heightList[self.data.hei]+(self.data.DH*self.data.nProfiles)) for x in range(self.nrows)]
+        self.titles = []
+
+        #self.titles = ['{} Channel {} \n H = {} km ({} - {})'.format(
+            #self.CODE.upper(), x, self.data.heightList[self.data.hei], self.data.heightList[self.data.hei],self.data.heightList[self.data.hei]+(self.data.DH*self.data.nProfiles)) for x in range(self.nrows)]
+
+        self.titles = ['{} Channel {}'.format(
+            self.CODE.upper(), x) for x in range(self.nrows)]
+
+
+    def update(self, dataOut):
+        data = {}
+        meta = {}
+
+        maxHei = 1620#+12000
+        maxHei = 1180
+        indb = numpy.where(dataOut.heightList <= maxHei)
+        hei = indb[0][-1]
+        #print(dataOut.heightList)
+
+        factor = dataOut.nIncohInt
+        z = dataOut.data_spc[:,:,hei] / factor
+        z = numpy.where(numpy.isfinite(z), z, numpy.NAN)
+        #buffer = 10 * numpy.log10(z)
+
+        meta['xrange'] = (dataOut.getFreqRange(1)/1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
+
+
+        #self.hei = hei
+        #self.heightList = dataOut.heightList
+        #self.DH = (dataOut.heightList[1] - dataOut.heightList[0])/dataOut.step
+        #self.nProfiles = dataOut.nProfiles
+
+        data['Spectrogram_Profile'] = 10 * numpy.log10(z)
+
+        data['hei'] = hei
+        data['DH'] = (dataOut.heightList[1] - dataOut.heightList[0])/dataOut.step
+        data['nProfiles'] = dataOut.nProfiles
+        #meta['yrange'] = dataOut.heightList[0:dataOut.NSHTS]
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(10 * numpy.log10(z[0,:]))
+        plt.show()
+
+        from time import sleep
+        sleep(10)
+        '''
+        return data, meta
 
     def plot(self):
 
         self.x = self.data.times
         self.z = self.data[self.CODE]
         self.y = self.data.xrange[0]
-        
+
+        hei = self.data['hei'][-1]
+        DH = self.data['DH'][-1]
+        nProfiles = self.data['nProfiles'][-1]
+
         self.ylabel = "Frequency (kHz)"
 
         self.z = numpy.ma.masked_invalid(self.z)
@@ -748,23 +818,18 @@ class SpectrogramPlot(Plot):
                                        vmax=self.zmax,
                                        cmap=plt.get_cmap(self.colormap)
                                        )
-                if self.showprofile:
-                    ax.plot_profile = self.pf_axes[n].plot(
-                        data['rti'][n], self.y)[0]
-                    ax.plot_noise = self.pf_axes[n].plot(numpy.repeat(data['noise'][n], len(self.y)), self.y,
-                                                         color="k", linestyle="dashed", lw=1)[0]
             else:
-                ax.plt.remove()
+                ax.collections.remove(ax.collections[0])
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
                                        cmap=plt.get_cmap(self.colormap)
                                        )
-                if self.showprofile:
-                    ax.plot_profile.set_data(data['rti'][n], self.y)
-                    ax.plot_noise.set_data(numpy.repeat(
-                        data['noise'][n], len(self.y)), self.y)
 
+        #self.titles.append('Spectrogram')
+
+        #self.titles.append('{} Channel {} \n H = {} km ({} - {})'.format(
+            #self.CODE.upper(), x, y[hei], y[hei],y[hei]+(DH*nProfiles)))
 
 class CoherencePlot(RTIPlot):
     '''
@@ -973,8 +1038,9 @@ class SpectraCutPlot(Plot):
             if ax.firsttime:
                 self.xmax = self.xmax if self.xmax else numpy.nanmax(x)
                 self.xmin = self.xmin if self.xmin else -self.xmax
-                self.ymin = self.ymin if self.ymin else numpy.nanmin(z)
-                self.ymax = self.ymax if self.ymax else numpy.nanmax(z)
+                self.ymin = self.ymin if self.ymin else numpy.nanmin(z[:,:,index])
+                self.ymax = self.ymax if self.ymax else numpy.nanmax(z[:,:,index])
+                
                 ax.plt = ax.plot(x, z[n, :, index].T, lw=0.25)
                 if self.CODE == 'cut_gaussian_fit':
                     ax.plt_gau0 = ax.plot(x, gau0[n, :, index].T, lw=1, linestyle='-.')

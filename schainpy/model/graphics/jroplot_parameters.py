@@ -96,6 +96,80 @@ class DopplerPlot(RTIPlot):
 
         return data, {}
 
+class DopplerEEJPlot(RTIPlot):
+    '''
+    Written by R. Flores
+    '''
+    '''
+    Plot for Doppler Shift EEJ
+    '''
+
+    CODE = 'dop'
+    colormap = 'RdBu_r'
+    #colormap = 'jet'
+
+    def setup(self):
+
+        self.xaxis = 'time'
+        self.ncols = 1
+        self.nrows = 2
+        self.nplots = 2
+        self.ylabel = 'Range [km]'
+        self.xlabel = 'Time'
+        self.cb_label = '(m/s)'
+        self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.1, 'right':0.95})
+        self.titles = ['{} EJJ Type {} /'.format(
+            self.CODE.upper(), x) for x in range(1,1+self.nrows)]
+
+    def update(self, dataOut):
+
+        if dataOut.mode == 11: #Double Gaussian
+            doppler = numpy.append(dataOut.Oblique_params[:,1,:],dataOut.Oblique_params[:,4,:],axis=0)
+        elif dataOut.mode == 9: #Double Skew Gaussian
+            doppler = numpy.append(dataOut.Oblique_params[:,-2,:],dataOut.Oblique_params[:,-1,:],axis=0)
+        data = {
+            'dop': doppler
+        }
+
+        return data, {}
+
+class SpcWidthEEJPlot(RTIPlot):
+    '''
+    Written by R. Flores
+    '''
+    '''
+    Plot for EEJ Spectral Width
+    '''
+
+    CODE = 'width'
+    colormap = 'RdBu_r'
+    colormap = 'jet'
+
+    def setup(self):
+
+        self.xaxis = 'time'
+        self.ncols = 1
+        self.nrows = 2
+        self.nplots = 2
+        self.ylabel = 'Range [km]'
+        self.xlabel = 'Time'
+        self.cb_label = '(m/s)'
+        self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.1, 'right':0.95})
+        self.titles = ['{} EJJ Type {} /'.format(
+            self.CODE.upper(), x) for x in range(1,1+self.nrows)]
+
+    def update(self, dataOut):
+
+        if dataOut.mode == 11: #Double Gaussian
+            width = numpy.append(dataOut.Oblique_params[:,2,:],dataOut.Oblique_params[:,5,:],axis=0)
+        elif dataOut.mode == 9: #Double Skew Gaussian
+            width = numpy.append(dataOut.Oblique_params[:,2,:],dataOut.Oblique_params[:,6,:],axis=0)
+        data = {
+            'width': width
+        }
+
+        return data, {}
+
 class PowerPlot(RTIPlot):
     '''
     Plot for Power Data (0 moment)

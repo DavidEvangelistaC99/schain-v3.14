@@ -64,6 +64,11 @@ class SpectraProc(ProcessingUnit):
         self.dataOut.beam.codeList = self.dataIn.beam.codeList
         self.dataOut.beam.azimuthList = self.dataIn.beam.azimuthList
         self.dataOut.beam.zenithList = self.dataIn.beam.zenithList
+        self.dataOut.runNextUnit = self.dataIn.runNextUnit
+        try:
+            self.dataOut.step = self.dataIn.step
+        except:
+            pass
 
     def __getFft(self):
         """
@@ -117,8 +122,8 @@ class SpectraProc(ProcessingUnit):
         self.dataOut.blockSize = blocksize
         self.dataOut.flagShiftFFT = False
 
-    def run(self, nProfiles=None, nFFTPoints=None, pairsList=None, ippFactor=None, shift_fft=False):
-        
+    def run(self, nProfiles=None, nFFTPoints=None, pairsList=None, ippFactor=None, shift_fft=False, runNextUnit = 0):
+        self.dataIn.runNextUnit = runNextUnit
         if self.dataIn.type == "Spectra":
             self.dataOut.copy(self.dataIn)
             if shift_fft:
@@ -428,6 +433,35 @@ class SpectraProc(ProcessingUnit):
 
         return 1
 
+class GetSNR(Operation):
+    '''
+    Written by R. Flores
+    '''
+    """Operation to get SNR.
+
+    Parameters:
+    -----------
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='GetSNR', optype='other')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+
+
+    def run(self,dataOut):
+
+        noise = dataOut.getNoise()
+        dataOut.data_snr = (dataOut.data_spc.sum(axis=1)-noise[:,None]*dataOut.nFFTPoints)/(noise[:,None]*dataOut.nFFTPoints) #It works apparently
+        dataOut.snl = numpy.log10(dataOut.data_snr)
+        dataOut.snl = numpy.where(dataOut.snl<-1, numpy.nan, dataOut.snl) #snl threshold for Oblique EEJ data
+
+        return dataOut
 class removeDC(Operation):
 
     def run(self, dataOut, mode=2):
@@ -710,6 +744,73 @@ class removeInterference(Operation):
 
         return self.dataOut
 
+class removeInterferenceAtFreq(Operation):
+    '''
+    Written by R. Flores
+    '''
+    """Operation to remove interfernce at a known frequency(s).
+
+    Parameters:
+    -----------
+    None
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='removeInterferenceAtFreq')
+
+    """
+
+    def __init__(self):
+
+        Operation.__init__(self)
+
+    def run(self, dataOut, freq = None, freqList = None):
+
+        VelRange = dataOut.getVelRange()
+        #print("VelRange: ", VelRange)
+
+        freq_ids = []
+
+        if freq is not None:
+            #print("freq")
+            #if freq < 0:
+            inda = numpy.where(VelRange >= freq)
+            minIndex = inda[0][0]
+            #print(numpy.shape(dataOut.dataLag_spc))
+            dataOut.data_spc[:,minIndex,:] = numpy.nan
+
+            #inda = numpy.where(VelRange >= ymin_noise)
+            #indb = numpy.where(VelRange <= ymax_noise)
+
+            #minIndex = inda[0][0]
+            #maxIndex = indb[0][-1]
+
+        elif freqList is not None:
+            #print("freqList")
+            for freq in freqList:
+                #if freq < 0:
+                inda = numpy.where(VelRange >= freq)
+                minIndex = inda[0][0]
+                #print(numpy.shape(dataOut.dataLag_spc))
+                if freq > 0:
+                    #dataOut.data_spc[:,minIndex-1,:] = numpy.nan
+                    freq_ids.append(minIndex-1)
+                else:
+                    #dataOut.data_spc[:,minIndex,:] = numpy.nan
+                    freq_ids.append(minIndex)
+        else:
+            raise ValueError("freq or freqList should be specified ...")
+
+        #freq_ids = numpy.array(freq_ids).flatten()
+
+        avg = numpy.mean(dataOut.data_spc[:,[t for t in range(dataOut.data_spc.shape[0]) if t not in freq_ids],:],axis=1)
+
+        for p in list(freq_ids):
+            dataOut.data_spc[:,p,:] = avg#numpy.nan
+
+
+        return dataOut
 
 class deflip(Operation):
        
@@ -888,6 +989,7 @@ class IncohInt(Operation):
 
     def run(self, dataOut, n=None, timeInterval=None, overlapping=False):
         if n == 1:
+            dataOut.VelRange = dataOut.getVelRange(0)
             return dataOut
         
         dataOut.flagNoData = True
@@ -905,21 +1007,24 @@ class IncohInt(Operation):
 
             dataOut.data_spc = avgdata_spc
             dataOut.data_cspc = avgdata_cspc
-            dataOut.data_dc = avgdata_dc            
+            dataOut.data_dc = avgdata_dc
             dataOut.nIncohInt *= self.n
             dataOut.utctime = avgdatatime
             dataOut.flagNoData = False
+
+            dataOut.VelRange = dataOut.getVelRange(0)
+            dataOut.FreqRange = dataOut.getFreqRange(0)/1000. #kHz
 
         return dataOut
 
 class dopplerFlip(Operation):
        
-    def run(self, dataOut):
+    def run(self, dataOut, chann = 2):
         # arreglo 1: (num_chan, num_profiles, num_heights)
         self.dataOut = dataOut 
         # JULIA-oblicua, indice 2
         # arreglo 2: (num_profiles, num_heights)
-        jspectra = self.dataOut.data_spc[2]
+        jspectra = self.dataOut.data_spc[chann]
         jspectra_tmp = numpy.zeros(jspectra.shape)
         num_profiles = jspectra.shape[0]
         freq_dc = int(num_profiles / 2)
@@ -930,6 +1035,6 @@ class dopplerFlip(Operation):
         jspectra_tmp[freq_dc - 1] = jspectra[freq_dc - 1]
         jspectra_tmp[freq_dc] = jspectra[freq_dc]
         # canal modificado es re-escrito en el arreglo de canales
-        self.dataOut.data_spc[2] = jspectra_tmp
+        self.dataOut.data_spc[chann] = jspectra_tmp
 
         return self.dataOut

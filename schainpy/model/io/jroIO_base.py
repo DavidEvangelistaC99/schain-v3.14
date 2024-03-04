@@ -525,7 +525,7 @@ class Reader(object):
                    expLabel='', last=False):
 
         for path in folders:
-            files = glob.glob1(path, '*{}'.format(ext))
+            files = glob.glob1(path+'/'+expLabel, '*{}'.format(ext))
             files.sort()
             if last:
                 if files:
