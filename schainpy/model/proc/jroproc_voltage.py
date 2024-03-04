@@ -209,12 +209,12 @@ class selectHeights(Operation):
         """
 
         self.dataOut = dataOut
-        
+
         #if minHei and maxHei:
         if 1:
             if minHei == None:
                minHei = self.dataOut.heightList[0]
-            
+
             if maxHei == None:
                maxHei = self.dataOut.heightList[-1]
 
@@ -240,7 +240,7 @@ class selectHeights(Operation):
                 maxIndex = indb[0][-1]
             except:
                 maxIndex = len(heights)
-        
+
         self.selectHeightsByIndex(minIndex, maxIndex)
         #print(self.dataOut.nHeights)
 
@@ -309,7 +309,7 @@ class selectHeights(Operation):
             self.dataOut.data_spc = data_spc
             self.dataOut.data_cspc = data_cspc
             self.dataOut.data_dc = data_dc
-            
+
             self.dataOut.heightList = self.dataOut.heightList[minIndex:maxIndex + 1]
 
         return 1
@@ -361,8 +361,8 @@ class setOffset(Operation):
 
         dataOut.heightList = newHeiRange
 
-        return dataOut        
-        
+        return dataOut
+
 class setH0(Operation):
 
     def run(self, dataOut, h0, deltaHeight=None):
@@ -1661,7 +1661,7 @@ class CleanCohEchoes(Operation):
 
         return modified_z_score > thresh
 
-    
+
 
     def removeSpreadF(self,dataOut):
 
@@ -2466,7 +2466,7 @@ class NormalizeDPPowerRoberto_V2(Operation):
                 cf=temp[i]
         return cf
 
-    
+
     def normalize(self,dataOut):
 
         if self.aux==1:
@@ -2813,7 +2813,7 @@ class DenCorrection(NormalizeDPPowerRoberto_V2):
                         y[j]=fitacf_acf2.acf2(wl,tau,dataOut.te2[i],tion,fion,nue,nui,wion,angle,dataOut.ph2[i],dataOut.bfm[i],y[j],three)
 
                 if dataOut.ut_Faraday>11.0 and dataOut.range1[i]>150.0 and dataOut.range1[i]<300.0:
-                     tau=0.0
+                    tau=0.0
                     with suppress_stdout_stderr():
                         bline=fitacf_acf2.acf2(wl,tau,tion,tion,fion,nue,nui,wion,angle,dataOut.ph2[i],dataOut.bfm[i],bline,three)
 
@@ -2840,7 +2840,7 @@ class DenCorrection(NormalizeDPPowerRoberto_V2):
 
         dataOut.ph2[:dataOut.NSHTS]*=aux
         dataOut.sdp2[:dataOut.NSHTS]*=aux
-        
+
     def run(self,dataOut,savecf=0):
         if gmtime(dataOut.utctime).tm_hour < 24. and gmtime(dataOut.utctime).tm_hour >= 11.:
             if hasattr(dataOut, 'flagSpreadF') and dataOut.flagSpreadF:
@@ -3790,9 +3790,9 @@ class SSheightProfiles(Operation):
         self.sshProfiles  = numpy.zeros(self.profileShape, dtype=complex)
 
     def run(self, dataOut, step, nsamples, code = None, repeat = None):
-        dataOut.flagNoData      = True        
+        dataOut.flagNoData      = True
         profileIndex            = None
-        dataOut.flagDataAsBlock = False        
+        dataOut.flagDataAsBlock = False
 
         if not self.isConfig:
             self.setup(dataOut, step=step , nsamples=nsamples)
