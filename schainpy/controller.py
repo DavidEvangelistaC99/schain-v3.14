@@ -73,7 +73,9 @@ class ConfBase():
         '''
         '''
 
-        if isinstance(value, str) and re.search(r'(\d+/\d+/\d+)', value):
+        if format is not None:
+            self.parameters[name] = eval(format)(value)
+        elif isinstance(value, str) and re.search(r'(\d+/\d+/\d+)', value):
             self.parameters[name] = datetime.date(*[int(x) for x in value.split('/')])
         elif isinstance(value, str) and re.search(r'(\d+:\d+:\d+)', value):
             self.parameters[name] = datetime.time(*[int(x) for x in value.split(':')])
@@ -287,7 +289,7 @@ class ReadUnitConf(ProcUnitConf):
         self.parameters = {}
 
     def setup(self, project_id, id, name, datatype, err_queue, path='', startDate='', endDate='',
-              startTime='', endTime='', server=None, **kwargs):
+              startTime='', endTime='', server=None, topic='', **kwargs):
 
         if datatype == None and name == None:
             raise ValueError('datatype or name should be defined')
@@ -315,6 +317,8 @@ class ReadUnitConf(ProcUnitConf):
         self.addParameter(name='endDate', value=endDate)
         self.addParameter(name='startTime', value=startTime)
         self.addParameter(name='endTime', value=endTime)
+        self.addParameter(name='server', value=server)
+        self.addParameter(name='topic', value=topic)
 
         for key, value in kwargs.items():
             self.addParameter(name=key, value=value)
@@ -553,6 +557,10 @@ class Project(Process):
         for key in keys:
             conf = self.configurations[key]
             conf.createObjects()
+            if 'Reader' in str(conf):
+                reader = conf.object
+            else:
+                conf.object.reader = reader
             if conf.inputId is not None:
                 if isinstance(conf.inputId, list):
                     conf.object.setInput([self.configurations[x].object for x in conf.inputId])

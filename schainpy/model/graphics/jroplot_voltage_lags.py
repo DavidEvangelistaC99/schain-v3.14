@@ -90,7 +90,7 @@ class RTIDPPlot(RTIPlot):
             else:
                 #if self.zlimits is not None:
                     #self.zmin, self.zmax = self.zlimits[n]
-                ax.collections.remove(ax.collections[0])
+                ax.plt.remove()
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -178,7 +178,7 @@ class RTILPPlot(RTIPlot):
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                ax.collections.remove(ax.collections[0])
+                ax.plt.remove()
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -191,7 +191,7 @@ class DenRTIPlot(RTIPlot):
     Written by R. Flores
     '''
     '''
-       Plot for Den
+       RTI Plot for Electron Densities
     '''
 
     CODE = 'denrti'
@@ -250,21 +250,21 @@ class DenRTIPlot(RTIPlot):
                 if numpy.log10(self.zmin)<0:
                     self.zmin=1
                 ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
-                                       vmin=self.zmin,
-                                       vmax=self.zmax,
+                                       #vmin=self.zmin,
+                                       #vmax=self.zmax,
                                        cmap=self.cmaps[n],
-                                       norm=colors.LogNorm()
+                                       norm=colors.LogNorm(vmin=self.zmin,vmax=self.zmax)
                                        )
 
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                ax.collections.remove(ax.collections[0])
+                ax.plt.remove()
                 ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
-                                       vmin=self.zmin,
-                                       vmax=self.zmax,
+                                       #vmin=self.zmin,
+                                       #vmax=self.zmax,
                                        cmap=self.cmaps[n],
-                                       norm=colors.LogNorm()
+                                       norm=colors.LogNorm(vmin=self.zmin,vmax=self.zmax)
                                        )
 
 
@@ -346,7 +346,7 @@ class ETempRTIPlot(RTIPlot):
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                ax.collections.remove(ax.collections[0])
+                ax.plt.remove()
                 ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -473,8 +473,8 @@ class TempsDPPlot(Plot):
         errTi = data['Ti_error']
 
         if ax.firsttime:
-            ax.errorbar(Te, y, xerr=errTe, fmt='r^',elinewidth=1.0,color='b',linewidth=2.0, label='Te')
-            ax.errorbar(Ti, y, fmt='k^', xerr=errTi,elinewidth=1.0,color='b',linewidth=2.0, label='Ti')
+            ax.errorbar(Te, y, xerr=errTe, fmt='r^',elinewidth=1.0,color='r',linewidth=2.0, label='Te')
+            ax.errorbar(Ti, y, fmt='k^', xerr=errTi,elinewidth=1.0,color='k',linewidth=2.0, label='Ti')
             plt.legend(loc='lower right')
             self.ystep_given = 50
             ax.yaxis.set_minor_locator(MultipleLocator(15))
@@ -482,8 +482,8 @@ class TempsDPPlot(Plot):
 
         else:
             self.clear_figures()
-            ax.errorbar(Te, y, xerr=errTe, fmt='r^',elinewidth=1.0,color='b',linewidth=2.0, label='Te')
-            ax.errorbar(Ti, y, fmt='k^', xerr=errTi,elinewidth=1.0,color='b',linewidth=2.0, label='Ti')
+            ax.errorbar(Te, y, xerr=errTe, fmt='r^',elinewidth=1.0,color='r',linewidth=2.0, label='Te')
+            ax.errorbar(Ti, y, fmt='k^', xerr=errTi,elinewidth=1.0,color='k',linewidth=2.0, label='Ti')
             plt.legend(loc='lower right')
             ax.yaxis.set_minor_locator(MultipleLocator(15))
 
@@ -545,8 +545,8 @@ class TempsHPPlot(Plot):
 
         if ax.firsttime:
 
-            ax.errorbar(Te, self.y, xerr=errTe, fmt='r^',elinewidth=1.0,color='b',linewidth=2.0, label='Te')
-            ax.errorbar(Ti, self.y, fmt='k^', xerr=errTi,elinewidth=1.0,color='b',linewidth=2.0, label='Ti')
+            ax.errorbar(Te, self.y, xerr=errTe, fmt='r^',elinewidth=1.0,color='r',linewidth=2.0, label='Te')
+            ax.errorbar(Ti, self.y, fmt='k^', xerr=errTi,elinewidth=1.0,color='',linewidth=2.0, label='Ti')
             plt.legend(loc='lower right')
             self.ystep_given = 200
             ax.yaxis.set_minor_locator(MultipleLocator(15))
@@ -554,8 +554,8 @@ class TempsHPPlot(Plot):
 
         else:
             self.clear_figures()
-            ax.errorbar(Te, self.y, xerr=errTe, fmt='r^',elinewidth=1.0,color='b',linewidth=2.0, label='Te')
-            ax.errorbar(Ti, self.y, fmt='k^', xerr=errTi,elinewidth=1.0,color='b',linewidth=2.0, label='Ti')
+            ax.errorbar(Te, self.y, xerr=errTe, fmt='r^',elinewidth=1.0,color='r',linewidth=2.0, label='Te')
+            ax.errorbar(Ti, self.y, fmt='k^', xerr=errTi,elinewidth=1.0,color='k',linewidth=2.0, label='Ti')
             plt.legend(loc='lower right')
             ax.yaxis.set_minor_locator(MultipleLocator(15))
             ax.grid(which='minor')
@@ -624,8 +624,8 @@ class FracsHPPlot(Plot):
 
         if ax.firsttime:
 
-            ax.errorbar(ph, self.y[cut:], xerr=eph, fmt='r^',elinewidth=1.0,color='b',linewidth=2.0, label='H+')
-            ax.errorbar(phe, self.y[cut:], fmt='k^', xerr=ephe,elinewidth=1.0,color='b',linewidth=2.0, label='He+')
+            ax.errorbar(ph, self.y[cut:], xerr=eph, fmt='r^',elinewidth=1.0,color='r',linewidth=2.0, label='H+')
+            ax.errorbar(phe, self.y[cut:], fmt='k^', xerr=ephe,elinewidth=1.0,color='k',linewidth=2.0, label='He+')
             plt.legend(loc='lower right')
             self.xstep_given = 0.2
             self.ystep_given = 200
@@ -634,8 +634,8 @@ class FracsHPPlot(Plot):
 
         else:
             self.clear_figures()
-            ax.errorbar(ph, self.y[cut:], xerr=eph, fmt='r^',elinewidth=1.0,color='b',linewidth=2.0, label='H+')
-            ax.errorbar(phe, self.y[cut:], fmt='k^', xerr=ephe,elinewidth=1.0,color='b',linewidth=2.0, label='He+')
+            ax.errorbar(ph, self.y[cut:], xerr=eph, fmt='r^',elinewidth=1.0,color='r',linewidth=2.0, label='H+')
+            ax.errorbar(phe, self.y[cut:], fmt='k^', xerr=ephe,elinewidth=1.0,color='k',linewidth=2.0, label='He+')
             plt.legend(loc='lower right')
             ax.yaxis.set_minor_locator(MultipleLocator(15))
             ax.grid(which='minor')
@@ -711,14 +711,14 @@ class EDensityPlot(Plot):
             #ax.errorbar(DenFar, y[:NSHTS], xerr=1, fmt='h-',elinewidth=1.0,color='g',linewidth=1.0, label='Faraday Profile',markersize=2)
             ax.errorbar(DenFar, y[:NSHTS], xerr=1, fmt='h-',elinewidth=1.0,color='g',linewidth=1.0, label='Faraday',markersize=2,linestyle='-')
             #ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power Profile',markersize=2)
-            ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power',markersize=2,linestyle='-')
+            ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='k',linewidth=1.0, label='Power',markersize=2,linestyle='-')
 
             if self.CODE=='denLP':
                 ax.errorbar(DenPowLP[cut:], y[cut:], xerr=errDenPowLP[cut:], fmt='r^-',elinewidth=1.0,color='r',linewidth=1.0, label='LP Profile',markersize=2)
 
             plt.legend(loc='upper left',fontsize=8.5)
             #plt.legend(loc='lower left',fontsize=8.5)
-            ax.set_xscale("log", nonposx='clip')
+            ax.set_xscale("log")#, nonposx='clip')
             grid_y_ticks=numpy.arange(numpy.nanmin(y),numpy.nanmax(y),50)
             self.ystep_given=100
             if self.CODE=='denLP':
@@ -738,13 +738,13 @@ class EDensityPlot(Plot):
             #ax.errorbar(DenFar, y[:NSHTS], xerr=1, fmt='h-',elinewidth=1.0,color='g',linewidth=1.0, label='Faraday Profile',markersize=2)
             ax.errorbar(DenFar, y[:NSHTS], xerr=1, fmt='h-',elinewidth=1.0,color='g',linewidth=1.0, label='Faraday',markersize=2,linestyle='-')
             #ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power Profile',markersize=2)
-            ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power',markersize=2,linestyle='-')
+            ax.errorbar(DenPow, y[:NSHTS], fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='k',linewidth=1.0, label='Power',markersize=2,linestyle='-')
             ax.errorbar(DenPowBefore, y[:NSHTS], elinewidth=1.0,color='r',linewidth=0.5,linestyle="dashed")
 
             if self.CODE=='denLP':
                 ax.errorbar(DenPowLP[cut:], y[cut:], fmt='r^-', xerr=errDenPowLP[cut:],elinewidth=1.0,color='r',linewidth=1.0, label='LP Profile',markersize=2)
 
-            ax.set_xscale("log", nonposx='clip')
+            ax.set_xscale("log")#, nonposx='clip')
             grid_y_ticks=numpy.arange(numpy.nanmin(y),numpy.nanmax(y),50)
             ax.set_yticks(grid_y_ticks,minor=True)
             locmaj = LogLocator(base=10,numticks=12)
@@ -805,11 +805,11 @@ class RelativeDenPlot(Plot):
 
         if ax.firsttime:
             self.autoxticks=False
-            ax.errorbar(DenPow, y, fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power',markersize=2,linestyle='-')
+            ax.errorbar(DenPow, y, fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='k',linewidth=1.0, label='Power',markersize=2,linestyle='-')
 
             plt.legend(loc='upper left',fontsize=8.5)
             #plt.legend(loc='lower left',fontsize=8.5)
-            ax.set_xscale("log", nonposx='clip')
+            ax.set_xscale("log")#, nonposx='clip')
             grid_y_ticks=numpy.arange(numpy.nanmin(y),numpy.nanmax(y),50)
             self.ystep_given=100
             ax.set_yticks(grid_y_ticks,minor=True)
@@ -824,10 +824,10 @@ class RelativeDenPlot(Plot):
             dataBefore = self.data[-2]
             DenPowBefore = dataBefore['den_power']
             self.clear_figures()
-            ax.errorbar(DenPow, y, fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power',markersize=2,linestyle='-')
+            ax.errorbar(DenPow, y, fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='k',linewidth=1.0, label='Power',markersize=2,linestyle='-')
             ax.errorbar(DenPowBefore, y, elinewidth=1.0,color='r',linewidth=0.5,linestyle="dashed")
 
-            ax.set_xscale("log", nonposx='clip')
+            ax.set_xscale("log")#, nonposx='clip')
             grid_y_ticks=numpy.arange(numpy.nanmin(y),numpy.nanmax(y),50)
             ax.set_yticks(grid_y_ticks,minor=True)
             locmaj = LogLocator(base=10,numticks=12)

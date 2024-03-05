@@ -14,8 +14,6 @@ from threading import Thread
 from multiprocessing import Process, Queue
 from schainpy.utils import log
 
-import copy
-
 QUEUE_SIZE = int(os.environ.get('QUEUE_MAX_SIZE', '10'))
 
 class ProcessingUnit(object):
@@ -24,6 +22,7 @@ class ProcessingUnit(object):
     '''
 
     proc_type = 'processing'
+    bypass = False
 
     def __init__(self):
 
@@ -81,8 +80,9 @@ class ProcessingUnit(object):
                 else:
                     return self.dataIn.isReady()
             elif self.dataIn is None or not self.dataIn.error:
-                #print([getattr(self, at) for at in self.inputs])
-                #print("Elif 1")
+                if 'Reader' in self.name and self.bypass:
+                    print('Skipping...reader')
+                    return self.dataOut.isReady()
                 self.run(**kwargs)
             elif self.dataIn.error:
                 #print("Elif 2")

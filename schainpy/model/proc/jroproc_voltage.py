@@ -324,6 +324,18 @@ class filterByHeights(Operation):
 
         return dataOut
 
+class setOffset(Operation):
+
+    def run(self, dataOut, offset=None):
+
+        if not offset:
+            offset = 0.0
+
+        newHeiRange = dataOut.heightList - offset
+
+        dataOut.heightList = newHeiRange
+
+        return dataOut
 
 class setH0(Operation):
 
@@ -9944,9 +9956,11 @@ class SSheightProfiles(Operation):
         profileIndex            = None
         #print(dataOut.getFreqRange(1)/1000.)
         #exit(1)
+        '''
         if dataOut.flagDataAsBlock:
             dataOut.data = numpy.average(dataOut.data,axis=1)
             #print("jee")
+            '''
         dataOut.flagDataAsBlock = False
         if not self.isConfig:
             self.setup(dataOut, step=step , nsamples=nsamples)

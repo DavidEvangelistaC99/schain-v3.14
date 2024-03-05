@@ -184,6 +184,13 @@ class HDFReader(Reader, ProcessingUnit):
 
         self.blockList = ind
         self.blocksPerFile = len(ind)
+        # similar to master
+        if len(ind)==0:
+            print("[Reading] Block No. %d/%d -> %s [Skipping]" % (self.blockIndex,
+                                                                      self.blocksPerFile,
+                                                                      thisDatetime))
+            self.setNextFile()
+        # similar to master
         return
 
     def __readMetadata(self):
@@ -360,14 +367,26 @@ class HDFWriter(Operation):
         Operation.__init__(self)
         return
 
-    def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None, uniqueChannel=False):
+    def set_kwargs(self, **kwargs):
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    def set_kwargs_obj(self, obj, **kwargs):
+
+        for key, value in kwargs.items():
+            setattr(obj, key, value)
+
+    def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None, **kwargs):
         self.path = path
         self.blocksPerFile = blocksPerFile
         self.metadataList = metadataList
         self.dataList = [s.strip() for s in dataList]
         self.setType = setType
         self.description = description
-        self.uniqueChannel = uniqueChannel
+        self.set_kwargs(**kwargs)
+        #print("self.uniqueChannel: ", self.uniqueChannel)
+        #self.uniqueChannel = uniqueChannel
 
         if self.metadataList is None:
             self.metadataList = self.dataOut.metadata_list
@@ -389,7 +408,7 @@ class HDFWriter(Operation):
             elif isinstance(dataAux, (int, float, numpy.integer, numpy.float)):
                 dsDict['nDim'] = 0
             else:
-                if uniqueChannel: #Creates extra dimension to avoid the creation of multiple channels
+                if self.uniqueChannel: #Creates extra dimension to avoid the creation of multiple channels
                     dataAux = numpy.expand_dims(dataAux, axis=0)
                     #setattr(self.dataOut, self.dataList[i], numpy.expand_dims(getattr(self.dataOut, self.dataList[i]), axis=0))
                     #dataAux = getattr(self.dataOut, self.dataList[i])
@@ -428,13 +447,14 @@ class HDFWriter(Operation):
             return False
 
     def run(self, dataOut, path, blocksPerFile=10, metadataList=None,
-            dataList=[], setType=None, description={}, uniqueChannel= False):
+            dataList=[], setType=None, description={}, **kwargs):
 
         self.dataOut = dataOut
+        self.set_kwargs_obj(self.dataOut, **kwargs)
         if not(self.isConfig):
             self.setup(path=path, blocksPerFile=blocksPerFile,
                        metadataList=metadataList, dataList=dataList,
-                       setType=setType, description=description, uniqueChannel=uniqueChannel)
+                       setType=setType, description=description,  **kwargs)
 
             self.isConfig = True
             self.setNextFile()
@@ -515,15 +535,17 @@ class HDFWriter(Operation):
                         return key
             return name
         else:
-            if 'Metadata' in self.description:
-                meta = self.description['Metadata']
+            if 'Data' in self.description:
+                data = self.description['Data']
+                if 'Metadata' in self.description:
+                    data.update(self.description['Metadata'])
             else:
-                meta = self.description
-            if name in meta:
-                if isinstance(meta[name], list):
-                    return meta[name][x]
-                elif isinstance(meta[name], dict):
-                    for key, value in meta[name].items():
+                data = self.description
+            if name in data:
+                if isinstance(data[name], list):
+                    return data[name][x]
+                elif isinstance(data[name], dict):
+                    for key, value in data[name].items():
                         return value[x]
             if 'cspc' in name:
                 return 'pair{:02d}'.format(x)

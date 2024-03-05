@@ -87,7 +87,7 @@ DATA_STRUCTURE = numpy.dtype([
 
 class BLTRParamReader(Reader, ProcessingUnit):
     '''
-    Boundary Layer and Tropospheric Radar (BLTR) reader, Wind velocities and SNR 
+    Boundary Layer and Tropospheric Radar (BLTR) reader, Wind velocities and SNR
     from *.sswma files
     '''
 
@@ -108,9 +108,9 @@ class BLTRParamReader(Reader, ProcessingUnit):
         self.filefmt = "*********%Y%m%d******"
 
     def setup(self, **kwargs):
-        
+
         self.set_kwargs(**kwargs)
-        
+
         if self.path is None:
             raise ValueError("The path is not valid")
 
@@ -119,13 +119,13 @@ class BLTRParamReader(Reader, ProcessingUnit):
 
             for nTries in range(self.nTries):
                 fullpath = self.searchFilesOnLine(self.path, self.startDate,
-                    self.endDate, self.expLabel, self.ext, self.walk, 
+                    self.endDate, self.expLabel, self.ext, self.walk,
                     self.filefmt, self.folderfmt)
                 try:
                     fullpath = next(fullpath)
                 except:
                     fullpath = None
-                
+
                 if fullpath:
                     self.fileSize = os.path.getsize(fullpath)
                     self.filename = fullpath
@@ -138,17 +138,17 @@ class BLTRParamReader(Reader, ProcessingUnit):
 
                 log.warning(
                     'Waiting {} sec for a valid file in {}: try {} ...'.format(
-                        self.delay, self.path, nTries + 1), 
+                        self.delay, self.path, nTries + 1),
                     self.name)
                 time.sleep(self.delay)
 
             if not(fullpath):
                 raise schainpy.admin.SchainError(
-                    'There isn\'t any valid file in {}'.format(self.path))            
+                    'There isn\'t any valid file in {}'.format(self.path))
             self.readFirstHeader()
         else:
             log.log("Searching files in {}".format(self.path), self.name)
-            self.filenameList = self.searchFilesOffLine(self.path, self.startDate, 
+            self.filenameList = self.searchFilesOffLine(self.path, self.startDate,
                 self.endDate, self.expLabel, self.ext, self.walk, self.filefmt, self.folderfmt)
             self.setNextFile()
 
@@ -162,8 +162,8 @@ class BLTRParamReader(Reader, ProcessingUnit):
         if os.path.exists(fullfilename):
             return fullfilename, filename
         return None, filename
-        
-    
+
+
     def readFirstHeader(self):
         '''
         '''
@@ -174,7 +174,7 @@ class BLTRParamReader(Reader, ProcessingUnit):
         self.nrecords = self.header_file['nrec'][0]
         self.counter_records = 0
         self.flagIsNewFile = 0
-        self.fileIndex += 1        
+        self.fileIndex += 1
 
     def readNextBlock(self):
 
@@ -184,7 +184,13 @@ class BLTRParamReader(Reader, ProcessingUnit):
                 if not self.setNextFile():
                     return 0
             try:
-                pointer = self.fp.tell()
+                if self.online and self.counter_records == 0:
+                    pos = int(self.fileSize / (38512))
+                    self.counter_records = pos*2 - 2
+                    pointer = 38512 * (pos-1) + 48
+                    self.fp.seek(pointer)
+                else:
+                    pointer = self.fp.tell()
                 self.readBlock()
             except:
                 if self.online and self.waitDataBlock(pointer, 38512) == 1:
@@ -255,20 +261,20 @@ class BLTRParamReader(Reader, ProcessingUnit):
         self.correction = self.header_rec['dmode_rngcorr'][0]
         self.imode = self.header_rec['dmode_index'][0]
         self.antenna = self.header_rec['antenna_coord']
-        self.rx_gains = self.header_rec['rx_gains']        
-        self.time = self.header_rec['time'][0]               
+        self.rx_gains = self.header_rec['rx_gains']
+        self.time = self.header_rec['time'][0]
         dt = datetime.datetime.utcfromtimestamp(self.time)
         if dt.date()>self.datatime.date():
             self.flagDiscontinuousBlock = 1
         self.datatime = dt
-        
+
     def readData(self):
         '''
-        Reading and filtering data block record of BLTR rawdata file, 
+        Reading and filtering data block record of BLTR rawdata file,
         filtering is according to status_value.
 
         Input:
-            status_value - Array data is set to NAN for values that are not 
+            status_value - Array data is set to NAN for values that are not
             equal to status_value
 
         '''
@@ -316,7 +322,7 @@ class BLTRParamReader(Reader, ProcessingUnit):
         self.dataOut.lat = self.lat
         self.dataOut.lon = self.lon
         self.dataOut.channelList = list(range(self.nchannels))
-        self.dataOut.kchan = self.kchan        
+        self.dataOut.kchan = self.kchan
         self.dataOut.delta = self.delta
         self.dataOut.correction = self.correction
         self.dataOut.nmodes = self.nmodes
@@ -341,7 +347,7 @@ class BLTRParamReader(Reader, ProcessingUnit):
         self.set_output()
 
         return 1
-        
+
     def run(self, **kwargs):
         '''
         '''

@@ -3815,7 +3815,7 @@ class IncohInt(Operation):
             dataOut.flagNoData = False
 
             dataOut.VelRange = dataOut.getVelRange(0)
-            dataOut.FreqRange = dataOut.getFreqRange(0)/1000.
+            dataOut.FreqRange = dataOut.getFreqRange(0)/1000. #kHz
             #print("VelRange: ", dataOut.VelRange)
             #exit(1)
 

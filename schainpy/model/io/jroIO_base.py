@@ -475,6 +475,7 @@ class Reader(object):
     warnings = True
     verbose = True
     server = None
+    topic = None
     format = None
     oneDDict = None
     twoDDict = None
@@ -781,6 +782,7 @@ class JRODataReader(Reader):
     firstHeaderSize = 0
     basicHeaderSize = 24
     __isFirstTimeOnline = 1
+    topic = ''
     filefmt = "*%Y%j***"
     folderfmt = "*%Y%j"
     __attrs__ = ['path', 'startDate', 'endDate', 'startTime', 'endTime', 'online', 'delay', 'walk']
@@ -1151,13 +1153,14 @@ class JRODataReader(Reader):
 
         if self.server is not None:
             if 'tcp://' in self.server:
-                address = server
+                address = self.server
             else:
                 address = 'ipc:///tmp/%s' % self.server
             self.server = address
             self.context = zmq.Context()
-            self.receiver = self.context.socket(zmq.PULL)
+            self.receiver = self.context.socket(zmq.SUB)
             self.receiver.connect(self.server)
+            self.receiver.setsockopt(zmq.SUBSCRIBE, str.encode(str(self.topic)))
             time.sleep(0.5)
             print('[Starting] ReceiverData from {}'.format(self.server))
         else:
@@ -1286,7 +1289,11 @@ class JRODataReader(Reader):
         if self.server is None:
             self.getData()
         else:
-            self.getFromServer()
+            try:
+                self.getFromServer()
+            except Exception as e:
+                log.warning('Invalid block...')
+                self.dataOut.flagNoData = True
 
 
 class JRODataWriter(Reader):
@@ -1470,9 +1477,6 @@ class JRODataWriter(Reader):
         if self.fp != None:
             self.fp.close()
 
-        if not os.path.exists(path):
-            os.mkdir(path)
-
         timeTuple = time.localtime(self.dataOut.utctime)
         subfolder = 'd%4.4d%3.3d' % (timeTuple.tm_year, timeTuple.tm_yday)
 
@@ -1480,7 +1484,7 @@ class JRODataWriter(Reader):
         setFile = self.setFile
 
         if not(os.path.exists(fullpath)):
-            os.mkdir(fullpath)
+            os.makedirs(fullpath)
             setFile = -1  # inicializo mi contador de seteo
         else:
             filesList = os.listdir(fullpath)

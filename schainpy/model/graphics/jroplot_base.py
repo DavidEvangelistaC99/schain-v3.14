@@ -304,6 +304,7 @@ class Plot(Operation):
                 ax.firsttime = True
                 ax.index = 0
                 ax.press = None
+                ax.cbar = None
                 self.axes.append(ax)
                 if self.showprofile:
                     cax = self.__add_axes(ax, size=size, pad=pad)
@@ -414,7 +415,7 @@ class Plot(Operation):
                     self.pf_axes[n].grid(b=True, axis='x')
                     [tick.set_visible(False)
                      for tick in self.pf_axes[n].get_yticklabels()]
-                if self.colorbar:
+                if self.colorbar and ax.cbar == None:
                     ax.cbar = plt.colorbar(
                         ax.plt, ax=ax, fraction=0.05, pad=0.02, aspect=10)
                     ax.cbar.ax.tick_params(labelsize=8)
