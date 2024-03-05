@@ -2692,7 +2692,7 @@ class DPTemperaturesEstimation(Operation):
 
                 if True: #len(y)!=0:
                     with suppress_stdout_stderr():
-                      fitacf_guess.guess(y,x,zero,depth,t1,t2,len(y))
+                        fitacf_guess.guess(y,x,zero,depth,t1,t2,len(y))
                     t2=t1/t2
 
                     if (t1<5000.0 and t1> 600.0):
@@ -2717,13 +2717,18 @@ class DPTemperaturesEstimation(Operation):
 
                     eb=numpy.resize(eb,10)
                     dataOut.ifit=numpy.resize(dataOut.ifit,10)
-                    dataOut.covinv,e,dataOut.params,eb,dataOut.m=fitacf_fit_short.fit(wl,x,y,dataOut.cov,dataOut.covinv,e,dataOut.params,bm,angle,den,dataOut.range1[i],dataOut.year,dataOut.ifit,dataOut.m,l1) #
+                    with suppress_stdout_stderr():
+                        dataOut.covinv,e,dataOut.params,eb,dataOut.m=fitacf_fit_short.fit(wl,x,y,dataOut.cov,dataOut.covinv,e,dataOut.params,bm,angle,den,dataOut.range1[i],dataOut.year,dataOut.ifit,dataOut.m,l1) #
                     if dataOut.params[2]>dataOut.params[1]*1.05:
                         dataOut.ifit[2]=0
                         dataOut.params[1]=dataOut.params[2]=t1
                         dataOut.covinv,e,dataOut.params,eb,dataOut.m=fitacf_fit_short.fit(wl,x,y,dataOut.cov,dataOut.covinv,e,dataOut.params,bm,angle,den,dataOut.range1[i],dataOut.year,dataOut.ifit,dataOut.m,l1) #
                     if (dataOut.ifit[2]==0):
                          dataOut.params[2]=dataOut.params[1]
+                         with suppress_stdout_stderr():
+                             dataOut.covinv,e,dataOut.params,eb,dataOut.m=fitacf_fit_short.fit(wl,x,y,dataOut.cov,dataOut.covinv,e,dataOut.params,bm,angle,den,dataOut.range1[i],dataOut.year,dataOut.ifit,dataOut.m,l1) #
+                    if (dataOut.ifit[2]==0):
+                        dataOut.params[2]=dataOut.params[1]
                     if (dataOut.ifit[3]==0 and iflag==0):
                         dataOut.params[3]=0.0
                     if (dataOut.ifit[4]==0):
