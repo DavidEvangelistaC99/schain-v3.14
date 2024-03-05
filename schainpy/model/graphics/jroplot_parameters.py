@@ -71,12 +71,14 @@ class SnrPlot(RTIPlot):
     colormap = 'jet'
 
     def update(self, dataOut):
+        if len(self.channelList) == 0:
+            self.update_list(dataOut)
 
+        meta = {}
         data = {
-            'snr': 10*numpy.log10(dataOut.data_snr)    
+            'snr': 10 * numpy.log10(dataOut.data_snr)
         }
-
-        return data, {}
+        return data, meta
 
 class DopplerPlot(RTIPlot):
     '''
@@ -87,7 +89,7 @@ class DopplerPlot(RTIPlot):
     colormap = 'RdBu_r'
 
     def update(self, dataOut):
-
+        self.update_list(dataOut)
         data = {
             'dop': dataOut.data_dop
         }
@@ -103,11 +105,14 @@ class PowerPlot(RTIPlot):
     colormap = 'jet'
 
     def update(self, dataOut):
-
+        self.update_list(dataOut)
         data = {
             'pow': 10*numpy.log10(dataOut.data_pow/dataOut.normFactor)    
         }
-
+        try:
+            data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
+        except:
+            pass
         return data, {}
 
 class SpectralWidthPlot(RTIPlot):
@@ -119,11 +124,11 @@ class SpectralWidthPlot(RTIPlot):
     colormap = 'jet'
 
     def update(self, dataOut):
-
+        self.update_list(dataOut)
         data = {
             'width': dataOut.data_width
         }
-
+        data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
         return data, {}
 
 class SkyMapPlot(Plot):
@@ -379,3 +384,54 @@ class PolarMapPlot(Plot):
         self.save_labels = ['{}-{}'.format(lbl, label) for lbl in self.labels]
         self.titles = ['{} {}'.format(
             self.data.parameters[x], title) for x in self.channels]
+
+
+
+class TxPowerPlot(Plot):
+    '''
+    Plot for TX Power from external file
+    '''
+
+    CODE = 'tx_power'
+    plot_type = 'scatterbuffer'
+
+    def setup(self):
+        self.xaxis = 'time'
+        self.ncols = 1
+        self.nrows = 1
+        self.nplots = 1
+        self.ylabel = 'Power [kW]'
+        self.xlabel = 'Time'
+        self.titles = ['TX power']
+        self.colorbar = False
+        self.plots_adjust.update({'right': 0.85 })
+        #if not self.titles:
+        self.titles = ['TX Power Plot']
+
+    def update(self, dataOut):
+
+        data = {}
+        meta = {}
+        
+        data['tx_power'] = dataOut.txPower/1000
+        meta['yrange'] = numpy.array([])
+        #print(dataOut.txPower/1000)
+        return data, meta
+
+    def plot(self):
+
+        x = self.data.times
+        xmin = self.data.min_time
+        xmax = xmin + self.xrange * 60 * 60
+        Y = self.data['tx_power']
+
+        if self.axes[0].firsttime:
+            if self.ymin is None: self.ymin = 0
+            if self.ymax is None: self.ymax = numpy.nanmax(Y) + 5
+            if self.ymax == 5:
+                self.ymax = 250
+                self.ymin = 100
+            self.axes[0].plot(x, Y, lw=1, label='Power')
+            plt.legend(bbox_to_anchor=(1.18, 1.0))
+        else:
+            self.axes[0].lines[0].set_data(x, Y)

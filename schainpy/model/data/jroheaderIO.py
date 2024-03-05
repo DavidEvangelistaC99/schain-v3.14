@@ -296,14 +296,27 @@ class RadarControllerHeader(Header):
     rangeTxB = None
     structure = RADAR_STRUCTURE
     __size = None
+    ################################################
+    dtype = ""
+    ippSeconds = None
+    frequency = None
+    sampleRate = None
+    nOsamp = None
+    channelList = []
+    azimuthList = []
+    elevationList =[]
+    codeList = []
+    nChannels = 1
+    heightList = []
+    heightResolution = None
 
     def __init__(self, expType=2, nTx=1,
                  ipp=None, txA=0, txB=0,
                  nWindows=None, nHeights=None, firstHeight=None, deltaHeight=None,
                  numTaus=0, line6Function=0, line5Function=0, fClock=None,
                  prePulseBefore=0, prePulseAfter=0,
-                 codeType=0, nCode=0, nBaud=0, code=[],
-                 flip1=0, flip2=0):
+                 codeType=0, nCode=0, nBaud=0, code=[],nOsamp = None, frequency = None,sampleRate=None,
+                 flip1=0, flip2=0, nChannels=1):
 
         #         self.size = 116
         self.expType = expType
@@ -334,6 +347,10 @@ class RadarControllerHeader(Header):
         self.code = code
         self.flip1 = flip1
         self.flip2 = flip2
+
+        self.frequency = frequency
+        self.sampleRate = sampleRate
+        self.nOsamp = nOsamp
 
         self.code_size = int(numpy.ceil(self.nBaud / 32.)) * self.nCode * 4
 #         self.dynamic = numpy.array([],numpy.dtype('byte'))
@@ -468,6 +485,13 @@ class RadarControllerHeader(Header):
                     "Warning %s: Size value read from Radar Controller header is greater than it has to be\n" % fp.name)
 
         return 1
+    
+    def toString(self):
+        s = ""
+        for attribute, value in self.__dict__.items():
+            if value!=None and value!= 0:
+                s += '{:18s}'.format(str(attribute)) +'\t'+str(value)+'\n'
+        return s
 
     def write(self, fp):
 
@@ -581,6 +605,21 @@ class ProcessingHeader(Header):
     structure = PROCESSING_STRUCTURE
     flag_dc = None
     flag_cspc = None
+    #########################################################
+    nFFTPoints = None
+    nSamplesFFT = None
+    channelList = []
+    azimuthList = []
+    elevationList =[]
+    codeList = []
+    nChannels = 1
+    heightList = []
+    ipp = None
+    ippSeconds = None
+    timeIncohInt = None
+    #################
+    rangeIpp = None
+    heightResolution = None
 
     def __init__(self, dtype=0, blockSize=0, profilesPerBlock=0, dataBlocksPerFile=0, nWindows=0, processFlags=0, nCohInt=0,
                  nIncohInt=0, totalSpectra=0, nHeights=0, firstHeight=0, deltaHeight=0, samplesWin=0, spectraComb=0, nCode=0,

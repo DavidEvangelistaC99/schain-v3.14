@@ -13,7 +13,7 @@ import tarfile
 
 import numpy
 
-from .utils import folder_in_range
+from .utilsIO import folder_in_range
 
 from schainpy.model.io.jroIO_base import JRODataReader
 from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation

@@ -64,19 +64,24 @@ class ProcessingUnit(object):
     def call(self, **kwargs):
         '''
         '''
-
+        mybool = (self.dataOut.type == 'Voltage') and self.dataOut.useInputBuffer and (not self.dataOut.buffer_empty) #liberar desde buffer
         try:
-            if self.dataIn is not None and self.dataIn.flagNoData and not self.dataIn.error:
-                if self.dataIn.runNextUnit:
-                    return not self.dataIn.isReady()
-                else:
-                    return self.dataIn.isReady()
-            elif self.dataIn is None or not self.dataIn.error:
+
+            if mybool:
+                #print("run yeah")
                 self.run(**kwargs)
-            elif self.dataIn.error:
-                self.dataOut.error = self.dataIn.error
-                self.dataOut.flagNoData = True
+            else:
+                if self.dataIn is not None and self.dataIn.flagNoData and not self.dataIn.error:
+                    return self.dataIn.isReady()
+                elif self.dataIn is None or not self.dataIn.error: #unidad de lectura o procesamiento regular
+                    self.run(**kwargs)
+                elif self.dataIn.error:
+                    self.dataOut.error = self.dataIn.error
+                    self.dataOut.flagNoData = True
+                    print("exec proc error")
+
         except:
+
             err = traceback.format_exc()
             if 'SchainWarning' in err:
                 log.warning(err.split('SchainWarning:')[-1].split('\n')[0].strip(), self.name)
@@ -85,23 +90,38 @@ class ProcessingUnit(object):
             else:
                 log.error(err, self.name)
             self.dataOut.error = True
-        for op, optype, opkwargs in self.operations:
-            aux = self.dataOut.copy()
-            if optype == 'other' and not self.dataOut.flagNoData:
-                self.dataOut = op.run(self.dataOut, **opkwargs)
-            elif optype == 'external' and not self.dataOut.flagNoData:
-                op.queue.put(aux)
-            elif optype == 'external' and self.dataOut.error:
-                op.queue.put(aux)
-        try:
-            if self.dataOut.runNextUnit:
-                runNextUnit = self.dataOut.runNextUnit
-            else:
-                runNextUnit = self.dataOut.isReady()
-        except:
-            runNextUnit = self.dataOut.isReady()
-        return 'Error' if self.dataOut.error else runNextUnit# self.dataOut.isReady()
 
+
+        for op, optype, opkwargs in self.operations:
+
+            if (optype == 'other' and self.dataOut.isReady()) or mybool:
+                try:
+                    self.dataOut = op.run(self.dataOut, **opkwargs)
+                except Exception as e:
+                    print(e)
+                    self.dataOut.error = True
+                    return 'Error'
+            elif optype == 'external' and self.dataOut.isReady() :
+                op.queue.put(copy.deepcopy(self.dataOut))
+            elif optype == 'external' and self.dataOut.error:
+                op.queue.put(copy.deepcopy(self.dataOut))
+
+
+        if not self.dataOut.error:
+            if self.dataOut.type == 'Voltage':
+                if not self.dataOut.buffer_empty : #continue
+                    return 'no_Read'
+                elif  self.dataOut.useInputBuffer and (self.dataOut.buffer_empty) and  self.dataOut.isReady() :
+                    return 'new_Read'
+                else:
+                    return True
+            else:
+                #print("ret True")
+                return True
+        else:
+            return 'Error'
+        #return 'Error' if self.dataOut.error else True #self.dataOut.isReady()
+        
     def setup(self):
 
         raise NotImplementedError

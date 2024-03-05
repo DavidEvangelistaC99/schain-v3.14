@@ -7,7 +7,7 @@ import numpy
 SPEED_OF_LIGHT = 299792458
 SPEED_OF_LIGHT = 3e8
 
-from .utils import folder_in_range
+from .utilsIO import folder_in_range
 
 import schainpy.admin
 from schainpy.model.data.jrodata import Spectra

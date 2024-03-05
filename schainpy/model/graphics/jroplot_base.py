@@ -191,8 +191,10 @@ class Plot(Operation):
     def __fmtTime(self, x, pos):
         '''
         '''
-
-        return '{}'.format(self.getDateTime(x).strftime('%H:%M'))
+        if self.t_units == "h_m":
+            return '{}'.format(self.getDateTime(x).strftime('%H:%M'))
+        if self.t_units == "h":
+            return '{}'.format(self.getDateTime(x).strftime('%H'))
 
     def __setup(self, **kwargs):
         '''
@@ -235,7 +237,7 @@ class Plot(Operation):
         self.width = kwargs.get('width', None)
         self.height = kwargs.get('height', None)
         self.colorbar = kwargs.get('colorbar', True)
-        self.factors = kwargs.get('factors', [1, 1, 1, 1, 1, 1, 1, 1])
+        self.factors = kwargs.get('factors', range(18))
         self.channels = kwargs.get('channels', None)
         self.titles = kwargs.get('titles', [])
         self.polar = False
@@ -248,11 +250,24 @@ class Plot(Operation):
         self.server = kwargs.get('server', False)
         self.sender_period = kwargs.get('sender_period', 60)
         self.tag = kwargs.get('tag', '')
-        self.height_index = kwargs.get('height_index', None)
+        self.height_index = kwargs.get('height_index', [])
         self.__throttle_plot = apply_throttle(self.throttle)
         code = self.attr_data if self.attr_data else self.CODE
         self.data = PlotterData(self.CODE, self.exp_code, self.localtime)
-        
+
+        self.pf_axes = []
+        self.tmin = kwargs.get('tmin', None)
+        self.t_units = kwargs.get('t_units', "h_m")
+        self.selectedHeightsList = kwargs.get('selectedHeightsList', [])
+        self.extFile = kwargs.get('filename', None)
+        self.bFieldList = kwargs.get('bField', [])
+        self.celestialList = kwargs.get('celestial', [])
+
+        if  isinstance(self.bFieldList, int):
+            self.bFieldList = [self.bFieldList]
+        if  isinstance(self.selectedHeightsList, int):
+            self.selectedHeightsList = [self.selectedHeightsList]
+
         if self.server:
             if not self.server.startswith('tcp://'):
                 self.server = 'tcp://{}'.format(self.server)
@@ -386,7 +401,10 @@ class Plot(Operation):
                     xmin = self.tmin
                     xmax = self.tmin + self.xrange*60*60
                     ax.xaxis.set_major_formatter(FuncFormatter(self.__fmtTime))
-                    ax.xaxis.set_major_locator(LinearLocator(9))
+                    if self.t_units == "h_m":
+                        ax.xaxis.set_major_locator(LinearLocator(9))
+                    if self.t_units == "h":
+                        ax.xaxis.set_major_locator(LinearLocator(int((xmax-xmin)/3600)+1))
                 ymin = self.ymin if self.ymin is not None else numpy.nanmin(self.y[numpy.isfinite(self.y)])
                 ymax = self.ymax if self.ymax is not None else numpy.nanmax(self.y[numpy.isfinite(self.y)])
                 ax.set_facecolor(self.bgcolor)

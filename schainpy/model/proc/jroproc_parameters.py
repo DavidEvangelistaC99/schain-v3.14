@@ -25,6 +25,10 @@ from numpy import NaN
 from scipy.optimize.optimize import OptimizeWarning
 warnings.filterwarnings('ignore')
 
+import os
+import csv
+from scipy import signal
+import matplotlib.pyplot as plt
 
 SPEED_OF_LIGHT = 299792458
 
@@ -71,27 +75,44 @@ class ParametersProc(ProcessingUnit):
         self.dataOut.useLocalTime = self.dataIn.useLocalTime
 
         self.dataOut.radarControllerHeaderObj = self.dataIn.radarControllerHeaderObj.copy()
+        self.dataOut.processingHeaderObj = self.dataIn.processingHeaderObj.copy()
         self.dataOut.systemHeaderObj = self.dataIn.systemHeaderObj.copy()
         self.dataOut.channelList = self.dataIn.channelList
         self.dataOut.heightList = self.dataIn.heightList
+        self.dataOut.ipp = self.dataIn.ipp
+        self.dataOut.ippSeconds = self.dataIn.ippSeconds
+        self.dataOut.deltaHeight = self.dataIn.deltaHeight
         self.dataOut.dtype = numpy.dtype([('real','<f4'),('imag','<f4')])
-        # self.dataOut.nBaud = self.dataIn.nBaud
-        # self.dataOut.nCode = self.dataIn.nCode
-        # self.dataOut.code = self.dataIn.code
+
+        self.dataOut.nBaud = self.dataIn.nBaud
+        self.dataOut.nCode = self.dataIn.nCode
+        self.dataOut.code = self.dataIn.code
+        self.dataOut.nProfiles = self.dataIn.nProfiles
         self.dataOut.flagDiscontinuousBlock = self.dataIn.flagDiscontinuousBlock
         self.dataOut.utctime = self.dataIn.utctime
         self.dataOut.flagDecodeData = self.dataIn.flagDecodeData #asumo q la data esta decodificada
         self.dataOut.flagDeflipData = self.dataIn.flagDeflipData #asumo q la data esta sin flip
         self.dataOut.nCohInt = self.dataIn.nCohInt
+        self.dataOut.nIncohInt = self.dataIn.nIncohInt
+        self.dataOut.ippSeconds = self.dataIn.ippSeconds
+        self.dataOut.windowOfFilter = self.dataIn.windowOfFilter
         self.dataOut.timeInterval1 = self.dataIn.timeInterval
         self.dataOut.heightList = self.dataIn.heightList
         self.dataOut.frequency = self.dataIn.frequency
+        self.dataOut.codeList = self.dataIn.codeList
+        self.dataOut.azimuthList = self.dataIn.azimuthList
+        self.dataOut.elevationList = self.dataIn.elevationList
         self.dataOut.runNextUnit = self.dataIn.runNextUnit
 
     def run(self, runNextUnit=0):
 
         self.dataIn.runNextUnit = runNextUnit
         #----------------------    Voltage Data    ---------------------------
+        try:
+            intype = self.dataIn.type.decode("utf-8")
+            self.dataIn.type = intype
+        except:
+            pass
 
         if self.dataIn.type == "Voltage":
 
@@ -123,18 +144,27 @@ class ParametersProc(ProcessingUnit):
             self.dataOut.data_pre = [self.dataIn.data_spc, self.dataIn.data_cspc]
             self.dataOut.data_spc = self.dataIn.data_spc
             self.dataOut.data_cspc = self.dataIn.data_cspc
+            self.dataOut.data_outlier = self.dataIn.data_outlier
             self.dataOut.nProfiles = self.dataIn.nProfiles
             self.dataOut.nIncohInt = self.dataIn.nIncohInt
             self.dataOut.nFFTPoints = self.dataIn.nFFTPoints
             self.dataOut.ippFactor = self.dataIn.ippFactor
+            self.dataOut.flagProfilesByRange = self.dataIn.flagProfilesByRange
+            self.dataOut.nProfilesByRange = self.dataIn.nProfilesByRange
+            self.dataOut.deltaHeight = self.dataIn.deltaHeight
             self.dataOut.abscissaList = self.dataIn.getVelRange(1)
             self.dataOut.spc_noise = self.dataIn.getNoise()
             self.dataOut.spc_range = (self.dataIn.getFreqRange(1) , self.dataIn.getAcfRange(1) , self.dataIn.getVelRange(1))
             # self.dataOut.normFactor = self.dataIn.normFactor
-            self.dataOut.pairsList = self.dataIn.pairsList
-            self.dataOut.groupList = self.dataIn.pairsList
+            if hasattr(self.dataIn, 'channelList'):
+                self.dataOut.channelList = self.dataIn.channelList
+            if hasattr(self.dataIn, 'pairsList'):
+                self.dataOut.pairsList = self.dataIn.pairsList
+                self.dataOut.groupList = self.dataIn.pairsList
+
             self.dataOut.flagNoData = False
 
+            self.dataOut.noise_estimation = self.dataIn.noise_estimation
             if hasattr(self.dataIn, 'ChanDist'): #Distances of receiver channels
                 self.dataOut.ChanDist = self.dataIn.ChanDist
             else: self.dataOut.ChanDist = None
@@ -173,8 +203,14 @@ class ParametersProc(ProcessingUnit):
 
         if self.dataIn.type == "Parameters":
             self.dataOut.copy(self.dataIn)
+            self.dataOut.radarControllerHeaderObj = self.dataIn.radarControllerHeaderObj.copy()
+            self.dataOut.processingHeaderObj = self.dataIn.processingHeaderObj.copy()
             self.dataOut.flagNoData = False
-
+            if isinstance(self.dataIn.nIncohInt,numpy.ndarray):
+                nch, nheis = self.dataIn.nIncohInt.shape
+                if nch != self.dataIn.nChannels:
+                    aux = numpy.repeat(self.dataIn.nIncohInt, self.dataIn.nChannels, axis=0)
+                    self.dataOut.nIncohInt = aux
             return True
 
         self.__updateObjFromInput()
@@ -2463,7 +2499,7 @@ class SpectralMoments(Operation):
 
         return dataOut
 
-    def __calculateMoments(self, oldspec, oldfreq, n0,
+    def __calculateMoments(self, oldspec, oldfreq, n0, normFactor = 1,
                            nicoh = None, graph = None, smooth = None, type1 = None, fwindow = None, snrth = None, dc = None, aliasing = None, oldfd = None, wwauto = None,id_ch=0):
 
         def __GAUSSWINFIT1(A, flagPDER=0):
@@ -2641,6 +2677,8 @@ class SpectralMoments(Operation):
         vec_fp = numpy.empty(oldspec.shape[1])
         vec_sigma_fd = numpy.empty(oldspec.shape[1])
 
+        norm = 1
+
         for ind in range(oldspec.shape[1]):
 
             spec = oldspec[:,ind]
@@ -2652,6 +2690,10 @@ class SpectralMoments(Operation):
             aux = spec2*fwindow
             max_spec = aux.max()
             m = aux.tolist().index(max_spec)
+
+            if hasattr(normFactor, "ndim"):
+                if normFactor.ndim >= 1:
+                    norm = normFactor[ind]
 
             if m > 2 and m < oldfreq.size - 3:
                 newindex = m + numpy.array([-2,-1,0,1,2])
@@ -2700,6 +2742,7 @@ class SpectralMoments(Operation):
                 power = ((spec2[valid] - n0) * fwindow[valid]).sum() 
                 fd = ((spec2[valid]- n0)*freq[valid] * fwindow[valid]).sum() / power
                 w = numpy.sqrt(((spec2[valid] - n0)*fwindow[valid]*(freq[valid]- fd)**2).sum() / power)
+                spec2 /=(norm)   #compensation for sats remove
                 snr = (spec2.mean()-n0)/n0
                 if (snr < 1.e-20): snr = 1.e-20
    
@@ -6237,3 +6280,49 @@ class MergeProc(ProcessingUnit):
             #data = numpy.concatenate([getattr(data, attr_data_3) for data in data_inputs])
             #setattr(self.dataOut, attr_data_3, data)
             #print(self.dataOut.moments.shape,self.dataOut.data_snr.shape,self.dataOut.heightList.shape)
+
+
+class addTxPower(Operation):
+    '''
+    Transmited power level integrated in the dataOut ->AMISR
+    resolution 1 min
+    The power files have the pattern power_YYYYMMDD.csv
+    '''
+    __slots__ =('isConfig','dataDatetimes','txPowers')
+    def __init__(self):
+
+        Operation.__init__(self)
+        self.isConfig = False
+        self.dataDatetimes = []
+        self.txPowers = []
+
+    def setup(self, powerFile, dutyCycle):
+        if not os.path.isfile(powerFile):
+            raise schainpy.admin.SchainError('There is no file named :{}'.format(powerFile))
+            return 
+
+        with open(powerFile, newline='') as pfile:
+            reader = csv.reader(pfile, delimiter=',', quotechar='|')
+            next(reader)
+            for row in reader:
+                #'2022-10-25 00:00:00'
+                self.dataDatetimes.append(datetime.datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S"))
+                self.txPowers.append(float(row[1])/dutyCycle)
+        self.isConfig = True
+    
+    def run(self, dataOut, path, DS=0.05):
+        
+        #dataOut.flagNoData = True
+        
+        if not(self.isConfig):
+            self.setup(path, DS)
+
+        dataDate = datetime.datetime.utcfromtimestamp(dataOut.utctime).replace(second=0, microsecond=0)#no seconds
+        try:
+            indx = self.dataDatetimes.index(dataDate)
+            dataOut.txPower = self.txPowers[indx]
+        except:
+            log.warning("No power available for the datetime {}, setting power to 0 w", self.name)
+            dataOut.txPower = 0
+        
+        return dataOut
