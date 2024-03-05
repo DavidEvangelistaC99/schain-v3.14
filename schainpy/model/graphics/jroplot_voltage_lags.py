@@ -250,10 +250,10 @@ class DenRTIPlot(RTIPlot):
                 if numpy.log10(self.zmin)<0:
                     self.zmin=1
                 ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
-                                       vmin=self.zmin,
-                                       vmax=self.zmax,
+                                       #vmin=self.zmin,
+                                       #vmax=self.zmax,
                                        cmap=self.cmaps[n],
-                                       norm=colors.LogNorm()
+                                       norm=colors.LogNorm(vmin=self.zmin,vmax=self.zmax)
                                        )
 
             else:
@@ -261,10 +261,10 @@ class DenRTIPlot(RTIPlot):
                     self.zmin, self.zmax = self.zlimits[n]
                 ax.plt.remove()
                 ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
-                                       vmin=self.zmin,
-                                       vmax=self.zmax,
+                                       #vmin=self.zmin,
+                                       #vmax=self.zmax,
                                        cmap=self.cmaps[n],
-                                       norm=colors.LogNorm()
+                                       norm=colors.LogNorm(vmin=self.zmin,vmax=self.zmax)
                                        )
 
 
