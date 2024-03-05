@@ -718,7 +718,7 @@ class EDensityPlot(Plot):
 
             plt.legend(loc='upper left',fontsize=8.5)
             #plt.legend(loc='lower left',fontsize=8.5)
-            ax.set_xscale("log", nonposx='clip')
+            ax.set_xscale("log")#, nonposx='clip')
             grid_y_ticks=numpy.arange(numpy.nanmin(y),numpy.nanmax(y),50)
             self.ystep_given=100
             if self.CODE=='denLP':
@@ -744,7 +744,7 @@ class EDensityPlot(Plot):
             if self.CODE=='denLP':
                 ax.errorbar(DenPowLP[cut:], y[cut:], fmt='r^-', xerr=errDenPowLP[cut:],elinewidth=1.0,color='r',linewidth=1.0, label='LP Profile',markersize=2)
 
-            ax.set_xscale("log", nonposx='clip')
+            ax.set_xscale("log")#, nonposx='clip')
             grid_y_ticks=numpy.arange(numpy.nanmin(y),numpy.nanmax(y),50)
             ax.set_yticks(grid_y_ticks,minor=True)
             locmaj = LogLocator(base=10,numticks=12)
@@ -809,7 +809,7 @@ class RelativeDenPlot(Plot):
 
             plt.legend(loc='upper left',fontsize=8.5)
             #plt.legend(loc='lower left',fontsize=8.5)
-            ax.set_xscale("log", nonposx='clip')
+            ax.set_xscale("log")#, nonposx='clip')
             grid_y_ticks=numpy.arange(numpy.nanmin(y),numpy.nanmax(y),50)
             self.ystep_given=100
             ax.set_yticks(grid_y_ticks,minor=True)
@@ -827,7 +827,7 @@ class RelativeDenPlot(Plot):
             ax.errorbar(DenPow, y, fmt='k^-', xerr=errDenPow,elinewidth=1.0,color='b',linewidth=1.0, label='Power',markersize=2,linestyle='-')
             ax.errorbar(DenPowBefore, y, elinewidth=1.0,color='r',linewidth=0.5,linestyle="dashed")
 
-            ax.set_xscale("log", nonposx='clip')
+            ax.set_xscale("log")#, nonposx='clip')
             grid_y_ticks=numpy.arange(numpy.nanmin(y),numpy.nanmax(y),50)
             ax.set_yticks(grid_y_ticks,minor=True)
             locmaj = LogLocator(base=10,numticks=12)
