@@ -54,7 +54,7 @@ class RTIDPPlot(RTIPlot):
         data = {}
         meta = {}
         data[self.CODE] = dataOut.data_for_RTI_DP
-        data['NRANGE'] = dataOut.NDP 
+        data['NRANGE'] = dataOut.NDP
 
         return data, meta
 
@@ -90,7 +90,7 @@ class RTIDPPlot(RTIPlot):
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                ax.collections.remove(ax.collections[0])
+                ax.plt.remove()
                 ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -177,7 +177,7 @@ class RTILPPlot(RTIPlot):
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                ax.collections.remove(ax.collections[0])
+                ax.plt.remove()
                 ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -259,7 +259,7 @@ class DenRTIPlot(RTIPlot):
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                ax.collections.remove(ax.collections[0])
+                ax.plt.remove()
                 ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -346,7 +346,7 @@ class ETempRTIPlot(RTIPlot):
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                ax.collections.remove(ax.collections[0])
+                ax.plt.remove()
                 ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -1048,7 +1048,7 @@ class ACFsPlot(Plot):
                 ax.plot(BadLag1[i,x_igcej_aux],BadHei1[i,y_igcej_aux],'x',color='red',markersize=2)
                 ax.plot(BadLag2[i,x_ibad_aux],BadHei2[i,y_ibad_aux],'X',color='red',markersize=2)
             ax.yaxis.set_minor_locator(MultipleLocator(15))
-            
+
 class ACFsLPPlot(Plot):
     '''
     Written by R. Flores

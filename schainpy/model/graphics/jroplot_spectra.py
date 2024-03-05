@@ -826,7 +826,7 @@ class SpectrogramPlot(Plot):
                                        cmap=plt.get_cmap(self.colormap)
                                        )
             else:
-                ax.collections.remove(ax.collections[0])
+                ax.plt.remove()
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
