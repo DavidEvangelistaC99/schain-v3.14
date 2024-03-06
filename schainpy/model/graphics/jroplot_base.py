@@ -422,7 +422,7 @@ class Plot(Operation):
                     self.pf_axes[n].set_ylim(ymin, ymax)
                     self.pf_axes[n].set_xlim(self.zmin, self.zmax)
                     self.pf_axes[n].set_xlabel('dB')
-                    self.pf_axes[n].grid(b=True, axis='x')
+                    self.pf_axes[n].grid(visible=True, axis='x')
                     [tick.set_visible(False)
                      for tick in self.pf_axes[n].get_yticklabels()]
                 if self.colorbar and not(hasattr(ax, 'cbar')):

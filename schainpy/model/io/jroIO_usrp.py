@@ -341,7 +341,7 @@ class USRPReader(ProcessingUnit):
 
         self.__thisUnixSample = int(startUTCSecond*self.__sample_rate) - self.__samples_to_read
 
-        self.__data_buffer = numpy.zeros((self.__nChannels, self.__samples_to_read), dtype = numpy.complex)
+        self.__data_buffer = numpy.zeros((self.__nChannels, self.__samples_to_read), dtype = numpy.complex_)
 
         self.__setFileHeader()
         self.isConfig = True

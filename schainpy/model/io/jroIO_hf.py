@@ -686,7 +686,7 @@ class HFReader(ProcessingUnit):
 
     def __setLocalVariables(self):
 
-        self.datablock = numpy.zeros((self.nChannels, self.nHeights,self.nProfiles), dtype = numpy.complex)
+        self.datablock = numpy.zeros((self.nChannels, self.nHeights,self.nProfiles), dtype = numpy.complex_)
         #
 
 

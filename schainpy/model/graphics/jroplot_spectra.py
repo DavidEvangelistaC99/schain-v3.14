@@ -730,7 +730,7 @@ class RTIPlot(Plot):
                         ax.plot_noise = self.pf_axes[n].plot(numpy.repeat(data['noise'][n], len(self.y)), self.y,
                                                          color="k", linestyle="dashed", lw=1)[0]
             else:
-                ax.collections.remove(ax.collections[0])
+                # ax.collections.remove(ax.collections[0]) #  error while running
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -815,7 +815,7 @@ class SpectrogramPlot(Plot):
                                        cmap=plt.get_cmap(self.colormap)
                                        )
             else:
-                ax.collections.remove(ax.collections[0])
+                # ax.collections.remove(ax.collections[0]) #  error while running
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -1534,7 +1534,7 @@ class NoiselessRTIPlot(RTIPlot):
                     ax.plot_profile = self.pf_axes[n].plot(data['noiseless_rti'][n], self.y)[0]
 
             else:
-                ax.collections.remove(ax.collections[0])
+                # ax.collections.remove(ax.collections[0]) #  error while running
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -1615,7 +1615,7 @@ class OutliersRTIPlot(Plot):
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                ax.collections.remove(ax.collections[0])
+                # ax.collections.remove(ax.collections[0]) #  error while running
                 ax.plt = ax.pcolormesh(x, y, z[n].T ,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -1693,7 +1693,7 @@ class NIncohIntRTIPlot(Plot):
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                ax.collections.remove(ax.collections[0])
+                # ax.collections.remove(ax.collections[0]) #  error while running
                 ax.plt = ax.pcolormesh(x, y, z[n].T ,
                                        vmin=self.zmin,
                                        vmax=self.zmax,

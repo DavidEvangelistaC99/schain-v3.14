@@ -375,10 +375,10 @@ class PolarMapPlot(Plot):
                     ha='center', va='bottom', size='8', color='0.6', weight='heavy')
 
         if self.mode == 'E':
-            title = 'El={}$^\circ$'.format(self.data.meta['elevation'])
+            title = 'El={}\N{DEGREE SIGN}'.format(self.data.meta['elevation'])
             label = 'E{:02d}'.format(int(self.data.meta['elevation']))
         else:
-            title = 'Az={}$^\circ$'.format(self.data.meta['azimuth'])
+            title = 'Az={}\N{DEGREE SIGN}'.format(self.data.meta['azimuth'])
             label = 'A{:02d}'.format(int(self.data.meta['azimuth']))
 
         self.save_labels = ['{}-{}'.format(lbl, label) for lbl in self.labels]
