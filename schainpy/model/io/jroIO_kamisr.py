@@ -619,7 +619,7 @@ class AMISRReader(ProcessingUnit):
             self.dataOut.timeZone = time.timezone / 60. #get the timezone in minutes
         else:
             self.dataOut.timeZone = 0 #by default time is UTC
-
+  
         self.dataOut.dstFlag = 0
         self.dataOut.errorCount = 0
         self.dataOut.nCohInt = 1
