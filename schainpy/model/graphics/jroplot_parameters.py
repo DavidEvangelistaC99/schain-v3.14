@@ -206,7 +206,7 @@ class GenericRTIPlot(Plot):
         data = {
             'param' : numpy.concatenate([getattr(dataOut, attr) for attr in self.attr_data], axis=0)
         }
-
+        
         meta = {}
 
         return data, meta

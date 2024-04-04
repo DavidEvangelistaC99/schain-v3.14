@@ -459,6 +459,9 @@ class Voltage(JROData):
         powerdB = numpy.squeeze(powerdB)
 
         return powerdB
+    @property
+    def data_pow(self):
+        return self.getPower()
 
     @property
     def timeInterval(self):

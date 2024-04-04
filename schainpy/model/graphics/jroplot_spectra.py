@@ -65,22 +65,26 @@ class SpectraPlot(Plot):
         self.update_list(dataOut)
         data = {}
         meta = {}
-
         norm = dataOut.nProfiles * dataOut.max_nIncohInt * dataOut.nCohInt  * dataOut.windowOfFilter
-        noise = 10*numpy.log10(dataOut.getNoise()/norm)
-        z = numpy.zeros((dataOut.nChannels, dataOut.nFFTPoints, dataOut.nHeights))
-        for ch in range(dataOut.nChannels):
-            if hasattr(dataOut.normFactor,'ndim'):
-                if dataOut.normFactor.ndim > 1:
-                    z[ch] = (numpy.divide(dataOut.data_spc[ch],dataOut.normFactor[ch]))
+        if dataOut.type == "Parameters":
+            noise = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
+            spc = 10*numpy.log10(dataOut.data_spc/(dataOut.nProfiles))
+        else:
+            noise = 10*numpy.log10(dataOut.getNoise()/norm)
 
+            z = numpy.zeros((dataOut.nChannels, dataOut.nFFTPoints, dataOut.nHeights))
+            for ch in range(dataOut.nChannels):
+                if hasattr(dataOut.normFactor,'ndim'):
+                    if dataOut.normFactor.ndim > 1:
+                        z[ch] = (numpy.divide(dataOut.data_spc[ch],dataOut.normFactor[ch]))
+
+                    else:
+                        z[ch] = (numpy.divide(dataOut.data_spc[ch],dataOut.normFactor))
                 else:
                     z[ch] = (numpy.divide(dataOut.data_spc[ch],dataOut.normFactor))
-            else:
-                z[ch] = (numpy.divide(dataOut.data_spc[ch],dataOut.normFactor))
 
-        z = numpy.where(numpy.isfinite(z), z, numpy.NAN)
-        spc = 10*numpy.log10(z)
+            z = numpy.where(numpy.isfinite(z), z, numpy.NAN)
+            spc = 10*numpy.log10(z)
 
         data['spc'] = spc
         data['rti'] = spc.mean(axis=1)
@@ -725,7 +729,7 @@ class RTIPlot(Plot):
                                        )
                 if self.showprofile:
                     ax.plot_profile = self.pf_axes[n].plot(
-                        data['rti'][n], self.y)[0]
+                        data[self.CODE][n], self.y)[0]
                     if "noise" in self.data:
                         ax.plot_noise = self.pf_axes[n].plot(numpy.repeat(data['noise'][n], len(self.y)), self.y,
                                                          color="k", linestyle="dashed", lw=1)[0]
@@ -737,7 +741,7 @@ class RTIPlot(Plot):
                                        cmap=plt.get_cmap(self.colormap)
                                        )
                 if self.showprofile:
-                    ax.plot_profile.set_data(data['rti'][n], self.y)
+                    ax.plot_profile.set_data(data[self.CODE][n], self.y)
                     if "noise" in self.data:
                         ax.plot_noise = self.pf_axes[n].plot(numpy.repeat(data['noise'][n], len(self.y)), self.y,
                                                          color="k", linestyle="dashed", lw=1)[0]
@@ -893,12 +897,15 @@ class NoisePlot(Plot):
         self.titles = ['Noise']
         self.colorbar = False
         self.plots_adjust.update({'right': 0.85 })
+        self.titles = ['Noise Plot']
 
     def update(self, dataOut):
 
         data = {}
         meta = {}
-        data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor).reshape(dataOut.nChannels, 1)
+        noise =  10*numpy.log10(dataOut.getNoise())
+        noise = noise.reshape(dataOut.nChannels, 1)
+        data['noise'] = noise
         meta['yrange'] = numpy.array([])
 
         return data, meta

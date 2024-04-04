@@ -445,6 +445,7 @@ class HDFWriter(Operation):
     path = None
     setFile = None
     fp = None
+    ds = None
     firsttime = True
     #Configurations
     blocksPerFile = None
@@ -490,6 +491,8 @@ class HDFWriter(Operation):
         if self.metadataList is None:
             self.metadataList = self.dataOut.metadata_list
 
+        self.metadataList = list(set(self.metadataList))
+        
         tableList = []
         dsList = []
 
@@ -504,7 +507,7 @@ class HDFWriter(Operation):
 
             if dataAux is None:
                 continue
-            elif isinstance(dataAux, (int, float, numpy.integer, numpy.float)):
+            elif isinstance(dataAux, (int, float, numpy.integer, numpy.float_)):
                 dsDict['nDim'] = 0
             else:
                 dsDict['nDim'] = len(dataAux.shape)
@@ -514,6 +517,7 @@ class HDFWriter(Operation):
 
             dsList.append(dsDict)
 
+        self.blockIndex = 0
         self.dsList = dsList
         self.currentDay = self.dataOut.datatime.date()
 
@@ -763,7 +767,7 @@ class HDFWriter(Operation):
         self.ds = dtsets
         self.data = data
         self.firsttime = True
-        self.blockIndex = 0
+        
         return
 
     def putData(self):
