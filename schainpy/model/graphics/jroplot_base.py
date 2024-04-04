@@ -237,7 +237,7 @@ class Plot(Operation):
         self.width = kwargs.get('width', None)
         self.height = kwargs.get('height', None)
         self.colorbar = kwargs.get('colorbar', True)
-        self.factors = kwargs.get('factors', range(18))
+        self.factors = kwargs.get('factors', [1, 1, 1, 1, 1, 1, 1, 1])
         self.channels = kwargs.get('channels', None)
         self.titles = kwargs.get('titles', [])
         self.polar = False
