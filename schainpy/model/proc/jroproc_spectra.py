@@ -32,6 +32,7 @@ class SpectraProc(ProcessingUnit):
         self.firstdatatime = None
         self.profIndex = 0
         self.dataOut = Spectra()
+        self.dataOut.error=False 
         self.id_min = None
         self.id_max = None
         self.setupReq = False #Agregar a todas las unidades de proc
@@ -135,16 +136,17 @@ class SpectraProc(ProcessingUnit):
         self.dataOut.flagShiftFFT = False
 
     def run(self, nProfiles=None, nFFTPoints=None, pairsList=None, ippFactor=None, shift_fft=False, 
-            zeroPad=False, zeroPoints=0, runNextUnit = 0):
-
+            zeroPad=False, zeroPoints=0, runNextUnit=0):
         self.dataIn.runNextUnit = runNextUnit
         try:
             type = self.dataIn.type.decode("utf-8")
             self.dataIn.type = type
-        except:
+        except Exception as e:
+            # print("spc -> ",e)
             pass
         
         if self.dataIn.type == "Spectra":
+            #print("AQUI")
             try:
                 self.dataOut.copy(self.dataIn)
                 self.dataOut.radarControllerHeaderObj = self.dataIn.radarControllerHeaderObj.copy()
@@ -301,7 +303,7 @@ class SpectraProc(ProcessingUnit):
         else:
             raise ValueError("The type of input object '%s' is not valid".format(
                 self.dataIn.type))
-        
+        # print("SPC done")
 
     def __selectPairs(self, pairsList):
 

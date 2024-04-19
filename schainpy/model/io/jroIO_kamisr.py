@@ -685,7 +685,6 @@ class AMISRReader(ProcessingUnit):
         #self.__firstFile = False
 
         self.dataset,self.timeset = self.readData()
-
         if self.endDate!=None:
             endDateTime_Reader = datetime.datetime.combine(self.endDate,self.endTime)
             time_str = self.amisrFilePointer.get('Time/RadacTimeString')
@@ -700,6 +699,7 @@ class AMISRReader(ProcessingUnit):
             if self.flag_ignoreFiles and (startDateTime_File >= self.ignStartDateTime and startDateTime_File <= self.ignEndDateTime):
                 print("Ignoring...")
                 self.flag_standby = True
+                self.profileIndex = 99999999999999999
                 return 1
             self.flag_standby = False
 
@@ -721,7 +721,6 @@ class AMISRReader(ProcessingUnit):
         if self.flagNoMoreFiles:
             self.dataOut.flagNoData = True
             return 0
-
         if self.profileIndex >= (self.newProfiles*self.nblocks): #
         #if self.__hasNotDataInBuffer():
             if not (self.readNextFile(self.online)):
@@ -763,7 +762,7 @@ class AMISRReader(ProcessingUnit):
         #     print("kamisr: ",self.dataOut.utctime)
 
         self.profileIndex += 1
-
+        
         return self.dataOut.data #retorno necesario??
 
 

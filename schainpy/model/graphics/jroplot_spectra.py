@@ -734,7 +734,7 @@ class RTIPlot(Plot):
                         ax.plot_noise = self.pf_axes[n].plot(numpy.repeat(data['noise'][n], len(self.y)), self.y,
                                                          color="k", linestyle="dashed", lw=1)[0]
             else:
-                # ax.collections.remove(ax.collections[0]) #  error while running
+                ax.collections.remove(ax.collections[0]) #  error while running in 3.12
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
