@@ -137,12 +137,13 @@ class SpectraProc(ProcessingUnit):
 
     def run(self, nProfiles=None, nFFTPoints=None, pairsList=None, ippFactor=None, shift_fft=False, 
             zeroPad=False, zeroPoints=0, runNextUnit=0):
+            
         self.dataIn.runNextUnit = runNextUnit
         try:
-            type = self.dataIn.type.decode("utf-8")
-            self.dataIn.type = type
+            _type = self.dataIn.type.decode("utf-8")
+            self.dataIn.type = _type
         except Exception as e:
-            # print("spc -> ",e)
+            #print("spc -> ",self.dataIn.type, e)
             pass
         
         if self.dataIn.type == "Spectra":

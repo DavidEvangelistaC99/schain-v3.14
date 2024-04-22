@@ -165,7 +165,7 @@ class MergeH5(object):
     def readFile(self,fp,ch):
         '''Read metadata and data'''
         self.readMetadata(fp,ch)
-        #print(self.metadataList)
+        # print(self.metadataList)
         data = self.readData(fp)
         for attr in self.meta:
             if "processingHeaderObj" in attr:
@@ -173,7 +173,7 @@ class MergeH5(object):
             if "radarControllerHeaderObj" in attr:
                 self.flagControllerHeader=True
             at = attr.split('.')
-            #print("AT ", at)
+            # print("AT ", at)
             if len(at) > 1:
                 setattr(eval("self.ch_dataIn[ch]."+at[0]),at[1], self.meta[attr])
             else:
@@ -229,7 +229,7 @@ class MergeH5(object):
                 setattr(dataIn, attr, data[attr][:])
             else:
                 setattr(dataIn, attr, numpy.squeeze(data[attr][:,:]))
-        #print("shape in", dataIn.data_spc.shape, len(dataIn.data_spc))
+        # print("shape in", dataIn.data_spc.shape, len(dataIn.data_spc))
         if self.flag_spc:
             if dataIn.data_spc.ndim > 3:
                 dataIn.data_spc = dataIn.data_spc[0]
@@ -256,6 +256,7 @@ class MergeH5(object):
                         setattr(self.ch_dataIn[ich], self.dataList[i], dataAux[0:self.blocksPerFile])
                         # print(getattr(self.ch_dataIn[ich], self.dataList[i]).shape)
         else:
+            # log.error("Channels number error,iresh_ch=", iresh_ch)
             return
     def getLabel(self, name, x=None):
         if x is None:
@@ -289,8 +290,9 @@ class MergeH5(object):
                 return 'pair{:02d}'.format(x)
             else:
                 return 'channel{:02d}'.format(x)
+            
     def readData(self, fp):
-        #print("read fp: ", fp)
+        # print("read fp: ", fp)
         data = {}
         grp = fp['Data']
         for name in grp:
@@ -302,7 +304,7 @@ class MergeH5(object):
                 self.flag_snr = True
             if "nIncohInt" in name:
                 self.flag_nIcoh = True
-                
+            # print("spc:",self.flag_spc," pow:",self.flag_pow," snr:", self.flag_snr)
             if isinstance(grp[name], h5py.Dataset):
                 array = grp[name][()]
             elif isinstance(grp[name], h5py.Group):
@@ -314,7 +316,9 @@ class MergeH5(object):
                 print('Unknown type: {}'.format(name))
             data[name] = array
         return data
+    
     def getDataOut(self):
+        # print("Getting DataOut")
         self.dataOut = self.ch_dataIn[0].copy()  #dataIn    #blocks, fft, hei for metadata
         if self.flagProcessingHeader:
             self.dataOut.processingHeaderObj = self.ch_dataIn[0].processingHeaderObj.copy()
@@ -381,8 +385,8 @@ class MergeH5(object):
         else:
              self.dataOut.nIncohInt = self.ch_dataIn[0].nIncohInt
         #--------------------------------------------------------------------
-        #print("utcTime: ", time.shape)
-        #print("data_spc ",self.dataOut.data_spc.shape)
+        # print("utcTime: ", time.shape)
+        # print("data_spc ",self.dataOut.data_spc.shape)
         if "data_cspc" in self.dataList:
             pairsList = [pair for pair in itertools.combinations(self.channelList, 2)]
             #print("PairsList: ", pairsList)
@@ -452,8 +456,11 @@ class MergeH5(object):
                     
                 grp.create_dataset(self.getLabel(attribute), data=value)
         return
+    
     def getDsList(self):
+        # print("Getting DS List", self.dataList)
         dsList =[]
+        dataAux = None
         for i in range(len(self.dataList)):
             dsDict = {}
             if hasattr(self.dataOut, self.dataList[i]):
@@ -464,7 +471,7 @@ class MergeH5(object):
                 continue
             if dataAux is None:
                 continue
-            elif isinstance(dataAux, (int, float, numpy.integer, numpy.float)):
+            elif isinstance(dataAux, (int, float, numpy.int_, numpy.float_)):
                 dsDict['nDim'] = 0
             else:
                 dsDict['nDim'] = len(dataAux.shape) -1
@@ -485,8 +492,9 @@ class MergeH5(object):
                 #     dsDict['dsNumber'] = dataAux.shape[0]
                 #     dsDict['dtype'] = dataAux.dtype
             dsList.append(dsDict)
-        #print(dsList)
+        # print("dsList: ", dsList)
         self.dsList = dsList
+
     def clean_dataIn(self):
         for ch in range(self.nChannels):
             self.ch_dataIn[ch].data_spc = None
@@ -494,9 +502,11 @@ class MergeH5(object):
             self.ch_dataIn[ch].nIncohInt = None
         self.meta ={}
         self.blocksPerFile = None
+
     def writeData(self, outFilename):
         self.getDsList()
         fp = h5py.File(outFilename, 'w')
+        # print("--> Merged file: ",fp)
         self.writeMetadata(fp)
         grp = fp.create_group('Data')
         dtsets = []
@@ -514,7 +524,7 @@ class MergeH5(object):
                 else:
                     sgrp = grp
                 k = -1*(dsInfo['nDim'] - 1)
-                #print(k, dsInfo['shape'], dsInfo['shape'][k:])
+                # print(k, dsInfo['shape'], dsInfo['shape'][k:])
                 for i in range(dsInfo['dsNumber']):
                     ds = sgrp.create_dataset(
                         self.getLabel(dsInfo['variable'], i),(self.blocksPerFile, ) + dsInfo['shape'][k:],
@@ -539,6 +549,7 @@ class MergeH5(object):
         fp.close()
         self.clean_dataIn()
         return
+    
     def run(self):
         if not(self.isConfig):
             self.setup()
@@ -549,7 +560,7 @@ class MergeH5(object):
                 name = self.filenameList[ch][nf]
                 filename = os.path.join(self.inPaths[ch], name)
                 fp = h5py.File(filename, 'r')
-                #print("Opening file: ",filename)
+                print("Opening file: ",filename)
                 self.readFile(fp,ch)
                 fp.close()
             if self.blocksPerFile == None:
@@ -559,7 +570,7 @@ class MergeH5(object):
                 print("Error getting DataOut invalid number of blocks")
                 return
             name = name[-16:]
-            #print("Final name out: ", name)
+            # print("Final name out: ", name)
             outFile = os.path.join(self.pathOut, name)
-            #print("Outfile: ", outFile)
+            # print("Outfile: ", outFile)
             self.writeData(outFile)

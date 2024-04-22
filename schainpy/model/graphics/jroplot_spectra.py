@@ -728,13 +728,13 @@ class RTIPlot(Plot):
                                        cmap=plt.get_cmap(self.colormap)
                                        )
                 if self.showprofile:
-                    ax.plot_profile = self.pf_axes[n].plot(
-                        data[self.CODE][n], self.y)[0]
+                    ax.plot_profile = self.pf_axes[n].plot(data[self.CODE][n], self.y)[0]
                     if "noise" in self.data:
+
                         ax.plot_noise = self.pf_axes[n].plot(numpy.repeat(data['noise'][n], len(self.y)), self.y,
                                                          color="k", linestyle="dashed", lw=1)[0]
             else:
-                ax.collections.remove(ax.collections[0]) #  error while running in 3.12
+                ax.collections.remove(ax.collections[0])
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -743,8 +743,7 @@ class RTIPlot(Plot):
                 if self.showprofile:
                     ax.plot_profile.set_data(data[self.CODE][n], self.y)
                     if "noise" in self.data:
-                        ax.plot_noise = self.pf_axes[n].plot(numpy.repeat(data['noise'][n], len(self.y)), self.y,
-                                                         color="k", linestyle="dashed", lw=1)[0]
+                        ax.plot_noise.set_data(numpy.repeat(data['noise'][n], len(self.y)), self.y)
 
 class SpectrogramPlot(Plot):
     '''
@@ -819,7 +818,7 @@ class SpectrogramPlot(Plot):
                                        cmap=plt.get_cmap(self.colormap)
                                        )
             else:
-                # ax.collections.remove(ax.collections[0]) #  error while running
+                ax.collections.remove(ax.collections[0]) #  error while running
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -1541,7 +1540,7 @@ class NoiselessRTIPlot(RTIPlot):
                     ax.plot_profile = self.pf_axes[n].plot(data['noiseless_rti'][n], self.y)[0]
 
             else:
-                # ax.collections.remove(ax.collections[0]) #  error while running
+                ax.collections.remove(ax.collections[0]) #  error while running
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -1622,7 +1621,7 @@ class OutliersRTIPlot(Plot):
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                # ax.collections.remove(ax.collections[0]) #  error while running
+                ax.collections.remove(ax.collections[0]) #  error while running
                 ax.plt = ax.pcolormesh(x, y, z[n].T ,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -1700,7 +1699,7 @@ class NIncohIntRTIPlot(Plot):
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                # ax.collections.remove(ax.collections[0]) #  error while running
+                ax.collections.remove(ax.collections[0]) #  error while running
                 ax.plt = ax.pcolormesh(x, y, z[n].T ,
                                        vmin=self.zmin,
                                        vmax=self.zmax,

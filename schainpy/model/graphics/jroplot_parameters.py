@@ -107,7 +107,7 @@ class PowerPlot(RTIPlot):
     def update(self, dataOut):
         self.update_list(dataOut)
         data = {
-            'pow': 10*numpy.log10(dataOut.data_pow/dataOut.normFactor)    
+            'pow': 10*numpy.log10(dataOut.data_pow)    
         }
         try:
             data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)

@@ -242,14 +242,18 @@ the parameters related to distances such as heightList, or heightResolution wich
 
     @property
     def ltctime(self):
-
+        try:
+            self.timeZone = self.timeZone.decode("utf-8")
+        except Exception as e:
+            pass
+        
         if self.useLocalTime:
             if self.timeZone =='lt':
                 return self.utctime - 300 * 60
             elif self.timeZone =='ut':
                 return self.utctime
             else:
-                log.error("No valid timeZone detected")
+                log.error("No valid timeZone detected:{}".format(self.timeZone))
         return self.utctime
 
     @property

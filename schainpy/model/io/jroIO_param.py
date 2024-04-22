@@ -174,8 +174,8 @@ class HDFReader(Reader, ProcessingUnit):
         self.__readMetadata2()
         self.__readData()
         self.__setBlockList()
-        if 'type' in self.meta:
-            self.dataOut = eval(self.meta['type'])()
+        # if 'type' in self.meta:
+        #     self.dataOut = eval(self.meta['type'])()
 
         for attr in self.meta:
             if "processingHeaderObj" in attr:
@@ -268,6 +268,7 @@ class HDFReader(Reader, ProcessingUnit):
         Reads Metadata
         '''
         meta = {}
+        
         if self.description:
             for key, value in self.description['Metadata'].items():
                 meta[key] = self.fp[value][()]
