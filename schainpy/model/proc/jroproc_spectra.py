@@ -1297,6 +1297,23 @@ class IncohInt(Operation):
 
 class IntegrationFaradaySpectra(Operation):
 
+    """
+    Escrito: Joab Apaza, modificado desde la operación en el branch de ISR-R.Flores, limpia e integra bloques de spc
+    
+    :param n            :   Número de spc a integrar (por número de espectros)
+    :param timeInterval :   Tiempo de spc a integrar (por tiempo de espectros)
+    :param overlapping  :   --
+    :param DPL          :   --
+    :param minHei       :   Mínima altura en km de donde se empieza a limpiar
+    :param maxHei       :   Máxima altura en km hasta donde se limpia
+    :param avg          :   Factor que controla la agresividad del limpiado, tiene 
+                            un valor 1 por defecto, usar OutliersRTIPlot para ver 
+                            como afecta el cambiar este valor
+
+    :return: dataOut
+    
+    """
+     
     __profIndex = 0
     __withOverapping = False
 

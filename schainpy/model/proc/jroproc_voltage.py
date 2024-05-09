@@ -1795,6 +1795,21 @@ class SSheightProfiles(Operation):
 ################################################################################3############################3
 
 class cleanHeightsInterf(Operation):
+    """
+    Escrito: Joab Apaza, creado para eliminar interferencias en alturas específicas
+
+    :param heightsList  :   Listado de alturas a eliminar
+    :param repeats      :   Numero de repeticiones del listado en el rango del IPP
+    :param step         :   Distancia en km hasta la prox repeticion del listado
+    :param factor       :   Fator de atenuación
+    :param idate        :   fecha de la interferencia
+    :param startH       :   hora de inicio de la interferencia
+    :param endH         :   hora de finalización de la interferencia
+
+    :return: dataOut
+    
+    """
+    
     __slots__ =('heights_indx', 'repeats', 'step', 'factor', 'idate', 'idxs','config','wMask')
     def __init__(self):
         self.repeats = 0
@@ -1860,11 +1875,23 @@ class cleanHeightsInterf(Operation):
         return dataOut
     
 class SSheightProfiles2(Operation):
-    '''
-    Procesa por perfiles y por bloques
+    
+    """
+    Escrito: Joab Apaza, basado en la Operación SSheightProfiles
+    Procesa por perfiles y por bloques, Para procesar pulso largo
     Versión corregida y actualizada para trabajar con RemoveProfileSats2
-    Usar esto
-    '''
+
+    :param step     :   Pasos en la selección de alturas, equivalente a filtrar por alturas, incrementar disminuye la resolución
+    :param nsamples :   Numero de altura a seleccionar
+    :param code     :   En caso de codificación del pulso, tambien se decodifica
+    :param repeat   :   Numero de repeticiones del codigo
+
+
+    :return: dataOut
+    
+    
+    """
+   
     bufferShape   = None
     profileShape  = None
     sshProfiles   = None
@@ -1986,7 +2013,7 @@ class SSheightProfiles2(Operation):
 class RemoveProfileSats(Operation):
     '''
     Escrito: Joab Apaza
-    Omite los perfiles contaminados con señal de satélites, usando una altura de referencia
+    Omite los perfiles contaminados con señal de satélites, usando una altura de referencia (Operacion Obsoleta)
     In: minHei = min_sat_range
         max_sat_range
         min_hei_ref
@@ -2227,18 +2254,18 @@ class RemoveProfileSats(Operation):
 class RemoveProfileSats2(Operation):
     '''
     Escrito: Joab Apaza
-    Omite los perfiles contaminados con señal de satélites, usando una altura de referencia
+    Omite los perfiles contaminados con señal de satélites, usando una altura de referencia y
     promedia todas las alturas para los cálculos
     In: 
-        n       =  Cantidad de perfiles que se acumularan, usualmente 10 segundos
-        navg    =  Porcentaje de perfiles que puede considerarse como satélite, máximo 90%
-        minHei  = 
-        minRef  =
-        maxRef  = 
-        nBins   = 
-        profile_margin  = 
-        th_hist_outlier = 
-        nProfilesOut    =
+        n       =   Cantidad de perfiles que se acumularan, usualmente 10 segundos
+        navg    =   Porcentaje de perfiles que puede considerarse como satélite, máximo 90%
+        minHei  =   mínima altura de donde se considera datos a eliminar (km)
+        minRef  =   mínima altura de referencia (km)
+        maxRef  =   máxima altura de referencia (km)
+        nBins   =   Cantidad de bins en el histograma de detección, usar debug para entender mejor
+        profile_margin  =   Numero de perfiles extra a considerar antes y depués de los detectados con la operación
+        th_hist_outlier =   Umbral de número de detecciones  
+        nProfilesOut    =   Cantidad de perfiles en la salida, por bloques o perfiles(1) 
         
         Pensado para remover interferencias de las YAGI, se puede adaptar a otras interferencias
         remYagi     =  Activa la funcion de remoción de interferencias de la YAGI
@@ -2248,6 +2275,7 @@ class RemoveProfileSats2(Operation):
         maxHJULIA   =  Altura máxima donde aparece la señal referencia de JULIA (-15)
         debug       = Activa los gráficos, recomendable ejecutar para ajustar los parámetros
                       para un experimento en específico.
+
     ** se modifica para remover interferencias puntuales, es decir, desde otros radares.
     Inicialmente se ha configurado para omitir también los perfiles de la YAGI en los datos
     de AMISR-ISR.
@@ -2677,7 +2705,7 @@ class remHeightsIppInterf(Operation):
 class profiles2Block(Operation):
     '''
     Escrito: Joab Apaza
-    genera un bloque de perfiles
+    genera un bloque de perfiles, AMISR normalmente entrega datos perfil a perfil
     
         
     Out:
@@ -2786,6 +2814,27 @@ class profiles2Block(Operation):
             # print(dataOut.data.shape)
         return dataOut
 class remFaradayProfiles(Operation):
+    """
+    This Operation eliminates the profiles affected by the Taus transmitted in the Faraday DP experiment, this class
+    creates a boolean array where the affected AMISR profiles are previously identified and filters them during processing.
+
+    :param channel  :   Main channel to clean
+    :param nChannels:   Number of channels in AMISR
+    :param nProfiles:   Number of profiles per Blck in AMISR
+    :param nBlocks  :   NUmber of blocks in AMISR
+    :param nIpp1    :   NTX in AMISR
+    :param nIpp2    :   NTX in JRO
+    :param nTx2     :   Efective NTX in JRO (NTX -nNoise) (200 - 68 )
+    :param nTaus    :   Number of Delay TxB 
+    :param offTaus  :   Offset to start removing Taus, some taus are in the Tx pulse of AMISR, so they do not need to be removed.
+    :param iTaus    :   Lenght of the interference, number of heights affected in each Tau.
+    :param nfft     :   Repetitions per beam in AMISR
+    :param offIpp   :   To synchronize the 1PPS of AMISR with the xPPS of JRO
+
+    :return: dataOut
+    
+    :author : Joab Apaza
+    """
     def __init__(self, **kwargs):
         
         Operation.__init__(self, **kwargs)
@@ -2797,16 +2846,7 @@ class remFaradayProfiles(Operation):
         self.k = 0
     def setup(self, channel,nChannels=5, nProfiles=300,nBlocks=100, nIpp2=300, nTx2=132, nTaus=22, offTaus=14, iTaus=8,
                      nfft=1):
-        '''
-        nProfiles = amisr profiles per block -> raw data
-        nIpp1 = number of profiles in one AMISR sync
-        nIpp2 = number of profiles in one Jicamarca sync
-        nTx2 = number of profiles transmited for Faraday Experiment
-        nTaus = Total profiles for lags
-        offTaus = where starts the interference, (profile)
-        iTaus = lenght of the interference
-        irepeat = number of repetition of the Taus
-        '''
+
         self.nIpp2 = nIpp2
         self.channel = channel
         self.nChannels = nChannels
