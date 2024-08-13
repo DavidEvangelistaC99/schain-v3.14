@@ -3143,6 +3143,7 @@ class IntegrationFaradaySpectraNoLags(Operation):
                     avg=numpy.nanmean(buffer1[[t for t in range(buffer1.shape[0]) if t not in out_IDs],:],axis=0)
                     #print("avg: ", avg)
                     for p in list(out_IDs):
+                        cspc_outliers_exist=True
                         buffer1[p]=avg
                     #sortIDs.append(sortID)
                     outliers_IDs=numpy.append(outliers_IDs,sortID[index:])
@@ -3177,12 +3178,14 @@ class IntegrationFaradaySpectraNoLags(Operation):
 
             #if not breakFlag:
             if self.__buffer_cspc is not None:
+
                 outliers_IDs_cspc=outliers_IDs_cspc.astype(numpy.dtype('int64'))
-                if cspc_outliers_exist:
+                #print("cspc_outliers_exist: ", cspc_outliers_exist)
+                if  cspc_outliers_exist:
                     #sortdata=numpy.sort(buffer_cspc,axis=0)
                     #avg=numpy.mean(sortdata[:indexmin_cpsc,:],axis=0)
                     lt=outliers_IDs_cspc
-
+                    #print("I'm hereeeeeeeeeeeeeee: ", lt)
                     avg=numpy.mean(buffer_cspc[[t for t in range(buffer_cspc.shape[0]) if t not in lt],:],axis=0)
                     for p in list(outliers_IDs_cspc):
                         buffer_cspc[p,:]=avg
@@ -3318,8 +3321,11 @@ class IntegrationFaradaySpectraNoLags(Operation):
 
                 dataOut.data_spc = numpy.squeeze(avgdata_spc)
                 dataOut.data_cspc = numpy.squeeze(avgdata_cspc)
-                dataOut.data_cspc = numpy.expand_dims(dataOut.data_cspc, axis=0)
+                #dataOut.data_cspc = numpy.expand_dims(dataOut.data_cspc, axis=0)
                 dataOut.data_dc = avgdata_dc
+                #print(numpy.shape(dataOut.data_spc))
+                #print(numpy.shape(dataOut.data_cspc))
+                #exit(1)
             else:
                 dataOut.dataLag_spc = avgdata_spc
                 dataOut.dataLag_cspc = avgdata_cspc
@@ -3816,6 +3822,7 @@ class IncohInt(Operation):
 
             dataOut.VelRange = dataOut.getVelRange(0)
             dataOut.FreqRange = dataOut.getFreqRange(0)/1000. #kHz
+            #print("dataOut.timeInterval: ", dataOut.timeInterval)
             #print("VelRange: ", dataOut.VelRange)
             #exit(1)
 
@@ -4877,6 +4884,34 @@ class SpectraDataToHybrid_V2(SpectraDataToFaraday):
         exit(1)
         '''
         return dataOut
+
+class CoherenceRads(Operation):
+    '''
+    Written by R. Flores
+    '''
+    """Operation to calculate Faraday angle and Double Pulse power.
+
+    Parameters:
+    -----------
+    None
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='FaradayAngleAndDPPower', optype='other')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+
+    def run(self,dataOut):
+
+        dataOut.Coherence = dataOut.getCoherence(phase=True) * numpy.pi / 180 #Radians
+
+        return dataOut
+
 
 class SpcVoltageDataToHybrid(SpectraDataToFaraday):
     '''
