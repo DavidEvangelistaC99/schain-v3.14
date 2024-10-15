@@ -4389,13 +4389,13 @@ class Block360(Operation):
             elif (middle>start and end<middle):
                 return -1
 
-    def run(self, dataOut, attr_data='dataPP_POWER', runNextOp = False, angles=[],horario=True,**kwargs):
+    def run(self, dataOut, attr_data='dataPP_POWER', runNextOp = False, angles=[],horario=True,heading=0,**kwargs):
 
         dataOut.attr_data = attr_data
         dataOut.runNextOp = runNextOp
 
         if not self.isConfig:
-            self.setup(dataOut=dataOut, attr=attr_data, angles=angles,horario=horario, **kwargs)
+            self.setup(dataOut=dataOut, attr=attr_data, angles=angles,horario=horario,heading=heading, **kwargs)
             self.isConfig   = True
 
         data_360, avgdatatime, data_p, data_e, data_n = self.blockOp(dataOut, dataOut.utctime)
