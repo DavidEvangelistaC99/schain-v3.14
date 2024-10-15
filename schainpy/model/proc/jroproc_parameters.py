@@ -4140,7 +4140,7 @@ class PedestalInformation(Operation):
                         self.fp.close()
                         self.fp = h5py.File(self.filename, 'r')
                         self.ele = self.fp['Data']['ele_pos'][:]
-                        self.azi = self.fp['Data']['azi_pos'][:] + 26.27 + self.heading
+                        self.azi = self.fp['Data']['azi_pos'][:] + 26.27 #+ self.heading
                         self.azi[self.azi>360] = self.azi[self.azi>360] - 360
                         log.log('Opening file: {}'.format(self.filename), self.name)
                         ok = True
@@ -4245,7 +4245,7 @@ class Block360(Operation):
     def __init__(self,**kwargs):
         Operation.__init__(self,**kwargs)
 
-    def setup(self, dataOut, attr, angles,horario):
+    def setup(self, dataOut, attr, angles,horario,heading):
         '''
         n= Numero de PRF's de entrada
         '''
@@ -4261,6 +4261,7 @@ class Block360(Operation):
         self.__noise   = []
         self.angles = angles
         self.horario= horario
+        self.heading = heading
 
     def putData(self, data, attr):
         '''
@@ -4399,13 +4400,14 @@ class Block360(Operation):
 
         data_360, avgdatatime, data_p, data_e, data_n = self.blockOp(dataOut, dataOut.utctime)
 
-        dataOut.flagNoData = True        
+        dataOut.flagNoData = True
         if self.__dataReady:
             mean_az = numpy.mean(data_p[25:-25])
             mean_el = numpy.mean(data_e[25:-25])
             if round(mean_az,1) in angles or round(mean_el,1) in angles:
                 setattr(dataOut, attr_data, data_360 )
-                dataOut.data_azi   = data_p
+                dataOut.data_azi   = data_p+self.heading #dataOut.data_azi   = data_p
+                dataOut.data_azi[dataOut.data_azi>360]=dataOut.data_azi[dataOut.data_azi>360]-360 #update new
                 dataOut.data_ele   = data_e
                 dataOut.utctime    = avgdatatime
                 dataOut.data_noise = data_n
@@ -4483,7 +4485,7 @@ class MergeProc(ProcessingUnit):
         if mode==7: #RM
 
             f = [getattr(data, attr_data) for data in data_inputs][0][:,:,:,0:index]
-            g = [getattr(data, attr_data) for data in data_inputs][1][:,:,:,index:]            
+            g = [getattr(data, attr_data) for data in data_inputs][1][:,:,:,index:]
             data = numpy.concatenate((f,g), axis=3)
             setattr(self.dataOut, attr_data, data)
 
