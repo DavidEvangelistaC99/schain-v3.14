@@ -381,7 +381,6 @@ class Plot(Operation):
         '''
         Set min and max values, labels, ticks and titles
         '''
-
         for n, ax in enumerate(self.axes):
             if ax.firsttime:
                 if self.xaxis != 'time':
@@ -391,7 +390,7 @@ class Plot(Operation):
                     xmin = self.tmin
                     xmax = self.tmin + self.xrange * 60 * 60
                     ax.xaxis.set_major_formatter(FuncFormatter(self.__fmtTime))
-                    ax.xaxis.set_major_locator(LinearLocator(9))
+                    ax.xaxis.set_major_locator(LinearLocator(12))
                 ymin = self.ymin if self.ymin is not None else numpy.nanmin(self.y[numpy.isfinite(self.y)])
                 ymax = self.ymax if self.ymax is not None else numpy.nanmax(self.y[numpy.isfinite(self.y)])
                 ax.set_facecolor(self.bgcolor)
@@ -653,7 +652,7 @@ class Plot(Operation):
                 self.poll.register(self.socket, zmq.POLLIN)
 
         tm = getattr(dataOut, self.attr_time)
-        
+
         if self.data and 'time' in self.xaxis and (tm - self.tmin) >= self.xrange * 60 * 60:
             self.save_time = tm
             self.__plot()
