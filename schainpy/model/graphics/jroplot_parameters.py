@@ -379,3 +379,234 @@ class PolarMapPlot(Plot):
         self.save_labels = ['{}-{}'.format(lbl, label) for lbl in self.labels]
         self.titles = ['{} {}'.format(
             self.data.parameters[x], title) for x in self.channels]
+
+class MP150KmRTIPlot(Plot):
+    '''
+    Plot for data_xxxx object
+    '''
+
+    CODE = 'param'
+    colormap = 'viridis'
+    plot_type = 'pcolorbuffer'
+
+    def setup(self):
+        self.xaxis = 'time'
+        self.ncols = 1
+        self.nrows = self.data.shape('param')[0]
+        self.nplots = self.nrows
+        self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.08, 'right':0.95, 'top': 0.95})
+
+        if not self.xlabel:
+            self.xlabel = 'Time'
+
+        self.ylabel = 'Range [km]'
+        if not self.titles:
+            self.titles = ['Param {}'.format(x) for x in range(self.nrows)]
+
+    def update(self, dataOut):
+        data = {
+            #'param' : numpy.concatenate([getattr(dataOut, attr) for attr in self.attr_data], axis=0)[0:3,:]   # SNL, VERTICAL, ZONAL
+            'param' : dataOut.data_output[0:3,:]   # SNL, VERTICAL, ZONAL
+        }
+
+        meta = {}
+
+        return data, meta
+    
+    def plot(self):
+        # self.data.normalize_heights()
+        self.x = self.data.times
+        self.y = self.data.yrange
+        self.z = self.data['param']
+
+
+        self.z = numpy.ma.masked_invalid(self.z)
+
+        if self.decimation is None:
+            x, y, z = self.fill_gaps(self.x, self.y, self.z)
+        else:
+            x, y, z = self.fill_gaps(*self.decimate())
+        
+        for n, ax in enumerate(self.axes):
+            self.zmax = self.zmax if self.zmax is not None else numpy.max(
+                self.z[n])
+            self.zmin = self.zmin if self.zmin is not None else numpy.min(
+                self.z[n])
+            
+            if ax.firsttime:
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
+
+                ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
+                                       cmap=self.cmaps[n]
+                                       )
+            else:
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
+                ax.plt.remove()
+                ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
+                                       cmap=self.cmaps[n]
+                                       )
+            
+class AverageDriftsPlot_v2(Plot):
+    '''
+    Plot for average 150 Km echoes
+    '''
+
+    CODE = 'average'
+    plot_type = 'scatterbuffer'
+
+    def setup(self):
+        self.xaxis = 'time'
+        self.ncols = 1
+
+        self.nplots = 2
+        self.nrows = 2
+
+        self.ylabel = 'Velocity\nm/s'
+        self.xlabel = 'Local time'
+        #self.titles = ['VERTICAL VELOCITY: AVERAGE AND ERRORS', 'ZONAL VELOCITY: AVERAGE AND ERRORS']
+        self.titles = ['VERTICAL VELOCITY: AVERAGE', 'ZONAL VELOCITY: AVERAGE']
+
+        self.colorbar = False
+        self.plots_adjust.update({'hspace':0.5, 'left': 0.1, 'bottom': 0.1, 'right':0.95, 'top': 0.95 })
+        
+
+    def update(self, dataOut):
+
+        data = {}
+        meta = {}
+
+        #data['average']= numpy.nanmean(dataOut.data_output[1:3,:], axis=1) # VERTICAL, ZONAL
+        data['average']= numpy.nanmean(dataOut.data_output[1:3,:], axis=1) # VERTICAL, ZONAL
+        data['error']= numpy.nanmean(dataOut.data_output[3:,:], axis=1) # ERROR VERTICAL, ERROR ZONAL
+        meta['yrange'] = numpy.array([])
+
+        return data, meta
+
+    def plot(self):
+
+        self.x = self.data.times
+        #self.xmin = self.data.min_time
+        #self.xmax = self.xmin + self.xrange * 60 * 60
+        self.y = self.data['average']
+        print('self.y:', self.y.shape)
+        self.y_error = self.data['error']
+        print('self.y_error:', self.y_error.shape)
+        
+        for n, ax in enumerate(self.axes):
+            if ax.firsttime:
+                self.ymin = self.ymin if self.ymin is not None else -50
+                self.ymax = self.ymax if self.ymax is not None else 50
+                self.axes[n].plot(self.x, self.y[n], c='r', ls=':', lw=1)
+            else:
+                self.axes[n].lines[0].set_data(self.x, self.y[n])
+        '''
+        for n, ax in enumerate(self.axes):
+
+            if ax.firsttime:
+                self.ymin = self.ymin if self.ymin is not None else -50
+                self.ymax = self.ymax if self.ymax is not None else 50
+                ax.scatter(self.x, self.y[n], c='g', s=0.8)
+                #ax.errorbar(self.x, self.y[n], yerr = self.y_error[n,:], ecolor='r', elinewidth=0.2, fmt='|')
+            else:
+                ax.scatter(self.x, self.y[n], c='g', s=0.8)
+                #ax.errorbar(self.x, self.y[n], yerr = self.y_error[n,:], ecolor='r', elinewidth=0.2, fmt='|')
+        '''
+class AverageDriftsPlot_bck(Plot):
+    '''
+    Plot for average 150 Km echoes
+    '''
+    CODE = 'average'
+    plot_type = 'scatterbuffer'
+
+    def setup(self):
+        self.xaxis = 'time'
+        self.ncols = 1
+        self.nplots = 2
+        self.nrows = 2
+        self.ylabel = 'Velocity\nm/s'
+        self.xlabel = 'Time'
+        self.titles = ['VERTICAL VELOCITY: AVERAGE', 'ZONAL VELOCITY: AVERAGE']
+        self.colorbar = False
+        self.plots_adjust.update({'hspace':0.5, 'left': 0.1, 'bottom': 0.1, 'right':0.95, 'top': 0.95 })
+        
+        
+
+    def update(self, dataOut):
+
+        data = {}
+        meta = {}
+        data['average']= numpy.nanmean(dataOut.data_output[1:3,:], axis=1) # VERTICAL, ZONAL
+        meta['yrange'] = numpy.array([])
+
+        return data, meta
+
+    def plot(self):
+
+        self.x = self.data.times
+        self.y = self.data['average']
+        
+        for n, ax in enumerate(self.axes):
+            if ax.firsttime:
+
+                if self.zlimits is not None:
+                    self.axes[n].set_ylim(self.zlimits[n])
+                self.axes[n].plot(self.x, self.y[n], c='r', ls='-', lw=1)
+            else:
+
+                if self.zlimits is not None:              
+                    ax.set_ylim((self.zlimits[n]))                    
+                self.axes[n].lines[0].set_data(self.x, self.y[n])
+
+class AverageDriftsPlot(Plot):
+    '''
+    Plot for average 150 Km echoes
+    '''
+    CODE = 'average'
+    plot_type = 'scatterbuffer'
+
+    def setup(self):
+        self.xaxis = 'time'
+        self.ncols = 1
+        self.nplots = 2
+        self.nrows = 2
+        self.ylabel = 'Velocity\nm/s'
+        self.xlabel = 'Time'
+        self.titles = ['VERTICAL VELOCITY: AVERAGE', 'ZONAL VELOCITY: AVERAGE']
+        self.colorbar = False
+        self.plots_adjust.update({'hspace':0.5, 'left': 0.1, 'bottom': 0.1, 'right':0.95, 'top': 0.95 })
+        
+        
+
+    def update(self, dataOut):
+
+        data = {}
+        meta = {}
+        data['average']= dataOut.avg_output[0:2] # VERTICAL, ZONAL velocities
+        meta['yrange'] = numpy.array([])
+
+        return data, meta
+
+    def plot(self):
+
+        self.x = self.data.times
+        self.y = self.data['average']
+
+        for n, ax in enumerate(self.axes):
+
+            if ax.firsttime:
+
+                if self.zlimits is not None: 
+                    ax.set_ylim((self.zlimits[n]))
+                self.axes[n].plot(self.x, self.y[n], c='r', ls='-', lw=1)
+            else:
+          
+                if self.zlimits is not None:              
+                    ax.set_ylim((self.zlimits[n]))                    
+                self.axes[n].lines[0].set_data(self.x, self.y[n])
+                
