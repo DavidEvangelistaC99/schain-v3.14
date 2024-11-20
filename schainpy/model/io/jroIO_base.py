@@ -717,10 +717,16 @@ class Reader(object):
     def isDateTimeInRange(dt, startDate, endDate, startTime, endTime):
         """Check if the given datetime is in range"""
 
-        if startDate <= dt.date() <= endDate:
-            if startTime <= dt.time() <= endTime:
+        OneDay=False
+        if OneDay:
+            if startDate <= dt.date() <= endDate:
+                if startTime <= dt.time() <= endTime:
+                    return True
+            return False
+        else:
+            if datetime.datetime.combine(startDate, startTime) <= datetime.datetime.combine(dt.date(), dt.time()) <= datetime.datetime.combine(endDate, endTime):
                 return True
-        return False
+            return False
 
     def verifyFile(self, filename):
         """Check for a valid file
