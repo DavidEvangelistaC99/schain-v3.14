@@ -177,12 +177,12 @@ class SpectraProc(ProcessingUnit):
                         self.id_max = nProfiles
 
                     self.buffer = self.dataIn.data[:, self.id_min:self.id_max,:]
+                    if self.id_max == nVoltProfiles:
+                        self.reader.bypass = False                         
+
                     self.profIndex += nProfiles
                     self.id_min += nProfiles
                     self.id_max += nProfiles
-                    if self.id_max == nVoltProfiles:
-                        self.reader.bypass = False
-                    
                 else:
                     raise ValueError("The type object %s has %d profiles, it should just has %d profiles" % (
                         self.dataIn.type, self.dataIn.data.shape[1], nProfiles))
@@ -470,7 +470,7 @@ class removeDC(Operation):
             xx_inv = numpy.linalg.inv(xx)
             xx_aux = xx_inv[0, :]
 
-            for ich in range(num_chan):                
+            for ich in range(num_chan):
                 yy = jspectra[ich, ind_vel, :]
                 jspectra[ich, freq_dc, :] = numpy.dot(xx_aux, yy)
 
@@ -486,6 +486,34 @@ class removeDC(Operation):
                     yy = jcspectra[ip, ind_vel, :]
                     jcspectra[ip, freq_dc, :] = numpy.dot(xx_aux, yy)
 
+        if mode == 3:  # dc en la velocidad cero cuando se usa flip
+
+            vel = numpy.array([-2, -1, 1, 2])
+            xx = numpy.zeros([4, 4])
+
+            for fil in range(4):
+                xx[fil, :] = vel[fil] ** numpy.asarray(list(range(4)))
+
+            xx_inv = numpy.linalg.inv(xx)
+            xx_aux = xx_inv[0, :]
+
+            for ich in range(num_chan):
+
+                ind_freq_flip=[-1, -2, 1, 2]                         
+                yy = jspectra[ich, ind_freq_flip, :]               
+                jspectra[ich, 0, :] = numpy.dot(xx_aux, yy)
+                junkid = jspectra[ich, 0, :] <= 0                
+                cjunkid = sum(junkid)
+
+                if cjunkid.any():
+                    jspectra[ich, 0, junkid.nonzero()] = (
+                        jspectra[ich, ind_freq_flip[0], junkid] + jspectra[ich, ind_freq_flip[2], junkid]) / 2
+
+            if jcspectraExist:
+                for ip in range(num_pairs):
+                    yy = jcspectra[ip, ind_freq_flip, :]
+                    jcspectra[ip, 0, :] = numpy.dot(xx_aux, yy)
+                   
         self.dataOut.data_spc = jspectra
         self.dataOut.data_cspc = jcspectra
 
@@ -749,6 +777,10 @@ class IncohInt(Operation):
     __buffer_cspc = None
     __buffer_dc = None
 
+    # JULIA processing
+    __buffer_diffcspc = None
+    __buffer_oldcspc = None
+    # JULIA processing
     __dataReady = False
 
     __timeInterval = None
@@ -778,10 +810,17 @@ class IncohInt(Operation):
         self.__buffer_cspc = 0
         self.__buffer_dc = 0
 
+        # JULIA processing
+        self.__buffer_diffcspc = 0
+        self.__buffer_oldcspc = 0
+        # JULIA processing
         self.__profIndex = 0
         self.__dataReady = False
         self.__byTime = False
 
+        # JULIA processing
+        self.__FirstBlock = True
+        # JULIA processing
         if n is None and timeInterval is None:
             raise ValueError("n or timeInterval should be specified ...")
 
@@ -805,6 +844,10 @@ class IncohInt(Operation):
             self.__buffer_cspc = None
         else:
             self.__buffer_cspc += data_cspc
+            # JULIA processing
+            self.__buffer_diffcspc += (data_cspc * numpy.conj(self.__buffer_oldcspc))
+            self.__buffer_oldcspc = data_cspc
+            # JULIA processing
 
         if data_dc is None:
             self.__buffer_dc = None
@@ -828,47 +871,51 @@ class IncohInt(Operation):
         data_spc = self.__buffer_spc
         data_cspc = self.__buffer_cspc
         data_dc = self.__buffer_dc
+        data_diffcspc = self.__buffer_diffcspc
         n = self.__profIndex
 
         self.__buffer_spc = 0
         self.__buffer_cspc = 0
         self.__buffer_dc = 0
+        self.__buffer_diffcspc = 0
         self.__profIndex = 0
 
-        return data_spc, data_cspc, data_dc, n
+        return data_spc, data_cspc, data_diffcspc, data_dc, n
 
     def byProfiles(self, *args):
 
         self.__dataReady = False
         avgdata_spc = None
         avgdata_cspc = None
+        avgdata_diffcspc = None
         avgdata_dc = None
 
         self.putData(*args)
 
         if self.__profIndex == self.n:
 
-            avgdata_spc, avgdata_cspc, avgdata_dc, n = self.pushData()
+            avgdata_spc, avgdata_cspc, avgdata_diffcspc, avgdata_dc, n = self.pushData()
             self.n = n
             self.__dataReady = True
 
-        return avgdata_spc, avgdata_cspc, avgdata_dc
+        return avgdata_spc, avgdata_cspc, avgdata_diffcspc, avgdata_dc
 
     def byTime(self, datatime, *args):
 
         self.__dataReady = False
         avgdata_spc = None
         avgdata_cspc = None
+        avgdata_diffcspc = None
         avgdata_dc = None
 
         self.putData(*args)
 
         if (datatime - self.__initime) >= self.__integrationtime:
-            avgdata_spc, avgdata_cspc, avgdata_dc, n = self.pushData()
+            avgdata_spc, avgdata_cspc, avgdata_diffcspc, avgdata_dc, n = self.pushData()
             self.n = n
             self.__dataReady = True
 
-        return avgdata_spc, avgdata_cspc, avgdata_dc
+        return avgdata_spc, avgdata_cspc, avgdata_diffcspc, avgdata_dc
 
     def integrate(self, datatime, *args):
 
@@ -876,17 +923,18 @@ class IncohInt(Operation):
             self.__initime = datatime
 
         if self.__byTime:
-            avgdata_spc, avgdata_cspc, avgdata_dc = self.byTime(
+            avgdata_spc, avgdata_cspc, avgdata_diffcspc, avgdata_dc = self.byTime(
                 datatime, *args)
         else:
-            avgdata_spc, avgdata_cspc, avgdata_dc = self.byProfiles(*args)
+            avgdata_spc, avgdata_cspc, avgdata_diffcspc, avgdata_dc = self.byProfiles(*args)
 
         if not self.__dataReady:
-            return None, None, None, None
+            return None, None, None, None, None
 
-        return self.__initime, avgdata_spc, avgdata_cspc, avgdata_dc
+        return self.__initime, avgdata_spc, avgdata_cspc, avgdata_diffcspc, avgdata_dc
 
     def run(self, dataOut, n=None, timeInterval=None, overlapping=False):
+
         if n == 1:
             return dataOut
         
@@ -896,17 +944,25 @@ class IncohInt(Operation):
             self.setup(n, timeInterval, overlapping)
             self.isConfig = True
 
-        avgdatatime, avgdata_spc, avgdata_cspc, avgdata_dc = self.integrate(dataOut.utctime,
-                                                                            dataOut.data_spc,
-                                                                            dataOut.data_cspc,
-                                                                            dataOut.data_dc)
-
+        avgdatatime, avgdata_spc, avgdata_cspc, avgdata_diffcspc, avgdata_dc = self.integrate(dataOut.utctime,
+                                                                                              dataOut.data_spc,
+                                                                                              dataOut.data_cspc,
+                                                                                              dataOut.data_dc)
+        
         if self.__dataReady:
 
             dataOut.data_spc = avgdata_spc
             dataOut.data_cspc = avgdata_cspc
-            dataOut.data_dc = avgdata_dc            
-            dataOut.nIncohInt *= self.n
+            dataOut.data_diffcspc = avgdata_diffcspc
+            dataOut.data_dc = avgdata_dc  
+            dataOut.nDiffIncohInt = dataOut.nIncohInt
+            dataOut.nIncohInt *= self.n           
+            if self.__FirstBlock:
+                dataOut.nDiffIncohInt *= (self.n - 1)
+                self.__FirstBlock = False
+            else:
+                dataOut.nDiffIncohInt *= self.n
+            
             dataOut.utctime = avgdatatime
             dataOut.flagNoData = False
 
