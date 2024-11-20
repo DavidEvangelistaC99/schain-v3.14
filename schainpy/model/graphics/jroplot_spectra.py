@@ -224,10 +224,10 @@ class CrossSpectraPlot(Plot):
     zmax_coh = None
     zmin_phase = None
     zmax_phase = None
-
+    
     def setup(self):
 
-        self.ncols = 4
+        self.ncols = 2
         self.nplots = len(self.data.pairs) * 2
         self.nrows = int((1.0 * self.nplots / self.ncols) + 0.9)
         self.width = 3.1 * self.ncols
@@ -244,6 +244,7 @@ class CrossSpectraPlot(Plot):
         spc = dataOut.data_spc
         cspc = dataOut.data_cspc
         extrapoints = spc.shape[1] % dataOut.nFFTPoints
+        extrapoints=1
         meta['xrange'] = (dataOut.getFreqRange(extrapoints) / 1000., dataOut.getAcfRange(extrapoints), dataOut.getVelRange(extrapoints))
         meta['pairs'] = dataOut.pairsList
 
@@ -317,7 +318,7 @@ class CrossSpectra4Plot(Plot):
     zmax_coh = None
     zmin_phase = None
     zmax_phase = None
-
+    
     def setup(self):
 
         self.ncols = 4
