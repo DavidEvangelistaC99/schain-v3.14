@@ -8,6 +8,9 @@ from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecora
 from schainpy.model.data.jrodata import Voltage, hildebrand_sekhon
 from schainpy.utils import log
 from time import time, mktime, strptime, gmtime, ctime
+from scipy.optimize import least_squares
+import datetime
+import csv
 
 try:
     from schainpy.model.proc import fitacf_guess
@@ -29,7 +32,7 @@ class VoltageProc(ProcessingUnit):
         #self.dataOut.test=1
 
 
-    def run(self):
+    def run(self, runNextUnit = 0):
         #import time
         #time.sleep(3)
 
@@ -38,6 +41,7 @@ class VoltageProc(ProcessingUnit):
 
         if self.dataIn.type == 'Voltage':
             self.dataOut.copy(self.dataIn)
+            self.dataOut.runNextUnit = runNextUnit
 
 
         #self.dataOut.flagNoData=True
@@ -205,12 +209,12 @@ class selectHeights(Operation):
         """
 
         self.dataOut = dataOut
-        
+
         #if minHei and maxHei:
         if 1:
             if minHei == None:
                minHei = self.dataOut.heightList[0]
-            
+
             if maxHei == None:
                maxHei = self.dataOut.heightList[-1]
 
@@ -236,7 +240,7 @@ class selectHeights(Operation):
                 maxIndex = indb[0][-1]
             except:
                 maxIndex = len(heights)
-        
+
         self.selectHeightsByIndex(minIndex, maxIndex)
         #print(self.dataOut.nHeights)
 
@@ -305,7 +309,7 @@ class selectHeights(Operation):
             self.dataOut.data_spc = data_spc
             self.dataOut.data_cspc = data_cspc
             self.dataOut.data_dc = data_dc
-            
+
             self.dataOut.heightList = self.dataOut.heightList[minIndex:maxIndex + 1]
 
         return 1
@@ -357,8 +361,8 @@ class setOffset(Operation):
 
         dataOut.heightList = newHeiRange
 
-        return dataOut        
-        
+        return dataOut
+
 class setH0(Operation):
 
     def run(self, dataOut, h0, deltaHeight=None):
@@ -410,14 +414,11 @@ class deFlip(Operation):
 
             self.flip = flip
 
-
-
-
         else:
             if not channelList:
                 data[:, :] = data[:, :] * self.flip
             else:
-                channelList=[1]
+                #channelList=[1]
                 #print(self.flip)
                 for thisChannel in channelList:
                     if thisChannel not in dataOut.channelList:
@@ -427,11 +428,86 @@ class deFlip(Operation):
 
             self.flip *= -1.
 
-
         dataOut.data = data
 
         return dataOut
 
+class deFlipHP(Operation):
+    '''
+    Written by R. Flores
+    '''
+    def __init__(self):
+
+        self.flip = 1
+
+    def run(self, dataOut, byHeights = False, channelList = [], HeiRangeList = None):
+
+        data = dataOut.data.copy()
+
+        firstHeight = HeiRangeList[0]
+        lastHeight = HeiRangeList[1]+1
+
+        #if channelList==1:  #PARCHE #Lista de un solo canal produce error
+            #channelList=[1]
+
+        dataOut.FlipChannels=channelList
+        if dataOut.flagDataAsBlock:
+            flip = self.flip
+            profileList = list(range(dataOut.nProfiles))
+
+            if not channelList:
+                for thisProfile in profileList:
+                    data[:,thisProfile,:] = data[:,thisProfile,:]*flip
+                    flip *= -1.0
+            else:
+                for thisChannel in channelList:
+                    if thisChannel not in dataOut.channelList:
+                        continue
+                    if not byHeights:
+                        for thisProfile in profileList:
+                            data[thisChannel,thisProfile,:] = data[thisChannel,thisProfile,:]*flip
+                            flip *= -1.0
+
+                    else:
+                        firstHeight = HeiRangeList[0]
+                        lastHeight = HeiRangeList[1]+1
+                        flip = -1.0
+                        data[thisChannel,:,firstHeight:lastHeight] = data[thisChannel,:,firstHeight:lastHeight]*flip
+
+
+            self.flip = flip
+
+        else:
+            if not channelList:
+                data[:,:] = data[:,:]*self.flip
+            else:
+                #channelList=[1]
+
+                for thisChannel in channelList:
+                    if thisChannel not in dataOut.channelList:
+                        continue
+
+                    if not byHeights:
+                        data[thisChannel,:] = data[thisChannel,:]*flip
+
+                    else:
+                        firstHeight = HeiRangeList[0]
+                        lastHeight = HeiRangeList[1]+1
+                        flip = -1.0
+                        data[thisChannel,firstHeight:lastHeight] = data[thisChannel,firstHeight:lastHeight]*flip
+
+                    #data[thisChannel,:] = data[thisChannel,:]*self.flip
+
+            self.flip *= -1.
+
+        #print(dataOut.data[0,:12,1066+2])
+        #print(dataOut.data[1,:12,1066+2])
+        dataOut.data =data
+        #print(dataOut.data[0,:12,1066+2])
+        #print(dataOut.data[1,:12,1066+2])
+        #exit(1)
+
+        return dataOut
 
 class setAttribute(Operation):
     '''
@@ -493,6 +569,9 @@ class interpolateHeights(Operation):
 
 
 class LagsReshape(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to reshape input data into (Channels,Profiles(with same lag),Heights,Lags) and heights reconstruction.
 
     Parameters:
@@ -538,7 +617,99 @@ class LagsReshape(Operation):
                                    dataOut.nHeights,dataOut.DPL),
                                   dtype='complex')
 
-        #self.buffer_HR[0,:,:,:]=dataOut.datalags[0,:,:,:] #No Lags
+        for i in range(int(dataOut.DPL)): #Only channel B
+            if i==0:
+                self.buffer_HR[:,:,i]=dataOut.datalags[1,:,:,i]
+            else:
+                self.buffer_HR[:,:,i]=self.HRonelag(dataOut,i)
+
+        return self.buffer_HR
+
+
+    def HRonelag(self,dataOut,whichlag):
+        self.buffer_HRonelag = numpy.zeros((int(dataOut.NSCAN/dataOut.DPL),
+                                   dataOut.nHeights),
+                                  dtype='complex')
+
+        for i in range(self.buffer_HRonelag.shape[0]):
+            for j in range(dataOut.nHeights):
+                if j+int(2*whichlag)<dataOut.nHeights:
+                    self.buffer_HRonelag[i,j]=dataOut.datalags[1,i,j+2*whichlag,whichlag]
+                else:
+                    if whichlag!=10:
+                        self.buffer_HRonelag[i,j]=dataOut.datalags[1,i,(j+2*whichlag)%dataOut.nHeights,whichlag+1]
+                    else:
+                        if i+2<self.buffer_HRonelag.shape[0]:
+                            self.buffer_HRonelag[i,j]=dataOut.datalags[1,i+2,(j+2*whichlag)%dataOut.nHeights,0]
+                        else: #i+1==self.buffer_HRonelag.shape[0]:
+                            self.buffer_HRonelag[i,j]=dataOut.datalags[1,i,(j+2*whichlag)%dataOut.nHeights,whichlag]
+
+        return self.buffer_HRonelag
+
+
+
+    def run(self,dataOut,DPL=11,NSCAN=132):
+
+        dataOut.DPL=DPL
+        dataOut.NSCAN=NSCAN
+        dataOut.paramInterval=0#int(dataOut.nint*dataOut.header[7][0]*2 )
+        dataOut.lat=-11.95
+        dataOut.lon=-76.87
+        dataOut.datalags=None
+
+        dataOut.datalags=numpy.copy(self.LagDistribution(dataOut))
+        dataOut.datalags[1,:,:,:]=self.HeightReconstruction(dataOut)
+
+        return dataOut
+
+class LagsReshapeHP(Operation):
+    '''
+    Written by R. Flores
+    '''
+    """Operation to reshape input data into (Channels,Profiles(with same lag),Heights,Lags) and heights reconstruction.
+
+    Parameters:
+    -----------
+
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='LagsReshape')
+
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+
+        self.buffer=None
+        self.buffer_HR=None
+        self.buffer_HRonelag=None
+
+    def LagDistribution(self,dataOut):
+
+        dataOut.datapure=numpy.copy(dataOut.data[:,0:dataOut.NSCAN,:])
+        self.buffer = numpy.zeros((dataOut.nChannels,
+                                   int(dataOut.NSCAN/dataOut.DPL),
+                                   dataOut.nHeights,dataOut.DPL),
+                                  dtype='complex')
+
+        for j in range(int(self.buffer.shape[1]/2)):
+            for i in range(dataOut.DPL):
+                if j+1==int(self.buffer.shape[1]/2) and i+1==dataOut.DPL:
+                    self.buffer[:,2*j:,:,i]=dataOut.datapure[:,2*i+int(2*j*dataOut.DPL):,:]
+                else:
+                    self.buffer[:,2*j:2*(j+1),:,i]=dataOut.datapure[:,2*i+int(2*j*dataOut.DPL):2*(i+1)+int(2*j*dataOut.DPL),:]
+
+        return self.buffer
+
+    def HeightReconstruction(self,dataOut):
+
+        self.buffer_HR = numpy.zeros((int(dataOut.NSCAN/dataOut.DPL),
+                                   dataOut.nHeights,dataOut.DPL),
+                                  dtype='complex')
 
         for i in range(int(dataOut.DPL)): #Only channel B
             if i==0:
@@ -579,17 +750,218 @@ class LagsReshape(Operation):
         dataOut.lat=-11.95
         dataOut.lon=-76.87
         dataOut.datalags=None
-        #print(dataOut.NSCAN)
 
         dataOut.datalags=numpy.copy(self.LagDistribution(dataOut))
         dataOut.datalags[1,:,:,:]=self.HeightReconstruction(dataOut)
 
         return dataOut
 
+class LagsReshapeDP_V2(Operation):
+    '''
+    Written by R. Flores
+    '''
+    """Operation to reshape input data into (Channels,Profiles(with same lag),Heights,Lags) and heights reconstruction.
+
+    Parameters:
+    -----------
 
 
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='LagsReshape')
+
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+
+        self.buffer=None
+        self.data_buffer = []
+
+    def setup(self,dataOut,DPL,NSCAN,NLAG,NRANGE,lagind,lagfirst):
+        dataOut.DPL=DPL
+        dataOut.NSCAN=NSCAN
+        dataOut.NLAG = NLAG
+        deltaHeight   =  dataOut.heightList[1] - dataOut.heightList[0]
+        dataOut.NRANGE = NRANGE
+        dataOut.read_samples=int(dataOut.nHeights)
+        #print(dataOut.read_samples)
+        #print(dataOut.nHeights)
+        #exit(1)
+        dataOut.NDP = dataOut.NDT = int((dataOut.nHeights-dataOut.NRANGE)/2)
+        dataOut.heightList = numpy.arange(dataOut.NDP) *deltaHeight# + dataOut.heightList[0]
+        #dataOut.NDP = dataOut.NDT = int(dataOut.nHeights/2)#int((dataOut.nHeights-dataOut.NRANGE)/2)
+        #print(dataOut.NDP)
+        #print(dataOut.heightList)
+        dataOut.paramInterval=0#int(dataOut.nint*dataOut.header[7][0]*2 )
+        dataOut.lat=-11.95
+        dataOut.lon=-76.87
+        dataOut.datalags=None
+        dataOut.lagind=lagind
+        dataOut.lagfirst=lagfirst
+
+
+    def LagDistribution(self,dataOut):
+
+        self.buffer = numpy.zeros((dataOut.nChannels,
+                                   int(2*2*dataOut.NSCAN/dataOut.NLAG),
+                                   dataOut.NDP,dataOut.DPL),
+                                  dtype='complex')
+
+        indProfile = numpy.arange(0,dataOut.NSCAN,1)//8
+
+        #dataOut.nNoiseProfiles = dataOut.nProfiles-dataOut.NSCAN
+
+        for i in range(2):
+            if i==0:
+                aux = 0
+            else:
+                aux =16
+            for j in range(dataOut.NDP):
+                for k in range(int(dataOut.NSCAN)):
+
+                    n=dataOut.lagind[k%dataOut.NLAG]
+
+                    data_ChA=dataOut.data[0,k,dataOut.NRANGE+j+i*dataOut.NDT]#-dataOut.dc[0]
+
+                    if dataOut.NRANGE+j+i*dataOut.NDT+2*n<dataOut.read_samples:
+
+                        data_ChB=dataOut.data[1,k,dataOut.NRANGE+j+i*dataOut.NDT+2*n]#-dataOut.dc[1]
+                        #print(data_ChB)
+                        #exit(1)
+                        #print("*1*")
+
+                    else:
+                        #print(i,j,n)
+                        #exit(1)
+
+                        if k+1<int(dataOut.NSCAN):
+                            data_ChB=dataOut.data[1,k+1,(dataOut.NRANGE+j+i*dataOut.NDT+2*n)%dataOut.NDP]
+                            #print(data_ChB)
+                            #print("*2*")
+                            #exit(1)
+                        if k+1==int(dataOut.NSCAN):
+                            data_ChB=dataOut.data[1,k,(dataOut.NRANGE+j+i*dataOut.NDT+2*n)%dataOut.NDP]
+                            #print("*3*")
+                    #if n == 7 and j == 65:
+                        #print(k)
+                        #print(data_ChB)
+                                #exit(1)
+                    if n == 8 or n == 9 or n == 10:
+                        self.buffer[0,int((aux+indProfile[k]-1)/2),j,n] = data_ChA
+                        self.buffer[1,int((aux+indProfile[k]-1)/2),j,n] = data_ChB
+                    elif n == 1 or n == 2 or n == 7:
+                        self.buffer[0,int((aux+indProfile[k])/2),j,n] = data_ChA
+                        self.buffer[1,int((aux+indProfile[k])/2),j,n] = data_ChB
+                    else:
+                        self.buffer[0,aux+indProfile[k],j,n] = data_ChA
+                        self.buffer[1,aux+indProfile[k],j,n] = data_ChB
+
+        #FindMe
+        pa1 = 20
+        pa2 = 10
+
+        #print(self.buffer[0,:,pa1,pa2])
+        #print(self.buffer[1,:,pa1,pa2])
+        '''
+        print(sum(self.buffer[0,:,pa1,pa2]))
+        print(sum(self.buffer[1,:,pa1,pa2]))
+        #exit(1)
+        '''
+
+        '''
+        for pa1 in range(67):
+            print(sum(self.buffer[0,:,pa1,pa2]))
+            print(sum(self.buffer[1,:,pa1,pa2]))
+            '''
+
+        '''
+        import matplotlib.pyplot as plt
+        fft = numpy.fft.fft(self.buffer[0,:,pa1,pa2])
+        fft2 = fft*numpy.conjugate(fft)
+        fft2 = fft2.real
+        fft2 = numpy.fft.fftshift(fft2)
+        '''
+        #print("before",fft2)
+        #plt.plot(fft2)
+        #plt.show()
+        #import time
+        #time.sleep(5)
+        #plt.close('all')
+        #exit(1)
+        return self.buffer
+
+
+
+    def run(self,dataOut,DPL=11,NSCAN=128,lagind=(0,1,2,3,4,5,6,7,0,3,4,5,6,8,9,10),lagfirst=(1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1), NLAG = 16, NRANGE = 200):
+
+        if not self.isConfig:
+            self.setup(dataOut,DPL,NSCAN,NLAG,NRANGE,lagind,lagfirst)
+            self.isConfig = True
+
+        #print(dataOut.data[1,:12,:15])
+        #exit(1)
+        #print(numpy.shape(dataOut.data))
+        #print(dataOut.profileIndex)
+
+        if not dataOut.flagDataAsBlock:
+
+            dataOut.flagNoData = True
+            #print("nProfiles: ",dataOut.nProfiles)
+            #if dataOut.profileIndex == 140:
+            #print("id: ",dataOut.profileIndex)
+            if dataOut.profileIndex == dataOut.nProfiles-1:
+                #print("here")
+                #print(dataOut.data.shape)
+                self.data_buffer.append(dataOut.data)
+                dataOut.data = numpy.transpose(numpy.array(self.data_buffer),(1,0,2))
+                #print(dataOut.data.shape)
+                #print(numpy.sum(dataOut.data))
+                #print(dataOut.data[1,100,:])
+                #exit(1)
+                dataOut.datalags = numpy.copy(self.LagDistribution(dataOut))
+                #print(numpy.shape(dataOut.datalags))
+                #exit(1)
+                #print("AFTER RESHAPE DP")
+
+                dataOut.data = dataOut.data[:,:,200:]
+                self.data_buffer = []
+                dataOut.flagDataAsBlock = True
+                dataOut.flagNoData = False
+
+                deltaHeight   =  dataOut.heightList[1] - dataOut.heightList[0]
+                dataOut.heightList = numpy.arange(dataOut.NDP) *deltaHeight# + dataOut.heightList[0]
+                #exit(1)
+                #print(numpy.sum(dataOut.datalags))
+                #exit(1)
+
+            else:
+                self.data_buffer.append(dataOut.data)
+            #print(numpy.shape(dataOut.data))
+            #exit(1)
+        else:
+            #print(dataOut.data.shape)
+            #print(numpy.sum(dataOut.data))
+            #print(dataOut.data[1,100,:])
+            #exit(1)
+            dataOut.datalags = numpy.copy(self.LagDistribution(dataOut))
+            #print(dataOut.datalags.shape)
+            dataOut.data = dataOut.data[:,:,200:]
+            deltaHeight   =  dataOut.heightList[1] - dataOut.heightList[0]
+            dataOut.heightList = numpy.arange(dataOut.NDP) * deltaHeight# + dataOut.heightList[0]
+            #print(dataOut.nHeights)
+            #print(numpy.sum(dataOut.datalags))
+            #exit(1)
+
+        return dataOut
 
 class CrossProdDP(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to calculate cross products of the Double Pulse Experiment.
 
     Parameters:
@@ -703,7 +1075,6 @@ class CrossProdDP(Operation):
             self.set_header_output(dataOut)
             self.aux=0
 
-
         dataOut.lags_array=[x / dataOut.DH for x in dataOut.flags_array]
         self.cax=numpy.zeros((dataOut.NDP,dataOut.DPL,2))
         self.cay=numpy.zeros((dataOut.NDP,dataOut.DPL,2))
@@ -786,25 +1157,14 @@ class CrossProdDP(Operation):
     def cabxys_navg(self,dataOut):
 
 
-        #dataOut.header[5][0]=mktime(strptime(dataOut.TimeBlockDate))
         dataOut.header[5][0]=dataOut.TimeBlockSeconds
-        #print(dataOut.TimeBlockDate)
-        #print(dataOut.utctime)
-        #print(dataOut.datatime)
-        #print(mktime(strptime(dataOut.TimeBlockDate)))
-        #print(dataOut.header[5][0])
 
-        #dataOut.LastAVGDate=mktime(strptime(dataOut.TimeBlockDate))
         dataOut.LastAVGDate=dataOut.TimeBlockSeconds
-        #print(dataOut.TimeBlockDate)
-        #print(TimeBlockSeconds)
-        #input()
+
         if self.bcounter==0:
-            #dataOut.FirstAVGDate=mktime(strptime(dataOut.TimeBlockDate))
             dataOut.FirstAVGDate=dataOut.TimeBlockSeconds
             dataOut.header[4][0]=dataOut.header[5][0]#firsttimeofNAVG
             if dataOut.CurrentBlock==1:
-                #dataOut.FirstBlockDate=mktime(strptime(dataOut.TimeBlockDate))
                 dataOut.FirstBlockDate=dataOut.TimeBlockSeconds
                 dataOut.header[16][0]=dataOut.header[5][0]#FirsTimeOfTotalBlocks
 
@@ -826,16 +1186,8 @@ class CrossProdDP(Operation):
             dataOut.noisevector=numpy.zeros((dataOut.MAXNRANGENDT,dataOut.NR,dataOut.NAVG),'float32')  #30/03/2020
 
             dataOut.noisevector_=numpy.zeros((dataOut.read_samples,dataOut.NR,dataOut.NAVG),'float32')
-            #dataOut.dc=numpy.zeros(dataOut.NR,dtype=numpy.complex_)  #30/03/2020
-            #self.dataOut.noisevector=numpy.zeros((self.dataOut.read_samples,2,self.dataOut.NAVG),'float32')  #31/03/2020
-            #self.dataOut.noisevector_=numpy.zeros((self.dataOut.read_samples,2,self.dataOut.NAVG),'float32')  #31/03/2020
-            #dataOut.dc=numpy.zeros(dataOut.NR,dtype='complex64')
-            #self.dataOut.dc=numpy.zeros(2,dtype=numpy.complex_)  #31/03/2020
-            #self.dataOut.processingHeaderObj.profilesPerBlock
 
         self.noisevectorizer(dataOut.NSCAN,dataOut.nProfiles,dataOut.NR,dataOut.MAXNRANGENDT,dataOut.noisevector,dataOut.data,dataOut.dc)   #30/03/2020
-
-        #print(self.dataOut.noisevector[:,:,:])
 
         self.cax_navg.append(self.cax)
         self.cay_navg.append(self.cay)
@@ -865,30 +1217,13 @@ class CrossProdDP(Operation):
                     for j in range(dataOut.MAXNRANGENDT):
                         nvector1[i][k][j]= dataOut.noisevector[j][i][k];
                     snoise[i][k]=self.noise_hs4x(dataOut.MAXNRANGENDT, nvector1[i][k])
-                    #print("snoise",snoise[3,k])
                 dataOut.noise_final[i]=self.noise_hs4x(dataOut.NAVG, snoise[i])
 
-
-
-
-
-
-
-
     def kabxys(self,dataOut):
-
-
-        #self.cabxys_navg(dataOut)
-
 
         if self.bcounter==dataOut.NAVG:
 
             dataOut.flagNoData =  False
-
-
-            #dataOut.noise_final=numpy.zeros(dataOut.NR,'float32')  #30/03/2020
-            #self.dataOut.noise_final=numpy.zeros(2,'float32')  #31/03/2020
-
 
             self.kax=numpy.zeros((dataOut.NDP,dataOut.DPL,2),'float32')
             self.kay=numpy.zeros((dataOut.NDP,dataOut.DPL,2),'float32')
@@ -978,8 +1313,8 @@ class CrossProdDP(Operation):
                     x01[i]=x01[i]+(kbx2[i,j,k]+kby2[i,j,k])
                     x02[i]=x02[i]+fx
 
-                    x00[i]=10.0*numpy.log10(x00[i]/4.)
-                    x01[i]=10.0*numpy.log10(x01[i]/4.)
+                    x00[i]=10.0*numpy.log10(x00[i]/512.)
+                    x01[i]=10.0*numpy.log10(x01[i]/512.)
                     x02[i]=10.0*numpy.log10(x02[i])
         return x02,x00,x01
 
@@ -1073,6 +1408,9 @@ class CrossProdDP(Operation):
 
 
 class IntegrationDP(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to integrate the Double Pulse data.
 
     Parameters:
@@ -1097,31 +1435,14 @@ class IntegrationDP(Operation):
         self.init_time=None
 
     def integration_for_double_pulse(self,dataOut):
-        #print("inside")
-        #print(self.aux)
+
         if self.aux==1:
-            #print("CurrentBlockBBBBB: ",dataOut.CurrentBlock)
-            #print(dataOut.datatime)
 
-            #dataOut.TimeBlockDate_for_dp_power=dataOut.TimeBlockDate
-            ########dataOut.TimeBlockSeconds_for_dp_power=dataOut.LastAVGDate
-            #print("Date: ",dataOut.TimeBlockDate_for_dp_power)
-
-            #dataOut.TimeBlockSeconds_for_dp_power=mktime(strptime(dataOut.TimeBlockDate_for_dp_power))
-            dataOut.TimeBlockSeconds_for_dp_power=dataOut.utctime#dataOut.TimeBlockSeconds-18000
-            #dataOut.TimeBlockSeconds_for_dp_power=dataOut.LastAVGDate
-            #print("Seconds: ",dataOut.TimeBlockSeconds_for_dp_power)
+            dataOut.TimeBlockSeconds_for_dp_power=dataOut.utctime
             dataOut.bd_time=gmtime(dataOut.TimeBlockSeconds_for_dp_power)
-            #print(dataOut.bd_time)
-            #exit()
             dataOut.year=dataOut.bd_time.tm_year+(dataOut.bd_time.tm_yday-1)/364.0
             dataOut.ut_Faraday=dataOut.bd_time.tm_hour+dataOut.bd_time.tm_min/60.0+dataOut.bd_time.tm_sec/3600.0
-            #print("date: ", dataOut.TimeBlockDate)
-
-
             self.aux=0
-
-        #print("after")
 
         if self.counter==0:
 
@@ -1130,7 +1451,6 @@ class IntegrationDP(Operation):
             self.init_time=dataOut.utctime
 
         if self.counter < dataOut.nint:
-            #print("HERE")
 
             dataOut.final_cross_products=[dataOut.kax,dataOut.kay,dataOut.kbx,dataOut.kby,dataOut.kax2,dataOut.kay2,dataOut.kbx2,dataOut.kby2,dataOut.kaxbx,dataOut.kaxby,dataOut.kaybx,dataOut.kayby,dataOut.kaxay,dataOut.kbxby]
 
@@ -1141,9 +1461,8 @@ class IntegrationDP(Operation):
 
             if self.counter==dataOut.nint-1:
                 self.aux=1
-                #dataOut.TimeBlockDate_for_dp_power=dataOut.TimeBlockDate
-            if self.counter==dataOut.nint:
 
+            if self.counter==dataOut.nint:
                 dataOut.flagNoData=False
                 dataOut.utctime=self.init_time
                 self.counter=0
@@ -1163,6 +1482,9 @@ class IntegrationDP(Operation):
 
 
 class SumFlips(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to sum the flip and unflip part of certain cross products of the Double Pulse.
 
     Parameters:
@@ -1193,7 +1515,6 @@ class SumFlips(Operation):
     def SumLags(self,dataOut):
 
         for l in range(dataOut.DPL):
-
             dataOut.kabxys_integrated[4][:,l,0]=(dataOut.kabxys_integrated[4][:,l,0]+dataOut.kabxys_integrated[4][:,l,1])*dataOut.rnint2[l]
             dataOut.kabxys_integrated[5][:,l,0]=(dataOut.kabxys_integrated[5][:,l,0]+dataOut.kabxys_integrated[5][:,l,1])*dataOut.rnint2[l]
             dataOut.kabxys_integrated[6][:,l,0]=(dataOut.kabxys_integrated[6][:,l,0]+dataOut.kabxys_integrated[6][:,l,1])*dataOut.rnint2[l]
@@ -1204,7 +1525,6 @@ class SumFlips(Operation):
             dataOut.kabxys_integrated[10][:,l,0]=(dataOut.kabxys_integrated[10][:,l,0]-dataOut.kabxys_integrated[10][:,l,1])*dataOut.rnint2[l]
             dataOut.kabxys_integrated[11][:,l,0]=(dataOut.kabxys_integrated[11][:,l,0]-dataOut.kabxys_integrated[11][:,l,1])*dataOut.rnint2[l]
 
-
     def run(self,dataOut):
 
         self.rint2DP(dataOut)
@@ -1214,6 +1534,9 @@ class SumFlips(Operation):
 
 
 class FlagBadHeights(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to flag bad heights (bad data) of the Double Pulse.
 
     Parameters:
@@ -1247,6 +1570,9 @@ class FlagBadHeights(Operation):
         return dataOut
 
 class FlagBadHeightsSpectra(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to flag bad heights (bad data) of the Double Pulse.
 
     Parameters:
@@ -1279,7 +1605,132 @@ class FlagBadHeightsSpectra(Operation):
 
         return dataOut
 
+class CleanCohEchoes(Operation):
+    '''
+    Written by R. Flores
+    '''
+    """Operation to clean coherent echoes.
+
+    Parameters:
+    -----------
+    None
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='CleanCohEchoes')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+
+    def remove_coh(self,pow):
+        q75,q25 = numpy.percentile(pow,[75,25],axis=0)
+        intr_qr = q75-q25
+
+        max = q75+(1.5*intr_qr)
+        min = q25-(1.5*intr_qr)
+
+        pow[pow > max] = numpy.nan
+
+        return pow
+
+    def mad_based_outlier_V0(self, points, thresh=3.5):
+
+        if len(points.shape) == 1:
+            points = points[:,None]
+        median = numpy.nanmedian(points, axis=0)
+        diff = numpy.nansum((points - median)**2, axis=-1)
+        diff = numpy.sqrt(diff)
+        med_abs_deviation = numpy.nanmedian(diff)
+
+        modified_z_score = 0.6745 * diff / med_abs_deviation
+
+        return modified_z_score > thresh
+
+    def mad_based_outlier(self, points, thresh=3.5):
+
+        median = numpy.nanmedian(points)
+        diff = (points - median)**2
+        diff = numpy.sqrt(diff)
+        med_abs_deviation = numpy.nanmedian(diff)
+
+        modified_z_score = 0.6745 * diff / med_abs_deviation
+
+        return modified_z_score > thresh
+
+
+
+    def removeSpreadF(self,dataOut):
+
+        #Removing outliers from the profile
+        nlag = 9
+        minHei = 180
+        #maxHei = 600
+        maxHei = 525
+        inda = numpy.where(dataOut.heightList >= minHei)
+        indb = numpy.where(dataOut.heightList <= maxHei)
+        minIndex = inda[0][0]
+        maxIndex = indb[0][-1]
+        outliers_IDs = []
+
+        for i in range(15):
+          minIndex = 12+i#12
+          #maxIndex = 22+i#35
+          if gmtime(dataOut.utctime).tm_hour >= 23. or gmtime(dataOut.utctime).tm_hour < 3.:
+            maxIndex = 31+i#35
+          else:
+            maxIndex = 22+i#35
+          for lag in range(11):
+            outliers = self.mad_based_outlier(dataOut.kabxys_integrated[6][minIndex:maxIndex,lag,0])
+            aux = minIndex+numpy.array(outliers.nonzero()).ravel()
+            outliers_IDs=numpy.append(outliers_IDs,aux)
+        if outliers_IDs != []:
+            outliers_IDs=numpy.array(outliers_IDs)
+            outliers_IDs=outliers_IDs.astype(numpy.dtype('int64'))
+            (uniq, freq) = (numpy.unique(outliers_IDs, return_counts=True))
+            aux_arr = numpy.column_stack((uniq,freq))
+            final_index = []
+            for i in range(aux_arr.shape[0]):
+                if aux_arr[i,1] >= 3*11:
+                    final_index.append(aux_arr[i,0])
+
+            if final_index != []:# and len(final_index) > 1:
+                following_index = final_index[-1]+1 #Remove following index to ensure we remove remaining SpreadF
+                previous_index = final_index[0]-1 #Remove previous index to ensure we remove remaning SpreadF
+                final_index = numpy.concatenate(([previous_index],final_index,[following_index]))
+                final_index = numpy.unique(final_index) #If there was only one outlier
+                dataOut.kabxys_integrated[4][final_index,:,0] = numpy.nan
+                dataOut.kabxys_integrated[6][final_index,:,0] = numpy.nan
+
+                dataOut.flagSpreadF = True
+
+        #Removing echoes greater than 35 dB
+        if hasattr(dataOut.pbn, "__len__"):
+            maxdB = 10*numpy.log10(dataOut.pbn[0]) + 10 #Lag 0 Noise
+        else:
+            maxdB = 10*numpy.log10(dataOut.pbn) + 10
+
+        data = numpy.copy(10*numpy.log10(dataOut.kabxys_integrated[6][:,0,0])) #Lag0 ChB
+
+        for i in range(12,data.shape[0]):
+            if data[i]>maxdB:
+                dataOut.kabxys_integrated[4][i-2:i+3,:,0] = numpy.nan #Debido a que estos ecos son intensos, se
+                dataOut.kabxys_integrated[6][i-2:i+3,:,0] = numpy.nan #remueven además dos muestras antes y después
+                dataOut.flagSpreadF = True
+
+    def run(self,dataOut):
+        dataOut.flagSpreadF = False
+        if gmtime(dataOut.utctime).tm_hour >= 23. or gmtime(dataOut.utctime).tm_hour < 11.: #18-06 LT
+            self.removeSpreadF(dataOut)
+
+        return dataOut
 class NoisePower(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to get noise power from the integrated data of the Double Pulse.
 
     Parameters:
@@ -1357,6 +1808,9 @@ class NoisePower(Operation):
 
 
 class DoublePulseACFs(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to get the ACFs of the Double Pulse.
 
     Parameters:
@@ -1430,14 +1884,104 @@ class DoublePulseACFs(Operation):
                     dataOut.ibad[i,j]=4
                     dataOut.rhor[i,j]=rhorp*rnorm
                     dataOut.rhoi[i,j]=rhoip*rnorm
-
-                if ((pa/dataOut.pan-1.0)>2.25*(pb/dataOut.pbn-1.0)):
+                if ((pb/dataOut.pbn-1.0)>2.25*(pa/dataOut.pan-1.0)): #To flag bad points from the pulse and EEJ for lags != 0 for Channel B
+                    #print(dataOut.heightList[i],"EJJ")
+                    dataOut.igcej[i,j]=1
+                elif ((pa/dataOut.pan-1.0)>2.25*(pb/dataOut.pbn-1.0)):
                     dataOut.igcej[i,j]=1
 
         return dataOut
 
+class DoublePulseACFs_PerLag(Operation):
+    '''
+    Written by R. Flores
+    '''
+    """Operation to get the ACFs of the Double Pulse.
+
+    Parameters:
+    -----------
+    None
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='DoublePulseACFs', optype='other')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+        self.aux=1
+
+    def run(self,dataOut):
+
+        dataOut.igcej=numpy.zeros((dataOut.NDP,dataOut.DPL),'int32')
+
+        if self.aux==1:
+            dataOut.rhor=numpy.zeros((dataOut.NDP,dataOut.DPL), dtype=float)
+            dataOut.rhoi=numpy.zeros((dataOut.NDP,dataOut.DPL), dtype=float)
+            dataOut.sdp=numpy.zeros((dataOut.NDP,dataOut.DPL), dtype=float)
+            dataOut.sd=numpy.zeros((dataOut.NDP,dataOut.DPL), dtype=float)
+            dataOut.p=numpy.zeros((dataOut.NDP,dataOut.DPL), dtype=float)
+            dataOut.alag=numpy.zeros(dataOut.NDP,'float32')
+            for l in range(dataOut.DPL):
+                dataOut.alag[l]=l*dataOut.DH*2.0/150.0
+            self.aux=0
+        sn4=dataOut.pan*dataOut.pbn
+        rhorn=0
+        rhoin=0
+        panrm=numpy.zeros((dataOut.NDP,dataOut.DPL), dtype=float)
+
+        id = numpy.where(dataOut.heightList>700)[0]
+
+        for i in range(dataOut.NDP):
+            for j in range(dataOut.DPL):
+                #################  Total power
+                pa=numpy.abs(dataOut.kabxys_integrated[4][i,j,0]+dataOut.kabxys_integrated[5][i,j,0])
+                pb=numpy.abs(dataOut.kabxys_integrated[6][i,j,0]+dataOut.kabxys_integrated[7][i,j,0])
+                st4=pa*pb
+                dataOut.p[i,j]=pa+pb-(dataOut.pan[j]+dataOut.pbn[j])
+                dataOut.sdp[i,j]=2*dataOut.rnint2[j]*((pa+pb)*(pa+pb))
+                ## ACF
+                rhorp=dataOut.kabxys_integrated[8][i,j,0]+dataOut.kabxys_integrated[11][i,j,0]
+                rhoip=dataOut.kabxys_integrated[10][i,j,0]-dataOut.kabxys_integrated[9][i,j,0]
+
+                if ((pa>dataOut.pan[j])&(pb>dataOut.pbn[j])):
+                    ss4=numpy.abs((pa-dataOut.pan[j])*(pb-dataOut.pbn[j]))
+                    panrm[i,j]=math.sqrt(ss4)
+                    rnorm=1/panrm[i,j]
+                    ##  ACF
+                    dataOut.rhor[i,j]=rhorp*rnorm
+                    dataOut.rhoi[i,j]=rhoip*rnorm
+                    #############  Compute standard error for ACF
+                    stoss4=st4/ss4
+                    snoss4=sn4[j]/ss4
+                    rp2=((rhorp*rhorp)+(rhoip*rhoip))/st4
+                    rn2=((rhorn*rhorn)+(rhoin*rhoin))/sn4[j]
+                    rs2=(dataOut.rhor[i,j]*dataOut.rhor[i,j])+(dataOut.rhoi[i,j]*dataOut.rhoi[i,j])
+                    st=1.0+rs2*(stoss4-(2*math.sqrt(stoss4*snoss4)))
+                    stn=1.0+rs2*(snoss4-(2*math.sqrt(stoss4*snoss4)))
+                    dataOut.sd[i,j]=((stoss4*((1.0+rp2)*st+(2.0*rp2*rs2*snoss4)-4.0*math.sqrt(rs2*rp2)))+(0.25*snoss4*((1.0+rn2)*stn+(2.0*rn2*rs2*stoss4)-4.0*math.sqrt(rs2*rn2))))*dataOut.rnint2[j]
+                    dataOut.sd[i,j]=numpy.abs(dataOut.sd[i,j])
+                else: #default values for bad points
+                    rnorm=1/math.sqrt(st4)
+                    dataOut.sd[i,j]=1.e30
+                    dataOut.ibad[i,j]=4
+                    dataOut.rhor[i,j]=rhorp*rnorm
+                    dataOut.rhoi[i,j]=rhoip*rnorm
+                if ((pb/dataOut.pbn[j]-1.0)>2.25*(pa/dataOut.pan[j]-1.0)): #To flag bad points from the pulse and EEJ for lags != 0 for Channel B
+                    dataOut.igcej[i,j]=1
+
+                elif ((pa/dataOut.pan[j]-1.0)>2.25*(pb/dataOut.pbn[j]-1.0)):
+                    dataOut.igcej[i,j]=1
+
+        return dataOut
 
 class FaradayAngleAndDPPower(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to calculate Faraday angle and Double Pulse power.
 
     Parameters:
@@ -1516,10 +2060,14 @@ class FaradayAngleAndDPPower(Operation):
             else:
                 dataOut.phi[j]=math.atan2( ri , rr )
 
+        dataOut.flagTeTiCorrection = False
         return dataOut
 
 
 class ElectronDensityFaraday(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to calculate electron density from Faraday angle.
 
     Parameters:
@@ -1544,66 +2092,6 @@ class ElectronDensityFaraday(Operation):
         self.aux=1
 
     def run(self,dataOut,NSHTS=50,RATE=1.8978873e-6):
-
-        #print(ctime(dataOut.utctime))
-        #3print("Faraday Angle",dataOut.phi)
-
-        dataOut.NSHTS=NSHTS
-        dataOut.RATE=RATE
-
-        if self.aux==1:
-            dataOut.dphi=numpy.zeros(dataOut.NDP,'float32')
-            dataOut.sdn1=numpy.zeros(dataOut.NDP,'float32')
-            self.aux=0
-        theta=numpy.zeros(dataOut.NDP,dtype=numpy.complex_)
-        thetai=numpy.zeros(dataOut.NDP,dtype=numpy.complex_)
-        # use complex numbers for phase
-        for i in range(dataOut.NSHTS):
-            theta[i]=math.cos(dataOut.phi[i])+math.sin(dataOut.phi[i])*1j
-            thetai[i]=-math.sin(dataOut.phi[i])+math.cos(dataOut.phi[i])*1j
-
-        # differentiate and convert to number density
-        ndphi=dataOut.NSHTS-4
-        for i in range(2,dataOut.NSHTS-2):
-            fact=(-0.5/(dataOut.RATE*dataOut.DH))*dataOut.bki[i]
-            #four-point derivative, no phase unwrapping necessary
-            ####dataOut.dphi[i]=((((theta[i+1]-theta[i-1])+(2.0*(theta[i+2]-theta[i-2])))/thetai[i])).real/10.0
-            dataOut.dphi[i]=((((theta[i-2]-theta[i+2])+(8.0*(theta[i+1]-theta[i-1])))/thetai[i])).real/12.0
-
-            dataOut.dphi[i]=abs(dataOut.dphi[i]*fact)
-            dataOut.sdn1[i]=(4.*(dataOut.sdn2[i-2]+dataOut.sdn2[i+2])+dataOut.sdn2[i-1]+dataOut.sdn2[i+1])
-            dataOut.sdn1[i]=numpy.sqrt(dataOut.sdn1[i])*fact
-
-        return dataOut
-
-class ElectronDensityRobertoTestFaraday(Operation):
-    """Operation to calculate electron density from Faraday angle.
-
-    Parameters:
-    -----------
-    NSHTS : int
-        .*
-    RATE : float
-        .*
-
-    Example
-    --------
-
-    op = proc_unit.addOperation(name='ElectronDensityFaraday', optype='other')
-    op.addParameter(name='NSHTS', value='50', format='int')
-    op.addParameter(name='RATE', value='1.8978873e-6', format='float')
-
-    """
-
-    def __init__(self, **kwargs):
-
-        Operation.__init__(self, **kwargs)
-        self.aux=1
-
-    def run(self,dataOut,NSHTS=50,RATE=1.8978873e-6):
-
-        #print(ctime(dataOut.utctime))
-        #print("Faraday Angle",dataOut.phi)
 
         dataOut.NSHTS=NSHTS
         dataOut.RATE=RATE
@@ -1619,96 +2107,41 @@ class ElectronDensityRobertoTestFaraday(Operation):
         for i in range(dataOut.NSHTS):
             theta[i]=math.cos(dataOut.phi[i])+math.sin(dataOut.phi[i])*1j
             thetai[i]=-math.sin(dataOut.phi[i])+math.cos(dataOut.phi[i])*1j
-            '''
+            ''' #Old Method
 
         # differentiate and convert to number density
         ndphi=dataOut.NSHTS-4
+        if hasattr(dataOut, 'flagSpreadF') and dataOut.flagSpreadF:
+            nanindex = numpy.argwhere(numpy.isnan(dataOut.phi))
+            i1 = nanindex[-1][0]
+            #Analizar cuando SpreadF es Pluma
 
-        dataOut.phi=numpy.unwrap(dataOut.phi)
-
+            dataOut.phi[i1+1:]=numpy.unwrap(dataOut.phi[i1+1:]) #Better results
+        else:
+            dataOut.phi[:]=numpy.unwrap(dataOut.phi[:]) #Better results
         for i in range(2,dataOut.NSHTS-2):
             fact=(-0.5/(dataOut.RATE*dataOut.DH))*dataOut.bki[i]
+            #print("fact: ", fact,dataOut.RATE,dataOut.DH,dataOut.bki[i])
             #four-point derivative, no phase unwrapping necessary
-            ####dataOut.dphi[i]=((((theta[i+1]-theta[i-1])+(2.0*(theta[i+2]-theta[i-2])))/thetai[i])).real/10.0
-            ##dataOut.dphi[i]=((((theta[i-2]-theta[i+2])+(8.0*(theta[i+1]-theta[i-1])))/thetai[i])).real/12.0
-            dataOut.dphi[i]=((dataOut.phi[i+1]-dataOut.phi[i-1])+(2.0*(dataOut.phi[i+2]-dataOut.phi[i-2])))/10.0
+            #####dataOut.dphi[i]=((((theta[i+1]-theta[i-1])+(2.0*(theta[i+2]-theta[i-2])))/thetai[i])).real/10.0 #Original from C program
 
-            dataOut.dphi[i]=abs(dataOut.dphi[i]*fact)
+            ##dataOut.dphi[i]=((((theta[i-2]-theta[i+2])+(8.0*(theta[i+1]-theta[i-1])))/thetai[i])).real/12.0
+            dataOut.dphi[i]=((dataOut.phi[i+1]-dataOut.phi[i-1])+(2.0*(dataOut.phi[i+2]-dataOut.phi[i-2])))/10.0 #Better results
+
+            #dataOut.dphi_uc[i] = abs(dataOut.phi[i]*dataOut.bki[i]*(-0.5)/dataOut.DH)
+            #dataOut.dphi[i]=abs(dataOut.dphi[i]*fact)
+            dataOut.dphi[i]=dataOut.dphi[i]*abs(fact)
             dataOut.sdn1[i]=(4.*(dataOut.sdn2[i-2]+dataOut.sdn2[i+2])+dataOut.sdn2[i-1]+dataOut.sdn2[i+1])
             dataOut.sdn1[i]=numpy.sqrt(dataOut.sdn1[i])*fact
 
         return dataOut
 
-class ElectronDensityRobertoTest2Faraday(Operation):
-    """Operation to calculate electron density from Faraday angle.
-
-    Parameters:
-    -----------
-    NSHTS : int
-        .*
-    RATE : float
-        .*
-
-    Example
-    --------
-
-    op = proc_unit.addOperation(name='ElectronDensityFaraday', optype='other')
-    op.addParameter(name='NSHTS', value='50', format='int')
-    op.addParameter(name='RATE', value='1.8978873e-6', format='float')
-
-    """
-
-    def __init__(self, **kwargs):
-
-        Operation.__init__(self, **kwargs)
-        self.aux=1
-
-    def run(self,dataOut,NSHTS=50,RATE=1.8978873e-6):
-
-        #print(ctime(dataOut.utctime))
-        #print("Faraday Angle",dataOut.phi)
-
-        dataOut.NSHTS=NSHTS
-        dataOut.RATE=RATE
-
-        if self.aux==1:
-            dataOut.dphi=numpy.zeros(dataOut.NDP,'float32')
-            dataOut.sdn1=numpy.zeros(dataOut.NDP,'float32')
-            self.aux=0
-        theta=numpy.zeros(dataOut.NDP,dtype=numpy.complex_)
-        thetai=numpy.zeros(dataOut.NDP,dtype=numpy.complex_)
-        # use complex numbers for phase
-        '''
-        for i in range(dataOut.NSHTS):
-            theta[i]=math.cos(dataOut.phi[i])+math.sin(dataOut.phi[i])*1j
-            thetai[i]=-math.sin(dataOut.phi[i])+math.cos(dataOut.phi[i])*1j
-            '''
-
-        # differentiate and convert to number density
-        ndphi=dataOut.NSHTS-4
-
-        #dataOut.phi=numpy.unwrap(dataOut.phi)
-        f1=numpy.exp((dataOut.phi*1.j)/10)
-        f2=numpy.exp((dataOut.phi*2.j)/10)
-
-        for i in range(2,dataOut.NSHTS-2):
-            fact=(-0.5/(dataOut.RATE*dataOut.DH))*dataOut.bki[i]
-            #four-point derivative, no phase unwrapping necessary
-            ####dataOut.dphi[i]=((((theta[i+1]-theta[i-1])+(2.0*(theta[i+2]-theta[i-2])))/thetai[i])).real/10.0
-            ##dataOut.dphi[i]=((((theta[i-2]-theta[i+2])+(8.0*(theta[i+1]-theta[i-1])))/thetai[i])).real/12.0
-            ##dataOut.dphi[i]=((dataOut.phi[i+1]-dataOut.phi[i-1])+(2.0*(dataOut.phi[i+2]-dataOut.phi[i-2])))/10.0
-
-            dataOut.dphi[i]=numpy.angle(f1[i+1]*numpy.conjugate(f1[i-1])*f2[i+2]*numpy.conjugate(f2[i-2]))
-
-
-            dataOut.dphi[i]=abs(dataOut.dphi[i]*fact)
-            dataOut.sdn1[i]=(4.*(dataOut.sdn2[i-2]+dataOut.sdn2[i+2])+dataOut.sdn2[i-1]+dataOut.sdn2[i+1])
-            dataOut.sdn1[i]=numpy.sqrt(dataOut.sdn1[i])*fact
-
-        return dataOut
 
 class NormalizeDPPower(Operation):
-    """Operation to normalize relative electron density from power with total electron density from Farday angle.
+    '''
+    Written by R. Flores
+    '''
+    """Operation to normalize relative electron density from power with total electron density from Faraday angle.
 
     Parameters:
     -----------
@@ -1774,21 +2207,21 @@ class NormalizeDPPower(Operation):
         day_first_sunrise=190.0
         day_end_sunrise=280.0
 
-        print(dataOut.ut_Faraday)
+        #print(dataOut.ut_Faraday)
         if(dataOut.ut_Faraday>4.0 and dataOut.ut_Faraday<11.0): #early
-            print("EARLY")
+            #print("EARLY")
             i2=(night_end-dataOut.range1[0])/dataOut.DH
             i1=(night_first -dataOut.range1[0])/dataOut.DH
         elif (dataOut.ut_Faraday>0.0 and dataOut.ut_Faraday<4.0): #night
-            print("NIGHT")
+            #print("NIGHT")
             i2=(night_end-dataOut.range1[0])/dataOut.DH
             i1=(night_first1 -dataOut.range1[0])/dataOut.DH
         elif (dataOut.ut_Faraday>=11.0 and dataOut.ut_Faraday<13.5): #sunrise
-            print("SUNRISE")
+            #print("SUNRISE")
             i2=( day_end_sunrise-dataOut.range1[0])/dataOut.DH
             i1=(day_first_sunrise - dataOut.range1[0])/dataOut.DH
         else:
-            print("ELSE")
+            #print("ELSE")
             i2=(day_end-dataOut.range1[0])/dataOut.DH
             i1=(day_first -dataOut.range1[0])/dataOut.DH
         #print(i1*dataOut.DH)
@@ -1840,6 +2273,9 @@ class NormalizeDPPower(Operation):
         return dataOut
 
 class NormalizeDPPowerRoberto(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to normalize relative electron density from power with total electron density from Farday angle.
 
     Parameters:
@@ -1975,6 +2411,145 @@ class NormalizeDPPowerRoberto(Operation):
 
         return dataOut
 
+class NormalizeDPPowerRoberto_V2(Operation):
+    '''
+    Written by R. Flores
+    '''
+    """Operation to normalize relative electron density from power with total electron density from Farday angle.
+
+    Parameters:
+    -----------
+    None
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='NormalizeDPPower', optype='other')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+        self.aux=1
+
+    def normal(self,a,b,n,m):
+        chmin=1.0e30
+        chisq=numpy.zeros(150,'float32')
+        temp=numpy.zeros(150,'float32')
+
+        for i in range(2*m-1):
+            an=al=be=chisq[i]=0.0
+            for j in range(int(n/m)):
+                k=int(j+i*n/(2*m))
+                if(a[k]>0.0 and b[k]>0.0):
+                    al+=a[k]*b[k]
+                    be+=b[k]*b[k]
+
+            if(be>0.0):
+                temp[i]=al/be
+            else:
+                temp[i]=1.0
+
+            for j in range(int(n/m)):
+                k=int(j+i*n/(2*m))
+                if(a[k]>0.0 and b[k]>0.0):
+                    chisq[i]+=(numpy.log10(b[k]*temp[i]/a[k]))**2
+                    an=an+1
+
+            if(chisq[i]>0.0):
+                chisq[i]/=an
+
+        for i in range(int(2*m-1)):
+            if(chisq[i]<chmin and chisq[i]>1.0e-6):
+                chmin=chisq[i]
+                cf=temp[i]
+        return cf
+
+
+    def normalize(self,dataOut):
+
+        if self.aux==1:
+            dataOut.cf=numpy.zeros(1,'float32')
+            dataOut.cflast=numpy.zeros(1,'float32')
+            self.aux=0
+
+        if (dataOut.ut_Faraday>=11.5 and dataOut.ut_Faraday<23):
+            i2=(500.-dataOut.range1[0])/dataOut.DH
+            i1=(200.-dataOut.range1[0])/dataOut.DH
+
+        else:
+            inda = numpy.where(dataOut.heightList >= 200) #200 km
+            minIndex = inda[0][0]
+            indb = numpy.where(dataOut.heightList < 700) # 700 km
+            maxIndex = indb[0][-1]
+
+            ph2max_idx = numpy.nanargmax(dataOut.ph2[minIndex:maxIndex])
+            ph2max_idx += minIndex
+
+            i2 = ph2max_idx + 6
+            i1 = ph2max_idx - 6
+
+        try:
+            dataOut.heightList[i2]
+        except:
+            i2 -= 1
+
+        i1=int(i1)
+        i2=int(i2)
+
+        if dataOut.flagTeTiCorrection:
+            for i in range(dataOut.NSHTS):
+                dataOut.ph2[i]/=dataOut.cf
+                dataOut.sdp2[i]/=dataOut.cf
+
+        if hasattr(dataOut, 'flagSpreadF') and dataOut.flagSpreadF:
+            i2=int((700-dataOut.range1[0])/dataOut.DH)
+            nanindex = numpy.argwhere(numpy.isnan(dataOut.ph2))
+            i1 = nanindex[-1][0] #VER CUANDO i1>i2
+            if i1 != numpy.shape(dataOut.heightList)[0]:
+                i1 += 1+2 #Se suma uno para no tomar el nan, se suma 2 para no tomar datos nan de "phi" debido al calculo de la derivada
+            if i1 >= i2:
+                i1 = i2-4
+
+        try:
+            dataOut.cf=self.normal(dataOut.dphi[i1::], dataOut.ph2[i1::], i2-i1, 1)
+
+        except:
+            print("except")
+            dataOut.cf = numpy.nan
+
+        night_first1= 300.0#350.0
+        night_end= 450.0
+        night_first1= 220.0#350.0
+        night_end= 400.0
+
+        if(dataOut.cf<dataOut.cflast[0]/10.0):
+            i1=(night_first1-dataOut.range1[0])/dataOut.DH
+            i2=(night_end-dataOut.range1[0])/dataOut.DH
+            i1=int(i1)
+            i2=int(i2)
+            try:
+                dataOut.cf=self.normal(dataOut.dphi[int(i1)::], dataOut.ph2[int(i1)::], int(i2-i1), 1)
+            except:
+                pass
+
+        dataOut.cflast[0]=dataOut.cf
+
+        ## normalize double pulse power and error bars to Faraday
+        for i in range(dataOut.NSHTS):
+            dataOut.ph2[i]*=dataOut.cf
+            dataOut.sdp2[i]*=dataOut.cf
+
+        for i in range(dataOut.NSHTS):
+            dataOut.ph2[i]=(max(1.0, dataOut.ph2[i]))
+            dataOut.dphi[i]=(max(1.0, dataOut.dphi[i]))
+
+    def run(self,dataOut):
+
+        self.normalize(dataOut)
+
+        return dataOut
 
 class suppress_stdout_stderr(object):
     '''
@@ -2007,6 +2582,9 @@ class suppress_stdout_stderr(object):
 
 
 class DPTemperaturesEstimation(Operation):
+    '''
+    Written by R. Flores
+    '''
     """Operation to estimate temperatures for Double Pulse data.
 
     Parameters:
@@ -2029,8 +2607,7 @@ class DPTemperaturesEstimation(Operation):
         self.aux=1
 
     def Estimation(self,dataOut):
-        with suppress_stdout_stderr():
-        #if True:
+    #with suppress_stdout_stderr():
 
             if self.aux==1:
                 dataOut.ifit=numpy.zeros(5,order='F',dtype='int32')
@@ -2114,19 +2691,16 @@ class DPTemperaturesEstimation(Operation):
                     y=numpy.resize(y,1)
 
                 if True: #len(y)!=0:
-
-                    fitacf_guess.guess(y,x,zero,depth,t1,t2,len(y))
+                    with suppress_stdout_stderr():
+                        fitacf_guess.guess(y,x,zero,depth,t1,t2,len(y))
                     t2=t1/t2
-
-
-
 
                     if (t1<5000.0 and t1> 600.0):
                         dataOut.params[1]=t1
                         dataOut.params[2]=min(t2,t1)
                     dataOut.ifit[1]=dataOut.ifit[2]=1
                     dataOut.ifit[0]=dataOut.ifit[3]=dataOut.ifit[4]=0
-                    #print(dataOut.ut_Faraday)
+
                     if dataOut.ut_Faraday<10.0 and dataOut.ut_Faraday>=0.5:
                         dataOut.ifit[2]=0
 
@@ -2143,20 +2717,18 @@ class DPTemperaturesEstimation(Operation):
 
                     eb=numpy.resize(eb,10)
                     dataOut.ifit=numpy.resize(dataOut.ifit,10)
-
-
-
-                    dataOut.covinv,e,dataOut.params,eb,dataOut.m=fitacf_fit_short.fit(wl,x,y,dataOut.cov,dataOut.covinv,e,dataOut.params,bm,angle,den,dataOut.range1[i],dataOut.year,dataOut.ifit,dataOut.m,l1) #
-
-                    #exit()
-
+                    with suppress_stdout_stderr():
+                        dataOut.covinv,e,dataOut.params,eb,dataOut.m=fitacf_fit_short.fit(wl,x,y,dataOut.cov,dataOut.covinv,e,dataOut.params,bm,angle,den,dataOut.range1[i],dataOut.year,dataOut.ifit,dataOut.m,l1) #
                     if dataOut.params[2]>dataOut.params[1]*1.05:
                         dataOut.ifit[2]=0
                         dataOut.params[1]=dataOut.params[2]=t1
                         dataOut.covinv,e,dataOut.params,eb,dataOut.m=fitacf_fit_short.fit(wl,x,y,dataOut.cov,dataOut.covinv,e,dataOut.params,bm,angle,den,dataOut.range1[i],dataOut.year,dataOut.ifit,dataOut.m,l1) #
-
                     if (dataOut.ifit[2]==0):
                          dataOut.params[2]=dataOut.params[1]
+                         with suppress_stdout_stderr():
+                             dataOut.covinv,e,dataOut.params,eb,dataOut.m=fitacf_fit_short.fit(wl,x,y,dataOut.cov,dataOut.covinv,e,dataOut.params,bm,angle,den,dataOut.range1[i],dataOut.year,dataOut.ifit,dataOut.m,l1) #
+                    if (dataOut.ifit[2]==0):
+                        dataOut.params[2]=dataOut.params[1]
                     if (dataOut.ifit[3]==0 and iflag==0):
                         dataOut.params[3]=0.0
                     if (dataOut.ifit[4]==0):
@@ -2182,44 +2754,30 @@ class DPTemperaturesEstimation(Operation):
     def run(self,dataOut,IBITS=16):
 
         dataOut.IBITS = IBITS
-
         self.Estimation(dataOut)
-
-
-        return dataOut
-
-class NeTeTiRecal(NormalizeDPPower,DPTemperaturesEstimation):
-
-    def __init__(self, **kwargs):
-
-        Operation.__init__(self, **kwargs)
-        self.aux=0
-
-    def run(self,dataOut):
-
-        for i in range(dataOut.NSHTS):
-            print("H: ",i*15)
-            print(1+(dataOut.te2[i]/dataOut.ti2[i]))
-            dataOut.ph2[i]*=1+(dataOut.te2[i]/dataOut.ti2[i])
-
-        self.normalize(dataOut)
-        self.Estimation(dataOut)
-
 
         return dataOut
 
 
-class DenCorrection(Operation):
-
+class DenCorrection(NormalizeDPPowerRoberto_V2):
+    '''
+    Written by R. Flores
+    '''
     def __init__(self, **kwargs):
 
         Operation.__init__(self, **kwargs)
+        self.aux = 0
+        self.csv_flag = 1
 
+    def gaussian(self, x, a, b, c):
+        val = a * numpy.exp(-(x - b)**2 / (2*c**2))
+        return val
 
-    def run(self,dataOut):
+    def TeTiEstimation(self,dataOut):
 
+        #dataOut.DPL = 2 #for MST
         y=numpy.zeros(dataOut.DPL,order='F',dtype='float32')
-        #y_aux = numpy.zeros(1,,dtype='float32')
+
         for i in range(dataOut.NSHTS):
             y[0]=y[1]=dataOut.range1[i]
 
@@ -2232,166 +2790,87 @@ class DenCorrection(Operation):
         wion=numpy.zeros(three,order='F',dtype='int32')
         bline=0.0
         #bline=numpy.zeros(1,order='F',dtype='float32')
+        my_aux = numpy.ones(dataOut.NSHTS,order='F',dtype='float32')
+        acf_Temps = numpy.ones(dataOut.NSHTS,order='F',dtype='float32')*numpy.nan
+        acf_no_Temps = numpy.ones(dataOut.NSHTS,order='F',dtype='float32')*numpy.nan
 
+        from scipy import signal
 
-        #print("**** ACF2 WRAPPER ***** ",fitacf_acf2.acf2.__doc__ )
-        print("BEFORE",dataOut.ph2[10:35])
+        def func(params):
+            return (ratio2-self.gaussian(dataOut.heightList[:dataOut.NSHTS],params[0],params[1],params[2]))
+
+        dataOut.info2[0] = 1
         for i in range(dataOut.NSHTS):
             if dataOut.info2[i]==1:
                 angle=dataOut.thb[i]*0.01745
                 nue=nui[0]=nui[1]=nui[2]=0.0#nui[3]=0.0
-                wion[0]=16
-                wion[1]=1
-                wion[2]=4
+                wion[0]=16 #O
+                wion[1]=1 #H
+                wion[2]=4 #He
                 tion[0]=tion[1]=tion[2]=dataOut.ti2[i]
-                fion[0]=1.0-dataOut.phy2[i]
-                fion[1]=dataOut.phy2[i]
-                fion[2]=0.0
+                #tion[0]=tion[1]=tion[2]=ti2_smooth[i]
+                fion[0]=1.0-dataOut.phy2[i] #1
+                fion[1]=dataOut.phy2[i] #0
+                fion[2]=0.0 #0
                 for j in range(dataOut.DPL):
                     tau=dataOut.alag[j]*1.0e-3
+                    with suppress_stdout_stderr():#The smoothness in range of "y" depends on the smoothness of the input parameters
+                        y[j]=fitacf_acf2.acf2(wl,tau,dataOut.te2[i],tion,fion,nue,nui,wion,angle,dataOut.ph2[i],dataOut.bfm[i],y[j],three)
 
-                    '''
-                    print("**** input from acf2 ***** ")
-                    print("wl ",wl)
-                    print("tau ",tau)
-                    print("te2[i] ",dataOut.te2[i])
-                    print("tion ",tion)
-                    print("fion ",fion)
-                    print("nue ",nue)
-                    print("nui ",nui)
-                    print("wion ",wion)
-                    print("angle ",angle)
-                    print("ph2[i] ",dataOut.ph2[i])
-                    print("bfm[i] ",dataOut.bfm[i])
-                    print("y[j] ",y[j])
-                    '''
-                    print("Before y[j] ",y[j])
-                    #with suppress_stdout_stderr():
-                    y[j]=fitacf_acf2.acf2(wl,tau,dataOut.te2[i],tion,fion,nue,nui,wion,angle,dataOut.ph2[i],dataOut.bfm[i],y[j],three)
-                    #print("l",l)
-                    print("After y[j] ",y[j])
-                    '''
-                    print("**** output from acf2 ***** ")
-                    print("wl ",wl)
-                    print("tau ",tau)
-                    print("te2[i] ",dataOut.te2[i])
-                    print("tion ",tion)
-                    print("fion ",fion)
-                    print("nue ",nue)
-                    print("nui ",nui)
-                    print("wion ",wion)
-                    print("angle ",angle)
-                    print("ph2[i] ",dataOut.ph2[i])
-                    print("bfm[i] ",dataOut.bfm[i])
-                    print("y[j] ",y[j])
-                    print("i ",i , "  j ",j , "y[j] ",y[j])
-                    '''
-
-
-                    #exit(1)
-                if dataOut.ut_Faraday>11.0 and dataOut.range1[i]>150.0 and dataOut.range1[i]<400.0:
+                if dataOut.ut_Faraday>11.0 and dataOut.range1[i]>150.0 and dataOut.range1[i]<300.0:
                     tau=0.0
-                    #with suppress_stdout_stderr():
-                    bline=fitacf_acf2.acf2(wl,tau,tion,tion,fion,nue,nui,wion,angle,dataOut.ph2[i],dataOut.bfm[i],bline,three)
-                    cf=min(1.2,max(1.0,bline/y[0]))
-                    print("bline: ",bline)
-                    if cf != 1.0:
-                        print("bline: ",bline)
-                        print("cf: ",cf)
-                    #exit(1)
-                    #print("cf: ",cf)
-                    dataOut.ph2[i]=cf*dataOut.ph2[i]
-                    dataOut.sdp2[i]=cf*dataOut.sdp2[i]
+                    with suppress_stdout_stderr():
+                        bline=fitacf_acf2.acf2(wl,tau,tion,tion,fion,nue,nui,wion,angle,dataOut.ph2[i],dataOut.bfm[i],bline,three)
+
+                    cf=min(1.2,max(1.0,bline/y[0])) #FACTOR DE EFICIENCIA
+                    my_aux[i] = cf
+                    acf_Temps[i] = y[0]
+                    acf_no_Temps[i] = bline
                 for j in range(1,dataOut.DPL):
-                    y[j]=(y[j]/y[0])*dataOut.DH+dataOut.range1[i]
+                    y[j]=min(max((y[j]/y[0]),-1.0),1.0)*dataOut.DH+dataOut.range1[i]
                 y[0]=dataOut.range1[i]+dataOut.DH
-                #exit(1)
 
 
-        #exit(1)
-        print("AFTER",dataOut.ph2[10:35])
-        #exit(1)
+        ratio = my_aux-1
+        def lsq_func(params):
+            return (ratio-self.gaussian(dataOut.heightList[:dataOut.NSHTS],params[0],params[1],params[2]))
 
+        x0_value = numpy.array([max(ratio),250,20])
 
+        popt = least_squares(lsq_func,x0=x0_value,verbose=0)
 
+        A = popt.x[0]; B = popt.x[1]; C = popt.x[2]
 
+        aux = self.gaussian(dataOut.heightList[:dataOut.NSHTS], A, B, C) + 1 #ratio + 1
 
-        return dataOut
+        dataOut.ph2[:dataOut.NSHTS]*=aux
+        dataOut.sdp2[:dataOut.NSHTS]*=aux
 
-class DataPlotCleaner(Operation):
-    def __init__(self, **kwargs):
-
-        Operation.__init__(self, **kwargs)
-
-    def run(self,dataOut):
-
-
-        THRESH_MIN_POW=10000
-        THRESH_MAX_POW=10000000
-        THRESH_MIN_TEMP=500
-        THRESH_MAX_TEMP=4000
-        dataOut.DensityClean=numpy.zeros((1,dataOut.NDP))
-        dataOut.EDensityClean=numpy.zeros((1,dataOut.NDP))
-        dataOut.ElecTempClean=numpy.zeros((1,dataOut.NDP))
-        dataOut.EElecTempClean=numpy.zeros((1,dataOut.NDP))
-        dataOut.IonTempClean=numpy.zeros((1,dataOut.NDP))
-        dataOut.EIonTempClean=numpy.zeros((1,dataOut.NDP))
-
-        dataOut.DensityClean[0]=numpy.copy(dataOut.ph2)
-        dataOut.EDensityClean[0]=numpy.copy(dataOut.sdp2)
-        dataOut.ElecTempClean[0,:dataOut.NSHTS]=numpy.copy(dataOut.te2)
-        dataOut.EElecTempClean[0,:dataOut.NSHTS]=numpy.copy(dataOut.ete2)
-        dataOut.IonTempClean[0,:dataOut.NSHTS]=numpy.copy(dataOut.ti2)
-        dataOut.EIonTempClean[0,:dataOut.NSHTS]=numpy.copy(dataOut.eti2)
-
-        for i in range(dataOut.NDP):
-            if dataOut.DensityClean[0,i]<THRESH_MIN_POW:
-                dataOut.DensityClean[0,i]=THRESH_MIN_POW
-
-        for i in range(dataOut.NDP):
-            if dataOut.DensityClean[0,i]>THRESH_MAX_POW:
-                dataOut.DensityClean[0,i]=THRESH_MAX_POW
-
-        for i in range(dataOut.NSHTS):
-            dataOut.ElecTempClean[0,i]=(max(1.0, dataOut.ElecTempClean[0,i]))
-            dataOut.IonTempClean[0,i]=(max(1.0, dataOut.IonTempClean[0,i]))
-        for i in range(dataOut.NSHTS):
-            if dataOut.ElecTempClean[0,i]<THRESH_MIN_TEMP:
-                dataOut.ElecTempClean[0,i]=THRESH_MIN_TEMP
-            if dataOut.IonTempClean[0,i]<THRESH_MIN_TEMP:
-                dataOut.IonTempClean[0,i]=THRESH_MIN_TEMP
-        for i in range(dataOut.NSHTS):
-            if dataOut.ElecTempClean[0,i]>THRESH_MAX_TEMP:
-                dataOut.ElecTempClean[0,i]=THRESH_MAX_TEMP
-            if dataOut.IonTempClean[0,i]>THRESH_MAX_TEMP:
-                dataOut.IonTempClean[0,i]=THRESH_MAX_TEMP
-        for i in range(dataOut.NSHTS):
-            if dataOut.EElecTempClean[0,i]>500:#
-                dataOut.ElecTempClean[0,i]=500
-            if dataOut.EIonTempClean[0,i]>500:#
-                dataOut.IonTempClean[0,i]=500
-
-        missing=numpy.nan
-
-        for i in range(dataOut.NSHTS,dataOut.NDP):
-
-            dataOut.ElecTempClean[0,i]=missing
-            dataOut.EElecTempClean[0,i]=missing
-            dataOut.IonTempClean[0,i]=missing
-            dataOut.EIonTempClean[0,i]=missing
+    def run(self,dataOut,savecf=0):
+        if gmtime(dataOut.utctime).tm_hour < 24. and gmtime(dataOut.utctime).tm_hour >= 11.:
+            if hasattr(dataOut, 'flagSpreadF') and dataOut.flagSpreadF:
+                pass
+            else:
+                self.TeTiEstimation(dataOut)
+                dataOut.flagTeTiCorrection = True
+                self.normalize(dataOut)
 
         return dataOut
+
 
 
 class DataSaveCleaner(Operation):
+    '''
+    Written by R. Flores
+    '''
     def __init__(self, **kwargs):
 
         Operation.__init__(self, **kwargs)
+        self.csv_flag = 1
 
-
-    def run(self,dataOut):
-
+    def run(self,dataOut,savecfclean=0):
         dataOut.DensityFinal=numpy.zeros((1,dataOut.NDP))
+        dataOut.dphiFinal=numpy.zeros((1,dataOut.NDP))
         dataOut.EDensityFinal=numpy.zeros((1,dataOut.NDP))
         dataOut.ElecTempFinal=numpy.zeros((1,dataOut.NDP))
         dataOut.EElecTempFinal=numpy.zeros((1,dataOut.NDP))
@@ -2401,6 +2880,7 @@ class DataSaveCleaner(Operation):
         dataOut.EPhyFinal=numpy.zeros((1,dataOut.NDP))
 
         dataOut.DensityFinal[0]=numpy.copy(dataOut.ph2)
+        dataOut.dphiFinal[0]=numpy.copy(dataOut.dphi)
         dataOut.EDensityFinal[0]=numpy.copy(dataOut.sdp2)
         dataOut.ElecTempFinal[0,:dataOut.NSHTS]=numpy.copy(dataOut.te2)
         dataOut.EElecTempFinal[0,:dataOut.NSHTS]=numpy.copy(dataOut.ete2)
@@ -2410,11 +2890,16 @@ class DataSaveCleaner(Operation):
         dataOut.EPhyFinal[0,:dataOut.NSHTS]=numpy.copy(dataOut.ephy2)
 
         missing=numpy.nan
-
         temp_min=100.0
         temp_max=3000.0#6000.0e
-
+        den_err_percent = 100*dataOut.EDensityFinal[0]/dataOut.DensityFinal[0]
+        max_den_err_per = 35#30 #Densidades con error mayor al 35% se setean en NaN
         for i in range(dataOut.NSHTS):
+
+            if den_err_percent[i] >= max_den_err_per:
+                dataOut.DensityFinal[0,i]=dataOut.EDensityFinal[0,i]=missing
+                if i > 40: #Alturas mayores que 600
+                    dataOut.DensityFinal[0,i:]=dataOut.EDensityFinal[0,i:]=missing
 
             if dataOut.info2[i]!=1:
                 dataOut.ElecTempFinal[0,i]=dataOut.EElecTempFinal[0,i]=dataOut.IonTempFinal[0,i]=dataOut.EIonTempFinal[0,i]=missing
@@ -2422,7 +2907,6 @@ class DataSaveCleaner(Operation):
             if dataOut.ElecTempFinal[0,i]<=temp_min or dataOut.ElecTempFinal[0,i]>temp_max or dataOut.EElecTempFinal[0,i]>temp_max:
 
                 dataOut.ElecTempFinal[0,i]=dataOut.EElecTempFinal[0,i]=missing
-
 
             if dataOut.IonTempFinal[0,i]<=temp_min or dataOut.IonTempFinal[0,i]>temp_max or dataOut.EIonTempFinal[0,i]>temp_max:
                 dataOut.IonTempFinal[0,i]=dataOut.EIonTempFinal[0,i]=missing
@@ -2436,10 +2920,12 @@ class DataSaveCleaner(Operation):
 
             if dataOut.EPhyFinal[0,i]<0.0 or dataOut.EPhyFinal[0,i]>1.0:
                 dataOut.PhyFinal[0,i]=dataOut.EPhyFinal[0,i]=missing
+
             if dataOut.EDensityFinal[0,i]>0.0 and dataOut.DensityFinal[0,i]>0.0 and dataOut.DensityFinal[0,i]<9.9e6:
                 dataOut.EDensityFinal[0,i]=max(dataOut.EDensityFinal[0,i],1000.0)
             else:
                 dataOut.DensityFinal[0,i]=dataOut.EDensityFinal[0,i]=missing
+
             if dataOut.PhyFinal[0,i]==0 or dataOut.PhyFinal[0,i]>0.4:
                 dataOut.PhyFinal[0,i]=dataOut.EPhyFinal[0,i]=missing
             if dataOut.ElecTempFinal[0,i]==dataOut.IonTempFinal[0,i]:
@@ -2468,8 +2954,6 @@ class DataSaveCleaner(Operation):
 
                     dataOut.IonTempFinal[0,i]=dataOut.EIonTempFinal[0,i]=missing
 
-
-
             if i>25:
                 if numpy.isnan(dataOut.ElecTempFinal[0,i-1]) and numpy.isnan(dataOut.ElecTempFinal[0,i-2]) and numpy.isnan(dataOut.ElecTempFinal[0,i-3]) and numpy.isnan(dataOut.ElecTempFinal[0,i-4]): #and numpy.isnan(dataOut.ElecTempFinal[0,i-5]):
                     dataOut.ElecTempFinal[0,i]=dataOut.EElecTempFinal[0,i]=missing
@@ -2489,6 +2973,8 @@ class DataSaveCleaner(Operation):
             if numpy.isnan(dataOut.IonTempFinal[0,i-1]) and numpy.isnan(dataOut.IonTempFinal[0,i+1]):
                 dataOut.IonTempFinal[0,i]=dataOut.EIonTempFinal[0,i]=missing
 
+            if numpy.isnan(dataOut.DensityFinal[0,i-1]) and numpy.isnan(dataOut.DensityFinal[0,i+1]): ##NEW
+                dataOut.DensityFinal[0,i]=dataOut.EDensityFinal[0,i]=missing ##NEW
 
             if numpy.isnan(dataOut.ElecTempFinal[0,i]) or numpy.isnan(dataOut.EElecTempFinal[0,i]):
 
@@ -2499,19 +2985,79 @@ class DataSaveCleaner(Operation):
         if numpy.count_nonzero(~numpy.isnan(dataOut.IonTempFinal[0,12:50]))<5:
             dataOut.IonTempFinal[0,:]=dataOut.EIonTempFinal[0,:]=missing
 
-        for i in range(dataOut.NSHTS,dataOut.NDP):
 
-            dataOut.ElecTempFinal[0,i]=missing
-            dataOut.EElecTempFinal[0,i]=missing
-            dataOut.IonTempFinal[0,i]=missing
-            dataOut.EIonTempFinal[0,i]=missing
-            dataOut.PhyFinal[0,i]=missing
-            dataOut.EPhyFinal[0,i]=missing
+        if numpy.count_nonzero(~numpy.isnan(dataOut.DensityFinal[0,12:50]))<=5:
+            dataOut.DensityFinal[0,:]=dataOut.EDensityFinal[0,:]=missing
+
+        dataOut.DensityFinal[0,dataOut.NSHTS:]=missing
+        dataOut.EDensityFinal[0,dataOut.NSHTS:]=missing
+        dataOut.ElecTempFinal[0,dataOut.NSHTS:]=missing
+        dataOut.EElecTempFinal[0,dataOut.NSHTS:]=missing
+        dataOut.IonTempFinal[0,dataOut.NSHTS:]=missing
+        dataOut.EIonTempFinal[0,dataOut.NSHTS:]=missing
+        dataOut.PhyFinal[0,dataOut.NSHTS:]=missing
+        dataOut.EPhyFinal[0,dataOut.NSHTS:]=missing
+
+        if gmtime(dataOut.utctime).tm_hour >= 13. and gmtime(dataOut.utctime).tm_hour < 21.: #07-16 LT
+            dataOut.DensityFinal[0,:13]=missing
+            dataOut.EDensityFinal[0,:13]=missing
+            dataOut.ElecTempFinal[0,:13]=missing
+            dataOut.EElecTempFinal[0,:13]=missing
+            dataOut.IonTempFinal[0,:13]=missing
+            dataOut.EIonTempFinal[0,:13]=missing
+            dataOut.PhyFinal[0,:13]=missing
+            dataOut.EPhyFinal[0,:13]=missing
+
+        else:
+            if gmtime(dataOut.utctime).tm_hour == 9 and gmtime(dataOut.utctime).tm_min == 20:
+                pass
+            else:
+                dataOut.DensityFinal[0,:dataOut.min_id_eej+1]=missing
+                dataOut.EDensityFinal[0,:dataOut.min_id_eej+1]=missing
+                dataOut.ElecTempFinal[0,:dataOut.min_id_eej+1]=missing
+                dataOut.EElecTempFinal[0,:dataOut.min_id_eej+1]=missing
+                dataOut.IonTempFinal[0,:dataOut.min_id_eej+1]=missing
+                dataOut.EIonTempFinal[0,:dataOut.min_id_eej+1]=missing
+                dataOut.PhyFinal[0,:dataOut.min_id_eej+1]=missing
+                dataOut.EPhyFinal[0,:dataOut.min_id_eej+1]=missing
+
+        dataOut.flagNoData = numpy.all(numpy.isnan(dataOut.DensityFinal)) #Si todos los valores son NaN no se prosigue
+
+        if not dataOut.flagNoData:
+            if savecfclean:
+                try:
+                    import pandas as pd
+                    if self.csv_flag:
+                        if not os.path.exists("./cfclean"):
+                            os.makedirs("./cfclean")
+                        self.doy_csv = datetime.datetime.fromtimestamp(dataOut.utctime).strftime('%j')
+                        self.year_csv = datetime.datetime.fromtimestamp(dataOut.utctime).strftime('%Y')
+                    file = open("./cfclean/cfclean{0}{1}.csv".format(self.year_csv,self.doy_csv), "x")
+                    f = csv.writer(file)
+                    f.writerow(numpy.array(["timestamp",'cf']))
+                    self.csv_flag = 0
+                    print("Creating cf clean File")
+                    print("Writing cf clean File")
+                except:
+                    file = open("./cfclean/cfclean{0}{1}.csv".format(self.year_csv,self.doy_csv), "a")
+                    f = csv.writer(file)
+                    print("Writing cf clean File")
+                cf = numpy.array([dataOut.utctime,dataOut.cf])
+                f.writerow(cf)
+                file.close()
+
+        dataOut.flagNoData = False #Descomentar solo para ploteo #Comentar para MADWriter
+
+        dataOut.DensityFinal *= 1.e6 #Convert units to m^⁻3
+        dataOut.EDensityFinal *= 1.e6 #Convert units to m^⁻3
 
         return dataOut
 
 
 class DataSaveCleanerHP(Operation):
+    '''
+    Written by R. Flores
+    '''
     def __init__(self, **kwargs):
 
         Operation.__init__(self, **kwargs)
@@ -2685,10 +3231,16 @@ class DataSaveCleanerHP(Operation):
         dataOut.acfs_LP=dataOut.acfs_LP.transpose()
         dataOut.acfs_error_LP=dataOut.acfs_error_LP.transpose()
 
+        dataOut.DensityFinal *= 1.e6 #Convert units to m^⁻3
+        dataOut.EDensityFinal *= 1.e6 #Convert units to m^⁻3
+
         return dataOut
 
 
 class ACFs(Operation):
+    '''
+    Written by R. Flores
+    '''
     def __init__(self, **kwargs):
 
         Operation.__init__(self, **kwargs)
@@ -3060,6 +3612,9 @@ class CohInt(Operation):
         return dataOut
 
 class TimesCode(Operation):
+    '''
+    Written by R. Flores
+    '''
     """
 
     """
@@ -3067,8 +3622,6 @@ class TimesCode(Operation):
     def __init__(self, **kwargs):
 
         Operation.__init__(self, **kwargs)
-
-
 
     def run(self,dataOut,code):
 
@@ -3170,7 +3723,9 @@ class Spectrogram(Operation):
 
 
 class RemoveDcHae(Operation):
-
+    '''
+    Written by R. Flores
+    '''
     def __init__(self, **kwargs):
 
         Operation.__init__(self, **kwargs)
@@ -3224,13 +3779,6 @@ class SSheightProfiles(Operation):
         self.__nProfiles  = dataOut.nProfiles
         self.__nHeis      = dataOut.nHeights
         shape             = dataOut.data.shape #nchannels, nprofiles, nsamples
-        '''
-        print "input nChannels",self.__nChannels
-    	print "input nProfiles",self.__nProfiles
-    	print "input nHeis",self.__nHeis
-    	print "input Shape",shape
-        '''
-
 
         residue     =  (shape[1] - self.nsamples) % self.step
         if residue != 0:
@@ -3239,12 +3787,7 @@ class SSheightProfiles(Operation):
         deltaHeight      =  dataOut.heightList[1] - dataOut.heightList[0]
         numberProfile    =  self.nsamples
         numberSamples    =  (shape[1] - self.nsamples)/self.step
-        '''
-	print "new numberProfile",numberProfile
-	print "new numberSamples",numberSamples
 
-        print "New number of profile: %d, number of height: %d, Resolution %f Km"%(numberProfile,numberSamples,deltaHeight*self.step)
-        '''
         self.bufferShape  = int(shape[0]), int(numberSamples), int(numberProfile)  # nchannels, nsamples , nprofiles
         self.profileShape = int(shape[0]), int(numberProfile), int(numberSamples)  # nchannels, nprofiles, nsamples
 
@@ -3252,144 +3795,27 @@ class SSheightProfiles(Operation):
         self.sshProfiles  = numpy.zeros(self.profileShape, dtype=complex)
 
     def run(self, dataOut, step, nsamples, code = None, repeat = None):
-        #print(dataOut.profileIndex)
         dataOut.flagNoData      = True
-        dataOut.flagDataAsBlock = False
         profileIndex            = None
-
-        #code = numpy.array(code)
-        #print(dataOut.data[0,:])
-        #exit(1)
-
+        dataOut.flagDataAsBlock = False
 
         if not self.isConfig:
-            #print("STEP",step)
             self.setup(dataOut, step=step , nsamples=nsamples)
             self.isConfig = True
-        #print(code[dataOut.profileIndex,:])
 
-        #DC_Hae = numpy.array([0.398+0.588j, -0.926+0.306j, -0.536-0.682j, -0.072+0.53j, 0.368-0.356j, 0.996+0.362j])
-        DC_Hae = numpy.array([ 0.001025  +0.0516375j,   0.03485   +0.20923125j, -0.168     -0.02720625j,
-         -0.1105375 +0.0707125j,  -0.20309375-0.09670625j,  0.189775  +0.02716875j])*(-3.5)
+        if code is not None:
+            code = numpy.array(code)
+            code_block = code
 
-        DC_Hae = numpy.array([ -32.26  +8.66j,   -32.26  +8.66j])
+            if repeat is not None:
+                code_block = numpy.repeat(code_block, repeats=repeat, axis=1)
 
-        DC_Hae = numpy.array([-2.78500000e-01  -1.39175j,   -6.63237294e+02+210.4268625j])
-
-
-
-
-
-
-        #print(dataOut.data[0,13:15])
-        dataOut.data = dataOut.data -  DC_Hae[:,None]
-        #print(dataOut.data[0,13:15])
-        #exit(1)
-
-
-
-        code = numpy.array(code)
-        roll = 0
-        code = numpy.roll(code,roll,axis=0)
-        code = numpy.reshape(code,(5,100,64))
-        block = dataOut.CurrentBlock%5
-        #print(block)
-
-        #code_block = code[block-1-2,:,:]
-        day_dif = 1 #day_12
-        code_block = code[block-1-0,:,:]
-
-        if repeat is not None:
-            code_block = numpy.repeat(code_block, repeats=repeat, axis=1)
-
-
-
-        #print(dataOut.data[0:2,13])
         for i in range(self.buffer.shape[1]):
-            #self.buffer[:,i]    = numpy.flip(dataOut.data[:,i*self.step:i*self.step + self.nsamples])
-            '''
-            print(dataOut.profileIndex)
-            print(code[dataOut.profileIndex,:])
-            print("before",dataOut.data[:,i*self.step:i*self.step + self.nsamples])
-            print("after",dataOut.data[:,i*self.step:i*self.step + self.nsamples]*code[dataOut.profileIndex,:])
-            exit(1)
-            '''
-
-            #dif = numpy.copy(code)
             if code is not None:
-                '''
-                code = numpy.array(code)
-                #print(code[0,:])
-
-                #print("There is Code")
-                #exit(1)
-                #code  = dataOut.code
-                #print(code[0,:])
-                #exit(1)
-
-                roll = 0
-                code = numpy.roll(code,roll,axis=0)
-                code = numpy.reshape(code,(5,100,64))
-                block = dataOut.CurrentBlock%5
-                #print(block)
-
-                #code_block = code[block-1-2,:,:]
-                day_dif = 1 #day_12
-                code_block = code[block-1-0,:,:]
-
-
-
-                if repeat is not None:
-                    code_block = numpy.repeat(code_block, repeats=repeat, axis=1)
-                    '''
-
-
-
-                #code_block = code[0,:,:]
-
-                #print(code_block[2,:])
-                #for l in range(dataOut.data.shape[1]):
-                    #dataOut.data[:,l] = dataOut.data[:,l] - numpy.array([0.398+0.588j, -0.926+0.306j, -0.536-0.682j, -0.072+0.53j, 0.368-0.356j, 0.996+0.362j])
-
-                ##DC_Hae = numpy.array([0.398+0.588j, -0.926+0.306j, -0.536-0.682j, -0.072+0.53j, 0.368-0.356j, 0.996+0.362j])
-
-                #print(dataOut.data[0:2,13])
-                ##dataOut.data = dataOut.data -  DC_Hae[:,None]
-                #print(dataOut.data[0:2,13])
-                #exit(1)
-                #print(dataOut.data[0,i*self.step:i*self.step + self.nsamples])
-                #print(dataOut.data[1,i*self.step:i*self.step + self.nsamples])
-                #print(code_block[dataOut.profileIndex,:])
-                #print(numpy.shape(code_block[dataOut.profileIndex,:]))
-                #exit(1)
-                ###aux = numpy.mean(dataOut.data[:,i*self.step:i*self.step + self.nsamples],axis=1)
-                ###self.buffer[:,i] = (dataOut.data[:,i*self.step:i*self.step + self.nsamples]-aux[:,None])*code_block[dataOut.profileIndex,:]
-                '''
-                if i == 18:
-                    buffer = dataOut.data[0,i*self.step:i*self.step + self.nsamples]
-                    import matplotlib.pyplot as plt
-                    fig, axes = plt.subplots(figsize=(14, 10))
-                    x = numpy.linspace(0,20,numpy.shape(buffer)[0])
-                    x = numpy.fft.fftfreq(numpy.shape(buffer)[0],0.00005)
-                    x = numpy.fft.fftshift(x)
-
-                    plt.plot(x,buffer)
-                    plt.show()
-                    import time
-                    time.sleep(50)
-                    '''
-                #for k in range(dataOut.nChannels):
-                self.buffer[:,i] = dataOut.data[:,i*self.step:i*self.step + self.nsamples]*code_block[dataOut.profileIndex,:]
-                #print(dataOut.data[0,:])
-                #print(code_block[0,:])
-                #print(self.buffer[1,i])
-                #exit(1)
+                #self.buffer[:,i] = dataOut.data[:,i*self.step:i*self.step + self.nsamples]*code_block[dataOut.profileIndex,:]
+                self.buffer[:,i] = dataOut.data[:,i*self.step:i*self.step + self.nsamples]*code_block
             else:
-                #print("There is no Code")
-                #exit(1)
                 self.buffer[:,i]    = dataOut.data[:,i*self.step:i*self.step + self.nsamples]#*code[dataOut.profileIndex,:]
-
-            #self.buffer[:,j,self.__nHeis-j*self.step - self.nheights:self.__nHeis-j*self.step] = numpy.flip(dataOut.data[:,j*self.step:j*self.step + self.nheights])
 
         for j in range(self.buffer.shape[0]):
             self.sshProfiles[j] = numpy.transpose(self.buffer[j])
@@ -3397,52 +3823,42 @@ class SSheightProfiles(Operation):
         profileIndex  =  self.nsamples
         deltaHeight   =  dataOut.heightList[1] - dataOut.heightList[0]
         ippSeconds    =  (deltaHeight*1.0e-6)/(0.15)
-	#print "ippSeconds",ippSeconds
+
         try:
             if dataOut.concat_m  is not None:
                 ippSeconds= ippSeconds/float(dataOut.concat_m)
-                #print "Profile concat %d"%dataOut.concat_m
         except:
             pass
-
-
 
         dataOut.data            = self.sshProfiles
         dataOut.flagNoData      = False
         dataOut.heightList      = numpy.arange(self.buffer.shape[1]) *self.step*deltaHeight + dataOut.heightList[0]
         dataOut.nProfiles       = int(dataOut.nProfiles*self.nsamples)
 
-        '''
-        print(dataOut.profileIndex)
-        if dataOut.profileIndex == 0:
-            dataOut.data = dataOut.data*1.e5
-
-        buffer_prom =
-        '''
-        #dataOut.utctime = dataOut.utctime - dataOut.profileIndex
-        #print(dataOut.profileIndex)
-        #print(dataOut.data[0,0,0])
-        '''
-        if dataOut.profileIndex == 0:
-            self.buffer_prom = numpy.copy(dataOut.data)
-
-        else:
-            self.buffer_prom = dataOut.data+self.buffer_prom
-            if dataOut.profileIndex == 99:
-                dataOut.data = self.buffer_prom/100
-                '''
-
-        #print(dataOut.data[0,0,0])
-        #print(dataOut.profileIndex)
         dataOut.profileIndex    = profileIndex
         dataOut.flagDataAsBlock = True
         dataOut.ippSeconds      = ippSeconds
         dataOut.step            = self.step
-        #print(dataOut.profileIndex)
-        #print(dataOut.heightList)
-        #exit(1)
 
-        #print(dataOut.times)
+        return dataOut
+
+class removeDCHAE(Operation):
+
+    def run(self, dataOut, minHei, maxHei):
+
+        heights = dataOut.heightList
+
+        inda = numpy.where(heights >= minHei)
+        indb = numpy.where(heights <= maxHei)
+
+        minIndex = inda[0][0]
+        maxIndex = indb[0][-1]
+
+        dc = numpy.average(dataOut.data[:,minIndex:maxIndex],axis=1)
+        #print(dc.shape)
+        dataOut.data = dataOut.data - dc[:,None]
+        #print(aux.shape)
+        #exit(1)
 
         return dataOut
 
@@ -3775,15 +4191,11 @@ class DecoderRoll(Operation):
             print("This data is already decoded, recoding again ...")
 
 
-
-        #print(dataOut.ippSeconds)
-        #exit(1)
         roll = 0
 
         if self.isConfig:
             code = numpy.array(code)
 
-            #roll = 29
             code = numpy.roll(code,roll,axis=0)
             code = numpy.reshape(code,(5,100,64))
             block = dataOut.CurrentBlock%5
@@ -3876,10 +4288,6 @@ class DecoderRoll(Operation):
         #print("SHAPE",numpy.shape(dataOut.data))
 
         return dataOut
-
-
-
-
 
 
 class ProfileConcat(Operation):
@@ -5129,8 +5537,6 @@ class RemoveDebris(Operation):
         Operation.__init__(self, **kwargs)
 
     def run(self,dataOut):
-        print("init_debris",dataOut.flagNoData)
-        #dataOut.debris_activated=0
         debris=numpy.zeros(dataOut.NRANGE,'float32')
 
         for j in range(0,3):
@@ -5164,7 +5570,6 @@ class RemoveDebris(Operation):
                     dataOut.flagNoData=True
                     print("DP Debris detected at",i*15,"km")
 
-        print("inside debris",dataOut.flagNoData)
         return dataOut
 
 
@@ -5209,7 +5614,6 @@ class IntegrationHP(IntegrationDP):
 
         dataOut.flagNoData=True
 
-        #print("flag_inside",dataOut.flagNoData)
         dataOut.nint=nint
         dataOut.paramInterval=0#int(dataOut.nint*dataOut.header[7][0]*2 )
         dataOut.lat=-11.95
@@ -5219,9 +5623,8 @@ class IntegrationHP(IntegrationDP):
 
         self.integration_noise(dataOut)
 
-
         if self.counter==dataOut.nint-1:
-
+            dataOut.nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint*10
             dataOut.tnoise[0]*=0.995
             dataOut.tnoise[1]*=0.995
             dataOut.pan=dataOut.tnoise[0]/float(dataOut.NSCAN*dataOut.nint*dataOut.NAVG)
@@ -5232,127 +5635,6 @@ class IntegrationHP(IntegrationDP):
 
 
         return dataOut
-
-
-class IntegrationLP(Operation):
-    """Operation to integrate Double Pulse and Long Pulse data.
-
-    Parameters:
-    -----------
-    nint : int
-        Number of integrations.
-
-    Example
-    --------
-
-    op = proc_unit.addOperation(name='IntegrationHP', optype='other')
-    op.addParameter(name='nint', value='30', format='int')
-
-    """
-
-    def __init__(self, **kwargs):
-
-        Operation.__init__(self, **kwargs)
-
-        self.counter = 0
-        self.aux = 0
-
-    def integration_noise(self,dataOut):
-
-        if self.counter == 0:
-            dataOut.tnoise=numpy.zeros((dataOut.NR),dtype='float32')
-
-        dataOut.tnoise+=dataOut.noise_final
-    '''
-    def integration_for_long_pulse(self,dataOut):
-
-        if self.counter == 0:
-            dataOut.output_LP_integrated=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NR),order='F',dtype='complex64')
-
-        dataOut.output_LP_integrated+=dataOut.output_LP
-        '''
-    def integration_for_long_pulse(self,dataOut):
-        #print("inside")
-        #print(self.aux)
-
-        if self.counter == 0:
-            dataOut.output_LP_integrated=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NR),order='F',dtype='complex64')
-
-        dataOut.output_LP_integrated+=dataOut.output_LP
-
-        if self.aux==1:
-            #print("CurrentBlockBBBBB: ",dataOut.CurrentBlock)
-            #print(dataOut.datatime)
-
-            #dataOut.TimeBlockDate_for_dp_power=dataOut.TimeBlockDate
-            ########dataOut.TimeBlockSeconds_for_dp_power=dataOut.LastAVGDate
-            #print("Date: ",dataOut.TimeBlockDate_for_dp_power)
-
-            #dataOut.TimeBlockSeconds_for_dp_power=mktime(strptime(dataOut.TimeBlockDate_for_dp_power))
-            dataOut.TimeBlockSeconds_for_dp_power=dataOut.utctime#dataOut.TimeBlockSeconds-18000
-            #dataOut.TimeBlockSeconds_for_dp_power=dataOut.LastAVGDate
-            #print("Seconds: ",dataOut.TimeBlockSeconds_for_dp_power)
-            dataOut.bd_time=gmtime(dataOut.TimeBlockSeconds_for_dp_power)
-            #print(dataOut.bd_time)
-            #exit()
-            dataOut.year=dataOut.bd_time.tm_year+(dataOut.bd_time.tm_yday-1)/364.0
-            dataOut.ut_Faraday=dataOut.bd_time.tm_hour+dataOut.bd_time.tm_min/60.0+dataOut.bd_time.tm_sec/3600.0
-            #print("date: ", dataOut.TimeBlockDate)
-
-
-            self.aux=0
-
-        #print("after")
-
-        self.integration_noise(dataOut)
-
-        if self.counter==0:
-
-            self.init_time=dataOut.utctime
-
-        if self.counter < dataOut.nint:
-            #print("HERE")
-
-
-
-            self.counter+=1
-
-            if self.counter==dataOut.nint-1:
-                self.aux=1
-                #dataOut.TimeBlockDate_for_dp_power=dataOut.TimeBlockDate
-            if self.counter==dataOut.nint:
-
-                dataOut.flagNoData=False
-                dataOut.utctime=self.init_time
-                self.counter=0
-
-    def run(self,dataOut,nint=None):
-
-        dataOut.flagNoData=True
-
-        #print("flag_inside",dataOut.flagNoData)
-        dataOut.nint=nint
-        dataOut.paramInterval=0#int(dataOut.nint*dataOut.header[7][0]*2 )
-        dataOut.lat=-11.95
-        dataOut.lon=-76.87
-
-        self.integration_for_long_pulse(dataOut)
-
-
-        if self.counter==dataOut.nint:
-
-            dataOut.tnoise[0]*=0.995
-            dataOut.tnoise[1]*=0.995
-            dataOut.pan=dataOut.tnoise[0]/float(dataOut.NSCAN*dataOut.nint*dataOut.NAVG)
-            dataOut.pbn=dataOut.tnoise[1]/float(dataOut.NSCAN*dataOut.nint*dataOut.NAVG)
-
-        #self.integration_for_double_pulse(dataOut)
-        print("HERE2")
-
-
-
-        return dataOut
-
 
 class SumFlipsHP(SumFlips):
     """Operation to sum the flip and unflip part of certain cross products of the Double Pulse.
@@ -5375,7 +5657,7 @@ class SumFlipsHP(SumFlips):
     def rint2HP(self,dataOut):
 
         dataOut.rnint2=numpy.zeros(dataOut.DPL,'float32')
-
+        #print(dataOut.nint,dataOut.NAVG)
         for l in range(dataOut.DPL):
             if(l==0 or (l>=3 and l <=6)):
                 dataOut.rnint2[l]=0.5/float(dataOut.nint*dataOut.NAVG*16.0)
@@ -5387,6 +5669,26 @@ class SumFlipsHP(SumFlips):
         self.rint2HP(dataOut)
         self.SumLags(dataOut)
 
+        hei = 2
+        lag = 0
+        '''
+        for hei in range(67):
+            print("hei",hei)
+            print(dataOut.kabxys_integrated[8][hei,:,0]+dataOut.kabxys_integrated[11][hei,:,0])
+            print(dataOut.kabxys_integrated[10][hei,:,0]-dataOut.kabxys_integrated[9][hei,:,0])
+        exit(1)
+        '''
+        '''
+        print("b",(dataOut.kabxys_integrated[4][hei,lag,0]+dataOut.kabxys_integrated[5][hei,lag,0]))
+        print((dataOut.kabxys_integrated[6][hei,lag,0]+dataOut.kabxys_integrated[7][hei,lag,0]))
+        print("c",(dataOut.kabxys_integrated[8][hei,lag,0]+dataOut.kabxys_integrated[11][hei,lag,0]))
+        print((dataOut.kabxys_integrated[10][hei,lag,0]-dataOut.kabxys_integrated[9][hei,lag,0]))
+        exit(1)
+        '''
+        #print(dataOut.rnint2)
+        #print(numpy.sum(dataOut.kabxys_integrated[4][:,1,0]+dataOut.kabxys_integrated[5][:,1,0]))
+        #print(dataOut.nis)
+        #exit(1)
         return dataOut
 
 
@@ -5417,7 +5719,645 @@ class LongPulseAnalysis(Operation):
         dataOut.heightList=dataOut.DH*(numpy.arange(dataOut.NACF))
         anoise0=dataOut.tnoise[0]
         anoise1=anoise0*0.0       #seems to be noise in 1st lag 0.015 before '14
+        #print(anoise0)
+        #exit(1)
+        if self.aux:
+            #dataOut.cut=31#26#height=31*15=465
+            self.cal=numpy.zeros((dataOut.NLAG),'float32')
+            self.drift=numpy.zeros((200),'float32')
+            self.rdrift=numpy.zeros((200),'float32')
+            self.ddrift=numpy.zeros((200),'float32')
+            self.sigma=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
+            self.powera=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
+            self.powerb=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
+            self.perror=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
+            dataOut.ene=numpy.zeros((dataOut.NRANGE),'float32')
+            self.dpulse=numpy.zeros((dataOut.NACF),'float32')
+            self.lpulse=numpy.zeros((dataOut.NACF),'float32')
+            dataOut.lags_LP=numpy.zeros((dataOut.IBITS),order='F',dtype='float32')
+            self.lagp=numpy.zeros((dataOut.NACF),'float32')
+            self.u=numpy.zeros((2*dataOut.NACF,2*dataOut.NACF),'float32')
+            dataOut.ne=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
+            dataOut.te=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.ete=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.ti=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.eti=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.ph=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.eph=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.phe=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.ephe=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.errors=numpy.zeros((dataOut.IBITS,max(dataOut.NRANGE,dataOut.NSHTS)),order='F',dtype='float32')
+            dataOut.fit_array_real=numpy.zeros((max(dataOut.NRANGE,dataOut.NSHTS),dataOut.NLAG),order='F',dtype='float32')
+            dataOut.status=numpy.zeros(1,'float32')
+            dataOut.tx=240.0 #debería provenir del header #hybrid
 
+            for i in range(dataOut.IBITS):
+                dataOut.lags_LP[i]=float(i)*(dataOut.tx/150.0)/float(dataOut.IBITS) # (float)i*(header.tx/150.0)/(float)IBITS;
+
+            self.aux=0
+
+        dataOut.cut=30
+        for i in range(30,15,-1): #Aquí se calcula en donde se unirá DP y LP en la parte final
+            if numpy.nanmax(dataOut.acfs_error_to_plot[i,:])>=10 or dataOut.info2[i]==0:
+                dataOut.cut=i-1
+
+        for i in range(dataOut.NLAG):
+            self.cal[i]=sum(dataOut.output_LP_integrated[i,:,3].real) #Lag x Height x Channel
+
+        #print(numpy.sum(self.cal)) #Coinciden
+        #exit(1)
+        self.cal/=float(dataOut.NRANGE)
+        #print(anoise0)
+        #print(anoise1)
+        #exit(1)
+        #print("nis: ", dataOut.nis)
+        #print("pan: ", dataOut.pan)
+        #print("pbn: ", dataOut.pbn)
+        #print(numpy.sum(dataOut.output_LP_integrated[0,:,0]))
+        '''
+        import matplotlib.pyplot as plt
+        plt.plot(dataOut.output_LP_integrated[:,40,0])
+        plt.show()
+        '''
+        #print(dataOut.output_LP_integrated[0,40,0])
+        #print(numpy.sum(dataOut.output_LP_integrated[:,0,0]))
+        #exit(1)
+
+        #################### PROBAR MÁS INTEGRACIÓN, SINO MODIFICAR VALOR DE "NIS" ####################
+                                    # VER dataOut.nProfiles_LP #
+
+        '''
+        #PLOTEAR POTENCIA VS RUIDO, QUIZA SE ESTA REMOVIENDO MUCHA SEÑAL
+        #print(dataOut.heightList)
+        import matplotlib.pyplot as plt
+        plt.plot(10*numpy.log10(dataOut.output_LP_integrated.real[0,:,0]),dataOut.range1)
+        #plt.plot(10*numpy.log10(dataOut.output_LP_integrated.real[0,:,0]/dataOut.nProfiles_LP),dataOut.range1)
+        plt.axvline(10*numpy.log10(anoise0),color='k',linestyle='dashed')
+        plt.grid()
+        plt.xlim(20,100)
+        plt.show()
+        '''
+
+
+        for j in range(dataOut.NACF+2*dataOut.IBITS+2):
+
+            dataOut.output_LP_integrated.real[0,j,0]-=anoise0   #lag0 ch0
+            dataOut.output_LP_integrated.real[1,j,0]-=anoise1   #lag1 ch0
+
+            for i in range(1,dataOut.NLAG):  #remove cal data from certain lags
+                 dataOut.output_LP_integrated.real[i,j,0]-=self.cal[i]
+            k=max(j,26)   #constant power below range 26
+            self.powera[j]=dataOut.output_LP_integrated.real[0,k,0] #Lag0 and Channel 0
+
+            ## examine drifts here - based on 60 'indep.' estimates
+        #print(numpy.sum(self.powera))
+        #exit(1)
+        #nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint*10
+        nis = dataOut.nis
+        #print("nis",nis)
+        alpha=beta=delta=0.0
+        nest=0
+        gamma=3.0/(2.0*numpy.pi*dataOut.lags_LP[1]*1.0e-3)
+        beta=gamma*(math.atan2(dataOut.output_LP_integrated.imag[14,0,2],dataOut.output_LP_integrated.real[14,0,2])-math.atan2(dataOut.output_LP_integrated.imag[1,0,2],dataOut.output_LP_integrated.real[1,0,2]))/13.0
+        #print(gamma,beta)
+        #exit(1)
+        for i in range(1,3):
+            gamma=3.0/(2.0*numpy.pi*dataOut.lags_LP[i]*1.0e-3)
+            #print("gamma",gamma)
+            for j in range(34,44):
+                rho2=numpy.abs(dataOut.output_LP_integrated[i,j,0])/numpy.abs(dataOut.output_LP_integrated[0,j,0])
+                dataOut.dphi2=(1.0/rho2-1.0)/(float(2*nis))
+                dataOut.dphi2*=gamma**2
+                pest=gamma*math.atan(dataOut.output_LP_integrated.imag[i,j,0]/dataOut.output_LP_integrated.real[i,j,0])
+                #print("1",dataOut.output_LP_integrated.imag[i,j,0])
+                #print("2",dataOut.output_LP_integrated.real[i,j,0])
+                self.drift[nest]=pest
+                self.ddrift[nest]=dataOut.dphi2
+                self.rdrift[nest]=float(nest)
+                nest+=1
+
+        sorted(self.drift[:nest])
+
+        #print(dataOut.dphi2)
+        #exit(1)
+
+        for j in range(int(nest/4),int(3*nest/4)):
+            #i=int(self.rdrift[j])
+            alpha+=self.drift[j]/self.ddrift[j]
+            delta+=1.0/self.ddrift[j]
+
+        alpha/=delta
+        delta=1./numpy.sqrt(delta)
+        vdrift=alpha-beta
+        dvdrift=delta
+
+        #need to develop estimate of complete density profile using all
+        #available data
+
+        #estimate sample variances for long-pulse power profile
+
+        #nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint
+        nis = dataOut.nis/10
+        #print("nis",nis)
+
+        self.sigma[:dataOut.NACF+2*dataOut.IBITS+2]=((anoise0+self.powera[:dataOut.NACF+2*dataOut.IBITS+2])**2)/float(nis)
+        #print(self.sigma)
+        #exit(1)
+        ioff=1
+
+        #deconvolve rectangular pulse shape from profile ==> powerb, perror
+
+
+        ############# START nnlswrap#############
+
+        if dataOut.ut_Faraday>14.0:
+            alpha_nnlswrap=20.0
+        else:
+            alpha_nnlswrap=30.0
+
+        range1_nnls=dataOut.NACF
+        range2_nnls=dataOut.NACF+dataOut.IBITS-1
+
+        g_nnlswrap=numpy.zeros((range1_nnls,range2_nnls),'float32')
+        a_nnlswrap=numpy.zeros((range2_nnls,range2_nnls),'float64')
+
+        for i in range(range1_nnls):
+            for j in range(range2_nnls):
+                if j>=i and j<i+dataOut.IBITS:
+                    g_nnlswrap[i,j]=1.0
+                else:
+                    g_nnlswrap[i,j]=0.0
+
+        a_nnlswrap[:]=numpy.matmul(numpy.transpose(g_nnlswrap),g_nnlswrap)
+
+        numpy.fill_diagonal(a_nnlswrap,a_nnlswrap.diagonal()+alpha_nnlswrap**2)
+
+                    #ERROR ANALYSIS#
+
+        self.perror[:range2_nnls]=0.0
+        self.perror[:range2_nnls]=numpy.matmul(1./(self.sigma[dataOut.IBITS+ioff:range1_nnls+dataOut.IBITS+ioff]),g_nnlswrap**2)
+        self.perror[:range1_nnls]+=(alpha_nnlswrap**2)/(self.sigma[dataOut.IBITS+ioff:range1_nnls+dataOut.IBITS+ioff])
+        self.perror[:range2_nnls]=1.00/self.perror[:range2_nnls]
+
+        b_nnlswrap=numpy.zeros(range2_nnls,'float64')
+        b_nnlswrap[:]=numpy.matmul(self.powera[dataOut.IBITS+ioff:range1_nnls+dataOut.IBITS+ioff],g_nnlswrap) #match filter alturas
+
+        x_nnlswrap=numpy.zeros(range2_nnls,'float64')
+        x_nnlswrap[:]=nnls(a_nnlswrap,b_nnlswrap)[0]
+
+        self.powerb[:range2_nnls]=x_nnlswrap
+        #print(self.powerb[40])
+        #print(self.powerb[66])
+        #exit(1)
+        #############END nnlswrap#############
+        #print(numpy.sum(numpy.sqrt(self.perror[0:dataOut.NACF])))
+        #print(self.powerb[0:dataOut.NACF])
+        #exit(1)
+        #estimate relative error for deconvolved profile (scaling irrelevant)
+        #print(dataOut.NACF)
+        dataOut.ene[0:dataOut.NACF]=numpy.sqrt(self.perror[0:dataOut.NACF])/self.powerb[0:dataOut.NACF]
+        #print(numpy.sum(dataOut.ene))
+        #exit(1)
+        aux=0
+
+        for i in range(dataOut.IBITS,dataOut.NACF):
+            self.dpulse[i]=self.lpulse[i]=0.0
+            for j in range(dataOut.IBITS):
+                k=int(i-j)
+                if k<36-aux and k>16:
+                    self.dpulse[i]+=dataOut.ph2[k]/dataOut.h2[k]
+                elif k>=36-aux:
+                    self.lpulse[i]+=self.powerb[k]
+            self.lagp[i]=self.powera[i]
+
+        #find scale factor that best merges profiles
+
+        qi=sum(self.dpulse[32:dataOut.NACF]**2/(self.lagp[32:dataOut.NACF]+anoise0)**2)
+        ri=sum((self.dpulse[32:dataOut.NACF]*self.lpulse[32:dataOut.NACF])/(self.lagp[32:dataOut.NACF]+anoise0)**2)
+        si=sum((self.dpulse[32:dataOut.NACF]*self.lagp[32:dataOut.NACF])/(self.lagp[32:dataOut.NACF]+anoise0)**2)
+        ui=sum(self.lpulse[32:dataOut.NACF]**2/(self.lagp[32:dataOut.NACF]+anoise0)**2)
+        vi=sum((self.lpulse[32:dataOut.NACF]*self.lagp[32:dataOut.NACF])/(self.lagp[32:dataOut.NACF]+anoise0)**2)
+
+        alpha=(si*ui-vi*ri)/(qi*ui-ri*ri)
+        beta=(qi*vi-ri*si)/(qi*ui-ri*ri)
+
+        #form density profile estimate, merging rescaled power profiles
+        #print(dataOut.h2)
+        #print(numpy.sum(alpha))
+        #print(numpy.sum(dataOut.ph2))
+        self.powerb[16:36-aux]=alpha*dataOut.ph2[16:36-aux]/dataOut.h2[16:36-aux]
+        self.powerb[36-aux:dataOut.NACF]*=beta
+
+        #form Ne estimate, fill in error estimate at low altitudes
+
+        dataOut.ene[0:36-aux]=dataOut.sdp2[0:36-aux]/dataOut.ph2[0:36-aux]
+        dataOut.ne[:dataOut.NACF]=self.powerb[:dataOut.NACF]*dataOut.h2[:dataOut.NACF]/alpha
+        #print(numpy.sum(self.powerb))
+        #print(numpy.sum(dataOut.ene))
+        #print(numpy.sum(dataOut.ne))
+        #exit(1)
+        #now do error propagation: store zero lag error covariance in u
+
+        nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint/1   # DLH serious debris removal
+
+        for i in range(dataOut.NACF):
+            for j in range(i,dataOut.NACF):
+                if j-i>=dataOut.IBITS:
+                    self.u[i,j]=0.0
+                else:
+                    self.u[i,j]=dataOut.output_LP_integrated.real[j-i,i,0]**2/float(nis)
+                    self.u[i,j]*=(anoise0+dataOut.output_LP_integrated.real[0,i,0])/dataOut.output_LP_integrated.real[0,i,0]
+                    self.u[i,j]*=(anoise0+dataOut.output_LP_integrated.real[0,j,0])/dataOut.output_LP_integrated.real[0,j,0]
+
+                self.u[j,i]=self.u[i,j]
+
+        #now error analyis for lag product matrix (diag), place in acf_err
+
+        for i in range(dataOut.NACF):
+            for j in range(dataOut.IBITS):
+                if j==0:
+                    dataOut.errors[0,i]=numpy.sqrt(self.u[i,i])
+                else:
+                    dataOut.errors[j,i]=numpy.sqrt(((dataOut.output_LP_integrated.real[0,i,0]+anoise0)*(dataOut.output_LP_integrated.real[0,i+j,0]+anoise0)+dataOut.output_LP_integrated.real[j,i,0]**2)/float(2*nis))
+        '''
+        print(numpy.sum(dataOut.output_LP_integrated))
+        print(numpy.sum(dataOut.errors))
+        print(numpy.sum(self.powerb))
+        print(numpy.sum(dataOut.ne))
+        print(numpy.sum(dataOut.lags_LP))
+        print(numpy.sum(dataOut.thb))
+        print(numpy.sum(dataOut.bfm))
+        print(numpy.sum(dataOut.te))
+        print(numpy.sum(dataOut.ete))
+        print(numpy.sum(dataOut.ti))
+        print(numpy.sum(dataOut.eti))
+        print(numpy.sum(dataOut.ph))
+        print(numpy.sum(dataOut.eph))
+        print(numpy.sum(dataOut.phe))
+        print(numpy.sum(dataOut.ephe))
+        print(numpy.sum(dataOut.range1))
+        print(numpy.sum(dataOut.ut))
+        print(numpy.sum(dataOut.NACF))
+        print(numpy.sum(dataOut.fit_array_real))
+        print(numpy.sum(dataOut.status))
+        print(numpy.sum(dataOut.NRANGE))
+        print(numpy.sum(dataOut.IBITS))
+        exit(1)
+        '''
+        '''
+        print(dataOut.te2[13:16])
+        print(numpy.sum(dataOut.te2))
+        exit(1)
+        '''
+        #print("Success 1")
+        ###################Correlation pulse and itself
+
+        #print(dataOut.NRANGE)
+        print("LP Estimation")
+        with suppress_stdout_stderr():
+            #pass
+            full_profile_profile.profile(numpy.transpose(dataOut.output_LP_integrated,(2,1,0)),numpy.transpose(dataOut.errors),self.powerb,dataOut.ne,dataOut.lags_LP,dataOut.thb,dataOut.bfm,dataOut.te,dataOut.ete,dataOut.ti,dataOut.eti,dataOut.ph,dataOut.eph,dataOut.phe,dataOut.ephe,dataOut.range1,dataOut.ut,dataOut.NACF,dataOut.fit_array_real,dataOut.status,dataOut.NRANGE,dataOut.IBITS)
+
+        print("status: ",dataOut.status)
+
+        if dataOut.status>=3.5:
+            dataOut.te[:]=numpy.nan
+            dataOut.ete[:]=numpy.nan
+            dataOut.ti[:]=numpy.nan
+            dataOut.eti[:]=numpy.nan
+            dataOut.ph[:]=numpy.nan
+            dataOut.eph[:]=numpy.nan
+            dataOut.phe[:]=numpy.nan
+            dataOut.ephe[:]=numpy.nan
+
+        return dataOut
+
+class LongPulseAnalysisSpectra(Operation):
+    """Operation to estimate ACFs, temperatures, total electron density and Hydrogen/Helium fractions from the Long Pulse data.
+
+    Parameters:
+    -----------
+    NACF : int
+        .*
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='LongPulseAnalysis', optype='other')
+    op.addParameter(name='NACF', value='16', format='int')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+        self.aux=1
+
+    def run(self,dataOut,NACF):
+
+        dataOut.NACF=NACF
+        dataOut.heightList=dataOut.DH*(numpy.arange(dataOut.NACF))
+        anoise0=dataOut.tnoise[0]
+        anoise1=anoise0*0.0       #seems to be noise in 1st lag 0.015 before '14
+        #print(anoise0)
+        #exit(1)
+        if self.aux:
+            #dataOut.cut=31#26#height=31*15=465
+            self.cal=numpy.zeros((dataOut.NLAG),'float32')
+            self.drift=numpy.zeros((200),'float32')
+            self.rdrift=numpy.zeros((200),'float32')
+            self.ddrift=numpy.zeros((200),'float32')
+            self.sigma=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
+            self.powera=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
+            self.powerb=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
+            self.perror=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
+            dataOut.ene=numpy.zeros((dataOut.NRANGE),'float32')
+            self.dpulse=numpy.zeros((dataOut.NACF),'float32')
+            self.lpulse=numpy.zeros((dataOut.NACF),'float32')
+            dataOut.lags_LP=numpy.zeros((dataOut.IBITS),order='F',dtype='float32')
+            self.lagp=numpy.zeros((dataOut.NACF),'float32')
+            self.u=numpy.zeros((2*dataOut.NACF,2*dataOut.NACF),'float32')
+            dataOut.ne=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
+            dataOut.te=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.ete=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.ti=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.eti=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.ph=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.eph=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.phe=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.ephe=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
+            dataOut.errors=numpy.zeros((dataOut.IBITS,max(dataOut.NRANGE,dataOut.NSHTS)),order='F',dtype='float32')
+            dataOut.fit_array_real=numpy.zeros((max(dataOut.NRANGE,dataOut.NSHTS),dataOut.NLAG),order='F',dtype='float32')
+            dataOut.status=numpy.zeros(1,'float32')
+            dataOut.tx=240.0 #debería provenir del header #hybrid
+
+            for i in range(dataOut.IBITS):
+                dataOut.lags_LP[i]=float(i)*(dataOut.tx/150.0)/float(dataOut.IBITS) # (float)i*(header.tx/150.0)/(float)IBITS;
+
+            self.aux=0
+
+        dataOut.cut=30
+        for i in range(30,15,-1): #Aquí se calcula en donde se unirá DP y LP en la parte final
+            if numpy.nanmax(dataOut.acfs_error_to_plot[i,:])>=10 or dataOut.info2[i]==0:
+                dataOut.cut=i-1
+
+        for i in range(dataOut.NLAG):
+            self.cal[i]=sum(dataOut.output_LP_integrated[i,:,3].real) #Lag x Height x Channel
+
+        #print(numpy.sum(self.cal)) #Coinciden
+        #exit(1)
+        self.cal/=float(dataOut.NRANGE)
+
+
+        #################### PROBAR MÁS INTEGRACIÓN, SINO MODIFICAR VALOR DE "NIS" ####################
+                                    # VER dataOut.nProfiles_LP #
+
+        '''
+        #PLOTEAR POTENCIA VS RUIDO, QUIZA SE ESTA REMOVIENDO MUCHA SEÑAL
+        #print(dataOut.heightList)
+        import matplotlib.pyplot as plt
+        plt.plot(10*numpy.log10(dataOut.output_LP_integrated.real[0,:,0]),dataOut.range1)
+        #plt.plot(10*numpy.log10(dataOut.output_LP_integrated.real[0,:,0]/dataOut.nProfiles_LP),dataOut.range1)
+        plt.axvline(10*numpy.log10(anoise0),color='k',linestyle='dashed')
+        plt.grid()
+        plt.xlim(20,100)
+        plt.show()
+        '''
+
+
+        for j in range(dataOut.NACF+2*dataOut.IBITS+2):
+
+            dataOut.output_LP_integrated.real[0,j,0]-=anoise0   #lag0 ch0
+            dataOut.output_LP_integrated.real[1,j,0]-=anoise1   #lag1 ch0
+
+            for i in range(1,dataOut.NLAG):  #remove cal data from certain lags
+                 dataOut.output_LP_integrated.real[i,j,0]-=self.cal[i]
+            k=max(j,26)   #constant power below range 26
+            self.powera[j]=dataOut.output_LP_integrated.real[0,k,0] #Lag0 and Channel 0
+
+            ## examine drifts here - based on 60 'indep.' estimates
+        #print(numpy.sum(self.powera))
+        #exit(1)
+        #nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint*10
+        nis = dataOut.nis
+        #print("nis",nis)
+        alpha=beta=delta=0.0
+        nest=0
+        gamma=3.0/(2.0*numpy.pi*dataOut.lags_LP[1]*1.0e-3)
+        beta=gamma*(math.atan2(dataOut.output_LP_integrated.imag[14,0,2],dataOut.output_LP_integrated.real[14,0,2])-math.atan2(dataOut.output_LP_integrated.imag[1,0,2],dataOut.output_LP_integrated.real[1,0,2]))/13.0
+        #print(gamma,beta)
+        #exit(1)
+        for i in range(1,3):
+            gamma=3.0/(2.0*numpy.pi*dataOut.lags_LP[i]*1.0e-3)
+            #print("gamma",gamma)
+            for j in range(34,44):
+                rho2=numpy.abs(dataOut.output_LP_integrated[i,j,0])/numpy.abs(dataOut.output_LP_integrated[0,j,0])
+                dataOut.dphi2=(1.0/rho2-1.0)/(float(2*nis))
+                dataOut.dphi2*=gamma**2
+                pest=gamma*math.atan(dataOut.output_LP_integrated.imag[i,j,0]/dataOut.output_LP_integrated.real[i,j,0])
+                #print("1",dataOut.output_LP_integrated.imag[i,j,0])
+                #print("2",dataOut.output_LP_integrated.real[i,j,0])
+                self.drift[nest]=pest
+                self.ddrift[nest]=dataOut.dphi2
+                self.rdrift[nest]=float(nest)
+                nest+=1
+
+        sorted(self.drift[:nest])
+
+        #print(dataOut.dphi2)
+        #exit(1)
+
+        for j in range(int(nest/4),int(3*nest/4)):
+            #i=int(self.rdrift[j])
+            alpha+=self.drift[j]/self.ddrift[j]
+            delta+=1.0/self.ddrift[j]
+
+        alpha/=delta
+        delta=1./numpy.sqrt(delta)
+        vdrift=alpha-beta
+        dvdrift=delta
+
+        #need to develop estimate of complete density profile using all
+        #available data
+
+        #estimate sample variances for long-pulse power profile
+
+        #nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint
+        nis = dataOut.nis/10
+        #print("nis",nis)
+
+        self.sigma[:dataOut.NACF+2*dataOut.IBITS+2]=((anoise0+self.powera[:dataOut.NACF+2*dataOut.IBITS+2])**2)/float(nis)
+        #print(self.sigma)
+        #exit(1)
+        ioff=1
+
+        #deconvolve rectangular pulse shape from profile ==> powerb, perror
+
+        '''
+        ############# START nnlswrap#############
+
+        if dataOut.ut_Faraday>14.0:
+            alpha_nnlswrap=20.0
+        else:
+            alpha_nnlswrap=30.0
+
+        range1_nnls=dataOut.NACF
+        range2_nnls=dataOut.NACF+dataOut.IBITS-1
+
+        g_nnlswrap=numpy.zeros((range1_nnls,range2_nnls),'float32')
+        a_nnlswrap=numpy.zeros((range2_nnls,range2_nnls),'float64')
+
+        for i in range(range1_nnls):
+            for j in range(range2_nnls):
+                if j>=i and j<i+dataOut.IBITS:
+                    g_nnlswrap[i,j]=1.0
+                else:
+                    g_nnlswrap[i,j]=0.0
+
+        a_nnlswrap[:]=numpy.matmul(numpy.transpose(g_nnlswrap),g_nnlswrap)
+
+        numpy.fill_diagonal(a_nnlswrap,a_nnlswrap.diagonal()+alpha_nnlswrap**2)
+
+                    #ERROR ANALYSIS#
+
+        self.perror[:range2_nnls]=0.0
+        self.perror[:range2_nnls]=numpy.matmul(1./(self.sigma[dataOut.IBITS+ioff:range1_nnls+dataOut.IBITS+ioff]),g_nnlswrap**2)
+        self.perror[:range1_nnls]+=(alpha_nnlswrap**2)/(self.sigma[dataOut.IBITS+ioff:range1_nnls+dataOut.IBITS+ioff])
+        self.perror[:range2_nnls]=1.00/self.perror[:range2_nnls]
+
+        b_nnlswrap=numpy.zeros(range2_nnls,'float64')
+        b_nnlswrap[:]=numpy.matmul(self.powera[dataOut.IBITS+ioff:range1_nnls+dataOut.IBITS+ioff],g_nnlswrap)
+
+        x_nnlswrap=numpy.zeros(range2_nnls,'float64')
+        x_nnlswrap[:]=nnls(a_nnlswrap,b_nnlswrap)[0]
+
+        self.powerb[:range2_nnls]=x_nnlswrap
+        #print(self.powerb[40])
+        #print(self.powerb[66])
+        #exit(1)
+        #############END nnlswrap#############
+        '''
+        self.powerb[:] = self.powera
+        self.perror[:] = 0.
+        #print(numpy.sum(numpy.sqrt(self.perror[0:dataOut.NACF])))
+        #print(self.powerb[0:dataOut.NACF])
+        #exit(1)
+        #estimate relative error for deconvolved profile (scaling irrelevant)
+        #print(dataOut.NACF)
+        dataOut.ene[0:dataOut.NACF]=numpy.sqrt(self.perror[0:dataOut.NACF])/self.powerb[0:dataOut.NACF]
+        #print(numpy.sum(dataOut.ene))
+        #exit(1)
+        aux=0
+
+        for i in range(dataOut.IBITS,dataOut.NACF):
+            self.dpulse[i]=self.lpulse[i]=0.0
+            for j in range(dataOut.IBITS):
+                k=int(i-j)
+                if k<36-aux and k>16:
+                    self.dpulse[i]+=dataOut.ph2[k]/dataOut.h2[k]
+                elif k>=36-aux:
+                    self.lpulse[i]+=self.powerb[k]
+            self.lagp[i]=self.powera[i]
+
+        #find scale factor that best merges profiles
+
+        qi=sum(self.dpulse[32:dataOut.NACF]**2/(self.lagp[32:dataOut.NACF]+anoise0)**2)
+        ri=sum((self.dpulse[32:dataOut.NACF]*self.lpulse[32:dataOut.NACF])/(self.lagp[32:dataOut.NACF]+anoise0)**2)
+        si=sum((self.dpulse[32:dataOut.NACF]*self.lagp[32:dataOut.NACF])/(self.lagp[32:dataOut.NACF]+anoise0)**2)
+        ui=sum(self.lpulse[32:dataOut.NACF]**2/(self.lagp[32:dataOut.NACF]+anoise0)**2)
+        vi=sum((self.lpulse[32:dataOut.NACF]*self.lagp[32:dataOut.NACF])/(self.lagp[32:dataOut.NACF]+anoise0)**2)
+
+        alpha=(si*ui-vi*ri)/(qi*ui-ri*ri)
+        beta=(qi*vi-ri*si)/(qi*ui-ri*ri)
+
+        #form density profile estimate, merging rescaled power profiles
+        #print(dataOut.h2)
+        #print(numpy.sum(alpha))
+        #print(numpy.sum(dataOut.ph2))
+        self.powerb[16:36-aux]=alpha*dataOut.ph2[16:36-aux]/dataOut.h2[16:36-aux]
+        self.powerb[36-aux:dataOut.NACF]*=beta
+
+        #form Ne estimate, fill in error estimate at low altitudes
+
+        dataOut.ene[0:36-aux]=dataOut.sdp2[0:36-aux]/dataOut.ph2[0:36-aux]
+        dataOut.ne[:dataOut.NACF]=self.powerb[:dataOut.NACF]*dataOut.h2[:dataOut.NACF]/alpha
+        #print(numpy.sum(self.powerb))
+        #print(numpy.sum(dataOut.ene))
+        #print(numpy.sum(dataOut.ne))
+        #exit(1)
+        #now do error propagation: store zero lag error covariance in u
+
+        nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint/1   # DLH serious debris removal
+
+        for i in range(dataOut.NACF):
+            for j in range(i,dataOut.NACF):
+                if j-i>=dataOut.IBITS:
+                    self.u[i,j]=0.0
+                else:
+                    self.u[i,j]=dataOut.output_LP_integrated.real[j-i,i,0]**2/float(nis)
+                    self.u[i,j]*=(anoise0+dataOut.output_LP_integrated.real[0,i,0])/dataOut.output_LP_integrated.real[0,i,0]
+                    self.u[i,j]*=(anoise0+dataOut.output_LP_integrated.real[0,j,0])/dataOut.output_LP_integrated.real[0,j,0]
+
+                self.u[j,i]=self.u[i,j]
+
+        #now error analyis for lag product matrix (diag), place in acf_err
+
+        for i in range(dataOut.NACF):
+            for j in range(dataOut.IBITS):
+                if j==0:
+                    dataOut.errors[0,i]=numpy.sqrt(self.u[i,i])
+                else:
+                    dataOut.errors[j,i]=numpy.sqrt(((dataOut.output_LP_integrated.real[0,i,0]+anoise0)*(dataOut.output_LP_integrated.real[0,i+j,0]+anoise0)+dataOut.output_LP_integrated.real[j,i,0]**2)/float(2*nis))
+
+        print("Success")
+        #print(dataOut.NRANGE)
+        with suppress_stdout_stderr():
+            pass
+            #full_profile_profile.profile(numpy.transpose(dataOut.output_LP_integrated,(2,1,0)),numpy.transpose(dataOut.errors),self.powerb,dataOut.ne,dataOut.lags_LP,dataOut.thb,dataOut.bfm,dataOut.te,dataOut.ete,dataOut.ti,dataOut.eti,dataOut.ph,dataOut.eph,dataOut.phe,dataOut.ephe,dataOut.range1,dataOut.ut,dataOut.NACF,dataOut.fit_array_real,dataOut.status,dataOut.NRANGE,dataOut.IBITS)
+
+        print("status: ",dataOut.status)
+
+        if dataOut.status>=3.5:
+            dataOut.te[:]=numpy.nan
+            dataOut.ete[:]=numpy.nan
+            dataOut.ti[:]=numpy.nan
+            dataOut.eti[:]=numpy.nan
+            dataOut.ph[:]=numpy.nan
+            dataOut.eph[:]=numpy.nan
+            dataOut.phe[:]=numpy.nan
+            dataOut.ephe[:]=numpy.nan
+
+        return dataOut
+
+class LongPulseAnalysis_V2(Operation):
+    """Operation to estimate ACFs, temperatures, total electron density and Hydrogen/Helium fractions from the Long Pulse data.
+
+    Parameters:
+    -----------
+    NACF : int
+        .*
+
+    Example
+    --------
+
+    op = proc_unit.addOperation(name='LongPulseAnalysis', optype='other')
+    op.addParameter(name='NACF', value='16', format='int')
+
+    """
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+        self.aux=1
+
+    def run(self,dataOut,NACF):
+
+        dataOut.NACF=NACF
+        dataOut.heightList=dataOut.DH*(numpy.arange(dataOut.NACF))
+        anoise0=dataOut.tnoise[0]
+        anoise1=anoise0*0.0       #seems to be noise in 1st lag 0.015 before '14
+        #print(anoise0)
+        #exit(1)
         if self.aux:
             #dataOut.cut=31#26#height=31*15=465
             self.cal=numpy.zeros((dataOut.NLAG),'float32')
@@ -5457,15 +6397,16 @@ class LongPulseAnalysis(Operation):
         for i in range(30,15,-1):
             if numpy.nanmax(dataOut.acfs_error_to_plot[i,:])>=10 or dataOut.info2[i]==0:
                 dataOut.cut=i-1
-        #print(dataOut.cut)
-        #print(dataOut.info2[:])
-        #print(dataOut.te2[:])
-        #print(dataOut.ti2[:])
+
         for i in range(dataOut.NLAG):
             self.cal[i]=sum(dataOut.output_LP_integrated[i,:,3].real)
 
-
+        #print(numpy.sum(self.cal)) #Coinciden
+        #exit(1)
         self.cal/=float(dataOut.NRANGE)
+        #print(anoise0)
+        #print(anoise1)
+        #exit(1)
 
         for j in range(dataOut.NACF+2*dataOut.IBITS+2):
 
@@ -5478,20 +6419,27 @@ class LongPulseAnalysis(Operation):
             self.powera[j]=dataOut.output_LP_integrated.real[0,k,0]
 
             ## examine drifts here - based on 60 'indep.' estimates
-
-        nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint*10
+        #print(numpy.sum(self.powera))
+        #exit(1)
+        #nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint*10
+        nis = dataOut.nis
+        #print("nis",nis)
         alpha=beta=delta=0.0
         nest=0
         gamma=3.0/(2.0*numpy.pi*dataOut.lags_LP[1]*1.0e-3)
         beta=gamma*(math.atan2(dataOut.output_LP_integrated.imag[14,0,2],dataOut.output_LP_integrated.real[14,0,2])-math.atan2(dataOut.output_LP_integrated.imag[1,0,2],dataOut.output_LP_integrated.real[1,0,2]))/13.0
+        #print(gamma,beta)
+        #exit(1)
         for i in range(1,3):
             gamma=3.0/(2.0*numpy.pi*dataOut.lags_LP[i]*1.0e-3)
+            #print("gamma",gamma)
             for j in range(34,44):
                 rho2=numpy.abs(dataOut.output_LP_integrated[i,j,0])/numpy.abs(dataOut.output_LP_integrated[0,j,0])
                 dataOut.dphi2=(1.0/rho2-1.0)/(float(2*nis))
                 dataOut.dphi2*=gamma**2
                 pest=gamma*math.atan(dataOut.output_LP_integrated.imag[i,j,0]/dataOut.output_LP_integrated.real[i,j,0])
-
+                #print("1",dataOut.output_LP_integrated.imag[i,j,0])
+                #print("2",dataOut.output_LP_integrated.real[i,j,0])
                 self.drift[nest]=pest
                 self.ddrift[nest]=dataOut.dphi2
                 self.rdrift[nest]=float(nest)
@@ -5499,292 +6447,9 @@ class LongPulseAnalysis(Operation):
 
         sorted(self.drift[:nest])
 
-        for j in range(int(nest/4),int(3*nest/4)):
-            #i=int(self.rdrift[j])
-            alpha+=self.drift[j]/self.ddrift[j]
-            delta+=1.0/self.ddrift[j]
-
-        alpha/=delta
-        delta=1./numpy.sqrt(delta)
-        vdrift=alpha-beta
-        dvdrift=delta
-
-        #need to develop estimate of complete density profile using all
-        #available data
-
-        #estimate sample variances for long-pulse power profile
-
-        nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint
-
-        self.sigma[:dataOut.NACF+2*dataOut.IBITS+2]=((anoise0+self.powera[:dataOut.NACF+2*dataOut.IBITS+2])**2)/float(nis)
-
-        ioff=1
-
-        #deconvolve rectangular pulse shape from profile ==> powerb, perror
-
-
-        ############# START nnlswrap#############
-
-        if dataOut.ut_Faraday>14.0:
-            alpha_nnlswrap=20.0
-        else:
-            alpha_nnlswrap=30.0
-
-        range1_nnls=dataOut.NACF
-        range2_nnls=dataOut.NACF+dataOut.IBITS-1
-
-        g_nnlswrap=numpy.zeros((range1_nnls,range2_nnls),'float32')
-        a_nnlswrap=numpy.zeros((range2_nnls,range2_nnls),'float64')
-
-        for i in range(range1_nnls):
-            for j in range(range2_nnls):
-                if j>=i and j<i+dataOut.IBITS:
-                    g_nnlswrap[i,j]=1.0
-                else:
-                    g_nnlswrap[i,j]=0.0
-
-        a_nnlswrap[:]=numpy.matmul(numpy.transpose(g_nnlswrap),g_nnlswrap)
-
-        numpy.fill_diagonal(a_nnlswrap,a_nnlswrap.diagonal()+alpha_nnlswrap**2)
-
-                    #ERROR ANALYSIS#
-
-        self.perror[:range2_nnls]=0.0
-        self.perror[:range2_nnls]=numpy.matmul(1./(self.sigma[dataOut.IBITS+ioff:range1_nnls+dataOut.IBITS+ioff]),g_nnlswrap**2)
-        self.perror[:range1_nnls]+=(alpha_nnlswrap**2)/(self.sigma[dataOut.IBITS+ioff:range1_nnls+dataOut.IBITS+ioff])
-        self.perror[:range2_nnls]=1.00/self.perror[:range2_nnls]
-
-        b_nnlswrap=numpy.zeros(range2_nnls,'float64')
-        b_nnlswrap[:]=numpy.matmul(self.powera[dataOut.IBITS+ioff:range1_nnls+dataOut.IBITS+ioff],g_nnlswrap)
-
-        x_nnlswrap=numpy.zeros(range2_nnls,'float64')
-        x_nnlswrap[:]=nnls(a_nnlswrap,b_nnlswrap)[0]
-
-        self.powerb[:range2_nnls]=x_nnlswrap
-
-        #############END nnlswrap#############
-
-        #estimate relative error for deconvolved profile (scaling irrelevant)
-
-        dataOut.ene[0:dataOut.NACF]=numpy.sqrt(self.perror[0:dataOut.NACF])/self.powerb[0:dataOut.NACF]
-
-        aux=0
-
-        for i in range(dataOut.IBITS,dataOut.NACF):
-            self.dpulse[i]=self.lpulse[i]=0.0
-            for j in range(dataOut.IBITS):
-                k=int(i-j)
-                if k<36-aux and k>16:
-                    self.dpulse[i]+=dataOut.ph2[k]/dataOut.h2[k]
-                elif k>=36-aux:
-                    self.lpulse[i]+=self.powerb[k]
-            self.lagp[i]=self.powera[i]
-
-        #find scale factor that best merges profiles
-
-        qi=sum(self.dpulse[32:dataOut.NACF]**2/(self.lagp[32:dataOut.NACF]+anoise0)**2)
-        ri=sum((self.dpulse[32:dataOut.NACF]*self.lpulse[32:dataOut.NACF])/(self.lagp[32:dataOut.NACF]+anoise0)**2)
-        si=sum((self.dpulse[32:dataOut.NACF]*self.lagp[32:dataOut.NACF])/(self.lagp[32:dataOut.NACF]+anoise0)**2)
-        ui=sum(self.lpulse[32:dataOut.NACF]**2/(self.lagp[32:dataOut.NACF]+anoise0)**2)
-        vi=sum((self.lpulse[32:dataOut.NACF]*self.lagp[32:dataOut.NACF])/(self.lagp[32:dataOut.NACF]+anoise0)**2)
-
-        alpha=(si*ui-vi*ri)/(qi*ui-ri*ri)
-        beta=(qi*vi-ri*si)/(qi*ui-ri*ri)
-
-        #form density profile estimate, merging rescaled power profiles
-
-        self.powerb[16:36-aux]=alpha*dataOut.ph2[16:36-aux]/dataOut.h2[16:36-aux]
-        self.powerb[36-aux:dataOut.NACF]*=beta
-
-        #form Ne estimate, fill in error estimate at low altitudes
-
-        dataOut.ene[0:36-aux]=dataOut.sdp2[0:36-aux]/dataOut.ph2[0:36-aux]
-        dataOut.ne[:dataOut.NACF]=self.powerb[:dataOut.NACF]*dataOut.h2[:dataOut.NACF]/alpha
-
-        #now do error propagation: store zero lag error covariance in u
-
-        nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint/1   # DLH serious debris removal
-
-        for i in range(dataOut.NACF):
-            for j in range(i,dataOut.NACF):
-                if j-i>=dataOut.IBITS:
-                    self.u[i,j]=0.0
-                else:
-                    self.u[i,j]=dataOut.output_LP_integrated.real[j-i,i,0]**2/float(nis)
-                    self.u[i,j]*=(anoise0+dataOut.output_LP_integrated.real[0,i,0])/dataOut.output_LP_integrated.real[0,i,0]
-                    self.u[i,j]*=(anoise0+dataOut.output_LP_integrated.real[0,j,0])/dataOut.output_LP_integrated.real[0,j,0]
-
-                self.u[j,i]=self.u[i,j]
-
-        #now error analyis for lag product matrix (diag), place in acf_err
-
-        for i in range(dataOut.NACF):
-            for j in range(dataOut.IBITS):
-                if j==0:
-                    dataOut.errors[0,i]=numpy.sqrt(self.u[i,i])
-                else:
-                    dataOut.errors[j,i]=numpy.sqrt(((dataOut.output_LP_integrated.real[0,i,0]+anoise0)*(dataOut.output_LP_integrated.real[0,i+j,0]+anoise0)+dataOut.output_LP_integrated.real[j,i,0]**2)/float(2*nis))
-
-        #with suppress_stdout_stderr():
-            #full_profile_profile.profile(numpy.transpose(dataOut.output_LP_integrated,(2,1,0)),numpy.transpose(dataOut.errors),self.powerb,dataOut.ne,dataOut.lags_LP,dataOut.thb,dataOut.bfm,dataOut.te,dataOut.ete,dataOut.ti,dataOut.eti,dataOut.ph,dataOut.eph,dataOut.phe,dataOut.ephe,dataOut.range1,dataOut.ut,dataOut.NACF,dataOut.fit_array_real,dataOut.status,dataOut.NRANGE,dataOut.IBITS)
-
-        if dataOut.status>=3.5:
-            dataOut.te[:]=numpy.nan
-            dataOut.ete[:]=numpy.nan
-            dataOut.ti[:]=numpy.nan
-            dataOut.eti[:]=numpy.nan
-            dataOut.ph[:]=numpy.nan
-            dataOut.eph[:]=numpy.nan
-            dataOut.phe[:]=numpy.nan
-            dataOut.ephe[:]=numpy.nan
-
-        return dataOut
-
-
-class LongPulseAnalysisLP(Operation):
-    """Operation to estimate ACFs, temperatures, total electron density and Hydrogen/Helium fractions from the Long Pulse data.
-
-    Parameters:
-    -----------
-    NACF : int
-        .*
-
-    Example
-    --------
-
-    op = proc_unit.addOperation(name='LongPulseAnalysis', optype='other')
-    op.addParameter(name='NACF', value='16', format='int')
-
-    """
-
-    def __init__(self, **kwargs):
-
-        Operation.__init__(self, **kwargs)
-        self.aux=1
-
-    def run(self,dataOut,NACF=None):
-
-
-        dataOut.IBITS = 64
-        dataOut.NACF = dataOut.nHeights# - (2*dataOut.IBITS+5)
-        #print(dataOut.heightList[int(dataOut.NACF)])
+        #print(dataOut.dphi2)
         #exit(1)
 
-        #dataOut.heightList=dataOut.DH*(numpy.arange(dataOut.NACF))
-        anoise0=dataOut.tnoise[0]
-        anoise1=anoise0*0.0       #seems to be noise in 1st lag 0.015 before '14
-
-        if self.aux:
-            #dataOut.cut=31#26#height=31*15=465
-            self.cal=numpy.zeros((dataOut.NLAG),'float32')
-            self.drift=numpy.zeros((200),'float32')
-            self.rdrift=numpy.zeros((200),'float32')
-            self.ddrift=numpy.zeros((200),'float32')
-            self.sigma=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
-            self.powera=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
-            self.powerb=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
-            self.perror=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
-            dataOut.ene=numpy.zeros((dataOut.NRANGE),'float32')
-            self.dpulse=numpy.zeros((dataOut.NACF),'float32')
-            self.lpulse=numpy.zeros((dataOut.NACF),'float32')
-            dataOut.lags_LP=numpy.zeros((dataOut.IBITS),order='F',dtype='float32')
-            self.lagp=numpy.zeros((dataOut.NACF),'float32')
-            self.u=numpy.zeros((2*dataOut.NACF,2*dataOut.NACF),'float32')
-            dataOut.ne=numpy.zeros((dataOut.NRANGE),order='F',dtype='float32')
-            dataOut.te=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
-            dataOut.ete=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
-            dataOut.ti=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
-            dataOut.eti=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
-            dataOut.ph=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
-            dataOut.eph=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
-            dataOut.phe=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
-            dataOut.ephe=numpy.zeros((dataOut.NACF),order='F',dtype='float32')
-            dataOut.errors=numpy.zeros((dataOut.IBITS,max(dataOut.NRANGE,1)),order='F',dtype='float32')
-            dataOut.fit_array_real=numpy.zeros((max(dataOut.NRANGE,1),dataOut.NLAG),order='F',dtype='float32')
-            dataOut.status=numpy.zeros(1,'float32')
-            dataOut.tx=480.0 #debería provenir del header #HAE
-
-            dataOut.h2=numpy.zeros(dataOut.MAXNRANGENDT,'float32')
-            dataOut.range1=numpy.zeros(dataOut.MAXNRANGENDT,order='F',dtype='float32')
-
-
-
-            for i in range(dataOut.IBITS):
-                dataOut.lags_LP[i]=float(i)*(dataOut.tx/150.0)/float(dataOut.IBITS) # (float)i*(header.tx/150.0)/(float)IBITS;
-
-            self.aux=0
-
-
-
-        for i in range(dataOut.MAXNRANGENDT):
-            dataOut.range1[i]=dataOut.H0 + i*dataOut.DH
-            dataOut.h2[i]=dataOut.range1[i]**2
-
-        dataOut.cut=30
-        #for i in range(30,15,-1):
-        #    if numpy.nanmax(dataOut.acfs_error_to_plot[i,:])>=10 or dataOut.info2[i]==0:
-        #        dataOut.cut=i-1
-        #print(dataOut.cut)
-        #print(dataOut.info2[:])
-        #print(dataOut.te2[:])
-        #print(dataOut.ti2[:])
-        #for i in range(dataOut.NLAG):
-        #    self.cal[i]=sum(dataOut.output_LP_integrated[i,:,3].real)
-
-
-        #self.cal/=float(dataOut.NRANGE)
-
-        for j in range(dataOut.NACF):#+2*dataOut.IBITS+2):
-
-            self.powera[j]=dataOut.output_LP_integrated.real[0,j,0]
-
-
-        print(dataOut.heightList[:dataOut.NACF])
-        import matplotlib.pyplot as plt
-        fig, axes = plt.subplots(figsize=(14, 10))
-        axes.plot(self.powera[:dataOut.NACF]*dataOut.h2[:dataOut.NACF],dataOut.heightList[:dataOut.NACF])
-        axes.set_xscale("log", nonposx='clip')
-        #axes.set_xlim(1e18,2e19)
-        axes.set_ylim(180,470)
-        import time
-
-        plt.title(time.ctime(dataOut.utctime))
-        plt.show()
-        time.sleep(50)
-        exit(1)
-        '''
-        for j in range(dataOut.NACF+2*dataOut.IBITS+2):
-
-            dataOut.output_LP_integrated.real[0,j,0]-=anoise0   #lag0 ch0
-            dataOut.output_LP_integrated.real[1,j,0]-=anoise1   #lag1 ch0
-
-            #for i in range(1,dataOut.NLAG):  #remove cal data from certain lags
-            #     dataOut.output_LP_integrated.real[i,j,0]-=self.cal[i]
-            k=max(j,26)   #constant power below range 26
-            self.powera[j]=dataOut.output_LP_integrated.real[0,k,0]
-
-            ## examine drifts here - based on 60 'indep.' estimates
-
-        nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint*10
-        alpha=beta=delta=0.0
-        nest=0
-        gamma=3.0/(2.0*numpy.pi*dataOut.lags_LP[1]*1.0e-3)
-        beta=gamma*(math.atan2(dataOut.output_LP_integrated.imag[14,0,2],dataOut.output_LP_integrated.real[14,0,2])-math.atan2(dataOut.output_LP_integrated.imag[1,0,2],dataOut.output_LP_integrated.real[1,0,2]))/13.0
-        for i in range(1,3):
-            gamma=3.0/(2.0*numpy.pi*dataOut.lags_LP[i]*1.0e-3)
-            for j in range(34,44):
-                rho2=numpy.abs(dataOut.output_LP_integrated[i,j,0])/numpy.abs(dataOut.output_LP_integrated[0,j,0])
-                dataOut.dphi2=(1.0/rho2-1.0)/(float(2*nis))
-                dataOut.dphi2*=gamma**2
-                pest=gamma*math.atan(dataOut.output_LP_integrated.imag[i,j,0]/dataOut.output_LP_integrated.real[i,j,0])
-
-                self.drift[nest]=pest
-                self.ddrift[nest]=dataOut.dphi2
-                self.rdrift[nest]=float(nest)
-                nest+=1
-
-        sorted(self.drift[:nest])
-
         for j in range(int(nest/4),int(3*nest/4)):
             #i=int(self.rdrift[j])
             alpha+=self.drift[j]/self.ddrift[j]
@@ -5800,10 +6465,13 @@ class LongPulseAnalysisLP(Operation):
 
         #estimate sample variances for long-pulse power profile
 
-        nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint
+        #nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint
+        nis = dataOut.nis/10
+        #print("nis",nis)
 
         self.sigma[:dataOut.NACF+2*dataOut.IBITS+2]=((anoise0+self.powera[:dataOut.NACF+2*dataOut.IBITS+2])**2)/float(nis)
-        '''
+        #print(self.sigma)
+        #exit(1)
         ioff=1
 
         #deconvolve rectangular pulse shape from profile ==> powerb, perror
@@ -5834,12 +6502,12 @@ class LongPulseAnalysisLP(Operation):
         numpy.fill_diagonal(a_nnlswrap,a_nnlswrap.diagonal()+alpha_nnlswrap**2)
 
                     #ERROR ANALYSIS#
-        '''
+
         self.perror[:range2_nnls]=0.0
         self.perror[:range2_nnls]=numpy.matmul(1./(self.sigma[dataOut.IBITS+ioff:range1_nnls+dataOut.IBITS+ioff]),g_nnlswrap**2)
         self.perror[:range1_nnls]+=(alpha_nnlswrap**2)/(self.sigma[dataOut.IBITS+ioff:range1_nnls+dataOut.IBITS+ioff])
         self.perror[:range2_nnls]=1.00/self.perror[:range2_nnls]
-        '''
+
         b_nnlswrap=numpy.zeros(range2_nnls,'float64')
         b_nnlswrap[:]=numpy.matmul(self.powera[dataOut.IBITS+ioff:range1_nnls+dataOut.IBITS+ioff],g_nnlswrap)
 
@@ -5847,26 +6515,18 @@ class LongPulseAnalysisLP(Operation):
         x_nnlswrap[:]=nnls(a_nnlswrap,b_nnlswrap)[0]
 
         self.powerb[:range2_nnls]=x_nnlswrap
-
-
-        import matplotlib.pyplot as plt
-        fig, axes = plt.subplots(figsize=(14, 10))
-        axes.plot(self.powerb[:dataOut.NACF]*dataOut.h2[:dataOut.NACF],dataOut.heightList[:dataOut.NACF])
-        axes.set_xscale("log", nonposx='clip')
-        #axes.set_xlim(1e10,8e12)
-        axes.set_ylim(0,300)
-        plt.show()
-        import time
-        time.sleep(60)
-        exit(1)
-
-
+        #print(self.powerb[40])
+        #print(self.powerb[66])
+        #exit(1)
         #############END nnlswrap#############
-
+        #print(numpy.sum(numpy.sqrt(self.perror[0:dataOut.NACF])))
+        #print(self.powerb[0:dataOut.NACF])
+        #exit(1)
         #estimate relative error for deconvolved profile (scaling irrelevant)
-
+        #print(dataOut.NACF)
         dataOut.ene[0:dataOut.NACF]=numpy.sqrt(self.perror[0:dataOut.NACF])/self.powerb[0:dataOut.NACF]
-
+        #print(numpy.sum(dataOut.ene))
+        #exit(1)
         aux=0
 
         for i in range(dataOut.IBITS,dataOut.NACF):
@@ -5891,7 +6551,9 @@ class LongPulseAnalysisLP(Operation):
         beta=(qi*vi-ri*si)/(qi*ui-ri*ri)
 
         #form density profile estimate, merging rescaled power profiles
-
+        #print(dataOut.h2)
+        #print(numpy.sum(alpha))
+        #print(numpy.sum(dataOut.ph2))
         self.powerb[16:36-aux]=alpha*dataOut.ph2[16:36-aux]/dataOut.h2[16:36-aux]
         self.powerb[36-aux:dataOut.NACF]*=beta
 
@@ -5899,7 +6561,10 @@ class LongPulseAnalysisLP(Operation):
 
         dataOut.ene[0:36-aux]=dataOut.sdp2[0:36-aux]/dataOut.ph2[0:36-aux]
         dataOut.ne[:dataOut.NACF]=self.powerb[:dataOut.NACF]*dataOut.h2[:dataOut.NACF]/alpha
-
+        #print(numpy.sum(self.powerb))
+        #print(numpy.sum(dataOut.ene))
+        #print(numpy.sum(dataOut.ne))
+        #exit(1)
         #now do error propagation: store zero lag error covariance in u
 
         nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint/1   # DLH serious debris removal
@@ -5924,9 +6589,11 @@ class LongPulseAnalysisLP(Operation):
                 else:
                     dataOut.errors[j,i]=numpy.sqrt(((dataOut.output_LP_integrated.real[0,i,0]+anoise0)*(dataOut.output_LP_integrated.real[0,i+j,0]+anoise0)+dataOut.output_LP_integrated.real[j,i,0]**2)/float(2*nis))
 
-        #with suppress_stdout_stderr():
-            #full_profile_profile.profile(numpy.transpose(dataOut.output_LP_integrated,(2,1,0)),numpy.transpose(dataOut.errors),self.powerb,dataOut.ne,dataOut.lags_LP,dataOut.thb,dataOut.bfm,dataOut.te,dataOut.ete,dataOut.ti,dataOut.eti,dataOut.ph,dataOut.eph,dataOut.phe,dataOut.ephe,dataOut.range1,dataOut.ut,dataOut.NACF,dataOut.fit_array_real,dataOut.status,dataOut.NRANGE,dataOut.IBITS)
-        '''
+        print("Success")
+        with suppress_stdout_stderr():
+            #pass
+            full_profile_profile.profile(numpy.transpose(dataOut.output_LP_integrated,(2,1,0)),numpy.transpose(dataOut.errors),self.powerb,dataOut.ne,dataOut.lags_LP,dataOut.thb,dataOut.bfm,dataOut.te,dataOut.ete,dataOut.ti,dataOut.eti,dataOut.ph,dataOut.eph,dataOut.phe,dataOut.ephe,dataOut.range1,dataOut.ut,dataOut.NACF,dataOut.fit_array_real,dataOut.status,dataOut.NRANGE,dataOut.IBITS)
+
         if dataOut.status>=3.5:
             dataOut.te[:]=numpy.nan
             dataOut.ete[:]=numpy.nan
@@ -5936,9 +6603,8 @@ class LongPulseAnalysisLP(Operation):
             dataOut.eph[:]=numpy.nan
             dataOut.phe[:]=numpy.nan
             dataOut.ephe[:]=numpy.nan
-            '''
-        return dataOut
 
+        return dataOut
 
 class PulsePairVoltage(Operation):
     '''

@@ -561,7 +561,10 @@ class Project(Process):
             else:
                 conf.object.reader = reader
             if conf.inputId is not None:
-                conf.object.setInput(self.configurations[conf.inputId].object)
+                if isinstance(conf.inputId, list):
+                    conf.object.setInput([self.configurations[x].object for x in conf.inputId])
+                else:
+                    conf.object.setInput([self.configurations[conf.inputId].object])
 
     def monitor(self):
 

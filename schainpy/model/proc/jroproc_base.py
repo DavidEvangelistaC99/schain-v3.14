@@ -30,10 +30,19 @@ class ProcessingUnit(object):
         self.dataOut = None
         self.isConfig = False
         self.operations = []
+        self.name = 'Test'
+        self.inputs = []
     
     def setInput(self, unit):
 
-        self.dataIn = unit.dataOut
+        attr = 'dataIn'
+        for i, u in enumerate(unit):
+            if i==0:
+                self.dataIn = u.dataOut
+                self.inputs.append('dataIn')
+            else:
+                setattr(self, 'dataIn{}'.format(i), u.dataOut)
+                self.inputs.append('dataIn{}'.format(i))
     
     def getAllowedArgs(self):
         if hasattr(self, '__attrs__'):
@@ -60,7 +69,10 @@ class ProcessingUnit(object):
 
         try:
             if self.dataIn is not None and self.dataIn.flagNoData and not self.dataIn.error:
-                return self.dataIn.isReady()
+                if self.dataIn.runNextUnit:
+                    return not self.dataIn.isReady()
+                else:
+                    return self.dataIn.isReady()
             elif self.dataIn is None or not self.dataIn.error:                
                 if 'Reader' in self.name and self.bypass:
                     print('Skipping...reader')
@@ -90,7 +102,15 @@ class ProcessingUnit(object):
             elif optype == 'external' and self.dataOut.error:
                 op.queue.put(aux)
 
-        return 'Error' if self.dataOut.error else self.dataOut.isReady()
+        try:
+            if self.dataOut.runNextUnit:
+                runNextUnit = self.dataOut.runNextUnit
+            else:
+                runNextUnit = self.dataOut.isReady()
+        except:
+            runNextUnit = self.dataOut.isReady()
+
+        return 'Error' if self.dataOut.error else runNextUnit
 
     def setup(self):
 
