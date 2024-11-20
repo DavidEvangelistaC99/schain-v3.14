@@ -13,6 +13,7 @@ from multiprocessing import Pool, TimeoutError
 from multiprocessing.pool import ThreadPool
 import time
 
+import matplotlib.pyplot as plt
 from scipy.optimize import fmin_l_bfgs_b #optimize with bounds on state papameters
 from .jroproc_base import ProcessingUnit, Operation, MPDecorator
 from schainpy.model.data.jrodata import Parameters, hildebrand_sekhon
@@ -128,6 +129,10 @@ class ParametersProc(ProcessingUnit):
             self.dataOut.data_pre = [self.dataIn.data_spc, self.dataIn.data_cspc]
             self.dataOut.data_spc = self.dataIn.data_spc
             self.dataOut.data_cspc = self.dataIn.data_cspc
+            # for JULIA processing
+            self.dataOut.data_diffcspc = self.dataIn.data_diffcspc     
+            self.dataOut.nDiffIncohInt = self.dataIn.nDiffIncohInt
+            # for JULIA processing
             self.dataOut.nProfiles = self.dataIn.nProfiles
             self.dataOut.nIncohInt = self.dataIn.nIncohInt
             self.dataOut.nFFTPoints = self.dataIn.nFFTPoints
@@ -1420,68 +1425,11 @@ class SpectralMoments(Operation):
             self.dataOut.data_snr       :    SNR per channel
 
     '''
-
-    def run(self, dataOut, proc_type=0, mode_fit=0, exp='150EEJ'):
-
-        absc = dataOut.abscissaList[:-1]
-        #noise = dataOut.noise
-        nChannel = dataOut.data_pre[0].shape[0]
-        nHei = dataOut.data_pre[0].shape[2]
-        data_param = numpy.zeros((nChannel, 4 + proc_type*3, nHei))
-
-        if proc_type == 1:
-            type1 = mode_fit
-            fwindow = numpy.zeros(absc.size) + 1
-            if exp == '150EEJ':
-                b=64
-                fwindow[0:absc.size//2 - b] = 0
-                fwindow[absc.size//2 + b:] = 0
-            vers = 1 # new           
-            nProfiles = dataOut.nProfiles
-            nCohInt = dataOut.nCohInt
-            nIncohInt = dataOut.nIncohInt
-            M = numpy.power(numpy.array(1/(nProfiles * nCohInt) ,dtype='float32'),2)
-            N = numpy.array(M / nIncohInt,dtype='float32')
-            data = dataOut.data_pre[0] * N
-            #noise = dataOut.noise * N
-            noise = numpy.zeros(nChannel)
-            for ind in range(nChannel):
-                noise[ind] = self.__NoiseByChannel(nProfiles, nIncohInt, data[ind,:,:])
-            smooth=3
-        else:
-            data = dataOut.data_pre[0]
-            noise = dataOut.noise
-            fwindow = None
-            vers = 0  # old
-            nIncohInt = None
-            smooth=None
-
-        for ind in range(nChannel):
-            data_param[ind,:,:] = self.__calculateMoments( data[ind,:,:] , absc , noise[ind], nicoh=nIncohInt, smooth=smooth, type1=type1, fwindow=fwindow, vers=vers)
-            #print('snr:',data_param[:,0])
-
-        if proc_type == 1:
-            dataOut.moments = data_param[:,1:,:]
-            #dataOut.data_dop = data_param[:,0]
-            dataOut.data_dop = data_param[:,2]
-            dataOut.data_width = data_param[:,1]
-           # dataOut.data_snr = data_param[:,2]
-            dataOut.data_snr = data_param[:,0]
-            dataOut.data_pow = data_param[:,6]  # to compare with type0 proccessing
-            dataOut.spcpar=numpy.stack((dataOut.data_dop,dataOut.data_width,dataOut.data_snr, data_param[:,3], data_param[:,4],data_param[:,5]),axis=2)
-
-        else:
-            dataOut.moments = data_param[:,1:,:]
-            dataOut.data_snr = data_param[:,0]
-            dataOut.data_pow = data_param[:,1]
-            dataOut.data_dop = data_param[:,2]
-            dataOut.data_width = data_param[:,3]
-            dataOut.spcpar=numpy.stack((dataOut.data_dop,dataOut.data_width,dataOut.data_snr, dataOut.data_pow),axis=2)
-
-        return dataOut
-
+                  
     def __calculateMoments(self, oldspec, oldfreq, n0,
-                           nicoh = None, graph = None, smooth = None, type1 = None, fwindow = None, snrth = None, dc = None, aliasing = None, oldfd = None, wwauto = None, vers= None):
+                           nicoh = None, graph = None, smooth = None, type1 = None, fwindow = None, \
+                           snrth = None, dc = None, aliasing = None, oldfd = None, wwauto = None,   \
+                           vers= None, Hei= None, debug=False, dbg_hei=None, ymax=0.1, curr_ch=0, sel_ch=[0,1]):
 
         def __GAUSSWINFIT1(A, flagPDER=0):
             nonlocal truex, xvalid
@@ -1612,7 +1560,6 @@ class SpectralMoments(Operation):
                         #print('Failed to converge.')
                         chi2 = chisq         # Return chi-squared (chi2 obsolete-still works)
                         if done_early: Niter -= 1
-                        #save_tp(chisq,Niter,yfit) 
                         return yfit, a, converge, sigma, chisq, chi2          # return result   
                     ten=numpy.array([10.0],dtype='f4')[0]
                     flambda *= ten      # Assume fit got worse
@@ -1625,21 +1572,30 @@ class SpectralMoments(Operation):
                 if ((chisq1-chisq)/chisq1) <= tol: # Finished?
                     chi2 = chisq         # Return chi-squared (chi2 obsolete-still works)
                     if done_early: Niter -= 1
-                    #save_tp(chisq,Niter,yfit)
                     return yfit, a, converge, sigma, chisq, chi2         # return result
             converge = 0
             chi2 = chisq
             #print('Failed to converge.')
-            #save_tp(chisq,Niter,yfit)
             return yfit, a, converge, sigma, chisq, chi2
         
+
+        def spectral_cut(Hei, ind, dbg_hei, freq, fd, snr, n1, w, ymax, spec, spec2, n0, max_spec, ss1, m, bb0, curr_ch, sel_ch):
+            if Hei[ind] > dbg_hei[0] and Hei[ind] < dbg_hei[1] and (curr_ch in sel_ch):
+               nsa=len(freq)
+               aux='H=%iKm, dop: %4.1f, snr: %4.1f, noise: %4.1f, sw: %4.1f'%(Hei[ind],fd, 10*numpy.log10(snr),10*numpy.log10(n1), w)
+               plt.subplots()
+               plt.ylim(0,ymax)
+               plt.plot(freq,spec,'b-',freq,spec2,'b--', freq,numpy.repeat(n1, nsa),'k--', freq,numpy.repeat(n0, nsa),'k-', freq,numpy.repeat(max_spec, nsa),'y.-', numpy.repeat(fd, nsa),numpy.linspace(0,ymax,nsa),'r--', numpy.repeat(freq[ss1], nsa),numpy.linspace(0,ymax,nsa),'g-.', numpy.repeat(freq[m + bb0], nsa),numpy.linspace(0,ymax,nsa),'g-.')
+               plt.title(aux)
+               plt.show()
+                
+                        
         if (nicoh is None): nicoh = 1
         if (smooth is None): smooth = 0
         if (type1 is None): type1 = 0
         if (vers is None): vers = 0        
         if (fwindow is None): fwindow = numpy.zeros(oldfreq.size) + 1
         if (snrth is None): snrth = -20.0
-        #if (snrth is None): snrth = -21.0 # abs test
         if (dc is None): dc = 0
         if (aliasing is None): aliasing = 0
         if (oldfd is None): oldfd = 0
@@ -1659,7 +1615,6 @@ class SpectralMoments(Operation):
         vec_sigma_fd = numpy.empty(oldspec.shape[1])
 
         for ind in range(oldspec.shape[1]):
-
             spec = oldspec[:,ind]
             if (smooth == 0):
                 spec2 = spec
@@ -1673,13 +1628,10 @@ class SpectralMoments(Operation):
             if m > 2 and m < oldfreq.size - 3:
                 newindex = m + numpy.array([-2,-1,0,1,2])
                 newfreq = numpy.arange(20)/20.0*(numpy.max(freq[newindex])-numpy.min(freq[newindex]))+numpy.min(freq[newindex])
-                #peakspec = SPLINE(,)
                 tck = interpolate.splrep(freq[newindex], spec2[newindex])
                 peakspec = interpolate.splev(newfreq, tck)
-                # max_spec = MAX(peakspec,)
                 max_spec = numpy.max(peakspec)
                 mnew = numpy.argmax(peakspec)
-                #fp = newfreq(mnew)
                 fp = newfreq[mnew]
             else:
                 fp = freq[m]
@@ -1752,7 +1704,7 @@ class SpectralMoments(Operation):
                     ss1 = m
 
                 valid = numpy.arange(int(m + bb0 - ss1 + 1)) + ss1
-
+                               
                 power = ((spec[valid] - n1)*fwindow[valid]).sum()
                 fd = ((spec[valid]- n1)*freq[valid]*fwindow[valid]).sum()/power
                 try:
@@ -1760,6 +1712,10 @@ class SpectralMoments(Operation):
                 except:
                     w = float("NaN")
                 snr = power/(n0*fwindow.sum())
+
+                if debug:
+                    spectral_cut(Hei, ind, dbg_hei, freq, fd, snr, n1, w, ymax, spec, spec2, n0, max_spec, ss1, m, bb0, curr_ch, sel_ch)
+   
                 if snr <  1.e-20: snr = 1.e-20
 
                 # Here start gaussean adjustment
@@ -1814,8 +1770,7 @@ class SpectralMoments(Operation):
                 vec_power[ind] = power  # to compare with type 0 proccessing
 
         if vers==1:
-            #return numpy.vstack((vec_fd,  vec_w, vec_snr, vec_n1, vec_fp, vec_sigma_fd, vec_power))
-            return numpy.vstack((vec_snr,  vec_w, vec_fd, vec_n1, vec_fp, vec_sigma_fd, vec_power))   # snr and fd exchanged to compare doppler of both types
+            return numpy.vstack((vec_snr,  vec_w, vec_fd, vec_n1, vec_fp, vec_sigma_fd, vec_power))
         else:
             return numpy.vstack((vec_snr, vec_power, vec_fd, vec_w))
     
@@ -1853,19 +1808,9 @@ class SpectralMoments(Operation):
         Rutina para cálculo de ruido por alturas(n0). Similar a IDL
         '''
         num_pts = numpy.size(power)
-        #print('num_pts',num_pts)
-        #print('power',power.shape)
-        #print(power[256:267,0:2])
         fft_avg = fft_avg*1.0
-
         ind = numpy.argsort(power, axis=None, kind='stable')
-        #ind = numpy.argsort(numpy.reshape(power,-1))
-        #print(ind.shape)
-        #print(ind[0:11])
-        #print(numpy.reshape(power,-1)[ind[0:11]])
         ARR = numpy.reshape(power,-1)[ind]
-        #print('ARR',len(ARR))
-        #print('ARR',ARR.shape)
         NUMS_MIN = num_pts//10
         RTEST = (1.0+1.0/fft_avg)
         SUM = 0.0
@@ -1904,20 +1849,136 @@ class SpectralMoments(Operation):
         
         if talk:
             print('noise =', noise)
-        return noise
+        return noise, stdvnoise
+
+    def run(self, dataOut, proc_type=0, mode_fit=0, exp='150EEJ', debug=False, dbg_hei=None, ymax=1, sel_ch=[0,1]):
+
+        absc = dataOut.abscissaList[:-1]
+        nChannel = dataOut.data_pre[0].shape[0]
+        nHei = dataOut.data_pre[0].shape[2]
+        Hei=dataOut.heightList
+        data_param = numpy.zeros((nChannel, 4 + proc_type*3, nHei))
+        nProfiles = dataOut.nProfiles
+        nCohInt = dataOut.nCohInt
+        nIncohInt = dataOut.nIncohInt
+        M = numpy.power(numpy.array(1/(nProfiles * nCohInt) ,dtype='float32'),2)
+        N = numpy.array(M / nIncohInt,dtype='float32')         
+
+        if proc_type == 1:
+            type1 = mode_fit
+            fwindow = numpy.zeros(absc.size) + 1
+            if exp == '150EEJ':
+                b=64
+                fwindow[0:absc.size//2 - b] = 0
+                fwindow[absc.size//2 + b:] = 0
+            vers = 1 # new           
+
+            data = dataOut.data_pre[0] * N
+            
+            noise = numpy.zeros(nChannel)
+            stdvnoise = numpy.zeros(nChannel)
+            for ind in range(nChannel):
+                noise[ind], stdvnoise[ind] = self.__NoiseByChannel(nProfiles, nIncohInt, data[ind,:,:])
+            smooth=3
+        else:
+            data = dataOut.data_pre[0]
+            noise = dataOut.noise
+            fwindow = None
+            type1 = None
+            vers = 0  # old
+            nIncohInt = None
+            smooth=None
+
+        for ind in range(nChannel):
+            data_param[ind,:,:] = self.__calculateMoments(data[ind,:,:] , absc , noise[ind], nicoh=nIncohInt, smooth=smooth, type1=type1, fwindow=fwindow, vers=vers, Hei=Hei, debug=debug, dbg_hei=dbg_hei, ymax=ymax, curr_ch=ind, sel_ch=sel_ch)
+            #data_param[ind,:,:] = self.__calculateMoments(data[ind,:,:] , absc , noise[ind], nicoh=nIncohInt, smooth=smooth, type1=type1, fwindow=fwindow, vers=vers, Hei=Hei, debug=debug)
+            if exp == 'ESF_EW':
+               data_param[ind,0,:]*=(noise[ind]/stdvnoise[ind])
+            data_param[ind,3,:]*=(1.0/M)
+
+        if proc_type == 1:
+            dataOut.moments = data_param[:,1:,:]
+            dataOut.data_dop = data_param[:,2]
+            dataOut.data_width = data_param[:,1]
+            dataOut.data_snr = data_param[:,0]
+            dataOut.data_pow = data_param[:,6]  # to compare with type0 proccessing
+            dataOut.spcpar=numpy.stack((dataOut.data_dop,dataOut.data_width,dataOut.data_snr, data_param[:,3], data_param[:,4],data_param[:,5]),axis=2)
+            
+            if exp == 'ESF_EW':
+                spc=dataOut.data_pre[0]* N
+                cspc=dataOut.data_pre[1]* N
+                nHei=dataOut.data_pre[1].shape[2]
+                cross_pairs=dataOut.pairsList
+                nDiffIncohInt = dataOut.nDiffIncohInt
+                N2=numpy.array(1 / nDiffIncohInt,dtype='float32')
+                diffcspectra=dataOut.data_diffcspc.copy()* N2 * M * M
+                num_pairs=len(dataOut.pairsList)
+
+                if num_pairs >= 0:
+                    fbinv=numpy.where(absc != 0)[0]
+                    ccf=numpy.sum(cspc[:,fbinv,:], axis=1)
+                    jvpower=numpy.sum(spc[:,fbinv,:], axis=1)
+                    coh=ccf/numpy.sqrt(jvpower[cross_pairs[0][0],:]*jvpower[cross_pairs[0][1],:])
+                    dccf=numpy.sum(diffcspectra[:,fbinv,:], axis=1)
+                    dataOut.ccfpar = numpy.zeros((num_pairs,nHei,3))
+                    dataOut.ccfpar[:,:,0]=numpy.abs(coh)
+                    dataOut.ccfpar[:,:,1]=numpy.arctan(numpy.imag(coh)/numpy.real(coh))
+                    dataOut.ccfpar[:,:,2]=numpy.arctan(numpy.imag(dccf)/numpy.real(dccf))
+        else:
+            dataOut.moments = data_param[:,1:,:]
+            dataOut.data_snr = data_param[:,0]
+            dataOut.data_pow = data_param[:,1]
+            dataOut.data_dop = data_param[:,2]
+            dataOut.data_width = data_param[:,3]
+            dataOut.spcpar=numpy.stack((dataOut.data_dop,dataOut.data_width,dataOut.data_snr, dataOut.data_pow),axis=2)
+              
+        return dataOut
         
-class JULIADriftsEstimation(Operation):
+
+class JULIA_DayVelocities(Operation):
+    '''
+        Function SpectralMoments()
+
+        From espectral parameters calculates:
+        
+        1. Signal to noise level (SNL)
+        2. Vertical velocity
+        3. Zonal velocity
+        4. Vertical velocity error
+        5. Zonal velocity error.
+
+        Type of dataIn:    SpectralMoments
+
+        Configuration Parameters:
+
+            zenith :     Pairs of angles corresponding to the two beams related to the perpendicular to B from the center of the antenna.                           
+            zenithCorrection  :     Adjustment angle for the zenith. Default 0.
+            heights       :     Range to process 150kM echoes. By default [125,185].
+            nchan :     To process 2 or 1 channel. 2 by default.
+            chan  :     If nchan = 1, chan indicates which of the 2 channels to process.
+            clean       :  2nd cleaning processing (Graphical). Default False
+            driftstdv_th       :     Diferencia máxima entre valores promedio consecutivos de vertical.
+            zonalstdv_th       :     Diferencia máxima entre valores promedio consecutivos de zonal.
+
+        Input:
+
+        Affected:
+
+    '''
 
     def __init__(self):
         Operation.__init__(self)
-
-
+        self.old_drift=None
+        self.old_zonal=None
+        self.count_drift=0
+        self.count_zonal=0
+        self.oldTime_drift=None
+        self.oldTime_zonal=None
+                    
     def newtotal(self, data):
         return numpy.nansum(data)
     
-    #def data_filter(self, parm, snrth=-19.5, swth=20, wErrth=500):
     def data_filter(self, parm, snrth=-20, swth=20, wErrth=500):
-    #def data_filter(self, parm, snrth=-21, swth=20, wErrth=500): # abs test
 
         Sz0 = parm.shape # Sz0: h,p
         drift = parm[:,0]
@@ -1958,29 +2019,28 @@ class JULIADriftsEstimation(Operation):
         cnovalid = len(novalid[0])
         if cnovalid > 0:
             mask[novalid] = numpy.nan
+
         new_parm = numpy.zeros((Sz0[0],Sz0[1]))
-        for h in range(Sz0[0]):
-            for p in range(Sz0[1]):
-                if numpy.isnan(mask[h]):
-                    new_parm[h,p]=numpy.nan
-                else:
-                    new_parm[h,p]=parm[h,p]  
+        for i in range(Sz0[1]):
+            new_parm[:,i] = parm[:,i] * mask 
 
         return new_parm, th
 
-    def statistics150km(self, veloc , sigma , threshold , currTime=None, \
-                        amountdata=2, clearAll = None, timeFactor=None):
 
-        step = threshold/2
+    def statistics150km(self, veloc , sigma , threshold , old_veloc=None, count=0, \
+                        currTime=None, oldTime=None, amountdata=2, clearAll = None, timeFactor=1800, debug = False):
+        
+        if oldTime == None:
+            oldTime = currTime
+
+        step = (threshold/2)*(numpy.abs(currTime - oldTime)//timeFactor + 1)
         factor = 2  
         avg_threshold = 100
-
         # Calcula la mediana en todas las alturas por tiempo
         val1=numpy.nanmedian(veloc)
 
         # Calcula la media ponderada en todas las alturas por tiempo
         val2 = self.newtotal(veloc/numpy.power(sigma,2))/self.newtotal(1/numpy.power(sigma,2))
-
             
         # Verifica la cercanía de los valores calculados de mediana y media, si son cercanos escoge la media ponderada
         op1=numpy.abs(val2-val1)
@@ -1996,34 +2056,80 @@ class JULIADriftsEstimation(Operation):
 
         # Se calcula nuevamente media ponderada, en base a estimado inicial de la media
         # a fin de eliminar valores que están muy lejanos a dicho valor
-        junk = numpy.where(numpy.abs(veloc-veloc_prof) < threshold/factor)[0]
 
-        return junk
+        if debug:
+            print('veloc_prof:', veloc_prof)
+            print('veloc:',veloc)
+            print('threshold:',threshold)
+            print('factor:',factor)
+            print('threshold/factor:',threshold/factor)
+            print('numpy.abs(veloc-veloc_prof):', numpy.abs(veloc-veloc_prof))
+            print('numpy.where(numpy.abs(veloc-veloc_prof) < threshold/factor)[0]:', numpy.where(numpy.abs(veloc-veloc_prof) < threshold/factor)[0])
 
-    def run(self, dataOut, zenith, zenithCorrection,heights=None, otype=0, nchan=2, chan=0):
+        junk = numpy.where(numpy.abs(veloc-veloc_prof) < threshold/factor)[0]        
+        if junk.size > 2:
+            veloc_prof = self.newtotal(veloc[junk]/numpy.power(sigma[junk],2))/self.newtotal(1/numpy.power(sigma[junk],2))
+            sigma_prof1 = numpy.sqrt(1/self.newtotal(1/numpy.power(sigma[junk],2)))
+            sigma_prof2 = numpy.sqrt(self.newtotal(numpy.power(veloc[junk]-veloc_prof,2)/numpy.power(sigma[junk],2)))*sigma_prof1
+            sigma_prof = numpy.sqrt(numpy.power(sigma_prof1,2)+numpy.power(sigma_prof2,2))
+            sets = junk            
 
+        # Compara con valor anterior para evitar presencia de "outliers"
+        if debug:
+            print('old_veloc:',old_veloc)
+            print('step:', step)
+            
+        if old_veloc == None:
+            valid=numpy.isfinite(veloc_prof)
+        else:
+            valid=numpy.abs(veloc_prof-old_veloc) < step 
+            
+        if debug:
+            print('valid:', valid)
+            
+        if not valid:
+            aver_veloc=numpy.nan
+            aver_sigma=numpy.nan
+            sets=numpy.array([-1])
+        else:
+            aver_veloc=veloc_prof
+            aver_sigma=sigma_prof
+        clearAll=0
+        if old_veloc != None and count < 5:
+            if numpy.abs(veloc_prof-old_veloc) > step:
+                clearAll=1
+                count=0
+                old_veloc=None
+        if numpy.isfinite(aver_veloc):
+            
+            count+=1
+            if old_veloc != None:
+                old_veloc =  (old_veloc + aver_veloc) * 0.5
+            else:
+                old_veloc=aver_veloc
+            oldTime=currTime
+        if debug:
+            print('count:',count)
+            print('sets:',sets)
+        return sets, old_veloc, count, oldTime, aver_veloc, aver_sigma, clearAll
+
+
+    def run(self, dataOut, zenith, zenithCorrection=0.0, heights=[125, 185], nchan=2, chan=0, clean=False, driftstdv_th=100, zonalstdv_th=200):
 
         dataOut.lat=-11.95
         dataOut.lon=-76.87
-        
+
         nCh=dataOut.spcpar.shape[0]    
         nHei=dataOut.spcpar.shape[1]
         nParam=dataOut.spcpar.shape[2]
-        # Selección de alturas
 
-        if not heights:
-            parm = numpy.zeros((nCh,nHei,nParam))
-            parm[:] = dataOut.spcpar[:]
-        else:
-            hei=dataOut.heightList
-            hvalid=numpy.where([hei >= heights[0]][0] & [hei <= heights[1]][0])[0]
-            nhvalid=len(hvalid)
-            dataOut.heightList = hei[hvalid]      
-            parm = numpy.zeros((nCh,nhvalid,nParam))
-            parm[:] = dataOut.spcpar[:,hvalid,:]
-            print('parm:',parm.shape)
-
-        
+        # Selección de alturas           
+        hei=dataOut.heightList
+        hvalid=numpy.where([hei >= heights[0]][0] & [hei <= heights[1]][0])[0]
+        nhvalid=len(hvalid)
+        dataOut.heightList = hei[hvalid]      
+        parm=numpy.empty((nCh,nhvalid,nParam)); parm[:]=numpy.nan
+        parm[:] = dataOut.spcpar[:,hvalid,:]
         # Primer filtrado: Umbral de SNR
         for i in range(nCh):
             parm[i,:,:] = self.data_filter(parm[i,:,:])[0]
@@ -2071,19 +2177,22 @@ class JULIADriftsEstimation(Operation):
             w_e_err= numpy.sqrt(numpy.power(wErrCH0 * numpy.cos(beta)/numpy.abs(-1*sinB_A),2) + numpy.power(wErrCH1 * numpy.cos(alpha)/numpy.abs(-1*sinB_A),2))		
 
         # 150Km statistics to clean data
-
         clean_drift = drift.copy()
-
         clean_drift[:] = numpy.nan
         if nchan == 2:
             clean_zonal = zonal.copy()
             clean_zonal[:] = numpy.nan
         
-        # Drifts
-        driftstdv_th = 20*2
-
-        sets1 = self.statistics150km(drift, w_w_err, driftstdv_th)
-
+        # Vertical 
+        sets1, self.old_drift, self.count_drift, self.oldTime_drift, aver_veloc, aver_sigma, clearAll = self.statistics150km(drift, w_w_err, driftstdv_th, \
+                                                        old_veloc=self.old_drift, count=self.count_drift, currTime=dataOut.utctime, \
+                                                        oldTime=self.oldTime_drift, timeFactor=120)
+        if clearAll == 1:
+            mean_zonal = numpy.nan
+            sigma_zonal = numpy.nan
+        mean_drift = aver_veloc
+        sigma_drift = aver_sigma
+            
         if sets1.size != 1:
             clean_drift[sets1] = drift[sets1]
 
@@ -2092,40 +2201,473 @@ class JULIADriftsEstimation(Operation):
         if cnovalid > 0: snr[novalid] = numpy.nan
 
         # Zonal
-        if nchan == 2:
-            zonalstdv_th = 30*2  
-            sets2 = self.statistics150km(zonal, w_e_err, zonalstdv_th)
-
+        if nchan == 2:           
+            sets2, self.old_zonal, self.count_zonal, self.oldTime_zonal, aver_veloc, aver_sigma, clearAll = self.statistics150km(zonal, w_e_err, zonalstdv_th, \
+                                                        old_veloc=self.old_zonal, count=self.count_zonal, currTime=dataOut.utctime, \
+                                                        oldTime=self.oldTime_zonal, timeFactor=600)
+            if clearAll == 1:
+                mean_zonal = numpy.nan
+                sigma_zonal = numpy.nan
+            mean_zonal = aver_veloc
+            sigma_zonal = aver_sigma
             if sets2.size != 1:
                 clean_zonal[sets2] = zonal[sets2]
 
             novalid=numpy.where(numpy.isnan(clean_zonal))[0]; cnovalid=novalid.size
             if cnovalid > 0: zonal[novalid] = numpy.nan
             if cnovalid > 0: snr[novalid] = numpy.nan
-        
-        
-        if otype == 0:
-            winds = numpy.vstack((snr, drift, zonal, noise, sw, w_w_err, w_e_err)) # to process statistics drifts
-        elif otype == 2:
-            winds = numpy.vstack((snr, drift)) # one channel good signal: 2 RTI's            
-        elif otype == 3:
-            winds = numpy.vstack((snr, drift, zonal)) # to generic plot: 3 RTI's
-        elif otype == 4:
-            winds = numpy.vstack((snrCH0, drift, snrCH1, zonal)) # to generic plot: 4 RTI's
 
-        snr1 = numpy.vstack((snrCH0, snrCH1))
-        print('winds:',winds.shape)
-        print('snrCH0:',snrCH0.shape)
+        n_avg_par=4
+        avg_par=numpy.empty((n_avg_par,)); avg_par[:] = numpy.nan
+        avg_par[0,]=mean_drift
+        avg_par[1,]=mean_zonal
+        avg_par[2,]=sigma_drift
+        avg_par[3,]=sigma_zonal
+
+        set1 = 1.0
+        navg = set1
+        nci = dataOut.nCohInt
+        # ----------------------------------
+        ipp = 252.0
+        nincoh = dataOut.nIncohInt
+        nptsfft = dataOut.nProfiles
+        hardcoded=False   # if True, similar to IDL processing
+        if hardcoded:   
+            ipp=200.1
+            nincoh=22
+            nptsfft=128
+        # ----------------------------------            
+        nipp = ipp * nci
+        height = dataOut.heightList
+        nHei = len(height)
+        kd = 213.6
+        nint = nptsfft * nincoh
+        drift1D = drift.copy()
+        if nchan == 2:
+            zonal1D=zonal.copy()
+        snr1D = snr.copy()
+        snr1D = 10*numpy.power(10, 0.1*snr1D)
+        noise1D = noise.copy()
+        noise0 = numpy.nanmedian(noise1D)
+        noise = noise0 + noise0
+        sw1D = sw.copy()
+        pow0 = snr1D * noise0 + noise0
+        acf0 = snr1D * noise0 * numpy.exp((-drift1D*nipp*numpy.pi/(1.5e5*1.5))*1j) * (1-0.5*numpy.power(sw1D*nipp*numpy.pi/(1.5e5*1.5),2))
+        acf0 /= pow0
+        acf1 = acf0
+        dt= nint * nipp /1.5e5
+
+        if nchan == 2:
+            dccf = pow0 * pow0 * numpy.exp((zonal1D*kd*dt/(height*1e3))*(1j))
+        else:
+            dccf = numpy.empty(nHei); dccf[:]=numpy.nan # complex?
+        dccf /= pow0 * pow0
+        sno=(pow0+pow0-noise)/noise
+        
+        # First parameter: Signal to noise ratio and its error
+        sno = numpy.log10(sno) 
+        sno10 = 10 * sno
+        dsno = 1.0/numpy.sqrt(nint*navg)*(1+1/sno10)
+
+        # Second parameter: Vertical Drifts
+        s=numpy.sqrt(numpy.abs(acf0)*numpy.abs(acf1))
+        sp = s*(1.0 + 1.0/sno10)
+        vzo = -numpy.arctan2(numpy.imag(acf0+acf1),numpy.real(acf0+acf1))* \
+             1.5e5*1.5/(nipp*numpy.pi)
+        dvzo = numpy.sqrt(1-sp*sp)*0.338*1.5e5/(numpy.sqrt(nint*navg)*sp*nipp)
+                
+        # Third parameter: Zonal Drifts
+        dt = nint*nipp/1.5e5
+        ss = numpy.sqrt(numpy.abs(dccf))        
+        vxo = numpy.arctan2(numpy.imag(dccf),numpy.real(dccf))*height*1e3/(kd*dt)
+        dvxo = numpy.sqrt(1.0-ss*ss)*height*1e3/(numpy.sqrt(nint*navg)*ss*kd*dt)
+        
+        npar = 5
+        par = numpy.empty((npar, nHei)); par[:] = numpy.nan
+        
+        par[0,:] = sno
+        par[1,:] = vzo
+        par[2,:] = vxo        
+        par[3,:] = dvzo
+        par[4,:] = dvxo
+        
+        # Segundo filtrado:
+        # Remoción por altura: Menos de dos datos finitos no son considerados como eco 150Km.
+        clean_par=numpy.empty((npar,nHei)); clean_par[:]=numpy.nan
+        if clean:               
+
+            for p in range(npar):
+                ih=0
+                while ih < nHei-1:
+                    j=ih
+                    if numpy.isfinite(snr1D[ih]):
+                        while numpy.isfinite(snr1D[j]):
+                            j+=1
+                            if j >= nHei:
+                                break
+                        if j > ih + 1:
+                            for k in range(ih,j):
+                                clean_par[p][k] = par[p][k]
+                        ih = j - 1
+                    ih+=1
+        else:
+            clean_par[:] = par[:]
+
+        winds = numpy.vstack((clean_par[0,:], clean_par[1,:], clean_par[2,:], clean_par[3,:], clean_par[4,:]))
         dataOut.data_output = winds
-        dataOut.data_snr = snr1     
-
+        dataOut.avg_output = avg_par
         dataOut.utctimeInit = dataOut.utctime
         dataOut.outputInterval = dataOut.timeInterval
         
         dataOut.flagNoData = numpy.all(numpy.isnan(dataOut.data_output[0]))  # NAN vectors are not written
         
         return dataOut
+
+
+class JULIA_NightVelocities(Operation):
+    '''
+        Function SpreadFVelocities()
+
+        Calculates SNL and drifts
+
+        Type of dataIn:    Parameters
+
+        Configuration Parameters:
+
+            mymode     :        (0) Interferometry, 
+                                (1) Doppler beam swinging.
+            myproc     :        (0) JULIA_V, 
+                                (1) JULIA_EW.                            
+            myantenna  :        (0) 1/4 antenna, 
+                                (1) 1/2 antenna.
+            jset       :        Number of Incoherent integrations.
+
+
+        Input:
+            channelList    :    simple channel list to select e.g. [2,3,7]
+            self.dataOut.data_pre        :    Spectral data
+            self.dataOut.abscissaList    :    List of frequencies
+            self.dataOut.noise           :    Noise level per channel
+
+        Affected:
+            self.dataOut.moments        :    Parameters per channel
+            self.dataOut.data_snr       :    SNR per channel
+
+    '''
+    def __init__(self):
+        Operation.__init__(self)
+
+    def newtotal(self, data):
+        return numpy.nansum(data)
+    
+    def data_filter(self, parm, snrth=-17, swth=20, dopth=500.0, debug=False):
+
+        Sz0 = parm.shape # Sz0: h,p
+        drift = parm[:,0]
+        sw = 2*parm[:,1]
+        snr = 10*numpy.log10(parm[:,2])
+        Sz = drift.shape # Sz: h
+        mask = numpy.ones((Sz[0]))
+        th=0
+        valid=numpy.where(numpy.isfinite(snr))
+        cvalid = len(valid[0])
+        if cvalid >= 1:
+            # Cálculo del ruido promedio de snr para el i-ésimo grupo de alturas
+            nbins = int(numpy.max(snr)-numpy.min(snr))+1 # bin size = 1, similar to IDL
+            h = numpy.histogram(snr,bins=nbins)
+            hist = h[0]
+            values = numpy.round_(h[1])
+            moda = values[numpy.where(hist == numpy.max(hist))]
+            indNoise = numpy.where(numpy.abs(snr - numpy.min(moda)) < 3)[0] 
+
+            noise = snr[indNoise]
+            noise_mean = numpy.sum(noise)/len(noise)
+            # Cálculo de media de snr
+            med = numpy.median(snr)
+            # Establece el umbral de snr
+            if  noise_mean > med + 3:
+                th = med
+            else:
+                th = noise_mean + 3
+            # Establece máscara
+            novalid = numpy.where(snr <= th)[0]
+            mask[novalid] = numpy.nan
+        # Elimina datos que no sobrepasen el umbral: PARAMETRO
+        novalid = numpy.where(snr <= snrth)
+        cnovalid = len(novalid[0])
+        if cnovalid > 0:
+           mask[novalid] = numpy.nan
+        novalid = numpy.where(numpy.isnan(snr))
+        cnovalid = len(novalid[0])
+        if cnovalid > 0:
+            mask[novalid] = numpy.nan
+        # umbral de velocidad
+        if dopth != None:
+            novalid = numpy.where(numpy.logical_or(drift< dopth*(-1), drift > dopth))
+            cnovalid = len(novalid[0])
+            if cnovalid > 0:
+               mask[novalid] = numpy.nan
+            if debug:
+                print('Descartados:%i de %i:' %(cnovalid, len(drift)))
+                print('Porcentaje:%3.1f' %(100.0*cnovalid/len(drift)))
+           
+        new_parm = numpy.zeros((Sz0[0],Sz0[1]))
+        for i in range(Sz0[1]):
+            new_parm[:,i] = parm[:,i] * mask
+
+        return new_parm, mask
+
+
+    def run(self, dataOut, zenith, zenithCorrection, mymode=1, dbs_sel=0, myproc=0, myantenna=0, jset=None, clean=False):
+
+
+        dataOut.lat=-11.95
+        dataOut.lon=-76.87
+        mode=mymode
+        proc=myproc
+        antenna=myantenna
+        nci=dataOut.nCohInt
+        nptsfft=dataOut.nProfiles
+        navg= 3 if jset is None else jset
+        nint=dataOut.nIncohInt//navg
+        navg1=dataOut.nProfiles * nint * navg
+        tau1=dataOut.ippSeconds
+        nipp=dataOut.radarControllerHeaderObj.ipp
+        jlambda=6
+        kd=213.6
+        hei=dataOut.heightList.copy()
         
+        nCh=dataOut.spcpar.shape[0]    
+        nHei=dataOut.spcpar.shape[1]
+        nParam=dataOut.spcpar.shape[2]
+
+        parm = numpy.zeros((nCh,nHei,nParam))
+        parm[:] = dataOut.spcpar[:]
+        mask=numpy.ones(nHei)
+        mask0=mask.copy()
+        # Primer filtrado: Umbral de SNR
+        for i in range(nCh):
+            parm[i,:,:], mask = self.data_filter(parm[i,:,:], snrth = 0.1) # umbral 0.1 filtra señal que no corresponde a ESF, para interferometría usar -17dB
+            mask0 *= mask
+
+        ccf_results=numpy.transpose(dataOut.ccfpar,(2,1,0))
+     
+        for i in range(3):
+            ccf_results[i,:,0] *= mask0
+
+        zenith = numpy.array(zenith)
+        zenith -= zenithCorrection
+        zenith *= numpy.pi/180
+        alpha = zenith[0]
+        beta = zenith[1]
+        
+        w_w = parm[0,:,0]
+        w_e = parm[1,:,0]
+
+        if mode==1:
+            # Vertical and zonal calculation            
+            sinB_A = numpy.sin(beta)*numpy.cos(alpha) - numpy.sin(alpha)* numpy.cos(beta)
+            w = -(w_w * numpy.sin(beta) - w_e * numpy.sin(alpha))/ sinB_A
+            u = (w_w * numpy.cos(beta) - w_e * numpy.cos(alpha))/ sinB_A
+
+        #Noise
+        n0 = parm[0,:,3]
+        n1 = parm[1,:,3]
+        jn0_1 = numpy.nanmedian(n0)
+        jn0_2 = numpy.nanmean(n0)
+        jn1_1 = numpy.nanmedian(n1)
+        jn1_2 = numpy.nanmean(n1)       
+        noise0 = jn0_2 if numpy.abs(jn0_1-jn0_2)/(jn0_1+jn0_2) <= 0.1 else jn0_1
+        noise1 = jn1_2 if numpy.abs(jn1_1-jn1_2)/(jn1_1+jn1_2) <= 0.1 else jn1_1
+                     
+        noise = noise0 + noise0  if mode == 1 else noise0 + noise1
+        
+        #Power
+        apow1 = (parm[0,:,2]/numpy.sqrt(nint))*noise0 + n0
+        apow2 = (parm[1,:,2]/numpy.sqrt(nint))*noise1 + n1
+    
+        #SNR SNR=Detectability/ SQRT(nint) or (Pow-Noise)/Noise
+        s_n0 = (apow1 - noise0)/noise0
+        s_n1 = (apow2 - noise1)/noise1
+        
+        swCH0 = parm[0,:,1]
+        swCH1 = parm[1,:,1]
+        
+        if mode == 1:
+            aacf1=(1-numpy.square(tau1)*numpy.square(4*numpy.pi/jlambda*swCH0)/2)* \
+                    numpy.exp(-4*numpy.pi/jlambda*w*tau1*1j)* \
+                    apow1
+            aacf2=(1-numpy.square(tau1)*numpy.square(4*numpy.pi/jlambda*swCH1)/2)* \
+                    numpy.exp(-4*numpy.pi/jlambda*w*tau1*1j)* \
+                    apow2
+            dccf_0=numpy.zeros(nHei, dtype=complex)
+            
+        else:
+            aacf1=(1-numpy.square(tau1)*numpy.square(4*numpy.pi/jlambda*swCH0)/2)* \
+                    numpy.exp(4*numpy.pi/jlambda*w_w*tau1*1j)* \
+                     apow1
+            aacf2=(1-numpy.square(tau1)*numpy.square(4*numpy.pi/jlambda*swCH1)/2)* \
+                    numpy.exp(4*numpy.pi/jlambda*w_e*tau1*1j)* \
+                    apow2
+            dccf_0=numpy.power(ccf_results[0,:,0],2)*apow1*apow2* \
+                                                                 numpy.exp( \
+                                                                           ( \
+                                                                            (1+1*(antenna==1))* \
+                                                                            (-1+2*(proc == 1))* \
+                                                                            ccf_results[2,:,0] \
+                                                                             )*1j)
+
+        nsamp=len(hei)
+        pow0 = numpy.empty(nsamp); pow0[:] = numpy.nan
+        pow1 = numpy.empty(nsamp); pow1[:] = numpy.nan
+        acf0 = numpy.empty(nsamp, dtype=complex); acf0[:] = numpy.nan
+        acf1 = numpy.empty(nsamp, dtype=complex); acf1[:] = numpy.nan
+        dccf = numpy.empty(nsamp, dtype=complex); dccf[:] = numpy.nan
+        dop0 = numpy.empty(nsamp); dop0[:] = numpy.nan
+        dop1 = numpy.empty(nsamp); dop1[:] = numpy.nan
+        p_w = numpy.empty(nsamp); p_w[:] = numpy.nan
+        p_u = numpy.empty(nsamp); p_u[:] = numpy.nan
+
+        if mode == 0 or (mode == 1 and dbs_sel == 0):
+            ih=0
+            while ih < nsamp-10:
+                j=ih
+                if numpy.isfinite(s_n0[ih]) and numpy.isfinite(s_n1[ih]):
+                    while numpy.isfinite(s_n0[j]) and numpy.isfinite(s_n1[j]):
+                        j+=1
+                    if j > ih + 2:
+                        for k in range(ih,j):
+                            pow0[k] = apow1[k]
+                            pow1[k] = apow2[k]
+                            acf0[k] = aacf1[k]
+                            acf1[k] = aacf2[k]
+                            dccf[k] = dccf_0[k]
+                    ih = j - 1
+                ih+=1
+        else:
+            ih=0
+            while ih < nsamp-10:
+                j=ih
+                if numpy.isfinite(s_n0[ih]):
+                    while numpy.isfinite(s_n0[j]) and j < nsamp-10:
+                        j+=1
+                    #if j > ih + 6:
+                    if j > ih + 2:
+                    #if j > ih + 3:
+                        for k in range(ih,j):
+                            pow0[k] = apow1[k]
+                            #acf0[k] = aacf1[k]
+                            #dccf[k] = dccf_0[k]
+                            p_w[k] = w[k]
+                            dop0[k] = w_w[k]
+                    ih = j - 1
+                ih+=1               
+            ih=0
+            while ih < nsamp-10:
+                j=ih
+                if numpy.isfinite(s_n1[ih]):
+                    while numpy.isfinite(s_n1[j]) and j < nsamp-10:
+                        j+=1
+                    #if j > ih + 6:
+                    if j > ih + 2:
+                    #if j > ih + 3:
+                        for k in range(ih,j):
+                            pow1[k] = apow2[k]
+                            #acf1[k] = aacf2[k]
+                            p_u[k] = u[k]
+                            dop1[k] = w_e[k]
+                    ih = j - 1
+                ih+=1
+            
+            acf0 = numpy.zeros(nsamp, dtype=complex)
+            acf1 = numpy.zeros(nsamp, dtype=complex)
+            dccf = numpy.zeros(nsamp, dtype=complex)
+            
+        acf0 /= pow0
+        acf1 /= pow1
+        dccf /= pow0 * pow1
+        
+        if mode == 0 or (mode == 1 and dbs_sel == 0):
+            sno=(pow0+pow1-noise)/noise
+            # First parameter: Signal to noise ratio and its error
+            sno=numpy.log10(sno)
+            dsno=1.0/numpy.sqrt(nint*navg)*(1+1/sno)
+            # Second parameter: Vertical Drifts
+            s=numpy.sqrt(numpy.abs(acf0)*numpy.abs(acf1))
+            ind=numpy.where(numpy.abs(s)>=1.0)
+            if numpy.size(ind)>0:
+                s[ind]=numpy.sqrt(0.9999)
+            sp=s*(1.0 + 1.0/sno)
+            vzo=-numpy.arctan2(numpy.imag(acf0+acf1),numpy.real(acf0+acf1))* \
+             1.5e5*1.5/(nipp*numpy.pi)
+            dvzo=numpy.sqrt(1-sp*sp)*0.338*1.5e5/(numpy.sqrt(nint*navg)*sp*nipp)
+            ind=numpy.where(dvzo<=0.1)
+            if numpy.size(ind)>0:
+                dvzo[ind]=0.1
+            # Third parameter: Zonal Drifts
+            dt=nint*nipp/1.5e5
+            ss=numpy.sqrt(numpy.abs(dccf))
+            ind=numpy.where(ss>=1.0)
+            if numpy.size(ind)>0:
+                ss[ind]=numpy.sqrt(0.99999)
+            ind=numpy.where(ss<=0.1)
+            if numpy.size(ind)>0:
+                ss[ind]=numpy.sqrt(0.1)
+            vxo=numpy.arctan2(numpy.imag(dccf),numpy.real(dccf))*hei*1e3/(kd*dt)
+            dvxo=numpy.sqrt(1.0-ss*ss)*hei*1e3/(numpy.sqrt(nint*navg)*ss*kd*dt)      
+            ind=numpy.where(dvxo<=0.1)
+            if numpy.size(ind)>0:
+                dvxo[ind]=0.1
+        else:
+            sno0=(pow0-noise0)/noise0
+            sno1=(pow1-noise1)/noise1
+        
+            # First parameter: Signal to noise ratio and its error
+            sno0=numpy.log10(sno0)        
+            dsno0=1.0/numpy.sqrt(nint*navg)*(1+1/sno0)
+            sno1=numpy.log10(sno1)
+            dsno1=1.0/numpy.sqrt(nint*navg)*(1+1/sno1)
+
+        npar=6
+        par = numpy.empty((npar, nHei)); par[:] = numpy.nan
+        
+        if mode == 0:
+            par[0,:] = sno
+            par[1,:] = vxo
+            par[2,:] = dvxo
+            par[3,:] = vzo
+            par[4,:] = dvzo
+            
+        elif mode == 1 and dbs_sel == 0:
+            par[0,:] = sno
+            par[1,:] = vzo     
+        else:
+            par[0,:] = sno0
+            par[1,:] = sno1
+            par[2,:] = dop0
+            par[3,:] = dop1
+            #par[4,:] = p_w
+            #par[5,:] = p_u
+
+        if mode == 0:    
+            winds = numpy.vstack((par[0,:], par[1,:], par[2,:], par[3,:], par[4,:]))
+        elif mode == 1 and dbs_sel == 0:
+            winds = numpy.vstack((par[0,:], par[1,:]))
+        else:
+            winds = numpy.vstack((par[0,:], par[1,:], par[2,:], par[3,:]))
+                            
+        dataOut.data_output = winds
+        dataOut.data_snr = par[0,:]     
+
+        dataOut.utctimeInit = dataOut.utctime
+        dataOut.outputInterval = dataOut.timeInterval
+        
+        aux1= numpy.all(numpy.isnan(dataOut.data_output[0]))  # NAN vectors are not written
+        aux2= numpy.all(numpy.isnan(dataOut.data_output[1]))  # NAN vectors are not written
+        dataOut.flagNoData = aux1 or aux2
+        
+        return dataOut
+                
 class SALags(Operation):
     '''
     Function GetMoments()
@@ -2238,7 +2780,7 @@ class SpectralFitting(Operation):
         Output:
         Variables modified:
     '''
-    def __calculateMoments(self,oldspec, oldfreq, n0, nicoh = None, graph = None, smooth = None, type1 = None, fwindow = None, snrth = None, dc = None, aliasing = None, oldfd = None, wwauto = None):
+    def __calculateMoments(self, oldspec, oldfreq, n0, nicoh = None, graph = None, smooth = None, type1 = None, fwindow = None, snrth = None, dc = None, aliasing = None, oldfd = None, wwauto = None):
         
         if (nicoh is None): nicoh = 1
         if (graph is None): graph = 0    
