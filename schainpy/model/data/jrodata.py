@@ -542,7 +542,10 @@ class Spectra(JROData):
         self.data_dc = None
         self.data_spc = None
         self.data_cspc = None
-        self.diffcspectra = None       # JULIA processing
+        # JULIA processing
+        self.data_diffcspc = 0
+        self.nDiffIncohInt = 0
+        # JULIA processing
         self.useLocalTime = True
         self.radarControllerHeaderObj = RadarControllerHeader()
         self.systemHeaderObj = SystemHeader()
@@ -967,6 +970,7 @@ class Parameters(Spectra):
     noise_estimation = None
     GauSPC = None  # Fit gaussian SPC
     spc_noise = None
+    avg_output = None    # for 150Km processing
     #
     
 
@@ -981,6 +985,7 @@ class Parameters(Spectra):
         self.ippFactor = 1
         # JULIA processing
         self.diffcspectra = None
+        self.nDiffIncohInt = None
         self.ccfpar = None             
         # JULIA processing
         
