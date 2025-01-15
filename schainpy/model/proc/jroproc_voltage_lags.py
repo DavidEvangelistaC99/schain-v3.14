@@ -1882,7 +1882,7 @@ class BadHeights_Old(Operation):
                     if( (dataOut.kabxys_integrated[5][j,l,0] <= 0.) or (dataOut.kabxys_integrated[4][j,l,0] <= 0.) or (dataOut.kabxys_integrated[7][j,l,0] <= 0.) or (dataOut.kabxys_integrated[6][j,l,0] <= 0.)):
                         dataOut.ibad[j][l]=1
                     else:
-                        dataOut.ibad[j][l]=0
+                        dataOut.ibad[j][l]=1
             #print("ibad: ",dataOut.ibad)
 
 
@@ -2156,7 +2156,6 @@ class faraday_angle_and_power_double_pulse(Operation):
             #print("ph2: ",dataOut.ph2)
             #print("sdp2: ",dataOut.sdp2)
             #print("sdn2",dataOut.sdn2)
-
 
         return dataOut
 
