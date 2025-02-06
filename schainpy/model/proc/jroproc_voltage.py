@@ -2164,7 +2164,7 @@ class DoublePulseACFs_PerLag(Operation):
             if i == 4:
                 exit(1)
                 '''
-        
+        print("dataOut.alag",dataOut.alag)
         #print("dataOut.p",datetime.datetime.utcfromtimestamp(dataOut.utctime), dataOut.p)
 
         #print(numpy.sum(dataOut.kabxys_integrated[8][:,:,0]+dataOut.kabxys_integrated[11][:,:,0]))
@@ -2480,16 +2480,39 @@ class NormalizeDPPowerRoberto_V2(Operation):
             dataOut.cflast=numpy.zeros(1,'float32')
             self.aux=0
 
-        #print(dataOut.ut_Faraday)
+        print(dataOut.ut_Faraday)
 
-        if (dataOut.ut_Faraday>=11.5 and dataOut.ut_Faraday<23):
+        if (dataOut.ut_Faraday>=11.5 and dataOut.ut_Faraday<23): # 6 30am to 6pm
             i2=(500.-dataOut.range1[0])/dataOut.DH
             i1=(200.-dataOut.range1[0])/dataOut.DH
 
-        elif(dataOut.ut_Faraday>=5 and dataOut.ut_Faraday<11.5):
-            inda = numpy.where(dataOut.heightList >= 260) #200 km 
+        elif(dataOut.ut_Faraday>=5 and dataOut.ut_Faraday<8): # 0 am to 3am
+            inda = numpy.where(dataOut.heightList >= 330) # 260 #200 km 
             minIndex = inda[0][0]
-            indb = numpy.where(dataOut.heightList < 350) # 700 km
+            indb = numpy.where(dataOut.heightList < 470) # 350 # 700 km
+            maxIndex = indb[0][-1]
+            print(minIndex)
+            print(dataOut.heightList)
+
+            ph2max_idx = numpy.nanargmax(dataOut.ph2[minIndex:maxIndex])
+            #print("dataOut.ph2[minIndex:maxIndex]: ", dataOut.ph2[minIndex:maxIndex])
+            print("dataOut.ph2: ", dataOut.ph2)
+            print("dataOut.phi: ", dataOut.phi)
+            print("minIndex", minIndex, "maxIndex", maxIndex)
+            print(ph2max_idx)
+
+            ph2max_idx += minIndex
+
+            i2 = maxIndex #ph2max_idx + 6
+            i1 = minIndex #ph2max_idx - 6
+
+            print("ELSE^^^^^^^^^^^^^^^^^^^^^")
+            print(dataOut.heightList[i1])
+            print(dataOut.heightList[i2])
+        elif(dataOut.ut_Faraday>=8 and dataOut.ut_Faraday<11.5): # 3 am to 6 30am ADDED
+            inda = numpy.where(dataOut.heightList >= 260) # 260 #200 km 
+            minIndex = inda[0][0]
+            indb = numpy.where(dataOut.heightList < 350) # 350 # 700 km
             maxIndex = indb[0][-1]
             print(minIndex)
             print(dataOut.heightList)
@@ -2499,14 +2522,7 @@ class NormalizeDPPowerRoberto_V2(Operation):
             #print("dataOut.ph2: ", dataOut.ph2)
             print("minIndex", minIndex, "maxIndex", maxIndex)
             print(ph2max_idx)
-            '''
-            #if dataOut.flagTeTiCorrection:
-            if 1:
-                import matplotlib.pyplot as plt
-                plt.figure()
-                plt.plot(dataOut.ph2[minIndex:maxIndex],dataOut.heightList[minIndex:maxIndex],'*-')
-                plt.show()
-                '''
+
             ph2max_idx += minIndex
 
             i2 = maxIndex #ph2max_idx + 6
@@ -2515,7 +2531,7 @@ class NormalizeDPPowerRoberto_V2(Operation):
             print("ELSE^^^^^^^^^^^^^^^^^^^^^")
             print(dataOut.heightList[i1])
             print(dataOut.heightList[i2])
-        else:
+        else: #6pm to 12am
             inda = numpy.where(dataOut.heightList >= 200) #200 km 
             minIndex = inda[0][0]
             indb = numpy.where(dataOut.heightList < 700) # 700 km
@@ -2526,8 +2542,6 @@ class NormalizeDPPowerRoberto_V2(Operation):
             ph2max_idx = numpy.nanargmax(dataOut.ph2[minIndex:maxIndex])
             #print("dataOut.ph2[minIndex:maxIndex]: ", dataOut.ph2[minIndex:maxIndex])
             #print("dataOut.ph2: ", dataOut.ph2)
-            #print("minIndex", minIndex, "maxIndex", maxIndex)
-            #print(ph2max_idx)
             '''
             #if dataOut.flagTeTiCorrection:
             if 1:
@@ -2541,7 +2555,6 @@ class NormalizeDPPowerRoberto_V2(Operation):
             i2 = ph2max_idx + 6
             i1 = ph2max_idx - 6
 
-            print("ELSE^^^^^^^^^^^^^^^^^^^^^")
             print(dataOut.heightList[i1])
             print(dataOut.heightList[i2])
         '''
@@ -2632,7 +2645,7 @@ class NormalizeDPPowerRoberto_V2(Operation):
             dataOut.cf=self.normal(dataOut.dphi[i1::], dataOut.ph2[i1::], i2-i1, 1)
 
         except:
-            print("except")
+            print("except: chi factor not achieved in normalization")
             dataOut.cf = numpy.nan
 
         #print("cf: ",dataOut.cf)
@@ -3023,8 +3036,8 @@ class DenCorrection(NormalizeDPPowerRoberto_V2):
 
         from scipy import signal
 
-        def func(params):
-            return (ratio2-self.gaussian(dataOut.heightList[:dataOut.NSHTS],params[0],params[1],params[2]))
+        #def func(params):
+        #    return (ratio2-self.gaussian(dataOut.heightList[:dataOut.NSHTS],params[0],params[1],params[2]))
 
         #print("Before loop")
         dataOut.info2[0] = 1

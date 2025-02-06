@@ -441,7 +441,40 @@
         
     {"year": 2024,"doy": 252,
         "time": [[7,5]],
-        "cf": "dataOut.cflast[0]"}
+        "cf": "dataOut.cflast[0]"},
+
+
+    {"year": 2025,"doy": 21,
+        "time": [[15,20]],
+        "cf": 0.0019},
+    {"year": 2025,"doy": 22,
+        "time": [[2,30],[2,35],[2,40],[2,45],[2,50],[2,55],[3,5],[3,55]],
+        "cf": "dataOut.cflast[0]"},
+    {"year": 2025,"doy": 22,
+        "time": [[3,0]],
+        "cf": 0.0019},
         
+    {"year": 2025,"doy": 22,
+        "time": [[5,15],[5,35],[5,45],[5,50],[5,55]],
+        "cf": "dataOut.cflast[0]"},
+    {"year": 2025,"doy": 23,
+        "time": [[2,5],[2,25]],
+        "cf": "dataOut.cflast[0]"},
+        
+    {"year": 2025,"doy": 23,
+        "time": [[5,5],[5,30],[5,50]],
+        "cf": "dataOut.cflast[0]"},
+    {"year": 2025,"doy": 24,
+        "time": [[4,0]],
+        "cf": "dataOut.cflast[0]"},
+        
+    {"year": 2025,"doy": 25,
+        "time": [[3,5],[3,30]],
+        "cf": "dataOut.cflast[0]"},
+        
+    {"year": 2025,"doy": 26,
+        "time": [[4,15],[4,20]],
+        "cf": "dataOut.cflast[0]"}
+
 
 ]}
