@@ -1827,7 +1827,7 @@ class Oblique_Gauss_Fit(Operation):
         #print("After data_snr: ", dataOut.data_snr)
         dataOut.mode = mode
         dataOut.flagNoData = numpy.all(numpy.isnan(dataOut.Dop_EEJ_T1)) #Si todos los valores son NaN no se prosigue
-        dataOut.flagNoData = False #Descomentar solo para ploteo sino mantener comentado (para guardado)
+        #dataOut.flagNoData = False #Descomentar solo para ploteo sino mantener comentado (para guardado)
 
         return dataOut
 

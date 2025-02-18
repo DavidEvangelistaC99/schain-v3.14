@@ -54,15 +54,14 @@ class SpectraPlot(Plot):
         #print("NormFactor: ",dataOut.normFactor)
         #data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
         if hasattr(dataOut, 'LagPlot'): #Double Pulse
-            max_hei_id = dataOut.nHeights - 2*dataOut.LagPlot
-            #data['noise'] = 10*numpy.log10(dataOut.getNoise(ymin_index=46,ymax_index=max_hei_id)/dataOut.normFactor)
-            #data['noise'] = 10*numpy.log10(dataOut.getNoise(ymin_index=40,ymax_index=max_hei_id)/dataOut.normFactor)
-            data['noise'] = 10*numpy.log10(dataOut.getNoise(ymin_index=53,ymax_index=max_hei_id)/dataOut.normFactor)
-            data['noise'][0] = 10*numpy.log10(dataOut.getNoise(ymin_index=53)[0]/dataOut.normFactor)
+            ymin_index =  numpy.abs(dataOut.heightList - 800).argmin()
+            max_hei_id = dataOut.nHeights - dataOut.TxLagRate*dataOut.LagPlot
+            data['noise'] = 10*numpy.log10(dataOut.getNoise(ymin_index=ymin_index,ymax_index=max_hei_id)/dataOut.normFactor)
+            data['noise'][0] = 10*numpy.log10(dataOut.getNoise(ymin_index=ymin_index)[0]/dataOut.normFactor)
             #data['noise'][1] = 22.035507
         else:
             data['noise'] = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
-        #data['noise'] = 10*numpy.log10(dataOut.getNoise(ymin_index=26,ymax_index=44)/dataOut.normFactor)
+
         meta['xrange'] = (dataOut.getFreqRange(1)/1000., dataOut.getAcfRange(1), dataOut.getVelRange(1))
 
         if self.CODE == 'spc_moments':

@@ -78,7 +78,7 @@ def hildebrand_sekhon(data, navg):
     sortdata = numpy.sort(data, axis=None)
     #print(numpy.shape(data))
     #exit()
-    '''
+    
     lenOfData = len(sortdata)
     nums_min = lenOfData*0.2
 
@@ -108,10 +108,10 @@ def hildebrand_sekhon(data, navg):
         j += 1
 
     lnoise = sump / j
-
+    
     return lnoise
-    '''
-    return _noise.hildebrand_sekhon(sortdata, navg)
+    
+    #return _noise.hildebrand_sekhon(sortdata, navg)
 
 
 class Beam:
@@ -491,6 +491,7 @@ class Spectra(JROData):
             #exit(1)
             daux = self.data_spc[channel,
                                  xmin_index:xmax_index, ymin_index:ymax_index]
+            #print("daux",daux)
             noise[channel] = hildebrand_sekhon(daux, self.nIncohInt)
 
         return noise

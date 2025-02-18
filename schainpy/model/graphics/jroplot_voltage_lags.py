@@ -1008,7 +1008,7 @@ class ACFsPlot(Plot):
         BadHei2 = data['Height_contaminated_2']
 
         self.xmin = 0.0
-        self.xmax = 2.0
+        #self.xmax = 2.0
         self.y = ACFs
 
         ax = self.axes[0]

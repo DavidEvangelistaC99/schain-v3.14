@@ -84,6 +84,7 @@ class SpectraLagProc(ProcessingUnit):
         self.dataOut.beam.azimuthList = self.dataIn.beam.azimuthList
         self.dataOut.beam.zenithList = self.dataIn.beam.zenithList
         self.dataOut.runNextUnit = self.dataIn.runNextUnit
+        self.dataOut.TxLagRate = self.dataIn.TxLagRate
         try:
             self.dataOut.final_noise = self.dataIn.final_noise
         except:
@@ -1402,9 +1403,7 @@ class IntegrationFaradaySpectra(Operation):
                             ''' New outlier value take the average'''
                             for p in list(outliers_IDs):
                                 buffer1[p,:] = avg
-                            
-                        else:
-                            print("No average!!")
+
                         '''Reasignate the buffer 1 edition to the original buffer'''
                         self.__buffer_spc[:,i,:,k,l]=numpy.copy(buffer1)
                         ###cspc IDs
@@ -2772,7 +2771,7 @@ class SpectraDataToFaraday(Operation): #ISR MODE
     def noise(self,dataOut):
 
         dataOut.noise_lag = numpy.zeros((dataOut.nChannels,dataOut.DPL),'float32')
-        #print("Lags")
+
         '''
         for lag in range(dataOut.DPL):
             #print(lag)
@@ -2780,43 +2779,57 @@ class SpectraDataToFaraday(Operation): #ISR MODE
             dataOut.noise_lag[:,lag] = dataOut.getNoise(ymin_index=46)
             #dataOut.noise_lag[:,lag] = dataOut.getNoise(ymin_index=33,ymax_index=46)
         '''
-        #print(dataOut.NDP)
-        #exit(1)
-        #Channel B
-        for lag in range(dataOut.DPL):
-            #print(lag)
-            dataOut.data_spc = dataOut.dataLag_spc[:,:,:,lag]
-            max_hei_id = dataOut.NDP - 2*lag
-            #if lag < 6:
-            dataOut.noise_lag[1,lag] = dataOut.getNoise(ymin_index=53,ymax_index=max_hei_id)[1]
-            #else:
-                #dataOut.noise_lag[1,lag] = numpy.mean(dataOut.noise_lag[1,:6])
-            #dataOut.noise_lag[:,lag] = dataOut.getNoise(ymin_index=33,ymax_index=46)
-        #Channel A
-        for lag in range(dataOut.DPL):
-            #print(lag)
-            dataOut.data_spc = dataOut.dataLag_spc[:,:,:,lag]
-            dataOut.noise_lag[0,lag] = dataOut.getNoise(ymin_index=53)[0]
 
+        #Channel B
+
+        ymin_index =  numpy.abs(dataOut.heightList - 800).argmin() # Index more near to 800 km # ymin_index = 53
+        for lag in range(dataOut.DPL):
+
+            dataOut.data_spc = dataOut.dataLag_spc[:,:,:,lag]
+            max_hei_id = dataOut.NDP - dataOut.TxLagRate*lag #  - 2*lag  #max_hei_id = 32
+            if max_hei_id < ymin_index: break_lag = lag; continue
+            
+            #dataOut.noise_lag[1,lag] = dataOut.getNoise(ymin_index=ymin_index,ymax_index=max_hei_id)[1] #H_S algorithm choise
+
+            daux = dataOut.data_spc[1,:, ymin_index:max_hei_id]  # Median choise
+            sortdata = numpy.sort(daux, axis=None)
+            dataOut.noise_lag[1,lag] = numpy.median(sortdata)
+
+        dataOut.noise_lag[1,break_lag:] = numpy.mean(dataOut.noise_lag[1,:break_lag]) #El ruido de lags que no pueden calcularse
+                                                                                      #su piso de ruido se determina a partir 
+                                                                                      # del promedio de los lags limpios
+
+        #Channel A
+
+        for lag in range(dataOut.DPL):
+            dataOut.data_spc = dataOut.dataLag_spc[:,:,:,lag]
+            #dataOut.noise_lag[0,lag] = dataOut.getNoise(ymin_index=ymin_index)[0]
+            daux = dataOut.data_spc[0,:, ymin_index:]
+            sortdata = numpy.sort(daux, axis=None)
+            dataOut.noise_lag[0,lag] = numpy.median(sortdata)
+        
+        print("dataOut.noise_lag", dataOut.noise_lag[1,:])
         nanindex = numpy.argwhere(numpy.isnan(numpy.log10(dataOut.noise_lag[1,:])))
-        i1 = nanindex[0][0]
-        dataOut.noise_lag[1,i1:] = numpy.mean(dataOut.noise_lag[1,:i1]) #El ruido de lags contaminados se
+        print(nanindex)
+        
+        try: 
+            i1 = nanindex[0][0]
+            dataOut.noise_lag[1,i1:] = numpy.mean(dataOut.noise_lag[1,:i1])
+        except:
+            pass
+        
+        '''try: 
+            i1 = nanindex[0][0]
+            dataOut.noise_lag[1,i1:] = numpy.mean(dataOut.noise_lag[1,:i1]) #El ruido de lags contaminados se
                                                                         #determina a partir del promedio del
                                                                         #ruido de los lags limpios
-        '''
-        dataOut.noise_lag[1,:] = dataOut.noise_lag[1,0] #El ruido de los lags diferentes de cero para
+        
+        except:
+            dataOut.noise_lag[1,:] = dataOut.noise_lag[1,0] #El ruido de los lags diferentes de cero para
                                                         #el canal B es contaminado por el Tx y EEJ
                                                         #del siguiente perfil, por ello se asigna el ruido
-                                                        #del lag 0 a todos los lags
-                                                        '''
-        #print("Noise lag: ", 10*numpy.log10(dataOut.noise_lag/dataOut.normFactor))
-        #exit(1)
-        '''
-        dataOut.tnoise = dataOut.getNoise(ymin_index=46)
-        dataOut.tnoise /= float(dataOut.nProfiles*dataOut.nIncohInt)
-        dataOut.pan = dataOut.tnoise[0]
-        dataOut.pbn = dataOut.tnoise[1]
-        '''
+                                                        #del lag 0 a todos los lags'''
+
 
         dataOut.tnoise = dataOut.noise_lag/float(dataOut.nProfiles*dataOut.nIncohInt)
         #dataOut.tnoise /= float(dataOut.nProfiles*dataOut.nIncohInt)
@@ -2892,11 +2905,12 @@ class SpectraDataToFaraday(Operation): #ISR MODE
 
     def get_eej_index(self,data_to_remov_eej,dataOut):
 
-        dataOut.data_spc = data_to_remov_eej
+        max_eej = numpy.abs(dataOut.heightList - 255).argmin()
 
+        dataOut.data_spc = data_to_remov_eej
         data_eej = dataOut.getPower()[0]
         #print(data_eej)
-        index_eej = CleanCohEchoes.mad_based_outlier(self,data_eej[:17])
+        index_eej = CleanCohEchoes.mad_based_outlier(self,data_eej[:max_eej])
         aux_eej = numpy.array(index_eej.nonzero()).ravel()
         print("aux_eej: ", aux_eej)
         if aux_eej != []:

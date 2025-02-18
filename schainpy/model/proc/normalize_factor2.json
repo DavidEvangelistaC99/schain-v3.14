@@ -468,12 +468,48 @@
         "time": [[4,0]],
         "cf": "dataOut.cflast[0]"},
         
+    {"year": 2025,"doy": 24,
+        "time": [[6,50]],
+        "cf": "dataOut.cflast[0]"},
     {"year": 2025,"doy": 25,
         "time": [[3,5],[3,30]],
         "cf": "dataOut.cflast[0]"},
         
     {"year": 2025,"doy": 26,
         "time": [[4,15],[4,20]],
+        "cf": "dataOut.cflast[0]"},
+        
+    {"year": 2025,"doy": 26,
+        "time": [[8,0],[10,20],[10,30]],
+        "cf": "dataOut.cflast[0]"},
+        
+    {"year": 2025,"doy": 42,
+        "time": [[4,24]],
+        "cf": 0.0076},
+
+    {"year": 2025,"doy": 42,
+        "time": [[10,30]],
+        "cf": "dataOut.cflast[0]"},
+        
+    {"year": 2025,"doy": 43,
+        "time": [[2,26]],
+        "cf": 0.008362},
+    {"year": 2025,"doy": 43,
+        "time": [[3,26]],
+        "cf": 0.007769},
+    {"year": 2025,"doy": 43,
+        "time": [[4,26]],
+        "cf": 0.004193},
+    {"year": 2025,"doy": 43,
+        "time": [[4,38]],
+        "cf": 0.005492},
+        
+    {"year": 2025,"doy": 43,
+        "time": [[7,2],[7,14]],
+        "cf": "dataOut.cflast[0]"},
+        
+    {"year": 2025,"doy": 44,
+        "time": [[6,26],[6,38],[6,50],[7,2]],
         "cf": "dataOut.cflast[0]"}
 
 

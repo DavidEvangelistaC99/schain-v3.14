@@ -647,25 +647,44 @@ class LagsReshape(Operation):
         self.buffer_HRonelag = numpy.zeros((int(dataOut.NSCAN/dataOut.DPL),
                                    dataOut.nHeights),
                                   dtype='complex')
-
-        for i in range(self.buffer_HRonelag.shape[0]):
-            for j in range(dataOut.nHeights):
-                if j+int(2*whichlag)<dataOut.nHeights:
-                    self.buffer_HRonelag[i,j]=dataOut.datalags[1,i,j+2*whichlag,whichlag]
+        TxLagRate = dataOut.TxLagRate
+        for i in range(self.buffer_HRonelag.shape[0]): #perfil
+            for j in range(dataOut.nHeights): # height
+                if j+int(TxLagRate*whichlag)<dataOut.nHeights:
+                    self.buffer_HRonelag[i,j]=dataOut.datalags[1,i,j+TxLagRate*whichlag,whichlag]
                 else:
                     if whichlag!=10:
-                        self.buffer_HRonelag[i,j]=dataOut.datalags[1,i,(j+2*whichlag)%dataOut.nHeights,whichlag+1]
+                        self.buffer_HRonelag[i,j]=dataOut.datalags[1,i,(j+TxLagRate*whichlag)%dataOut.nHeights,whichlag+1]
                     else:
                         if i+2<self.buffer_HRonelag.shape[0]:
-                            self.buffer_HRonelag[i,j]=dataOut.datalags[1,i+2,(j+2*whichlag)%dataOut.nHeights,0]
+                            self.buffer_HRonelag[i,j]=dataOut.datalags[1,i+2,(j+TxLagRate*whichlag)%dataOut.nHeights,0]
                         else: #i+1==self.buffer_HRonelag.shape[0]:
-                            self.buffer_HRonelag[i,j]=dataOut.datalags[1,i,(j+2*whichlag)%dataOut.nHeights,whichlag]
+                            self.buffer_HRonelag[i,j]=dataOut.datalags[1,i,(j+TxLagRate*whichlag)%dataOut.nHeights,whichlag] #1, 198,64 = 1,198, 0, 10
 
         return self.buffer_HRonelag
 
 
 
-    def run(self,dataOut,DPL=11,NSCAN=132):
+    def run(self,dataOut,DPL=11,NSCAN=132, TxLagRate=2):
+        dataOut.TxLagRate = TxLagRate
+        '''PA = dataOut.data[0,:,:]
+        PB = dataOut.data[1,:,:]
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(2, 11, figsize=(18, 6), sharex=True, sharey=True)
+
+        for i in range(11):
+            axes[0,i].plot(PA[i, :], dataOut.heightList, label=f'PA {i+1}')
+            axes[0, i].set_title(f'Lag {i+1}')
+            #axes[0, i].set_xscale("log")  # Log scale for y-axis
+            #axes[0, i].set_xlim([0,1e+7])
+            axes[1,i].plot(PB[i, :], dataOut.heightList, label=f'PB {i+1}')
+            #axes[1, i].set_xscale("log")  # Log scale for y-axis
+            #axes[1, i].set_xlim([0,1e+7])
+            
+        
+        plt.tight_layout()
+        plt.show()'''
+
 
         dataOut.DPL=DPL
         dataOut.NSCAN=NSCAN
@@ -676,6 +695,25 @@ class LagsReshape(Operation):
 
         dataOut.datalags=numpy.copy(self.LagDistribution(dataOut))
         dataOut.datalags[1,:,:,:]=self.HeightReconstruction(dataOut)
+
+        '''
+        PA = dataOut.datalags[0,5,:,:]
+        PB = dataOut.datalags[1,5,:,:]
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(2, 11, figsize=(18, 6), sharex=True, sharey=True)
+
+        for i in range(11):
+            axes[0,i].plot(PA[:, i], dataOut.heightList, label=f'PA {i+1}')
+            axes[0, i].set_title(f'Lag {i+1}')
+            #axes[0, i].set_xscale("log")  # Log scale for y-axis
+            #axes[0, i].set_xlim([0,1e+7])
+            axes[1,i].plot(PB[:, i], dataOut.heightList, label=f'PB {i+1}')
+            #axes[1, i].set_xscale("log")  # Log scale for y-axis
+            #axes[1, i].set_xlim([0,1e+7])
+            
+        
+        plt.tight_layout()
+        plt.show()#'''
 
         return dataOut
 
@@ -1351,7 +1389,7 @@ class FlagBadHeights(Operation):
                     dataOut.ibad[j][l]=1
                 else:
                     dataOut.ibad[j][l]=0
-
+        #print("dataOut.ibad",dataOut.ibad)
         return dataOut
 
 class FlagBadHeightsSpectra(Operation):
@@ -2074,7 +2112,7 @@ class DoublePulseACFs_PerLag(Operation):
             # Stores lags for which ACFs are calculated
             dataOut.alag=numpy.zeros(dataOut.NDP,'float32')
             for l in range(dataOut.DPL):
-                dataOut.alag[l]=l*dataOut.DH*2.0/150.0
+                dataOut.alag[l]=l*dataOut.DH*dataOut.TxLagRate/150.0
             self.aux=0
         # dataOut.pan.- Power noise level of channel A - definned in SpectraDataToFaraday
         # Signal noise
@@ -2084,6 +2122,9 @@ class DoublePulseACFs_PerLag(Operation):
         panrm=numpy.zeros((dataOut.NDP,dataOut.DPL), dtype=float)
 
         id = numpy.where(dataOut.heightList>700)[0]
+
+        PA = numpy.zeros((dataOut.NDP, dataOut.DPL), dtype=float)
+        PB = numpy.zeros((dataOut.NDP, dataOut.DPL), dtype=float)
 
         for i in range(dataOut.NDP): #Heights
             for j in range(dataOut.DPL): # Lags
@@ -2104,7 +2145,7 @@ class DoublePulseACFs_PerLag(Operation):
                 ## ACF
                 rhorp=dataOut.kabxys_integrated[8][i,j,0]+dataOut.kabxys_integrated[11][i,j,0]
                 rhoip=dataOut.kabxys_integrated[10][i,j,0]-dataOut.kabxys_integrated[9][i,j,0]
-
+                #PA[i,j] = pa; PB[i,j] = pb
                 if ((pa>dataOut.pan[j])&(pb>dataOut.pbn[j])):
                     # panrm is RMS of power, used to normalize ACFs
                     ss4=numpy.abs((pa-dataOut.pan[j])*(pb-dataOut.pbn[j]))
@@ -2160,11 +2201,25 @@ class DoublePulseACFs_PerLag(Operation):
                     #print("EJJ")
                     dataOut.igcej[i,j]=1
                     #'''
-            '''
-            if i == 4:
-                exit(1)
-                '''
-        print("dataOut.alag",dataOut.alag)
+        '''import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(2, dataOut.DPL, figsize=(18, 6), sharex=True, sharey=True)
+
+        for i in range(dataOut.DPL):
+            axes[0,i].plot(PA[:, i], dataOut.heightList, label=f'PA {i+1}')
+            axes[0, i].axvline(dataOut.pan[i], color='gray', linestyle='--', linewidth=1) 
+            axes[0, i].set_title(f'Lag {i+1}')
+            axes[0, i].set_xscale("log")  # Log scale for y-axis
+            axes[0, i].set_xlim([0,1e+7])
+            axes[1,i].plot(PB[:, i], dataOut.heightList, label=f'PB {i+1}')
+            axes[1, i].axvline(dataOut.pbn[i], color='gray', linestyle='--', linewidth=1) 
+            axes[1, i].set_xscale("log")  # Log scale for y-axis
+            axes[1, i].set_xlim([0,1e+7])
+            
+        
+        plt.tight_layout()
+        plt.show()'''
+
+        
         #print("dataOut.p",datetime.datetime.utcfromtimestamp(dataOut.utctime), dataOut.p)
 
         #print(numpy.sum(dataOut.kabxys_integrated[8][:,:,0]+dataOut.kabxys_integrated[11][:,:,0]))
@@ -2285,19 +2340,20 @@ class FaradayAngleAndDPPower(Operation):
         dataOut.flagTeTiCorrection = False
         #print("ph2: ", numpy.sum(dataOut.ph2[:16]))
         #print("ph2: ", numpy.sum(dataOut.ph2[16:32]))
-        '''
-        import matplotlib.pyplot as plt
+        
+        '''import matplotlib.pyplot as plt
         #plt.plot(numpy.abs(dataOut.kabxys_integrated[4][:,j,0]+dataOut.kabxys_integrated[5][:,j,0])+numpy.abs(dataOut.kabxys_integrated[6][:,j,0]+dataOut.kabxys_integrated[7][:,j,0]),dataOut.heightList)
         #plt.axvline((dataOut.pan+dataOut.pbn))
         #print(numpy.shape(dataOut.p))
         plt.plot(dataOut.ph2,dataOut.heightList)
+        plt.plot(dataOut.phi,dataOut.heightList)
 
         plt.xlim(1000,1000000000)
         #plt.ylim(50,400)
         plt.grid()
         plt.show()
-        #exit(1)
-        '''
+        #exit(1)'''
+        
         return dataOut
 
 class ElectronDensityFaraday(Operation):
@@ -2790,6 +2846,35 @@ class DPTemperaturesEstimation(Operation):
     op.addParameter(name='IBITS', value='16', format='int')
 
     """
+    '''
+    NSTHS Number of sample heights (input), for temperature processing
+    NDP Number of Data Points (nHeights dependent)
+    NSTHS < NDP
+
+    Input/Output Data:
+
+        te2, ti2: Estimated electron and ion temperatures.
+
+        ete2, eti2: Errors in the estimated temperatures.
+
+        phy2, ephy2: Physical parameter and its error.
+
+    Fitting Process:
+
+        ifit: Flags for which parameters are being fitted.
+
+        params: Initial guesses and fitted parameters.
+
+        cov, covinv: Covariance matrix and its inverse for uncertainty estimation.
+
+    Metadata/Status:
+
+        m: Status or counter for the fitting process.
+
+        info2: Additional information about the fitting results.
+
+    '''
+
 
     def __init__(self, **kwargs):
 
@@ -2819,8 +2904,8 @@ class DPTemperaturesEstimation(Operation):
 
         #null_fd = os.open(os.devnull, os.O_RDWR)
         #os.dup2(null_fd, 1)
-
-        for i in range(10,dataOut.NSHTS): #no point below 150 km
+        ymin_index =  numpy.abs(dataOut.heightList - 150).argmin()  #no point below 150 km
+        for i in range(ymin_index,dataOut.NSHTS): 
 
             #some definitions
             iflag=0 # inicializado a cero?
@@ -2833,8 +2918,12 @@ class DPTemperaturesEstimation(Operation):
             depth=numpy.zeros(1,order='F',dtype='float32')
             t1=numpy.zeros(1,order='F',dtype='float32')
             t2=numpy.zeros(1,order='F',dtype='float32')
-
-            if i>10 and l1>=0:
+            
+            '''
+            x lag time      y correlation       e their uncertanities
+            t1 t2 initial guesses               eb errors
+            '''
+            if i>ymin_index and l1>=0:
                 if l1==0:
                     l1=1
 
@@ -2864,7 +2953,7 @@ class DPTemperaturesEstimation(Operation):
             for l in range(0+1,dataOut.DPL):
                 if dataOut.igcej[i][l]==0 and dataOut.ibad[i][l]==0:
                     y[l1]=dataOut.rhor[i][l]*cc + dataOut.rhoi[i][l]*ss
-                    x[l1]=dataOut.alag[l]*1.0e-3
+                    x[l1]=dataOut.alag[l]*1.0e-3 # *1.0e-3
                     dataOut.sd[i][l]=dataOut.sd[i][l]/((acfm)**2)# important
                     e[l1]=dataOut.sd[i][l] #this is the variance, not the st. dev.
                     l1=l1+1
@@ -2890,8 +2979,8 @@ class DPTemperaturesEstimation(Operation):
 
             if True: #len(y)!=0:
                 with suppress_stdout_stderr():
-                    fitacf_guess.guess(y,x,zero,depth,t1,t2,len(y))
-                t2=t1/t2
+                    fitacf_guess.guess(y,x,zero,depth,t1,t2,len(y)) #t1 = te , t2 = tr = te/ti
+                t2=t1/t2  # ti
 
                 if (t1<5000.0 and t1> 600.0):
                     dataOut.params[1]=t1
@@ -2899,7 +2988,7 @@ class DPTemperaturesEstimation(Operation):
                 dataOut.ifit[1]=dataOut.ifit[2]=1
                 dataOut.ifit[0]=dataOut.ifit[3]=dataOut.ifit[4]=0
 
-                if dataOut.ut_Faraday<10.0 and dataOut.ut_Faraday>=0.5:
+                if dataOut.ut_Faraday<10.0 and dataOut.ut_Faraday>=0.5: # 6 30 pm to 5 am LT
                     dataOut.ifit[2]=0
 
                 den=dataOut.ph2[i]
@@ -3514,7 +3603,7 @@ class DataSaveCleaner(Operation):
             dataOut.PhyFinal[0,25:]=missing
             dataOut.EPhyFinal[0, 25:] = missing
         '''    
-        # 8 Sep 24
+        '''# 8 Sep 24
         if True: #06-18 LT
             #dataOut.DensityFinal[0,27:]=missing
             #dataOut.EDensityFinal[0,27:]=missing
@@ -3523,7 +3612,17 @@ class DataSaveCleaner(Operation):
             dataOut.IonTempFinal[0,36:]=missing
             dataOut.EIonTempFinal[0,36:]=missing
             dataOut.PhyFinal[0,36:]=missing
-            dataOut.EPhyFinal[0, 36:] = missing
+            dataOut.EPhyFinal[0, 36:] = missing'''
+        '''# 24 Jan 25
+        if (time_text.hour >= 5 ) and (time_text.hour <= 7):
+            #dataOut.DensityFinal[0,27:]=missing
+            #dataOut.EDensityFinal[0,27:]=missing
+            dataOut.ElecTempFinal[0,:]=missing
+            dataOut.EElecTempFinal[0,:]=missing
+            dataOut.IonTempFinal[0,:]=missing
+            dataOut.EIonTempFinal[0,:]=missing
+            dataOut.PhyFinal[0,:]=missing
+            dataOut.EPhyFinal[0, :] = missing'''
         start = time()
         flagcleandata = True
         if flagcleandata:
@@ -3636,7 +3735,7 @@ class DataSaveCleaner(Operation):
                 f.writerow(cf)
                 file.close()
         # for plot
-        dataOut.flagNoData = False #Descomentar solo para ploteo #Comentar para MADWriter
+        #dataOut.flagNoData = False #Descomentar solo para ploteo #Comentar para MADWriter
 
         dataOut.DensityFinal *= 1.e6 #Convert units to m^⁻3
         dataOut.EDensityFinal *= 1.e6 #Convert units to m^⁻3
@@ -3738,7 +3837,8 @@ class ACFs(Operation):
             dataOut.y_ibad_to_plot[i,:]=numpy.copy(self.y_ibad)
 
         missing=numpy.nan#-32767
-
+        #print("dataOut.igcej",dataOut.igcej)
+        #print("dataOut.ibad",dataOut.ibad)
         for i in range(dataOut.NSHTS,dataOut.NDP):
             for j in range(dataOut.DPL):
                 dataOut.acfs_to_save[i,j]=missing
@@ -3753,7 +3853,7 @@ class ACFs(Operation):
 
         dataOut.acfs_to_save=dataOut.acfs_to_save.transpose()
         dataOut.acfs_error_to_save=dataOut.acfs_error_to_save.transpose()
-
+        
         return dataOut
 
 
