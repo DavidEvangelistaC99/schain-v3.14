@@ -28,7 +28,6 @@ from scipy import optimize, interpolate, signal, stats, ndimage
 from scipy.optimize.optimize import OptimizeWarning
 warnings.filterwarnings('ignore')
 
-
 SPEED_OF_LIGHT = 299792458
 
 '''solving pickling issue'''
@@ -3986,12 +3985,14 @@ class WeatherRadar(Operation):
             data_param[:,1,:] = dataOut.dataPP_DOP
             data_param[:,2,:] = dataOut.dataPP_WIDTH
             data_param[:,3,:] = dataOut.dataPP_SNR
+
         if type == "Spectra":
             factor = dataOut.normFactor
             data_param[:,0,:] = dataOut.data_pow/(factor)
             data_param[:,1,:] = dataOut.data_dop
             data_param[:,2,:] = dataOut.data_width
             data_param[:,3,:] = dataOut.data_snr
+
         return data_param
 
     def getCoeficienteCorrelacionROhv_R(self,dataOut):
@@ -4024,6 +4025,7 @@ class WeatherRadar(Operation):
         '''-----------------------------Potencia de Radar -Signal S-----------------------------'''
 
         Pr = dataOut.data_param[:,0,:]
+
         '''---------------------------- Calculo de Noise y threshold para Reflectividad---------'''
 
         Pr = Pr/100.0 # Conversion Watt
@@ -4272,7 +4274,12 @@ class Block360(Operation):
         self.__buffer.append(tmp)
         self.azi.append(data.azimuth)
         self.ele.append(data.elevation)
-        self.__noise.append(data.dataPP_NOISE)
+        try:
+            #print("SHOW ------", type(data.dataPP_NOISE),data.dataPP_NOISE.shape,"value:",data.dataPP_NOISE)
+            self.__noise.append(data.dataPP_NOISE)
+        except:
+            #print("SHOW ------", type(data.noise),data.noise.shape,"value:",data.noise)
+            self.__noise.append(data.noise)
         self.__profIndex  += 1
 
     def pushData(self, data, case_flag):

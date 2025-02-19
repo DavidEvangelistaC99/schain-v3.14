@@ -513,8 +513,10 @@ class PolarMapPlot(Plot):
         self.titles = ['{} {}'.format(
             self.data.parameters[x], title) for x in self.channels]
 
+
+
 class WeatherParamsPlot(Plot):
-    
+
     plot_type = 'scattermap'
     buffering = False    
 
@@ -564,10 +566,10 @@ class WeatherParamsPlot(Plot):
         data = {}
         meta = {}
 
-        if hasattr(dataOut, 'nFFTPoints'):
-            factor = dataOut.normFactor
-        else:
-            factor = 1
+        ##if hasattr(dataOut, 'nFFTPoints'):
+        ##    factor = dataOut.normFactor*10.0 # CONSIDERACION ENTRE PULSE PAIR Y FFT
+        ##else:
+        ##    factor = 1
 
         if hasattr(dataOut, 'dparam'):
             tmp = getattr(dataOut, 'data_param')
@@ -575,7 +577,7 @@ class WeatherParamsPlot(Plot):
             #print("-------------------self.attr_data[0]",self.attr_data[0])
             if 'S' in self.attr_data[0]:
                 if self.attr_data[0]=='S':
-                    tmp = 10*numpy.log10(10.0*getattr(dataOut, 'data_param')[:,0,:]/(factor))
+                    tmp = 10*numpy.log10(10.0*getattr(dataOut, 'data_param')[:,0,:]) ## /(factor))   ya no considerar factor se aplica factor jroproc_parametrs
                 if self.attr_data[0]=='SNR':
                     tmp = 10*numpy.log10(getattr(dataOut, 'data_param')[:,3,:])
             else:
@@ -586,7 +588,20 @@ class WeatherParamsPlot(Plot):
             tmp[mask] = numpy.nan
             mask = numpy.nansum((tmp, numpy.roll(tmp, 1),numpy.roll(tmp, -1)), axis=0) == tmp
             tmp[mask] = numpy.nan            
+        
+        ####################################################################
+        #SE GUARDAN LOS DATOS DE LOS PARAMETROS YA SEA PP O SPECTRA EN UN ARCHIVO .npy
+        ##elapsed_time = time.time() - self.start_time
+        ##filename = f'{dataOut.inputUnit}_{self.attr_data[0]}_{elapsed_time:.0f}.npy'  # Nombre único con timestamp
 
+        # Guardar el array en el nuevo archivo
+        ##with open(filename, 'wb') as f:
+        ##   numpy.save(f, tmp)
+        
+        ##print("Se creó el archivo:", filename)      
+
+
+        #####################################################################
         r = dataOut.heightList
         delta_height = r[1]-r[0]
         valid = numpy.where(r>=0)[0]
