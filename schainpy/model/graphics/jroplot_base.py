@@ -591,8 +591,14 @@ class Plot(Operation):
                     )
                 with cbook.get_sample_data(file_logo) as file:
                      IM_LOGO = image.imread(file)
-                     IM_X    = 94
-                     IM_Y    = 90
+                     alto_logo = IM_LOGO.shape[0]  # Altura del logo en píxeles
+                     ancho_logo= IM_LOGO.shape[1] # ancho del logo en pixeles
+                     fig_height = fig.get_figheight() * fig.dpi
+                     fig_width = fig.get_figwidth() * fig.dpi
+                     # IM_X    = 94
+                     # IM_Y    = 90
+                     IM_X    = fig_width - ancho_logo - 160  # Pegado al borde derecho
+                     IM_Y    = fig_height - alto_logo - 95  # Pegado al borde superior
                 logo=fig.figimage(IM_LOGO,IM_X,IM_Y,zorder=3,alpha=0.7)
             else:
                 figname = os.path.join(
