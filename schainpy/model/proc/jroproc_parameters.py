@@ -4228,7 +4228,7 @@ class PedestalInformation(Operation):
         dataOut.azimuth =  round(az, 2)
         dataOut.elevation = round(el, 2)
         dataOut.mode_op = scan
-        dataOut.time_pedestal = time_pedestal   # N 6
+        dataOut.time_pedestal = round(time_pedestal,2)   # N 6
         #log.log("TIME-----------------{}".format(self.delay),dataOut.time_pedestal)
         return dataOut
 
