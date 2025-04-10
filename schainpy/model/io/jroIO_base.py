@@ -1526,7 +1526,7 @@ class JRODataWriter(Reader):
         self.setFirstHeader()
 
         print('[Writing] Opening file: %s' % self.filename)
-
+ 
         self.__writeFirstHeader()
 
         return 1

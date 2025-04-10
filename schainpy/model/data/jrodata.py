@@ -596,7 +596,8 @@ class Spectra(JROData):
         factor = self.normFactor
         z = self.data_spc / factor
         z = numpy.where(numpy.isfinite(z), z, numpy.NAN)
-        avg = numpy.average(z, axis=1)
+        #avg = numpy.average(z, axis=1)
+        avg = numpy.nanmean(z, axis=1)
 
         return 10 * numpy.log10(avg)
 

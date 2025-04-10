@@ -693,7 +693,7 @@ class RTIPlot(Plot):
     def setup(self):
         self.xaxis = 'time'
         self.ncols = 1
-        self.nrows = len(self.data.channels)
+        self.nrows = int(len(self.data.channels))
         self.nplots = len(self.data.channels)
         self.ylabel = 'Range [km]'
         self.xlabel = 'Time'
@@ -892,9 +892,10 @@ class CoherencePlot(RTIPlot):
     CODE = 'coh'
 
     def setup(self):
+        print(self.data.pairs)
         self.xaxis = 'time'
         self.ncols = 1
-        self.nrows = len(self.data.pairs)
+        self.nrows = int(len(self.data.pairs))
         self.nplots = len(self.data.pairs)
         self.ylabel = 'Range [km]'
         self.xlabel = 'Time'

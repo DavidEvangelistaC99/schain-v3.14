@@ -537,9 +537,6 @@ Inputs:
                 #print(x)
                 #print(len(heights))
                 #print(data[int(x)][:len(heights)])
-                #print(numpy.shape(out))
-                #print(numpy.shape(data))
-
                 out[key] = data[int(x)][:len(heights)]
 
         a = numpy.array([out[k] for k in self.keys])

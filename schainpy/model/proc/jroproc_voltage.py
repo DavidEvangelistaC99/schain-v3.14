@@ -346,7 +346,6 @@ class filterByHeights(Operation):
         newdelta = deltaHeight * window
         r = dataOut.nHeights % window
         newheights = (dataOut.nHeights-r)/window
-
         if newheights <= 1:
             raise ValueError("filterByHeights: Too few heights. Current number of heights is %d and window is %d" %(dataOut.nHeights, window))
 
@@ -539,6 +538,7 @@ class setAttribute(Operation):
     def run(self, dataOut, **kwargs):
 
         for key, value in kwargs.items():
+
             setattr(dataOut, key, value)
 
         return dataOut
@@ -4735,11 +4735,10 @@ class Decoder(Operation):
 
 
     def run(self, dataOut, code=None, nCode=None, nBaud=None, mode = 0, osamp=None, times=None, AutoDecod = 0):
-
         if dataOut.flagDecodeData:
             print("This data is already decoded, recoding again ...")
-        #print("code: ", numpy.shape(code))
-        #exit(1)
+        #print("code: ", code, numpy.shape(code))
+
         if not self.isConfig:
 
             if code is None and not AutoDecod:
@@ -4756,8 +4755,8 @@ class Decoder(Operation):
                     code = dataOut.data[:2,:,po:po+64]
                     #print("AutoDecod Shape: ", numpy.shape(code))
                     #exit(1)
-            self.setup(code, osamp, dataOut)
 
+            self.setup(code, osamp, dataOut)
             self.isConfig = True
 
             if mode == 3:
@@ -5113,7 +5112,7 @@ class ProfileSelector(Operation):
     def incProfileIndex(self):
 
         self.profileIndex += 1
-
+        
         if self.profileIndex >= self.nProfiles:
             self.profileIndex = 0
 
@@ -5147,7 +5146,9 @@ class ProfileSelector(Operation):
             rangeList            :    List of profile ranges. Example: rangeList = ((4, 30), (32, 64), (128, 256))
 
         """
-
+        #print("nProfiles,", self.nProfiles)
+        #print("dataOut.flagDataAsBlock", dataOut.flagDataAsBlock)
+        #print("dataOut.data", numpy.shape(dataOut.data))
         if rangeList is not None:
             if type(rangeList[0]) not in (tuple, list):
                 rangeList = [rangeList]

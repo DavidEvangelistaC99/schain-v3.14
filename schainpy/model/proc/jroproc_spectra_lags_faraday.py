@@ -84,7 +84,9 @@ class SpectraLagProc(ProcessingUnit):
         self.dataOut.beam.azimuthList = self.dataIn.beam.azimuthList
         self.dataOut.beam.zenithList = self.dataIn.beam.zenithList
         self.dataOut.runNextUnit = self.dataIn.runNextUnit
-        self.dataOut.TxLagRate = self.dataIn.TxLagRate
+        try: self.dataOut.TxLagRate = self.dataIn.TxLagRate
+        except: self.dataOut.TxLagRate = 1
+
         try:
             self.dataOut.final_noise = self.dataIn.final_noise
         except:
@@ -591,7 +593,7 @@ class removeHighValuesFreq(Operation):
 
 class removeDC(Operation):
 
-    def run(self, dataOut, mode=2):
+    def run(self, dataOut, mode=2, limvel=2):
         self.dataOut = dataOut
         jspectra = self.dataOut.data_spc
         jcspectra = self.dataOut.data_cspc
@@ -606,12 +608,30 @@ class removeDC(Operation):
             jcspectraExist = False
 
         freq_dc = int(jspectra.shape[1] / 2)
-        ind_vel = numpy.array([-2, -1, 1, 2]) + freq_dc
+        #ind_vel = numpy.array([-2, -1, 1, 2]) + freq_dc
+        arr = numpy.arange(-limvel, limvel+1)  # Create an array from -50 to 50
+        arr = numpy.delete(arr, numpy.where(arr == 0))  # Remove 0
+        ind_vel = arr + freq_dc
         ind_vel = ind_vel.astype(int)
 
         if ind_vel[0] < 0:
             ind_vel[list(range(0, 1))] = ind_vel[list(range(0, 1))] + self.num_prof
 
+        #print("jspectra SHAPE", numpy.shape(jspectra))
+        
+        if mode == 0:
+            valid_indices = [j for j in range(jspectra.shape[1]) if j not in ind_vel]
+            mean_values = numpy.mean(jspectra[:, valid_indices, :], axis=1, keepdims=True)
+            jspectra[:, ind_vel, :] = mean_values
+            jspectra[:, ind_vel, :] = numpy.nan
+            #for i in ind_vel:
+            #    jspectra[:, i, :] = numpy.nan
+
+            if jcspectraExist:
+                jcspectra[:, freq_dc, :] = (
+                    jcspectra[:, ind_vel[1], :] + jcspectra[:, ind_vel[2], :]) / 2
+
+        
         if mode == 1:
             jspectra[:, freq_dc, :] = (
                 jspectra[:, ind_vel[1], :] + jspectra[:, ind_vel[2], :]) / 2  # CORRECCION
@@ -647,6 +667,7 @@ class removeDC(Operation):
                     yy = jcspectra[ip, ind_vel, :]
                     jcspectra[ip, freq_dc, :] = numpy.dot(xx_aux, yy)
 
+        
         self.dataOut.data_spc = jspectra
         self.dataOut.data_cspc = jcspectra
 
@@ -2028,7 +2049,7 @@ class IntegrationFaradaySpectraNoLags(Operation):
     def run(self, dataOut, n=None, DPL = None,timeInterval=None, overlapping=False):
         if n == 1:
             return dataOut
-
+        
         dataOut.flagNoData = True
         #print(numpy.shape(dataOut.data_spc))
         #print(numpy.shape(dataOut.data_cspc))
@@ -2080,7 +2101,7 @@ class IntegrationFaradaySpectraNoLags(Operation):
             dataOut.nIncohInt *= self.n
             dataOut.utctime = avgdatatime
             dataOut.flagNoData = False
-
+        
         return dataOut
 
 class HybridSelectSpectra(Operation):
