@@ -162,7 +162,8 @@ class GenericData(object):
 
 
 class JROData(GenericData):
-
+    useInputBuffer = False # changed 
+    buffer_empty = True# changed 
     systemHeaderObj = SystemHeader()
     radarControllerHeaderObj = RadarControllerHeader()
     type = None

@@ -14,6 +14,8 @@ from threading import Thread
 from multiprocessing import Process, Queue
 from schainpy.utils import log
 
+import copy
+
 QUEUE_SIZE = int(os.environ.get('QUEUE_MAX_SIZE', '100'))
 
 class ProcessingUnit(object):
