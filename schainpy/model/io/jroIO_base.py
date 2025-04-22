@@ -1581,7 +1581,8 @@ class JRODataWriter(Reader):
 
         return 1
 
-    def run(self, dataOut, path, blocksPerFile=100, profilesPerBlock=64, set=None, ext=None, datatype=4, **kwargs):
+    def run(self, dataOut, path, blocksPerFile=100, profilesPerBlock=64, set=None, ext=None, datatype=4, flagManualHeader = False,**kwargs):
+        self.flagManualHeader = flagManualHeader
 
         if not(self.isConfig):
 

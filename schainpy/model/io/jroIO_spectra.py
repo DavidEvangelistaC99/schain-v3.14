@@ -440,7 +440,7 @@ class SpectraWriter(JRODataWriter, Operation):
 
         # #self.processingHeaderObj.dataBlocksPerFile)
         if self.hasAllDataInBuffer():
-#            self.setFirstHeader()
+            self.setFirstHeader()
             self.writeNextBlock()
 
     def __getBlockSize(self):
@@ -521,6 +521,16 @@ class SpectraWriter(JRODataWriter, Operation):
             self.processingHeaderObj.deltaHeight = self.dataOut.heightList[1] - self.dataOut.heightList[0]
             self.processingHeaderObj.nHeights = self.dataOut.nHeights
             self.processingHeaderObj.samplesWin = self.dataOut.nHeights
+
+        if self.flagManualHeader is True:
+            HeaderList1D = ["nCode" , "nBaud", "codeType", "txA", "txB", "nTx"]
+            for attr_ in HeaderList1D: # pass dataOut variables to radarControllerHeaderObj for manual header
+                try: setattr(self.radarControllerHeaderObj, attr_, getattr(self.dataOut,attr_))
+                except: pass
+ 
+            if self.dataOut.code is not None:
+                 self.radarControllerHeaderObj.code = numpy.array(self.dataOut.code)
+
 
         self.processingHeaderObj.processFlags = self.getProcessFlags()
 
