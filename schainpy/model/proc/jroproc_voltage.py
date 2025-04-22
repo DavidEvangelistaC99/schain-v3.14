@@ -7483,3 +7483,97 @@ class PulsePairVoltage(Operation):
 #         self.__startIndex += self.__newNSamples
 #
 #         return
+
+class ToLilBlock(Operation):
+
+    '''
+    Class to separate blocks of data
+
+    '''
+
+    isConfig = False
+    n = None
+    __timeInterval = None
+    __profIndex = 0
+    __byTime = False
+    __dataReady = False
+    __buffer_data = []
+    __buffer_times = []
+    __initime = None
+    __count_exec = 0
+    __profIndex = 0
+    buffer = None
+    lenProfileOut = 1
+    init_prof = 0
+    end_prof = 0
+    n_profiles = 0
+    first_utcBlock = None
+    __dh = 0
+
+
+    def __init__(self, **kwargs):
+
+        Operation.__init__(self, **kwargs)
+
+        self.isConfig = False
+
+
+    def setup(self,dataOut):
+
+        self.init_prof = 0
+        self.end_prof = 0
+
+    def releaseBlock(self, dataOut):
+
+        if self.n % self.lenProfileOut != 0:
+            raise ValueError("lenProfileOut %d must be submultiple of nProfiles %d" %(self.lenProfileOut, self.n_profiles))
+            return None
+
+        dataOut.data = self.buffer[:,self.init_prof:self.end_prof,:]  #ch, prof, alt
+        self.init_prof = self.end_prof
+        self.end_prof += self.lenProfileOut
+        if self.init_prof == self.n:
+        #if self.end_prof >= (self.n +self.lenProfileOut):
+            self.init_prof = 0
+            self.__profIndex = 0
+            self.buffer = None
+            dataOut.buffer_empty = True
+        #print("done")
+        return dataOut
+
+
+    def run(self, dataOut, nProfilesOut=1):
+
+        self.n = dataOut.nProfiles
+        self.nChannels = dataOut.nChannels
+        self.nHeights = dataOut.nHeights
+
+        #print(dataOut.data.shape)
+        #exit(1)
+        if not self.isConfig:
+            self.setup(dataOut)
+            self.isConfig = True
+
+        dataBlock = None
+
+        if not dataOut.buffer_empty:
+            if self.init_prof == 0:
+                self.lenProfileOut = nProfilesOut
+                dataOut.flagNoData = False
+                self.init_prof = 0
+                self.end_prof = self.lenProfileOut
+                dataOut.nProfiles = self.lenProfileOut
+                dataOut.error = False
+
+            dataOut.flagNoData = False
+
+            return self.releaseBlock(dataOut)
+
+        dataOut.flagNoData = True
+        self.buffer = dataOut.data.copy()
+        dataOut.error = False
+        dataOut.useInputBuffer = True
+        dataOut.buffer_empty = False
+
+
+        return dataOut
