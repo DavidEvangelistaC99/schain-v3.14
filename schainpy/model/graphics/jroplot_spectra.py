@@ -42,6 +42,7 @@ class SpectraPlot(Plot):
         meta = {}
 
         spc = 10*numpy.log10(dataOut.data_spc/dataOut.normFactor)
+        print("dataOut.normFactor", dataOut.normFactor)
         #print("dataOut.normFactor: ", dataOut.normFactor)
         #print("spc: ", dataOut.data_spc[0,0,0])
         #spc = 10*numpy.log10(dataOut.data_spc)

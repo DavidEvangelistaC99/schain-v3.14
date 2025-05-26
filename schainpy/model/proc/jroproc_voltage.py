@@ -5,6 +5,7 @@ import numpy, math
 
 from scipy import interpolate
 from scipy.optimize import nnls
+from schainpy.model import data
 from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecorator
 from schainpy.model.data.jrodata import Voltage,hildebrand_sekhon
 from schainpy.utils import log
@@ -2552,8 +2553,8 @@ class NormalizeDPPowerRoberto_V2(Operation):
 
             ph2max_idx = numpy.nanargmax(dataOut.ph2[minIndex:maxIndex])
             #print("dataOut.ph2[minIndex:maxIndex]: ", dataOut.ph2[minIndex:maxIndex])
-            print("dataOut.ph2: ", dataOut.ph2)
-            print("dataOut.phi: ", dataOut.phi)
+            #print("dataOut.ph2: ", dataOut.ph2)
+            #print("dataOut.phi: ", dataOut.phi)
             print("minIndex", minIndex, "maxIndex", maxIndex)
             print(ph2max_idx)
 
@@ -2570,8 +2571,6 @@ class NormalizeDPPowerRoberto_V2(Operation):
             minIndex = inda[0][0]
             indb = numpy.where(dataOut.heightList < 350) # 350 # 700 km
             maxIndex = indb[0][-1]
-            print(minIndex)
-            print(dataOut.heightList)
 
             ph2max_idx = numpy.nanargmax(dataOut.ph2[minIndex:maxIndex])
             #print("dataOut.ph2[minIndex:maxIndex]: ", dataOut.ph2[minIndex:maxIndex])
@@ -2726,15 +2725,14 @@ class NormalizeDPPowerRoberto_V2(Operation):
                 pass
 
         #print(dataOut.cf,dataOut.cflast[0])
-        time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime)
         
-        print("Bounds 3: ", dataOut.heightList[i1], dataOut.heightList[i2])
-        print('time text', time_text)
-
 
          ### Manual cf correction ###
         flagcfcorrection = True
+
+        time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime)
         DOY = time_text.timetuple().tm_yday
+        print("Bounds 3: ", dataOut.heightList[i1], dataOut.heightList[i2])
         print('time text', time_text, DOY)
         if flagcfcorrection:
             print("***Cleaning*** cflast: ", dataOut.cflast[0])
@@ -3312,7 +3310,7 @@ class DataSaveCleaner(Operation):
         Operation.__init__(self, **kwargs)
         self.csv_flag = 1
 
-    def run(self,dataOut,savecfclean=0):
+    def run(self,dataOut,bypass=False,savecfclean=0):
         #print(dataOut.heightList)
         #exit(1)
         dataOut.DensityFinal=numpy.zeros((1,dataOut.NDP))
@@ -3335,6 +3333,41 @@ class DataSaveCleaner(Operation):
         dataOut.PhyFinal[0,:dataOut.NSHTS]=numpy.copy(dataOut.phy2)
         dataOut.EPhyFinal[0,:dataOut.NSHTS]=numpy.copy(dataOut.ephy2)
 
+        # Bypass
+        if bypass == True:
+            # for MAD
+            dataOut.flagNoData = numpy.all(numpy.isnan(dataOut.DensityFinal)) #Si todos los valores son NaN no se prosigue
+            '''Save of clean data information in temp csv file for den correction'''
+            if not dataOut.flagNoData:
+                if savecfclean:
+                    try:
+                        import pandas as pd
+                        if self.csv_flag:
+                            if not os.path.exists("./cfclean"):
+                                os.makedirs("./cfclean")
+                            self.doy_csv = datetime.datetime.fromtimestamp(dataOut.utctime).strftime('%j')
+                            self.year_csv = datetime.datetime.fromtimestamp(dataOut.utctime).strftime('%Y')
+                        file = open("./cfclean/cfclean{0}{1}.csv".format(self.year_csv,self.doy_csv), "x")
+                        f = csv.writer(file)
+                        f.writerow(numpy.array(["timestamp",'cf']))
+                        self.csv_flag = 0
+                        print("Creating cf clean File")
+                        print("Writing cf clean File")
+                    except:
+                        file = open("./cfclean/cfclean{0}{1}.csv".format(self.year_csv,self.doy_csv), "a")
+                        f = csv.writer(file)
+                        print("Writing cf clean File")
+                    cf = numpy.array([dataOut.utctime,dataOut.cf])
+                    f.writerow(cf)
+                    file.close()
+            # for plot
+            #dataOut.flagNoData = False #Descomentar solo para ploteo #Comentar para MADWriter
+
+            dataOut.DensityFinal *= 1.e6 #Convert units to m^⁻3
+            dataOut.EDensityFinal *= 1.e6 #Convert units to m^⁻3
+            print("Cleaning bypassed")
+            return dataOut
+
         missing=numpy.nan
         #print("den1: ",dataOut.DensityFinal)
         temp_min=100.0
@@ -3350,22 +3383,25 @@ class DataSaveCleaner(Operation):
                 dataOut.DensityFinal[0,i]=dataOut.EDensityFinal[0,i]=missing
                 if i > 40: #Alturas mayores que 600
                     dataOut.DensityFinal[0,i:]=dataOut.EDensityFinal[0,i:]=missing
-
+            # Additional info - number of zeros, temp limit
             if dataOut.info2[i]!=1:
                 dataOut.ElecTempFinal[0,i]=dataOut.EElecTempFinal[0,i]=dataOut.IonTempFinal[0,i]=dataOut.EIonTempFinal[0,i]=missing
 
+            #Limit electron temperature range
             if dataOut.ElecTempFinal[0,i]<=temp_min or dataOut.ElecTempFinal[0,i]>temp_max or dataOut.EElecTempFinal[0,i]>temp_max:
-
                 dataOut.ElecTempFinal[0,i]=dataOut.EElecTempFinal[0,i]=missing
 
+            #Limit ion temperature range
             if dataOut.IonTempFinal[0,i]<=temp_min or dataOut.IonTempFinal[0,i]>temp_max or dataOut.EIonTempFinal[0,i]>temp_max:
                 dataOut.IonTempFinal[0,i]=dataOut.EIonTempFinal[0,i]=missing
 
+            #If there are 5 or less acf points to plot
             if dataOut.lags_to_plot[i,:][~numpy.isnan(dataOut.lags_to_plot[i,:])].shape[0]<6:
                 dataOut.ElecTempFinal[0,i]=dataOut.EElecTempFinal[0,i]=dataOut.IonTempFinal[0,i]=dataOut.EIonTempFinal[0,i]=missing
-
+            
+            #If exists at least one big acf error in the morning
             if dataOut.ut_Faraday>4 and dataOut.ut_Faraday<11:
-                if numpy.nanmax(dataOut.acfs_error_to_plot[i,:])>=10:
+                if numpy.nanmax(dataOut.acfs_error_to_plot[i,:])>=10: #10 (max is dH -> hardcoded)
                     dataOut.ElecTempFinal[0,i]=dataOut.EElecTempFinal[0,i]=dataOut.IonTempFinal[0,i]=dataOut.EIonTempFinal[0,i]=missing
 
             if dataOut.EPhyFinal[0,i]<0.0 or dataOut.EPhyFinal[0,i]>1.0:
@@ -3641,6 +3677,8 @@ class DataSaveCleaner(Operation):
                 final = condition['final_time']
                 aux_index = condition['aux_index']
 
+                only = condition.get('only')
+
                 input_time_obj = datetime.time(hour=time_text.hour, minute=time_text.minute)
                 init_time_obj = datetime.time(hour=init[0], minute=init[1])
                 final_time_obj = datetime.time(hour=final[0], minute=final[1])
@@ -3655,57 +3693,30 @@ class DataSaveCleaner(Operation):
                 indexi, indexf = aux_index[0], aux_index[1]
                 #index = slice(indexi, indexf)
                 #print(index, "index")
-                dataOut.DensityFinal[0,indexi:indexf]=missing
-                dataOut.EDensityFinal[0,indexi:indexf]=missing
-                dataOut.ElecTempFinal[0,indexi:indexf]=missing
-                dataOut.EElecTempFinal[0,indexi:indexf]=missing
-                dataOut.IonTempFinal[0,indexi:indexf]=missing
-                dataOut.EIonTempFinal[0,indexi:indexf]=missing
-                dataOut.PhyFinal[0,indexi:indexf]=missing
-                dataOut.EPhyFinal[0,indexi:indexf]=missing
+                print(only)
+                if only == "te":
+                    print("entered only")
+                    dataOut.ElecTempFinal[0,indexi:indexf]=missing
+                    dataOut.EElecTempFinal[0,indexi:indexf]=missing
+                    dataOut.IonTempFinal[0,indexi:indexf]=missing
+                    dataOut.EIonTempFinal[0,indexi:indexf]=missing
+                    dataOut.PhyFinal[0,indexi:indexf]=missing
+                    dataOut.EPhyFinal[0,indexi:indexf]=missing
+                else:
+                    dataOut.DensityFinal[0,indexi:indexf]=missing
+                    dataOut.EDensityFinal[0,indexi:indexf]=missing
+                    dataOut.ElecTempFinal[0,indexi:indexf]=missing
+                    dataOut.EElecTempFinal[0,indexi:indexf]=missing
+                    dataOut.IonTempFinal[0,indexi:indexf]=missing
+                    dataOut.EIonTempFinal[0,indexi:indexf]=missing
+                    dataOut.PhyFinal[0,indexi:indexf]=missing
+                    dataOut.EPhyFinal[0,indexi:indexf]=missing
                 
                 print(f"** Cleaning applied ** Data eliminated at {time_text} from heigh index {indexi} to {indexf}")
 
         end = time() ########
         #spend_clean_time += end - start
         print("clean data time: ", end - start) 
-
-
-        '''
-            if key in corrections:
-                #
-                input_time_obj = datetime.time(hour=time_text.hour, minute=time_text.minute)
-                init_time_obj = datetime.time(hour=init[0], minute=init[1])
-                final_time_obj = datetime.time(hour=final[0], minute=final[1])
-
-                if init_time_obj <= final_time_obj:
-                    # Interval does not cross midnight
-                    is_between = init_time_obj <= input_time_obj <= final_time_obj
-                else:
-                    # Interval crosses midnight
-                    is_between = init_time_obj <= input_time_obj or input_time_obj <= final_time_obj
-
-                if not is_between:
-                    pass
-                #
-
-                clean = corrections[key]
-                indexi, indexf = clean[0], clean[1]
-                index = slice(indexi, indexf)
-                
-                dataOut.DensityFinal[0,index]=missing
-                dataOut.EDensityFinal[0,index]=missing
-                dataOut.ElecTempFinal[0,index]=missing
-                dataOut.EElecTempFinal[0,index]=missing
-                dataOut.IonTempFinal[0,index]=missing
-                dataOut.EIonTempFinal[0,index]=missing
-                dataOut.PhyFinal[0,index]=missing
-                dataOut.EPhyFinal[0,index]=missing
-                
-                print(f"Cleaning applied:")
-        '''
-
-
 
         #print("den_final",dataOut.DensityFinal)
 
