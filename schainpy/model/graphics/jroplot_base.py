@@ -390,7 +390,7 @@ class Plot(Operation):
                     xmin = self.tmin
                     xmax = self.tmin + self.xrange * 60 * 60
                     ax.xaxis.set_major_formatter(FuncFormatter(self.__fmtTime))
-                    ax.xaxis.set_major_locator(LinearLocator(12))
+                    ax.xaxis.set_major_locator(LinearLocator(int(self.xrange)+1))   # Time in hours
                 ymin = self.ymin if self.ymin is not None else numpy.nanmin(self.y[numpy.isfinite(self.y)])
                 ymax = self.ymax if self.ymax is not None else numpy.nanmax(self.y[numpy.isfinite(self.y)])
                 ax.set_facecolor(self.bgcolor)

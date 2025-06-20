@@ -673,7 +673,7 @@ class RTIPlot(Plot):
         self.nrows = len(self.data.channels)
         self.nplots = len(self.data.channels)
         self.ylabel = 'Range [km]'
-        self.xlabel = 'Time'
+        self.xlabel = 'Local Time'
         self.cb_label = 'dB'
         self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.1, 'right':0.95})
         self.titles = ['{} Channel {}'.format(
