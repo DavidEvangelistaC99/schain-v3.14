@@ -874,6 +874,7 @@ class Parameters(Spectra):
     GauSPC = None  # Fit gaussian SPC
     spc_noise = None
     avg_output = None    # for 150Km processing
+    data_graph = None    # for 150Km processing
     #
     
 
