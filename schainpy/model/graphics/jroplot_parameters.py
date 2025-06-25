@@ -267,7 +267,7 @@ class GenericRTIPlot(Plot):
         self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.08, 'right':0.95, 'top': 0.95})
 
         if not self.xlabel:
-            self.xlabel = 'Time'
+            self.xlabel = 'Local Time'
 
         self.ylabel = 'Range [km]'
         if not self.titles:
@@ -453,78 +453,6 @@ class PolarMapPlot(Plot):
         self.save_labels = ['{}-{}'.format(lbl, label) for lbl in self.labels]
         self.titles = ['{} {}'.format(
             self.data.parameters[x], title) for x in self.channels]
-
-class MP150KmRTIPlot(Plot):
-    '''
-    Plot for data_xxxx object
-    '''
-
-    CODE = 'param'
-    colormap = 'viridis'
-    plot_type = 'pcolorbuffer'
-
-    def setup(self):
-        self.xaxis = 'time'
-        self.ncols = 1
-        self.nrows = self.data.shape('param')[0]
-        self.nplots = self.nrows
-        self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.08, 'right':0.95, 'top': 0.95})
-
-        if not self.xlabel:
-            self.xlabel = 'Time'
-
-        self.ylabel = 'Range [km]'
-        if not self.titles:
-            self.titles = ['Param {}'.format(x) for x in range(self.nrows)]
-
-    def update(self, dataOut):
-        data = {
-            #'param' : numpy.concatenate([getattr(dataOut, attr) for attr in self.attr_data], axis=0)[0:3,:]   # SNL, VERTICAL, ZONAL
-            'param' : dataOut.data_output[0:3,:]   # SNL, VERTICAL, ZONAL
-        }
-
-        meta = {}
-
-        return data, meta
-    
-    def plot(self):
-        # self.data.normalize_heights()
-        self.x = self.data.times
-        self.y = self.data.yrange
-        self.z = self.data['param']
-
-
-        self.z = numpy.ma.masked_invalid(self.z)
-
-        if self.decimation is None:
-            x, y, z = self.fill_gaps(self.x, self.y, self.z)
-        else:
-            x, y, z = self.fill_gaps(*self.decimate())
-        
-        for n, ax in enumerate(self.axes):
-            self.zmax = self.zmax if self.zmax is not None else numpy.max(
-                self.z[n])
-            self.zmin = self.zmin if self.zmin is not None else numpy.min(
-                self.z[n])
-            
-            if ax.firsttime:
-                if self.zlimits is not None:
-                    self.zmin, self.zmax = self.zlimits[n]
-
-                ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
-                                       vmin=self.zmin,
-                                       vmax=self.zmax,
-                                       cmap=self.cmaps[n]
-                                       )
-            else:
-                if self.zlimits is not None:
-                    self.zmin, self.zmax = self.zlimits[n]
-                ax.plt.remove()
-                ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
-                                       vmin=self.zmin,
-                                       vmax=self.zmax,
-                                       cmap=self.cmaps[n]
-                                       )
             
 class AverageDriftsPlot_v2(Plot):
     '''
@@ -650,8 +578,8 @@ class AverageDriftsPlot(Plot):
         self.nplots = 2
         self.nrows = 2
         self.ylabel = 'Velocity\nm/s'
-        self.xlabel = 'Time'
-        self.titles = ['VERTICAL VELOCITY: AVERAGE', 'ZONAL VELOCITY: AVERAGE']
+        self.xlabel = 'Local Time'
+        self.titles = ['150 kM VERTICAL VELOCITY: AVERAGE', '150 kM ZONAL VELOCITY: AVERAGE']
         self.colorbar = False
         self.plots_adjust.update({'hspace':0.5, 'left': 0.1, 'bottom': 0.1, 'right':0.95, 'top': 0.95 })
         
