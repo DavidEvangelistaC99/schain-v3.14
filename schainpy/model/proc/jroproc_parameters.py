@@ -3405,8 +3405,10 @@ class JULIA_DayVelocities(Operation):
         else:
             clean_par[:] = par[:]
 
-        winds = numpy.vstack((clean_par[0,:], clean_par[1,:], clean_par[2,:], clean_par[3,:], clean_par[4,:]))
-        dataOut.data_output = winds
+        mad_output = numpy.vstack((clean_par[0,:], clean_par[1,:], clean_par[2,:], clean_par[3,:], clean_par[4,:]))
+        graph = numpy.vstack((clean_par[0,:], clean_par[1,:], clean_par[2,:]))
+        dataOut.data_output = mad_output
+        dataOut.data_graph = graph
         dataOut.avg_output = avg_par
         dataOut.utctimeInit = dataOut.utctime
         dataOut.outputInterval = dataOut.timeInterval
