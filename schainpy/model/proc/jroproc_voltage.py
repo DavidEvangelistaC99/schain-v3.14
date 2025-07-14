@@ -199,6 +199,42 @@ class CombineChannels(Operation):
 
         return dataout
 
+
+class CombineChannels_V2(Operation):
+    '''Digital hybrid implementation'''
+
+    def run(self, dataout, ch_list=[], comb_list=[]):
+        '''
+        Input:
+            ch_list    : list of pairs [[0,2],[1,3]] or single-index [[4], [5]]
+            comb_list  : list of operations ['sum', 'sub', 'none']
+        '''
+        comb_list = [s.strip().lower() for s in comb_list]
+        tmp = []
+        is_block = dataout.flagDataAsBlock
+
+        for (channels, comb) in zip(ch_list, comb_list):
+            i = channels[0]
+
+            if comb == 'none':
+                data = dataout.data[i, :, :] if is_block else dataout.data[i, :]
+            
+            elif comb in ('sum', 'sub'):
+                j = channels[1]
+                a = dataout.data[i, :, :] if is_block else dataout.data[i, :]
+                b = dataout.data[j, :, :] if is_block else dataout.data[j, :]
+                data = a + b if comb == 'sum' else a - b
+
+            else:
+                raise ValueError(f"Unknown combination operation: '{comb}'")
+
+            tmp.append(data)
+
+        dataout.data = numpy.array(tmp)
+        dataout.channelList = list(range(len(tmp)))
+        return dataout
+
+
 class LagsReshape150(Operation):
     '''
     Written by R. Flores
