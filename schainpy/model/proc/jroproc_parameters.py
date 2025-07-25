@@ -3120,7 +3120,7 @@ class JULIA_DayVelocities(Operation):
 
 
     def statistics150km(self, veloc , sigma , threshold , old_veloc=None, count=0, \
-                        currTime=None, oldTime=None, amountdata=2, clearAll = None, timeFactor=1800, debug = False):
+                        currTime=None, oldTime=None, amountdata=3, clearAll = None, timeFactor=1800, debug = False):
         
         if oldTime == None:
             oldTime = currTime
@@ -3159,7 +3159,7 @@ class JULIA_DayVelocities(Operation):
             print('numpy.where(numpy.abs(veloc-veloc_prof) < threshold/factor)[0]:', numpy.where(numpy.abs(veloc-veloc_prof) < threshold/factor)[0])
 
         junk = numpy.where(numpy.abs(veloc-veloc_prof) < threshold/factor)[0]        
-        if junk.size > 2:
+        if junk.size >= amountdata:
             veloc_prof = self.newtotal(veloc[junk]/numpy.power(sigma[junk],2))/self.newtotal(1/numpy.power(sigma[junk],2))
             sigma_prof1 = numpy.sqrt(1/self.newtotal(1/numpy.power(sigma[junk],2)))
             sigma_prof2 = numpy.sqrt(self.newtotal(numpy.power(veloc[junk]-veloc_prof,2)/numpy.power(sigma[junk],2)))*sigma_prof1
@@ -3206,7 +3206,7 @@ class JULIA_DayVelocities(Operation):
         return sets, old_veloc, count, oldTime, aver_veloc, aver_sigma, clearAll
 
 
-    def run(self, dataOut, zenith, zenithCorrection=0.0, heights=[125, 185], nchan=2, chan=0, clean=False, driftstdv_th=100, zonalstdv_th=200):
+    def run(self, dataOut, zenith, zenithCorrection=0.0, heights=[125, 185], nchan=2, chan=0, clean=False, driftstdv_th=100, zonalstdv_th=200, amountdata=3):
 
         dataOut.lat=-11.95
         dataOut.lon=-76.87
@@ -3278,7 +3278,7 @@ class JULIA_DayVelocities(Operation):
         # Vertical 
         sets1, self.old_drift, self.count_drift, self.oldTime_drift, aver_veloc, aver_sigma, clearAll = self.statistics150km(drift, w_w_err, driftstdv_th, \
                                                         old_veloc=self.old_drift, count=self.count_drift, currTime=dataOut.utctime, \
-                                                        oldTime=self.oldTime_drift, timeFactor=120)
+                                                        oldTime=self.oldTime_drift, amountdata = amountdata, timeFactor=120, debug = False)
         if clearAll == 1:
             mean_zonal = numpy.nan
             sigma_zonal = numpy.nan
@@ -3296,7 +3296,7 @@ class JULIA_DayVelocities(Operation):
         if nchan == 2:           
             sets2, self.old_zonal, self.count_zonal, self.oldTime_zonal, aver_veloc, aver_sigma, clearAll = self.statistics150km(zonal, w_e_err, zonalstdv_th, \
                                                         old_veloc=self.old_zonal, count=self.count_zonal, currTime=dataOut.utctime, \
-                                                        oldTime=self.oldTime_zonal, timeFactor=600)
+                                                        oldTime=self.oldTime_zonal, amountdata = amountdata, timeFactor=600, debug = False)
             if clearAll == 1:
                 mean_zonal = numpy.nan
                 sigma_zonal = numpy.nan
