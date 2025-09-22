@@ -234,6 +234,45 @@ class CombineChannels_V2(Operation):
         dataout.channelList = list(range(len(tmp)))
         return dataout
 
+class saturatedBlock(Operation):
+
+    def run(self, dataOut, zlim = 10):
+        import matplotlib.pyplot as plt
+        import numpy
+
+
+        z = numpy.abs(dataOut.data)
+        # Working place
+        # data z  (4, 150, 334) -> (4,128,334)
+        z_new = z [:,:128,:]
+        dataOut_extra = dataOut.data[:, 128:, :]
+        z_new = z_new.reshape(4, 8, 16, 334)
+        dataOut_z_new = z_new.reshape(4, 8, 16, 334)
+
+        idx = []
+        limit = 70
+        sample_trh = slice(35,200)
+        time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime)
+        if time_text.hour > 23 or time_text.hour < 5: sample_trh = slice(45,200) #10
+
+
+        for i in range(8):
+            if (z_new[1,i,:,sample_trh] > limit).any(): idx.append(i)
+            print((z_new[1,i,:,sample_trh] > limit).any())
+        
+        if len(idx) != 8:
+            candidates = numpy.setdiff1d(numpy.arange(8), idx)
+            result = numpy.array([candidates[numpy.abs(candidates - i).argmin()] for i in idx])
+            for n,i in enumerate(idx):
+                print(i,result[n])
+                #z_new[:,i,:,23:200] = z_new[:,result[n],:,23:200]
+                get_block = lambda x: slice(x*16, (x+1)*16)
+                dataOut.data[:,get_block(i),:] = dataOut.data[:,get_block(result[n]),:]
+
+
+
+        return dataOut
+
 
 class LagsReshape150(Operation):
     '''
@@ -4066,7 +4105,35 @@ class NormalizeDPPowerRoberto_V2(Operation):
                 print(f"Correction applied: {dataOut.cf}")
             print("***Cleaning*** cf After: ", dataOut.cf)
         
+        ###
+        import pandas as pd
 
+        path = os.path.join(os.path.dirname(__file__), 'cf2025211.csv')
+        df = pd.read_csv(path)
+        cf_time = df['timestamp'].to_numpy() 
+        cf_cf = df['cf'].to_numpy() 
+
+        dt_num = time_text   
+        dt_array = pd.to_datetime(cf_time, unit="s", utc=True)
+
+        mask = (
+            (dt_array.year.to_numpy() == dt_num.year) &
+            (dt_array.dayofyear.to_numpy() == dt_num.timetuple().tm_yday) &
+            (dt_array.hour.to_numpy() == dt_num.hour) &
+            (dt_array.minute.to_numpy() == dt_num.minute)
+        )
+
+        indices = numpy.where(mask)[0]
+
+        print("CHECK" ,dataOut.utctime, time_text, indices)
+        print("CHECK2", cf_time)
+        try:
+            cf_index = indices[0]
+            print("cf changed")
+            dataOut.cf = cf_cf[cf_index]
+        except:
+            print("not changed")
+        ###
 
 
         dataOut.cflast[0]=dataOut.cf
@@ -4521,7 +4588,7 @@ class DenCorrection(NormalizeDPPowerRoberto_V2):
                     self.year_csv = datetime.datetime.fromtimestamp(dataOut.utctime).strftime('%Y')
                 file = open("./cf/cf{0}{1}.csv".format(self.year_csv,self.doy_csv), "x")
                 f = csv.writer(file)
-                f.writerow(numpy.array(["timestamp",'cf']))
+                f.writerow(numpy.array(["timestamp", "time_string", 'cf']))  # Added time_string header
                 self.csv_flag = 0
                 print("Creating cf File")
                 print("Writing cf File")
@@ -4529,9 +4596,11 @@ class DenCorrection(NormalizeDPPowerRoberto_V2):
                 file = open("./cf/cf{0}{1}.csv".format(self.year_csv,self.doy_csv), "a")
                 f = csv.writer(file)
                 print("Writing cf File")
-            cf = numpy.array([dataOut.utctime,dataOut.cf])
+            
+            # Create time string from timestamp
+            time_str = datetime.datetime.fromtimestamp(dataOut.utctime).strftime('%Y-%m-%d %H:%M:%S')
+            cf = numpy.array([dataOut.utctime, time_str, dataOut.cf])  # Added time string
             f.writerow(cf)
-            file.close()
         #'''
 
         return dataOut

@@ -85,7 +85,7 @@ class SpectraLagProc(ProcessingUnit):
         self.dataOut.beam.zenithList = self.dataIn.beam.zenithList
         self.dataOut.runNextUnit = self.dataIn.runNextUnit
         try: self.dataOut.TxLagRate = self.dataIn.TxLagRate
-        except: self.dataOut.TxLagRate = 1
+        except: self.dataOut.TxLagRate = 2
 
         try:
             self.dataOut.final_noise = self.dataIn.final_noise
@@ -1363,38 +1363,7 @@ class IntegrationFaradaySpectra(Operation):
                             #sortIDs.append(sortID)
                             outliers_IDs = numpy.append(outliers_IDs, sortID[index:])
                            
-                            '''
-                            #if k == 39 or k == 38:
-                            m = 2.
-                            d = numpy.abs(buffer - numpy.median(buffer))
-                            mdev = numpy.median(d)
-                            s=d / mdev if mdev else numpy.zeros(len(d))
-                            outliers_IDs2 = numpy.where(s >= m)[0]
-                            outliers_IDs2 = numpy.sort(numpy.concatenate((sortID[index:], outliers_IDs2)))
-                            #print(sortID[index:], outliers_IDs2)
-                            outliers_IDs = numpy.append(outliers_IDs, outliers_IDs2)
-                            '''
-                            
-                            '''
-                            #
-                            if k == 39:
-                                print("channel", i, " Profile", j, " Buffer:", buffer)
-                                
-                                print("outliers_IDs ", sortID[index:])
-                                outliers_IDs_buffer = numpy.array(sortID[index:],dtype = int)
-                                NUM=numpy.size(buffer)
-                                plt.plot(range(NUM), buffer, 'b')
-                                plt.plot(outliers_IDs_buffer, buffer[numpy.array(outliers_IDs_buffer,dtype = int)], 'r.', label='Outliers')
-                                text_time = datetime.datetime.utcfromtimestamp(self.__initime)
-                                title = '{}Height{}km_Ch{}_Lag{}_Profile{}.png'.format(text_time,k*15,i,l,j)
-                                plt.title(title)
-                                plt.savefig('{}.png'.format(title),dpi = 50)
-                                plt.clf()
-                            '''
-                            
-                            
-                            
-                            
+
 
                         outliers_IDs=numpy.array(outliers_IDs)
                         outliers_IDs=outliers_IDs.ravel()
@@ -1900,7 +1869,171 @@ class IntegrationFaradaySpectra2(Operation):
 
         return data_spc, data_cspc, data_dc, n
 
+
     def pushData(self):
+        """
+        Return the sum of the last profiles and the profiles used in the sum.
+
+        Affected:
+
+        self.__profileIndex
+
+        """
+        bufferH=None
+        buffer=None
+        buffer1=None
+        buffer_cspc=None
+
+        self.__buffer_spc=numpy.array(self.__buffer_spc)
+        self.__buffer_cspc = numpy.array(self.__buffer_cspc)
+        
+        freq_dc = int(self.__buffer_spc.shape[2] / 2)
+        #print("FREQ_DC",freq_dc)
+        #print(self.__buffer_spc[:,1,5,37,0])
+        #lag_array=[0,2,4,6,8,10,12,14,16,18,20]
+
+        '''
+        l lags
+        k heights
+        i channel
+        j profiles
+
+        Buffer_cspc and spc with dimensions
+        [integration number(n), channel, profile, height, lag]
+        '''
+
+        for l in range(self.nLags):#dataOut.DPL):
+            #breakFlag=False
+            for k in range(7,self.nHeights):
+                buffer_cspc=numpy.copy(self.__buffer_cspc[:,0,:,k,l])
+                outliers_IDs_cspc=[]
+                cspc_outliers_exist=False
+                #indexmin_cspc=0
+                for i in range(self.nChannels):  #dataOut.nChannels):
+                    ''' Recognition of index with outliers'''
+                    if i==1 and k >= self.nHeights-2*l:
+                        #breakFlag=True
+                        continue
+                        #pass
+                    else:
+                        buffer1=numpy.copy(self.__buffer_spc[:,i,:,k,l]) # [int, profile]
+                        indexes=[]
+                        #sortIDs=[]
+                        outliers_IDs=[]
+                        for j in range(self.nProfiles):
+                            if i==0 and j==freq_dc: #NOT CONSIDERING DC PROFILE AT CHANNEL 0
+                                continue
+                            if i==1 and j==0: #NOT CONSIDERING DC PROFILE AT CHANNEL 1
+                                continue
+                            buffer=buffer1[:,j] # [int]
+                            
+                            '''Finding the outlier index with Hildebrand Sekhon algorithm'''
+                            index=int(_HS_algorithm.HS_algorithm(numpy.sort(buffer, axis=None),1))
+                            sortID = buffer.argsort()
+                            #index,sortID=self.hildebrand_sekhon_Integration(buffer,1)
+                            indexes.append(index)
+                            
+                            #sortIDs.append(sortID)
+                            outliers_IDs = numpy.append(outliers_IDs, sortID[index:])
+                           
+
+
+                        outliers_IDs=numpy.array(outliers_IDs)
+                        outliers_IDs=outliers_IDs.ravel()
+                        outliers_IDs=numpy.unique(outliers_IDs)
+                        outliers_IDs=outliers_IDs.astype(numpy.dtype('int64'))
+                        indexes=numpy.array(indexes)
+                        indexmin=numpy.min(indexes)
+
+                        #if indexmin != buffer1.shape[0]:
+                        if (indexmin != buffer1.shape[0]):
+                            cspc_outliers_exist=True
+                            ###sortdata=numpy.sort(buffer1,axis=0)
+                            ###avg2=numpy.mean(sortdata[:indexmin,:],axis=0)
+                            lt = outliers_IDs
+                            time_text = datetime.datetime.utcfromtimestamp(self.__initime)
+                            '''Average profile signal value without taking account outleirs '''
+                            #if time_text.hour >= 11 or time_text.hour <= 19:
+                            if True:
+                                data_buffer1 = buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:]
+                                (mu, sigma) = numpy.apply_along_axis(lambda x: norm.fit(x), 0, data_buffer1)
+                                filtered_data = data_buffer1[(data_buffer1 >= 0) & (data_buffer1 <= 2 * mu[numpy.newaxis, :])]
+                                avg = numpy.median(filtered_data, axis=0)
+                                #avg=numpy.median(buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:],axis=0)
+                            else:
+                                avg=numpy.mean(buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:],axis=0)
+                            
+                            ''' New outlier value take the average'''
+                            for p in list(outliers_IDs):
+                                buffer1[p,:] = avg
+
+                        '''Reasignate the buffer 1 edition to the original buffer'''
+                        self.__buffer_spc[:,i,:,k,l]=numpy.copy(buffer1)
+                        ###cspc IDs
+                        #indexmin_cspc+=indexmin_cspc
+                        outliers_IDs_cspc=numpy.append(outliers_IDs_cspc,outliers_IDs)
+
+                ''' Same process for cross-spectra'''
+                #if not breakFlag:
+                outliers_IDs_cspc=outliers_IDs_cspc.astype(numpy.dtype('int64'))
+                if cspc_outliers_exist:
+                    #sortdata=numpy.sort(buffer_cspc,axis=0)
+                    #avg=numpy.mean(sortdata[:indexmin_cpsc,:],axis=0)
+                    lt = outliers_IDs_cspc
+                    #if time_text.hour >= 11 or time_text.hour <= 19:
+                    if True:
+                        data_buffer_cspc = buffer_cspc[[t for t in range(buffer_cspc.shape[0]) if t not in lt],:]
+                        (mu, sigma) = numpy.apply_along_axis(lambda x: norm.fit(numpy.abs(x)), 0, data_buffer_cspc)
+                        mu = mu[numpy.newaxis, :] 
+                        mask = (numpy.abs(data_buffer_cspc ) >= 0) & (numpy.abs(data_buffer_cspc ) <= 2 * mu)
+                        filtered_data = numpy.where(mask, data_buffer_cspc, numpy.nan)
+                        avg = numpy.nanmean(filtered_data, axis=0)
+                        
+                        #avg=numpy.median(buffer_cspc[[t for t in range(buffer_cspc.shape[0]) if t not in lt],:],axis=0)
+                    else:
+                        avg = numpy.mean(buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:], axis=0)
+                        
+                    #print("avg2",avg)
+                    for p in list(outliers_IDs_cspc):
+                        buffer_cspc[p,:]= avg
+
+                self.__buffer_cspc[:,0,:,k,l]=numpy.copy(buffer_cspc)
+                #else:
+                    #break
+
+        buffer=None
+        bufferH=None
+        buffer1=None
+        buffer_cspc=None
+
+        #print("cpsc",self.__buffer_cspc[:,0,0,0,0])
+        #print(self.__profIndex)
+        #exit()
+
+        buffer=None
+        #print(self.__buffer_spc[:,1,3,20,0])
+        #print(self.__buffer_spc[:,1,5,37,0])
+        '''Integration of the improved spectra and cross-spectra'''
+        data_spc = numpy.sum(self.__buffer_spc,axis=0)
+        data_cspc = numpy.sum(self.__buffer_cspc,axis=0)
+
+        #print(numpy.shape(data_spc))
+        #data_spc[1,4,20,0]=numpy.nan
+
+        #data_cspc = self.__buffer_cspc
+        data_dc = self.__buffer_dc
+        n = self.__profIndex
+
+        self.__buffer_spc = []
+        self.__buffer_cspc = []
+        self.__buffer_dc = 0
+        self.__profIndex = 0
+
+        return data_spc, data_cspc, data_dc, n
+
+
+
+    def pushData_OLD(self):
         """
         Return the sum of the last profiles and the profiles used in the sum.
 
