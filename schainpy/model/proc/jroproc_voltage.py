@@ -235,7 +235,9 @@ class CombineChannels_V2(Operation):
         return dataout
 
 class saturatedBlock(Operation):
-
+    '''
+    hardcoded for the moment to Hybrid experiment
+    '''
     def run(self, dataOut, zlim = 10):
         import matplotlib.pyplot as plt
         import numpy
@@ -258,13 +260,13 @@ class saturatedBlock(Operation):
 
         for i in range(8):
             if (z_new[1,i,:,sample_trh] > limit).any(): idx.append(i)
-            print((z_new[1,i,:,sample_trh] > limit).any())
+            #print((z_new[1,i,:,sample_trh] > limit).any()) # use to print each profile is being changed
         
         if len(idx) != 8:
             candidates = numpy.setdiff1d(numpy.arange(8), idx)
             result = numpy.array([candidates[numpy.abs(candidates - i).argmin()] for i in idx])
             for n,i in enumerate(idx):
-                print(i,result[n])
+                #print(i,result[n]) # use to print each profile is being changed indexes
                 #z_new[:,i,:,23:200] = z_new[:,result[n],:,23:200]
                 get_block = lambda x: slice(x*16, (x+1)*16)
                 dataOut.data[:,get_block(i),:] = dataOut.data[:,get_block(result[n]),:]

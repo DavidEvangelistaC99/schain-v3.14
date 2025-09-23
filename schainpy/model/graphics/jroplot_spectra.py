@@ -893,7 +893,6 @@ class CoherencePlot(RTIPlot):
     CODE = 'coh'
 
     def setup(self):
-        print(self.data.pairs)
         self.xaxis = 'time'
         self.ncols = 1
         self.nrows = int(len(self.data.pairs))

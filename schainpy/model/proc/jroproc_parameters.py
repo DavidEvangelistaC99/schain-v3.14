@@ -7191,7 +7191,7 @@ class IGRFModel(Operation):
             
             #dataOut.TimeBlockSeconds_First_Time=time.mktime(time.strptime(dataOut.TimeBlockDate))
             #### we do not use dataOut.datatime.ctime() because it's the time of the second (next) block
-            dataOut.TimeBlockSeconds = 1727848800.0
+            #dataOut.TimeBlockSeconds = 1727848800.0
             dataOut.TimeBlockSeconds_First_Time=dataOut.TimeBlockSeconds
             dataOut.bd_time=time.gmtime(dataOut.TimeBlockSeconds_First_Time)
             dataOut.year=dataOut.bd_time.tm_year+(dataOut.bd_time.tm_yday-1)/364.0
@@ -7200,7 +7200,7 @@ class IGRFModel(Operation):
             self.aux=0
             dh = dataOut.heightList[1]-dataOut.heightList[0]
             #dataOut.h=numpy.arange(0.0,15.0*dataOut.MAXNRANGENDT,15.0,dtype='float32')
-            dataOut.MAXNRANGENDT = dataOut.nHeights
+            #dataOut.MAXNRANGENDT = dataOut.nHeights
             dataOut.h=numpy.arange(0.0,dh*dataOut.MAXNRANGENDT,dh,dtype='float32')
             dataOut.bfm=numpy.zeros(dataOut.MAXNRANGENDT,dtype='float32')
             dataOut.bfm=numpy.array(dataOut.bfm,order='F')
@@ -7212,12 +7212,12 @@ class IGRFModel(Operation):
             #print("**** mkfact WRAPPER ***** ",mkfact_short_2020.mkfact.__doc__ )
             #print("IDs: ", id(dataOut.bki))
             #print("bki shape: ", numpy.shape(dataOut.bki),numpy.shape(dataOut.h),dataOut.year)
-            print(dataOut.year,dataOut.h,dataOut.bfm,dataOut.thb,dataOut.bki,dataOut.MAXNRANGENDT)
+            #print(dataOut.year,dataOut.h,dataOut.bfm,dataOut.thb,dataOut.bki,dataOut.MAXNRANGENDT)
             mkfact_short_2020_2.mkfact(dataOut.year,dataOut.h,dataOut.bfm,dataOut.thb,dataOut.bki,dataOut.MAXNRANGENDT)
 
             #mkfact_short_2020.mkfact(dataOut.year,dataOut.h,dataOut.bfm,dataOut.thb,dataOut.bki,dataOut.MAXNRANGENDT)
 
-            print("bki: ", dataOut.bki)
+            #print("bki: ", dataOut.bki)
             #print("bki: ", dataOut.bki[:10])
             #print("thb: ", dataOut.thb[:10])
             #print("bfm: ", dataOut.bfm[:10])

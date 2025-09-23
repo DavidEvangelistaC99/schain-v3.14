@@ -1382,11 +1382,11 @@ class IntegrationFaradaySpectra(Operation):
                             '''Average profile signal value without taking account outleirs '''
                             #if time_text.hour >= 11 or time_text.hour <= 19:
                             if True:
-                                data_buffer1 = buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:]
+                                '''data_buffer1 = buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:]
                                 (mu, sigma) = numpy.apply_along_axis(lambda x: norm.fit(x), 0, data_buffer1)
                                 filtered_data = data_buffer1[(data_buffer1 >= 0) & (data_buffer1 <= 2 * mu[numpy.newaxis, :])]
-                                avg = numpy.median(filtered_data, axis=0)
-                                #avg=numpy.median(buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:],axis=0)
+                                avg = numpy.median(filtered_data, axis=0)'''
+                                avg=numpy.median(buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:],axis=0)
                             else:
                                 avg=numpy.mean(buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:],axis=0)
                             
@@ -1409,14 +1409,14 @@ class IntegrationFaradaySpectra(Operation):
                     lt = outliers_IDs_cspc
                     #if time_text.hour >= 11 or time_text.hour <= 19:
                     if True:
-                        data_buffer_cspc = buffer_cspc[[t for t in range(buffer_cspc.shape[0]) if t not in lt],:]
+                        '''data_buffer_cspc = buffer_cspc[[t for t in range(buffer_cspc.shape[0]) if t not in lt],:]
                         (mu, sigma) = numpy.apply_along_axis(lambda x: norm.fit(numpy.abs(x)), 0, data_buffer_cspc)
                         mu = mu[numpy.newaxis, :] 
                         mask = (numpy.abs(data_buffer_cspc ) >= 0) & (numpy.abs(data_buffer_cspc ) <= 2 * mu)
                         filtered_data = numpy.where(mask, data_buffer_cspc, numpy.nan)
-                        avg = numpy.nanmean(filtered_data, axis=0)
+                        avg = numpy.nanmean(filtered_data, axis=0)'''
                         
-                        #avg=numpy.median(buffer_cspc[[t for t in range(buffer_cspc.shape[0]) if t not in lt],:],axis=0)
+                        avg=numpy.median(buffer_cspc[[t for t in range(buffer_cspc.shape[0]) if t not in lt],:],axis=0)
                     else:
                         avg = numpy.mean(buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:], axis=0)
                         
@@ -1870,7 +1870,7 @@ class IntegrationFaradaySpectra2(Operation):
         return data_spc, data_cspc, data_dc, n
 
 
-    def pushData(self):
+    def pushData_canceledNEW(self): # which integration faraday routine is better and how improve is pending to solve
         """
         Return the sum of the last profiles and the profiles used in the sum.
 
@@ -2033,7 +2033,7 @@ class IntegrationFaradaySpectra2(Operation):
 
 
 
-    def pushData_OLD(self):
+    def pushData(self):
         """
         Return the sum of the last profiles and the profiles used in the sum.
 
