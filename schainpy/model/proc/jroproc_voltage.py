@@ -1544,6 +1544,7 @@ class PulsePair_vRF(Operation):
         self.__profIndex      = 0
         self.noise            = None
         self.__nch            = dataOut.nChannels
+        print("canales",self.__nch)
         self.__nHeis          = dataOut.nHeights
         self.removeDC         = removeDC
         self.lambda_          = 3.0e8/(9345.0e6)
@@ -1635,6 +1636,8 @@ class PulsePair_vRF(Operation):
         self.noise       = numpy.tile(self.noise,[1,self.__nHeis])
         noise_buffer     = self.noise.reshape(self.__nch,1,self.__nHeis)
         noise_buffer     = numpy.tile(noise_buffer,[1,self.__nProf,1])
+
+
         #------------------ Potencia recibida= P , Potencia senal = S , Ruido= N--
         #------------------   P= S+N  ,P=lag_0/N ---------------------------------
         #-------------------- Power --------------------------------------------------
@@ -1663,11 +1666,14 @@ class PulsePair_vRF(Operation):
 
         #---------------- Calculo del SNR----------------------------------
         data_snrPP       = S/self.noise
+        '''
         for i in range(self.__nch):
             for j in range(self.__nHeis):
                 if data_snrPP[i][j]  < 1.e-20:
                     data_snrPP[i][j] = 1.e-20
 
+        '''
+        data_snrPP[data_snrPP<1.e-20] = 1.e-20
         #----------------- Calculo del ancho espectral ----------------------
         L                = S/R1
         L                = numpy.where(L<0,numpy.nan,L)
@@ -1678,6 +1684,11 @@ class PulsePair_vRF(Operation):
 
         self.__buffer    = numpy.zeros((self.__nch, self.__nProf,self.__nHeis),  dtype='complex')
         self.__profIndex = 0
+        #print(data_snrPP)
+        #import matplotlib.pyplot as plt
+        #plt.plot(data_snrPP)
+        #plt.show()
+        #plt.savefig(f"snrPP-{pwcode}-{dataOut.utctime}.png")
         return data_power,data_intensity,data_velocity,data_snrPP,data_specwidth,data_ccf,data_noise,n
 
 
