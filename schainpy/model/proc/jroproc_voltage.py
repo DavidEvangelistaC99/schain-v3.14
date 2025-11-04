@@ -238,9 +238,7 @@ class saturatedBlock(Operation):
     '''
     hardcoded for the moment to Hybrid experiment
     '''
-    def run(self, dataOut, zlim = 10):
-        import matplotlib.pyplot as plt
-        import numpy
+    def run(self, dataOut, limit = 70):
 
 
         z = numpy.abs(dataOut.data)
@@ -252,16 +250,17 @@ class saturatedBlock(Operation):
         dataOut_z_new = z_new.reshape(4, 8, 16, 334)
 
         idx = []
-        limit = 70
-        sample_trh = slice(35,200)
+        jars_fix = 1 # to solve, the samplpes are not enough correct
+        sample_trh = slice(35,200 - jars_fix)
         time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime)
-        if time_text.hour > 23 or time_text.hour < 5: sample_trh = slice(45,200) #10
+        if time_text.hour > 23 or time_text.hour < 5: sample_trh = slice(45,200 - jars_fix) #10
 
 
         for i in range(8):
-            if (z_new[1,i,:,sample_trh] > limit).any(): idx.append(i)
-            #print((z_new[1,i,:,sample_trh] > limit).any()) # use to print each profile is being changed
-        
+            if (z_new[1,i,:,sample_trh] > limit).any():
+                idx.append(i)
+                print(f"Debrid detected at {i}", (z_new[1,i,:,sample_trh] > limit).any()) # use to print each profile is being changed
+                #print(z_new[1,i,:,sample_trh])
         if len(idx) != 8:
             candidates = numpy.setdiff1d(numpy.arange(8), idx)
             result = numpy.array([candidates[numpy.abs(candidates - i).argmin()] for i in idx])
@@ -270,8 +269,12 @@ class saturatedBlock(Operation):
                 #z_new[:,i,:,23:200] = z_new[:,result[n],:,23:200]
                 get_block = lambda x: slice(x*16, (x+1)*16)
                 dataOut.data[:,get_block(i),:] = dataOut.data[:,get_block(result[n]),:]
+        else:
+            print("All profiles saturated")
 
-
+        '''print(dataOut.data[0,10,197], dataOut.data[0,10,198], dataOut.data[0,10,199], dataOut.data[0,10,200], dataOut.data[0,10,201])
+        print("Jars correction")'''
+        dataOut.data[:,:,199] = dataOut.data[:,:,199- jars_fix]
 
         return dataOut
 
@@ -4110,7 +4113,7 @@ class NormalizeDPPowerRoberto_V2(Operation):
         ###
         import pandas as pd
 
-        path = os.path.join(os.path.dirname(__file__), 'cf2025211.csv')
+        path = os.path.join(os.path.dirname(__file__), f'cf2025{str(DOY)}.csv')
         df = pd.read_csv(path)
         cf_time = df['timestamp'].to_numpy() 
         cf_cf = df['cf'].to_numpy() 
@@ -5308,6 +5311,72 @@ class DataSaveCleanerHP(Operation):
 
         dataOut.DensityFinal *= 1.e6 #Convert units to m^⁻3
         dataOut.EDensityFinal *= 1.e6 #Convert units to m^⁻3
+
+         ### Manual Data Cleaning
+        
+        time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime)
+        DOY = time_text.timetuple().tm_yday
+        flagcleandata = True
+        if flagcleandata:
+            #print("Final Cleaning Process", time_text.hour, time_text.minute)
+            path = os.path.join(os.path.dirname(__file__), 'clean_data.json')
+            with open(path) as f:
+                jsondata= json.load(f)
+
+            corrections = {}
+            
+
+            for condition in jsondata['conditions']:
+                year = condition['year']
+                doy = condition['doy']
+                init = condition['initial_time']
+                final = condition['final_time']
+                aux_index = condition['aux_index']
+
+                only = condition.get('only')
+
+                input_time_obj = datetime.time(hour=time_text.hour, minute=time_text.minute)
+                init_time_obj = datetime.time(hour=init[0], minute=init[1])
+                final_time_obj = datetime.time(hour=final[0], minute=final[1])
+
+                is_between = init_time_obj <= input_time_obj < final_time_obj
+                
+                if (year != time_text.year) or (DOY != doy) or (is_between == False):
+                    #print("NON valid condition:", condition)
+                    continue
+                
+                print("valid condition:", condition)
+                indexi, indexf = aux_index[0], aux_index[1]
+                #index = slice(indexi, indexf)
+                #print(index, "index")
+                print(only)
+                if only == "te":
+                    print("entered only")
+
+                    dataOut.ElecTempFinal[0,indexi:indexf]=missing
+                    dataOut.EElecTempFinal[0,indexi:indexf]=missing
+                    dataOut.IonTempFinal[0,indexi:indexf]=missing
+                    dataOut.EIonTempFinal[0,indexi:indexf]=missing
+                    dataOut.PhyFinal[0,indexi:indexf]=missing
+                    dataOut.EPhyFinal[0,indexi:indexf]=missing
+                    dataOut.PheFinal[0,indexi:indexf]=missing
+                    dataOut.EPheFinal[0,indexi:indexf]=missing
+                else:
+                    dataOut.DensityFinal[0,indexi:indexf]=missing
+                    dataOut.EDensityFinal[0,indexi:indexf]=missing
+                    dataOut.ElecTempFinal[0,indexi:indexf]=missing
+                    dataOut.EElecTempFinal[0,indexi:indexf]=missing
+                    dataOut.IonTempFinal[0,indexi:indexf]=missing
+                    dataOut.EIonTempFinal[0,indexi:indexf]=missing
+                    dataOut.PhyFinal[0,indexi:indexf]=missing
+                    dataOut.EPhyFinal[0,indexi:indexf]=missing
+                    dataOut.PheFinal[0,indexi:indexf]=missing
+                    dataOut.EPheFinal[0,indexi:indexf]=missing
+                
+                print(f"** Cleaning applied ** Data eliminated at {time_text} from heigh index {indexi} to {indexf}")
+
+
+
 
         return dataOut
 
@@ -7855,35 +7924,39 @@ class LongPulseAnalysis(Operation):
             dataOut.fit_array_real=numpy.zeros((max(dataOut.NRANGE,dataOut.NSHTS),dataOut.NLAG),order='F',dtype='float32')
             dataOut.status=numpy.zeros(1,'float32')
             dataOut.tx=240.0 #debería provenir del header #hybrid
-
+            
             for i in range(dataOut.IBITS):
                 dataOut.lags_LP[i]=float(i)*(dataOut.tx/150.0)/float(dataOut.IBITS) # (float)i*(header.tx/150.0)/(float)IBITS;
 
             self.aux=0
 
+        ## Juntion point between DP and LP
         dataOut.cut=30
-        for i in range(30,15,-1): #Aquí se calcula en donde se unirá DP y LP en la parte final
+        for i in range(30,15,-1):
             if numpy.nanmax(dataOut.acfs_error_to_plot[i,:])>=10 or dataOut.info2[i]==0:
                 dataOut.cut=i-1
 
+        ##
         for i in range(dataOut.NLAG):
             self.cal[i]=sum(dataOut.output_LP_integrated[i,:,3].real) #Lag x Height x Channel
-
+        #print('*', dataOut.output_LP_integrated, numpy.shape(dataOut.output_LP_integrated), dataOut.output_LP_integrated[0,:,0]); exit(1)
         #print(numpy.sum(self.cal)) #Coinciden
         #exit(1)
         self.cal/=float(dataOut.NRANGE)
-        #print(anoise0)
-        #print(anoise1)
+        #print("anoise0", anoise0)
+        #print("anoise1", anoise1)
+
+
         #exit(1)
         #print("nis: ", dataOut.nis)
         #print("pan: ", dataOut.pan)
         #print("pbn: ", dataOut.pbn)
         #print(numpy.sum(dataOut.output_LP_integrated[0,:,0]))
-        '''
-        import matplotlib.pyplot as plt
+        
+        '''import matplotlib.pyplot as plt
         plt.plot(dataOut.output_LP_integrated[:,40,0])
-        plt.show()
-        '''
+        plt.show()'''
+        
         #print(dataOut.output_LP_integrated[0,40,0])
         #print(numpy.sum(dataOut.output_LP_integrated[:,0,0]))
         #exit(1)
@@ -7891,18 +7964,19 @@ class LongPulseAnalysis(Operation):
         #################### PROBAR MÁS INTEGRACIÓN, SINO MODIFICAR VALOR DE "NIS" ####################
                                     # VER dataOut.nProfiles_LP #
 
-        '''
+        
         #PLOTEAR POTENCIA VS RUIDO, QUIZA SE ESTA REMOVIENDO MUCHA SEÑAL
-        #print(dataOut.heightList)
-        import matplotlib.pyplot as plt
+
+        '''import matplotlib.pyplot as plt
         plt.plot(10*numpy.log10(dataOut.output_LP_integrated.real[0,:,0]),dataOut.range1)
         #plt.plot(10*numpy.log10(dataOut.output_LP_integrated.real[0,:,0]/dataOut.nProfiles_LP),dataOut.range1)
         plt.axvline(10*numpy.log10(anoise0),color='k',linestyle='dashed')
         plt.grid()
         plt.xlim(20,100)
-        plt.show()
-        '''
+        plt.show()'''
+        
 
+        ## Noise subtract 0th and 1st lag, power profile ==> powera
 
         for j in range(dataOut.NACF+2*dataOut.IBITS+2):
 
@@ -7913,10 +7987,13 @@ class LongPulseAnalysis(Operation):
                  dataOut.output_LP_integrated.real[i,j,0]-=self.cal[i]
             k=max(j,26)   #constant power below range 26
             self.powera[j]=dataOut.output_LP_integrated.real[0,k,0] #Lag0 and Channel 0
-
-            ## examine drifts here - based on 60 'indep.' estimates
         #print(numpy.sum(self.powera))
-        #exit(1)
+        print("***", dataOut.NACF, dataOut.IBITS, dataOut.NACF+2*dataOut.IBITS+2)
+        print(numpy.shape(dataOut.output_LP_integrated))
+
+
+        ## Examine drifts here - based on 60 'indep.' estimates
+
         #nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint*10
         nis = dataOut.nis
         #print("nis",nis)
@@ -7925,7 +8002,7 @@ class LongPulseAnalysis(Operation):
         gamma=3.0/(2.0*numpy.pi*dataOut.lags_LP[1]*1.0e-3)
         beta=gamma*(math.atan2(dataOut.output_LP_integrated.imag[14,0,2],dataOut.output_LP_integrated.real[14,0,2])-math.atan2(dataOut.output_LP_integrated.imag[1,0,2],dataOut.output_LP_integrated.real[1,0,2]))/13.0
         #print(gamma,beta)
-        #exit(1)
+
         for i in range(1,3):
             gamma=3.0/(2.0*numpy.pi*dataOut.lags_LP[i]*1.0e-3)
             #print("gamma",gamma)
@@ -7941,11 +8018,8 @@ class LongPulseAnalysis(Operation):
                 self.rdrift[nest]=float(nest)
                 nest+=1
 
+        ## Rank the drift estimates
         sorted(self.drift[:nest])
-
-        #print(dataOut.dphi2)
-        #exit(1)
-
         for j in range(int(nest/4),int(3*nest/4)):
             #i=int(self.rdrift[j])
             alpha+=self.drift[j]/self.ddrift[j]
@@ -7956,25 +8030,31 @@ class LongPulseAnalysis(Operation):
         vdrift=alpha-beta
         dvdrift=delta
 
-        #need to develop estimate of complete density profile using all
-        #available data
+        '''
+        Hysell note: need to develop estimate of complete density profile using all
+        available data
+        '''
 
-        #estimate sample variances for long-pulse power profile
-
+        ## Estimatate sample variances for long-pulse power profile
         #nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint
         nis = dataOut.nis/10
-        #print("nis",nis)
-
         self.sigma[:dataOut.NACF+2*dataOut.IBITS+2]=((anoise0+self.powera[:dataOut.NACF+2*dataOut.IBITS+2])**2)/float(nis)
+        ioff=1
+        #print("nis",nis)
         #print(self.sigma)
         #exit(1)
-        ioff=1
+        
+        '''if(ut>16.0) // needs to be re-evaluated  # ask Roberto why not included
+        ioff=1;
+        else if(ut>14.0)
+        ioff=2;  
+        else
+        ioff=1;'''
+
 
         #deconvolve rectangular pulse shape from profile ==> powerb, perror
-
-
         ############# START nnlswrap#############
-
+        
         if dataOut.ut_Faraday>14.0:
             alpha_nnlswrap=20.0
         else:
@@ -8015,16 +8095,18 @@ class LongPulseAnalysis(Operation):
         #print(self.powerb[66])
         #exit(1)
         #############END nnlswrap#############
+
         #print(numpy.sum(numpy.sqrt(self.perror[0:dataOut.NACF])))
         #print(self.powerb[0:dataOut.NACF])
-        #exit(1)
-        #estimate relative error for deconvolved profile (scaling irrelevant)
         #print(dataOut.NACF)
+
+        ## Estimate relative error for deconvolved profile (scaling irrelevant)
+
         dataOut.ene[0:dataOut.NACF]=numpy.sqrt(self.perror[0:dataOut.NACF])/self.powerb[0:dataOut.NACF]
         #print(numpy.sum(dataOut.ene))
-        #exit(1)
-        aux=0
 
+        ## Reconvolve long- and double-pulse power profiles with rectangular pulse
+        aux=0
         for i in range(dataOut.IBITS,dataOut.NACF):
             self.dpulse[i]=self.lpulse[i]=0.0
             for j in range(dataOut.IBITS):
@@ -8035,8 +8117,8 @@ class LongPulseAnalysis(Operation):
                     self.lpulse[i]+=self.powerb[k]
             self.lagp[i]=self.powera[i]
 
-        #find scale factor that best merges profiles
-
+        ## Find scale factor that best merges profiles
+        
         qi=sum(self.dpulse[32:dataOut.NACF]**2/(self.lagp[32:dataOut.NACF]+anoise0)**2)
         ri=sum((self.dpulse[32:dataOut.NACF]*self.lpulse[32:dataOut.NACF])/(self.lagp[32:dataOut.NACF]+anoise0)**2)
         si=sum((self.dpulse[32:dataOut.NACF]*self.lagp[32:dataOut.NACF])/(self.lagp[32:dataOut.NACF]+anoise0)**2)
@@ -8046,22 +8128,23 @@ class LongPulseAnalysis(Operation):
         alpha=(si*ui-vi*ri)/(qi*ui-ri*ri)
         beta=(qi*vi-ri*si)/(qi*ui-ri*ri)
 
-        #form density profile estimate, merging rescaled power profiles
+        ## Form density profile estimate, merging rescaled power profiles
+
+        self.powerb[16:36-aux]=alpha*dataOut.ph2[16:36-aux]/dataOut.h2[16:36-aux]
+        self.powerb[36-aux:dataOut.NACF]*=beta
         #print(dataOut.h2)
         #print(numpy.sum(alpha))
         #print(numpy.sum(dataOut.ph2))
-        self.powerb[16:36-aux]=alpha*dataOut.ph2[16:36-aux]/dataOut.h2[16:36-aux]
-        self.powerb[36-aux:dataOut.NACF]*=beta
 
-        #form Ne estimate, fill in error estimate at low altitudes
+        # Form Ne estimate, fill in error estimate at low altitudes
 
         dataOut.ene[0:36-aux]=dataOut.sdp2[0:36-aux]/dataOut.ph2[0:36-aux]
         dataOut.ne[:dataOut.NACF]=self.powerb[:dataOut.NACF]*dataOut.h2[:dataOut.NACF]/alpha
         #print(numpy.sum(self.powerb))
         #print(numpy.sum(dataOut.ene))
         #print(numpy.sum(dataOut.ne))
-        #exit(1)
-        #now do error propagation: store zero lag error covariance in u
+
+        ## Error propagation: store zero lag error covariance in u
 
         nis=dataOut.NSCAN*dataOut.NAVG*dataOut.nint/1   # DLH serious debris removal
 
@@ -8076,7 +8159,7 @@ class LongPulseAnalysis(Operation):
 
                 self.u[j,i]=self.u[i,j]
 
-        #now error analyis for lag product matrix (diag), place in acf_err
+        ## Error analyis for lag product matrix (diag), place in acf_err
 
         for i in range(dataOut.NACF):
             for j in range(dataOut.IBITS):
@@ -8114,14 +8197,17 @@ class LongPulseAnalysis(Operation):
         print(numpy.sum(dataOut.te2))
         exit(1)
         '''
-        #print("Success 1")
+
         ###################Correlation pulse and itself
 
-        #print(dataOut.NRANGE)
         print("LP Estimation")
         with suppress_stdout_stderr():
             #pass
-            full_profile_profile.profile(numpy.transpose(dataOut.output_LP_integrated,(2,1,0)),numpy.transpose(dataOut.errors),self.powerb,dataOut.ne,dataOut.lags_LP,dataOut.thb,dataOut.bfm,dataOut.te,dataOut.ete,dataOut.ti,dataOut.eti,dataOut.ph,dataOut.eph,dataOut.phe,dataOut.ephe,dataOut.range1,dataOut.ut,dataOut.NACF,dataOut.fit_array_real,dataOut.status,dataOut.NRANGE,dataOut.IBITS)
+            full_profile_profile.profile(numpy.transpose(dataOut.output_LP_integrated,(2,1,0)),
+                                        numpy.transpose(dataOut.errors),self.powerb,dataOut.ne,dataOut.lags_LP,dataOut.thb,
+                                        dataOut.bfm,dataOut.te,dataOut.ete,dataOut.ti,dataOut.eti,dataOut.ph,dataOut.eph,
+                                        dataOut.phe,dataOut.ephe,dataOut.range1,dataOut.ut,dataOut.NACF,dataOut.fit_array_real,
+                                        dataOut.status,dataOut.NRANGE,dataOut.IBITS)
 
         print("status: ",dataOut.status)
 

@@ -159,7 +159,7 @@ class SpectraProc(ProcessingUnit):
             #exit(1)
 
             self.dataOut.nFFTPoints = nFFTPoints
-
+            
             if self.buffer is None:
                 self.buffer = numpy.zeros((self.dataIn.nChannels,
                                            nProfiles,

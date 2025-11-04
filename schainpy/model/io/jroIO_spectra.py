@@ -141,6 +141,7 @@ class SpectraReader(JRODataReader, ProcessingUnit):
             self.pts2read_DCchannels = int(self.systemHeaderObj.nChannels * self.processingHeaderObj.nHeights)
             self.blocksize += self.pts2read_DCchannels
 
+
     def readBlock(self):
         """
         Lee el bloque de datos desde la posicion actual del puntero del archivo
@@ -213,6 +214,7 @@ class SpectraReader(JRODataReader, ProcessingUnit):
         self.getBasicHeader()
         self.dataOut.systemHeaderObj = self.systemHeaderObj.copy()
         self.dataOut.radarControllerHeaderObj = self.radarControllerHeaderObj.copy()
+        self.dataOut.processingHeaderObj = self.processingHeaderObj.copy()
         self.dataOut.dtype = self.dtype
         self.dataOut.pairsList = self.rdPairList
         self.dataOut.nProfiles = self.processingHeaderObj.profilesPerBlock
@@ -462,7 +464,7 @@ class SpectraWriter(JRODataWriter, Operation):
         if self.dataOut.data_dc is not None:
             pts2write_DCchannels = int(self.dataOut.nChannels * self.dataOut.nHeights)
             blocksize += (pts2write_DCchannels*dtype_width*2)
-
+            
 #         blocksize = blocksize #* datatypeValue * 2 #CORREGIR ESTO
 
         return blocksize
@@ -483,11 +485,13 @@ class SpectraWriter(JRODataWriter, Operation):
 
         self.systemHeaderObj = self.dataOut.systemHeaderObj.copy()
         self.systemHeaderObj.nChannels = self.dataOut.nChannels
+        self.systemHeaderObj.nProfiles = self.dataOut.nProfiles
         self.radarControllerHeaderObj = self.dataOut.radarControllerHeaderObj.copy()
 
         self.processingHeaderObj.dtype = 1 # Spectra
         self.processingHeaderObj.blockSize = self.__getBlockSize()
         self.processingHeaderObj.profilesPerBlock = self.dataOut.nFFTPoints
+        #self.processingHeaderObj.profilesPerBlock = 500
         self.processingHeaderObj.dataBlocksPerFile = self.blocksPerFile
         self.processingHeaderObj.nWindows = 1 #podria ser 1 o self.dataOut.processingHeaderObj.nWindows
         self.processingHeaderObj.nCohInt = self.dataOut.nCohInt# Se requiere para determinar el valor de timeInterval

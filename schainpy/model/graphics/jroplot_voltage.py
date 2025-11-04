@@ -300,3 +300,88 @@ class PulsepairSignalPlot(ScopePlot):
 
     CODE = 'pp_signal'
     plot_type = 'scatter'
+
+class saturatedBlockPlot(Plot):
+
+        CODE = 'code'
+        colormap = 'jet'
+        plot_type = 'pcolor' # options are ('pcolor', 'pcolorbuffer', 'scatter', 'scatterbuffer')
+
+        def setup(self):
+            #self.xaxis = 'time'
+            self.ncols = 1
+            self.nrows = len(self.data.channels)
+            self.nplots = len(self.data.channels)
+            self.ylabel = 'Profile'
+            self.xlabel = 'Sample'
+            self.cb_label = 'dB'
+            #self.plots_adjust.update({'hspace':0.6, 'left': 0.1, 'bottom': 0.1, 'right':1.0})
+            self.titles = ['{} Channel {}'.format(
+                self.CODE.upper(), x) for x in range(self.nrows)]
+
+        def update(self, dataOut):
+
+            data = {}
+            data['deltaHeight'] = dataOut.heightList[1] - dataOut.heightList[0]
+            data['x'] = numpy.arange(int(dataOut.data.shape[2]))# * deltaHeight
+            data['y'] = numpy.arange(int(dataOut.data.shape[1]))
+            data['z'] = numpy.abs(dataOut.data)
+            data['zlim'] = 10
+            data['data'] = dataOut.data
+            
+
+            meta = {
+                'nProfiles': dataOut.nProfiles,
+                'flagDataAsBlock': dataOut.flagDataAsBlock,
+                'profileIndex': dataOut.profileIndex,
+            }
+
+
+            return data, meta
+
+        def decimate(self):
+            if not self.decimation or self.decimation < 1:
+                return self.x, self.y, self.z
+
+            dy = max(1, int(len(self.y) / self.decimation))
+            dx = max(1, int(len(self.x) / self.decimation))  # también reducimos X un poco
+
+            x = self.x[::dx]
+            y = self.y[::dy]
+            z = self.z[:, ::dy, ::dx]  # recorta en ambos ejes
+
+            return x, y, z
+
+
+
+        def plot(self):
+            data = self.data['data'][:, -1, :, :] # Ch, nBlock, Prof, Height
+            self.x = numpy.arange(int(data.shape[2]))
+            self.y = numpy.arange(int(data.shape[1]))
+
+            self.z = numpy.abs(self.data['data'])[:, -1, :, :]
+            self.z = numpy.ma.masked_invalid(self.z)
+
+            # Decimación o datos completos
+            if self.decimation is None:
+                x, y, z = self.fill_gaps(self.x, self.y, self.z)
+            else:
+                x, y, z = self.fill_gaps(*self.decimate())
+
+            # Ajuste de límites de color
+            self.zmin = self.zmin if self.zmin is not None else numpy.min(self.z)
+            #self.zmax = self.zmax if self.zmax is not None else numpy.max(self.z)
+            if self.zmax is None: self.zmax = 10
+
+
+            # Bucle seguro para que siempre exista ax.plt
+            for n, ax in enumerate(self.axes):
+                if n < z.shape[0]:
+                    if self.zlimits is not None:
+                        self.zmin, self.zmax = self.zlimits[n]
+                    ax.plt = ax.pcolormesh(x, y, z[n],
+                                        vmin=self.zmin,
+                                        vmax=self.zmax,
+                                        cmap=plt.get_cmap(self.colormap))
+                else:
+                    ax.plt = None  # evita error si no hay datos

@@ -610,7 +610,8 @@ class removeDC(Operation):
         freq_dc = int(jspectra.shape[1] / 2)
         #ind_vel = numpy.array([-2, -1, 1, 2]) + freq_dc
         arr = numpy.arange(-limvel, limvel+1)  # Create an array from -50 to 50
-        arr = numpy.delete(arr, numpy.where(arr == 0))  # Remove 0
+        if mode != 0:
+            arr = numpy.delete(arr, numpy.where(arr == 0))  # Remove 0
         ind_vel = arr + freq_dc
         ind_vel = ind_vel.astype(int)
 

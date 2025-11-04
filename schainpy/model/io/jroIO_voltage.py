@@ -674,6 +674,7 @@ class VoltageWriter(JRODataWriter, Operation):
         self.processingHeaderObj.dtype = 0  # Voltage
         self.processingHeaderObj.blockSize = self.__getBlockSize()
         self.processingHeaderObj.profilesPerBlock = self.profilesPerBlock
+        self.processingHeaderObj.profilesPerBlock = self.dataOut.profilesPerBlock
         self.processingHeaderObj.dataBlocksPerFile = self.blocksPerFile
         # podria ser 1 o self.dataOut.processingHeaderObj.nWindows
         self.processingHeaderObj.nWindows = 1

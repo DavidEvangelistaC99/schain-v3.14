@@ -14,7 +14,8 @@ c      data decd/-12.88/,ham/-4.617/
 c      data decd/-13.1/,ham/-5.0/  ! made up
 c     data decd/-14.56/,ham/-5.33/
 c      data decd/-16.24/,ham/-6.03/
-      data decd/-9.52/,ham/-3.20/
+c      data decd/-9.52/,ham/-3.20/ ! Faraday DP classic
+      data decd/-9.52/,ham/-3.20/ ! Faraday test 2025_11
 c=======
 c
 c     convert from geodetic to geocentric coordinates

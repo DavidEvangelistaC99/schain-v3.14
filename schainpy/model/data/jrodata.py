@@ -76,6 +76,7 @@ def hildebrand_sekhon(data, navg):
     """
 
     sortdata = numpy.sort(data, axis=None)
+    sortdata = sortdata[~numpy.isnan(sortdata)]
     #print(numpy.shape(data))
     #exit()
     
