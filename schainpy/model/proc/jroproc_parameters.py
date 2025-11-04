@@ -4284,8 +4284,13 @@ class Block360(Operation):
         self.__buffer.append(tmp)
         self.azi.append(data.azimuth)
         self.ele.append(data.elevation)
-        self.__time_pedestal.append(data.time_pedestal) # c2
-        self.__noise.append(data.dataPP_NOISE)
+        self.__time_pedestal.append(data.time_pedestal) # c2        
+        try:
+            #print("SHOW ------", type(data.dataPP_NOISE),data.dataPP_NOISE.shape,"value:",data.dataPP_NOISE)
+            self.__noise.append(data.dataPP_NOISE)
+        except:
+            #print("SHOW ------", type(data.noise),data.noise.shape,"value:",data.noise)
+            self.__noise.append(data.noise)
         self.__profIndex  += 1
 
     def pushData(self, data, case_flag):

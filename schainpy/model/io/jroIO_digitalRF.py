@@ -322,6 +322,8 @@ class DigitalRFReader(ProcessingUnit):
 
         self.__frequency = self.fixed_metadata_dict.get('frequency', 1)
 
+        self.__frequency = 9.345e9
+
         self.__timezone = self.fixed_metadata_dict.get('timezone', 18000)
 
         try:

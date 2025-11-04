@@ -513,6 +513,8 @@ class PolarMapPlot(Plot):
         self.titles = ['{} {}'.format(
             self.data.parameters[x], title) for x in self.channels]
 
+
+
 class WeatherParamsPlot(Plot):
 
     plot_type = 'scattermap'
@@ -564,10 +566,10 @@ class WeatherParamsPlot(Plot):
         data = {}
         meta = {}
 
-        if hasattr(dataOut, 'nFFTPoints'):
-            factor = dataOut.normFactor
-        else:
-            factor = 1
+        ##if hasattr(dataOut, 'nFFTPoints'):
+        ##    factor = dataOut.normFactor*10.0 # CONSIDERACION ENTRE PULSE PAIR Y FFT
+        ##else:
+        ##    factor = 1
 
         if hasattr(dataOut, 'dparam'):
             tmp = getattr(dataOut, 'data_param')
@@ -575,7 +577,7 @@ class WeatherParamsPlot(Plot):
             #print("-------------------self.attr_data[0]",self.attr_data[0])
             if 'S' in self.attr_data[0]:
                 if self.attr_data[0]=='S':
-                    tmp = 10*numpy.log10(10.0*getattr(dataOut, 'data_param')[:,0,:]/(factor))
+                    tmp = 10*numpy.log10(10.0*getattr(dataOut, 'data_param')[:,0,:]) ## /(factor))   ya no considerar factor se aplica factor jroproc_parametrs
                 if self.attr_data[0]=='SNR':
                     tmp = 10*numpy.log10(getattr(dataOut, 'data_param')[:,3,:])
             else:
