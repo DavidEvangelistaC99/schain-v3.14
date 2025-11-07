@@ -1623,7 +1623,9 @@ class PulsePair_vRF(Operation):
         #------------------  Data Decodificada------------------------
         pwcode =  1
         if dataOut.flagDecodeData == True:
-            pwcode = numpy.sum(dataOut.code[0]**2)
+            # Cambio CHIRP
+            pwcode = numpy.sum(numpy.abs(dataOut.code[0])**2)
+            # pwcode = numpy.sum(dataOut.code[0]**2)
         #------------------Calculo de Ruido x canal--------------------
         self.noise  = numpy.zeros(self.__nch)
 
