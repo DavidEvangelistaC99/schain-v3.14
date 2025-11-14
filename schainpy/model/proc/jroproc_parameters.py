@@ -3944,11 +3944,11 @@ class WeatherRadar(Operation):
         Operation.__init__(self)
 
     def setup(self,dataOut,variableList= None,Pt=0,Gt=0,Gr=0,Glna=0,lambda_=0, aL=0,
-                tauW= 0,thetaT=0,thetaR=0,Km =0,CR_Flag=False,min_index=0,sesgoZD=0):
+                tauW= 0,thetaT=0,thetaR=0,Km =0,CR_Flag=False,offset=0,sesgoZD=0):
 
         self.nCh      = dataOut.nChannels
         self.nHeis    = dataOut.nHeights
-        self.min_index= min_index
+        self.offset   = offset
         deltaHeight   = dataOut.heightList[1] - dataOut.heightList[0]
         #self.Range    = numpy.arange(dataOut.nHeights)*deltaHeight + dataOut.heightList[0]+min_index*deltaHeight
         self.Range    = dataOut.heightList
@@ -4069,10 +4069,10 @@ class WeatherRadar(Operation):
 
 
     def run(self,dataOut,variableList=None,Pt=1.58,Gt=38.5,Gr=38.5,Glna=59.0,lambda_=0.032, aL=1,
-                tauW= 0.2,thetaT=0.0314,thetaR=0.0314,Km =0.93,CR_Flag=0,min_index=0,sesgoZD=0):
+                tauW= 0.2,thetaT=0.0314,thetaR=0.0314,Km =0.93,CR_Flag=0,offset=0,sesgoZD=0):
         if not self.isConfig:
             self.setup(dataOut= dataOut, variableList=variableList,Pt=Pt,Gt=Gt,Gr=Gr,Glna=Glna,lambda_=lambda_, aL=aL,
-                        tauW= tauW,thetaT=thetaT,thetaR=thetaR,Km =Km,CR_Flag=CR_Flag,min_index=min_index,sesgoZD=sesgoZD)
+                        tauW= tauW,thetaT=thetaT,thetaR=thetaR,Km =Km,CR_Flag=CR_Flag,offset=offset,sesgoZD=sesgoZD)
             self.isConfig = True
 
         dataOut.data_param = self.setMoments(dataOut)

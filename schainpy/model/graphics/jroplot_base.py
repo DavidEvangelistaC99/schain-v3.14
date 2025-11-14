@@ -464,7 +464,7 @@ class Plot(Operation):
                         ax.cbar.set_label(self.cb_labels[n], size=8)
                 else:
                     ax.cbar = None
-                #if self.mode == 'RHI':
+
                 ax.set_xlim(xmin, xmax)
                 ax.set_ylim(ymin, ymax)
                 
@@ -590,9 +590,13 @@ class Plot(Operation):
                         )
                     )
                 with cbook.get_sample_data(file_logo) as file:
-                     IM_LOGO = image.imread(file)
-                     IM_X    = 94
-                     IM_Y    = 90
+                    IM_LOGO = image.imread(file)
+                    if self.mode == 'PPI':
+                        IM_X    = 94
+                        IM_Y    = 90
+                    else:
+                        IM_X    = 500
+                        IM_Y    = 290
                 logo=fig.figimage(IM_LOGO,IM_X,IM_Y,zorder=3,alpha=0.7)
             else:
                 figname = os.path.join(
