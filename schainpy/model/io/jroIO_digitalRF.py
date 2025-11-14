@@ -181,6 +181,7 @@ class DigitalRFReader(ProcessingUnit):
             digitalReadObj = digital_rf.DigitalRFReader(path)
 
         channelNameList    = digitalReadObj.get_channels()
+        channelNameList = ['ch0','ch1']# en la lista para un canal solo estaba ch0
 
         if not channelNameList:
             return []
@@ -283,6 +284,7 @@ class DigitalRFReader(ProcessingUnit):
             self.digitalReadObj = digital_rf.DigitalRFReader(path)
 
         channelNameList         = self.digitalReadObj.get_channels()
+        channelNameList = ['ch0','ch1'] # se modifica a 2 canales estaba solo ch0
 
         if not channelNameList:
             raise ValueError("[Reading] Directory %s does not have any files" % path)
@@ -319,6 +321,8 @@ class DigitalRFReader(ProcessingUnit):
         self.__frequency = None
 
         self.__frequency = self.fixed_metadata_dict.get('frequency', 1)
+
+        self.__frequency = 9.345e9
 
         self.__timezone = self.fixed_metadata_dict.get('timezone', 18000)
 
@@ -362,6 +366,7 @@ class DigitalRFReader(ProcessingUnit):
             endDatetime   = datetime.datetime.combine(endDate, endTime)
             endUTCSecond  = (endDatetime - datetime.datetime(1970,
                                                             1, 1)).total_seconds()# + self.__timezone
+        #print(channelList[0])
         start_index, end_index = self.digitalReadObj.get_bounds(channelNameList[channelList[0]])
         if start_index==None or end_index==None:
              print("Check error No data,  start_index: ",start_index,",end_index: ",end_index)

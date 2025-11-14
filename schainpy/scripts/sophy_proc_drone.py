@@ -8,10 +8,12 @@ PATH = '/DATA_RM/DATA'
 #PATH = "/media/jespinoza/data2/SOPHY/"
 
 
-
-# SNR ZMIN -40 A ZMAX -20
+# S -60 A -20
+# S ZMIN -60 A ZMAX -20
+# snr -10 15
 PARAM = {
-    'S':  {'zmin': -80, 'zmax':-45, 'colormap': 'jet'    , 'label': 'Power', 'wrname': 'power','cb_label': 'dBm', 'ch':0},
+    # 'S':  {'zmin': -80, 'zmax':-45, 'colormap': 'jet'    , 'label': 'Power', 'wrname': 'power','cb_label': 'dBm', 'ch':0},
+    'S':  {'zmin': -60, 'zmax':-20, 'colormap': 'jet'    , 'label': 'Power', 'wrname': 'power','cb_label': 'dBm', 'ch':0},
     'SNR':{'zmin': -10, 'zmax': 15, 'colormap': 'jet'    , 'label': 'SNR', 'wrname': 'snr','cb_label': 'dB', 'ch':0},
     'V':  {'zmin': -12, 'zmax': 12, 'colormap': 'sophy_v', 'label': 'Velocity', 'wrname': 'velocity', 'cb_label': 'm/s', 'ch':0},
     'R':  {'zmin': 0.5, 'zmax': 1 , 'colormap': 'sophy_r', 'label': 'RhoHV', 'wrname':'rhoHV', 'cb_label': '',  'ch':0},
@@ -24,7 +26,7 @@ PARAM = {
 META = ['heightList', 'data_azi', 'data_ele', 'mode_op', 'latitude', 'longitude', 'altitude', 'heading', 'radar_name',
     'institution', 'contact', 'h0', 'range_unit', 'prf', 'prf_unit', 'variable', 'variable_unit', 'n_pulses',
     'pulse1_range', 'pulse1_width', 'pulse2_width', 'pulse1_repetitions', 'pulse2_repetitions', 'pulse_width_unit',
-    'snr_threshold', 'data_noise']
+    'snr_threshold', 'data_noise','radar_sweep_time']
 
 
 def max_index(r, sample_rate, ipp, h0,ipp_km):
@@ -61,7 +63,7 @@ def main(args):
         end_time = '23:59:59'
 
     N = int(1.0/(abs(speed_axis[0])*ipp))                                               # 1 GRADO DE RESOLUCION
-
+    #N = 500
     #path = os.path.join(PATH, experiment, 'rawdata')
     path = conf['usrp_rx']['datadir']
     path_ped = os.path.join(PATH, experiment, 'position')
@@ -71,7 +73,7 @@ def main(args):
         label = ''
     path_plots = os.path.join(PATH, experiment, 'plots{}'.format(label))
     path_save = os.path.join(PATH, experiment, 'param{}'.format(label))
-    RMIX = 6.0          # 4.8          #5.8  #4.8#5.68#4.8#4.8#2.64#10#2.64
+    RMIX = 20.0          # 4.8          #5.8  #4.8#5.68#4.8#4.8#2.64#10#2.64
     H0   = -1.33#-1.68 #.68 #-2.0         #-1.68        #-1.68# -1.2#-1.68#-1.2#0.5#-1.2
     # update pulso corto
     MASK = args.mask
@@ -80,6 +82,9 @@ def main(args):
 
     project = Project()
     project.setup(id='1', name='Sophy', description='sophy proc')
+
+    # start_time = '20:10:00'
+    # end_time = '20:30:00'
 
     reader = project.addReadUnit(datatype='DigitalRFReader',
         path=path,
@@ -150,7 +155,7 @@ def main(args):
         
         op = proc.addOperation(name='Block360')
         op.addParameter(name='runNextOp', value=True)
-        op.addParameter(name='attr_data', value='data_param')
+        op.addParameter(name='attr_data', value='data_param') #test data_param
         op.addParameter(name='angles', value=angles)
         op.addParameter(name='heading', value=conf['heading'])
         op.addParameter(name='bottom',value=bottom)
@@ -164,7 +169,7 @@ def main(args):
             op.addParameter(name='channels', value='0,')
             op.addParameter(name='zmin', value=PARAM[param]['zmin'])
             op.addParameter(name='zmax', value=PARAM[param]['zmax'])
-            op.addParameter(name='yrange', value=0.5, format='float')# esto estaba en 20
+            op.addParameter(name='yrange', value=0.15, format='float')# esto estaba en 20
             op.addParameter(name='xrange', value=args.range, format='float')
             op.addParameter(name='attr_data', value=param, format='str')
             op.addParameter(name='labels', value=[PARAM[param]['label'], PARAM[param]['label']])
@@ -253,6 +258,9 @@ def main(args):
                 for c in codes:
                     code.append([int(x) for x in c])
                 op = voltage1.addOperation(name='Decoder', optype='other')
+                print(code)
+                print(len(code))
+                print(len(code[0]))
                 op.addParameter(name='code', value=code)
                 op.addParameter(name='nCode', value=len(code), format='int')
                 op.addParameter(name='nBaud', value=len(code[0]), format='int')
@@ -364,7 +372,7 @@ def main(args):
             op.addParameter(name='heading', value=conf['heading'])
 
             op = proc2.addOperation(name='Block360')
-            op.addParameter(name='attr_data', value='data_param')
+            op.addParameter(name='attr_data', value='data_param')# test_radical data_param
             op.addParameter(name='runNextOp', value=True)
             op.addParameter(name='angles', value=angles)
             op.addParameter(name='heading', value=conf['heading'])
@@ -417,7 +425,7 @@ def main(args):
             desc = {
                     'Data': {
                         'data_param': {PARAM[param]['wrname']: ['H', 'V']},
-                        'utctime': 'time'
+                        'utctime': 'time',
                     },
                      'Metadata': {
                         'heightList': 'range',
@@ -426,6 +434,7 @@ def main(args):
                         'mode_op': 'scan_type',
                         'h0': 'range_correction',
                         'dataPP_NOISE': 'noise',
+                        'radar_sweep_time'  : 'radar_sweep_time',
                     }
                 }
 
@@ -483,7 +492,7 @@ if __name__ == '__main__':
                         help='Fix time offset')
     parser.add_argument('--range', default=60, type=float,
                         help='Max range to plot')
-    parser.add_argument('--mask', default=0.36, type=float,
+    parser.add_argument('--mask', default=0.6, type=float,
                         help='Filter mask over SNR')
     parser.add_argument('--save', action='store_true',
                         help='Create output files')
@@ -515,6 +524,7 @@ if __name__ == '__main__':
 #python sophy_proc.py PIU@2023-12-19T14-15-16 --parameters Z  --plot --save --rmDC --label magic10 --range 10 --start_time 14:28:00
 #python sophy_proc.py PIU@2024-01-11T23-18-32  --parameters Z  --plot --save --rmDC --label magic10 --range 75
 #python sophy_proc.py TEST_PN_RHI@2024-10-15T22-26-48  --parameters Z  --plot --save --rmDC --label range5_1useg_rhi --range 5
+#python sophy_proc_drone.py HYO@2025-01-09T20-59-43  --parameters Z  --plot --save --rmDC --label range5_1useg_rhi --range 60 --online
 
 
 """"
@@ -535,3 +545,6 @@ sr Rx 5 Mhz
 En este experimento se observa que la h0 = -1.4
 
 """
+#python sophy_proc_drone.py  HYO@2025-01-23T14-53-38  --parameters S  --plot --save --rmDC --label REVISION --range 60 --online --mask 0.1
+
+# PARA EDITAR LA LIBRERIA UBICAR EL DIRECTORIO /home/soporte/workspace_piura/sirm/volumes/schain/schain/schainpy/model/proc/

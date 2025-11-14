@@ -28,7 +28,6 @@ from scipy import optimize, interpolate, signal, stats, ndimage
 from scipy.optimize.optimize import OptimizeWarning
 warnings.filterwarnings('ignore')
 
-
 SPEED_OF_LIGHT = 299792458
 
 '''solving pickling issue'''
@@ -3982,6 +3981,7 @@ class WeatherRadar(Operation):
         data_param = numpy.zeros((nCh, 8, nHeis))
         if type == "Voltage":
             factor            = 1
+            #print("SHAPE:",dataOut.dataPP_POW.shape)
             data_param[:,0,:] = dataOut.dataPP_POW/(factor)#dataOut.dataPP_POWER/(factor)
             data_param[:,1,:] = dataOut.dataPP_DOP
             data_param[:,2,:] = dataOut.dataPP_WIDTH
@@ -4031,11 +4031,14 @@ class WeatherRadar(Operation):
         if not self.CR_Flag:
             self.n_radar       = numpy.zeros((self.nCh,self.nHeis))
             self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
-            for R in range(self.nHeis):
-                self.n_radar[:,R] = self.RadarConstant*Pr[:,R]* (self.Range[:,R]*(10**3))**2
+            #for R in range(self.nHeis):
+            #    self.n_radar[:,R] = self.RadarConstant*Pr[:,R]* (self.Range[:,R]*(10**3))**2
 
-                self.Z_radar[:,R] = self.n_radar[:,R]* self.lambda_**4/( numpy.pi**5 * self.Km**2)
+            #    self.Z_radar[:,R] = self.n_radar[:,R]* self.lambda_**4/( numpy.pi**5 * self.Km**2)
 
+            self.n_radar[:,:] = self.RadarConstant*Pr[:,:]* (self.Range[:,:]*(10**3))**2
+            self.Z_radar[:,:] = self.n_radar[:,:]* self.lambda_**4/( numpy.pi**5 * self.Km**2)
+            
             '''----------- Factor de Reflectividad Equivalente lamda_ < 10 cm , lamda_= 3.2cm-------'''
             Zeh  =  self.Z_radar
 
@@ -4048,9 +4051,13 @@ class WeatherRadar(Operation):
         else:
             self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
 
-            for R in range(self.nHeis):
-                self.Z_radar[0,R]= 10*numpy.log10(Pr[0,R])+20*numpy.log10(self.Range[0,R]*10**3)+67.41-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)#63.58,65.26,68.91
-                self.Z_radar[1,R]= 10*numpy.log10(Pr[1,R])+20*numpy.log10(self.Range[1,R]*10**3)+67.17-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)#64.26,65.79,62.33
+            #for R in range(self.nHeis):
+            #    self.Z_radar[0,R]= 10*numpy.log10(Pr[0,R])+20*numpy.log10(self.Range[0,R]*10**3)+67.41-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)#63.58,65.26,68.91
+            #    self.Z_radar[1,R]= 10*numpy.log10(Pr[1,R])+20*numpy.log10(self.Range[1,R]*10**3)+67.17-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)#64.26,65.79,62.33
+            
+            self.Z_radar[0,:]= 10*numpy.log10(Pr[0,:])+20*numpy.log10(self.Range[0,:]*10**3)+67.41-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)#63.58,65.26,68.91
+            self.Z_radar[1,:]= 10*numpy.log10(Pr[1,:])+20*numpy.log10(self.Range[1,:]*10**3)+67.17-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)#63.58,65.26,68.91
+
             dBZeh= self.Z_radar
 
         if type=='N':
@@ -4142,6 +4149,7 @@ class PedestalInformation(Operation):
                         self.ele = self.fp['Data']['ele_pos'][:]
                         self.azi = self.fp['Data']['azi_pos'][:] + 26.27 #+ self.heading
                         self.azi[self.azi>360] = self.azi[self.azi>360] - 360
+                        self.time_pedestal = self.fp['Data']['utc'][:] # N 1.5
                         log.log('Opening file: {}'.format(self.filename), self.name)
                         ok = True
                         break
@@ -4163,13 +4171,13 @@ class PedestalInformation(Operation):
     def get_values(self):
 
         if self.flagNoData:
-            return numpy.nan, numpy.nan, numpy.nan #Should be self.mode?
+            return numpy.nan, numpy.nan, numpy.nan, numpy.nan #,numpy.nan #Should be self.mode? N 2
         else:
             index = int((self.utctime-self.utcfile)/self.interval)
             try:
-                return self.azi[index], self.ele[index], None
+                return self.azi[index], self.ele[index], None, self.time_pedestal[index] #,self.time_pedesal[index]    N 3
             except:
-                return numpy.nan, numpy.nan, numpy.nan
+                return numpy.nan, numpy.nan, numpy.nan, numpy.nan #,numpy.nan N 4
 
     def setup(self, dataOut, path, conf, samples, interval, mode, heading):
 
@@ -4201,6 +4209,7 @@ class PedestalInformation(Operation):
                 self.ele = self.fp['Data']['ele_pos'][:]
                 self.azi = self.fp['Data']['azi_pos'][:] + 26.27 + self.heading
                 self.azi[self.azi>360] = self.azi[self.azi>360] - 360
+                self.time_pedestal = self.fp['Data']['utc'][:] # N 1
                 break
             except:
                 log.warning('Waiting {}s for position file to be ready...'.format(self.delay), self.name)
@@ -4216,7 +4225,8 @@ class PedestalInformation(Operation):
 
         self.find_next_file()
 
-        az, el, scan = self.get_values()
+        #az, el, scan = self.get_values()
+        az, el, scan,time_pedestal = self.get_values() # N 5
 
         dataOut.flagNoData = False
         if numpy.isnan(az) or numpy.isnan(el) :
@@ -4226,7 +4236,8 @@ class PedestalInformation(Operation):
         dataOut.azimuth =  round(az, 2)
         dataOut.elevation = round(el, 2)
         dataOut.mode_op = scan
-
+        dataOut.time_pedestal = round(time_pedestal,2)   # N 6
+        #log.log("TIME-----------------{}".format(self.delay),dataOut.time_pedestal)
         return dataOut
 
 class Block360(Operation):
@@ -4259,6 +4270,7 @@ class Block360(Operation):
         self.azi       = []
         self.ele       = []
         self.__noise   = []
+        self.__time_pedestal = [] # c1
         self.angles = angles
         self.horario= horario
         self.heading = heading
@@ -4272,7 +4284,13 @@ class Block360(Operation):
         self.__buffer.append(tmp)
         self.azi.append(data.azimuth)
         self.ele.append(data.elevation)
-        self.__noise.append(data.dataPP_NOISE)
+        self.__time_pedestal.append(data.time_pedestal) # c2        
+        try:
+            #print("SHOW ------", type(data.dataPP_NOISE),data.dataPP_NOISE.shape,"value:",data.dataPP_NOISE)
+            self.__noise.append(data.dataPP_NOISE)
+        except:
+            #print("SHOW ------", type(data.noise),data.noise.shape,"value:",data.noise)
+            self.__noise.append(data.noise)
         self.__profIndex  += 1
 
     def pushData(self, data, case_flag):
@@ -4283,18 +4301,20 @@ class Block360(Operation):
         data_p   = numpy.array(self.azi)
         data_e   = numpy.array(self.ele)
         data_n   = numpy.array(self.__noise)
+        time_pedestal  = numpy.array(self.__time_pedestal) #c3
         n   = self.__profIndex
 
         self.__buffer = []
         self.azi      = []
         self.ele      = []
         self.__noise  = []
+        self.__time_pedestal = [] # c4
         self.__profIndex = 0
 
         if case_flag in (0, 1, -1):
             self.putData(data=data, attr = self.attr)
 
-        return data_360, n, data_p, data_e, data_n
+        return data_360, n, data_p, data_e, data_n ,time_pedestal #time_pedestal c5
 
     def byProfiles(self, dataOut):
 
@@ -4303,6 +4323,7 @@ class Block360(Operation):
         data_p = None
         data_e = None
         data_n = None
+        time_pedestal = None # c6
 
         self.putData(data=dataOut, attr = self.attr)
 
@@ -4314,7 +4335,8 @@ class Block360(Operation):
                     self.__buffer.pop() #Erase last data
                     self.azi.pop()
                     self.ele.pop()
-                    data_360 ,n,data_p,data_e,data_n  = self.pushData(dataOut, case_flag)
+                    self.__time_pedestal.pop() # c7
+                    data_360 ,n,data_p,data_e,data_n,time_pedestal = self.pushData(dataOut, case_flag) # time_pedestal c8
                     if len(data_p)>350:
                         self.__dataReady = True
             elif self.flagMode == 0: #'ELE'
@@ -4322,22 +4344,24 @@ class Block360(Operation):
                     self.__buffer.pop() #Erase last data
                     self.azi.pop()
                     self.ele.pop()
-                    data_360, n, data_p, data_e, data_n  = self.pushData(dataOut, case_flag)
+                    self.__time_pedestal.pop() #c9
+                    data_360, n, data_p, data_e, data_n,time_pedestal  = self.pushData(dataOut, case_flag) # time_pedestal c10
                     self.__dataReady = True
                 if case_flag == -1: #Subida
                     self.__buffer.pop() #Erase last data
                     self.azi.pop()
                     self.ele.pop()
-                    data_360, n, data_p, data_e, data_n  = self.pushData(dataOut, case_flag)
+                    self.__time_pedestal.pop() # time_pedestal c11
+                    data_360, n, data_p, data_e, data_n, time_pedestal  = self.pushData(dataOut, case_flag) # time_pedestal c12
                     #self.__dataReady = True
 
-        return data_360, data_p, data_e, data_n
+        return data_360, data_p, data_e, data_n ,time_pedestal  #time_pedestal c13
 
 
     def blockOp(self, dataOut, datatime= None):
         if self.__initime == None:
             self.__initime = datatime
-        data_360, data_p, data_e, data_n = self.byProfiles(dataOut)
+        data_360, data_p, data_e, data_n,time_pedestal = self.byProfiles(dataOut) # time_pedestal c14
         self.__lastdatatime = datatime
 
         avgdatatime = self.__initime
@@ -4345,7 +4369,7 @@ class Block360(Operation):
             avgdatatime = datatime
 
         self.__initime = datatime
-        return data_360, avgdatatime, data_p, data_e, data_n
+        return data_360, avgdatatime, data_p, data_e, data_n ,time_pedestal # time_pedestal c15
 
     def checkcase(self):
 
@@ -4399,7 +4423,7 @@ class Block360(Operation):
             self.setup(dataOut=dataOut, attr=attr_data, angles=angles,horario=horario, heading=heading,bottom=bottom,**kwargs)
             self.isConfig   = True
 
-        data_360, avgdatatime, data_p, data_e, data_n = self.blockOp(dataOut, dataOut.utctime)
+        data_360, avgdatatime, data_p, data_e, data_n,time_pedestal = self.blockOp(dataOut, dataOut.utctime) # time_pedestal c16
 
         dataOut.flagNoData = True
         if self.__dataReady:
@@ -4407,9 +4431,10 @@ class Block360(Operation):
             mean_el = numpy.mean(data_e[25:-25])
             if round(mean_az,1) in angles or round(mean_el,1) in angles:
                 setattr(dataOut, attr_data, data_360 )
-                dataOut.data_azi   = data_p+self.heading #dataOut.data_azi   = data_p
-                dataOut.data_azi[dataOut.data_azi>360]=dataOut.data_azi[dataOut.data_azi>360]-360 #update new
+                dataOut.data_azi   = data_p+self.heading
+                dataOut.data_azi[dataOut.data_azi>360]=dataOut.data_azi[dataOut.data_azi>360]-360
                 dataOut.data_ele   = data_e
+                dataOut.radar_sweep_time  = time_pedestal # time_pedestal c17
                 dataOut.utctime    = avgdatatime
                 dataOut.data_noise = data_n
                 dataOut.flagNoData = False

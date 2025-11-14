@@ -259,12 +259,14 @@ class Plot(Operation):
         self.data = PlotterData(self.CODE, self.exp_code, self.localtime)
         self.ang_min = kwargs.get('ang_min', None)
         self.ang_max = kwargs.get('ang_max', None)
-        self.mode = kwargs.get('mode', None)
-        self.mask = kwargs.get('mask', False)
+        self.mode  = kwargs.get('mode', None)
+        self.mask  = kwargs.get('mask', False)
+        self.mask0 = kwargs.get('mask0', False)
+        self.index = kwargs.get('index', None)
         self.shapes = kwargs.get('shapes', './')
         self.map = kwargs.get('map', False)
         self.latitude = kwargs.get('latitude', -12)
-        self.longitude = kwargs.get('longitude', -74)        
+        self.longitude = kwargs.get('longitude', -74)
 
         if self.server:
             if not self.server.startswith('tcp://'):
@@ -276,7 +278,7 @@ class Plot(Operation):
 
         if isinstance(self.attr_data, str):
             self.attr_data = [self.attr_data]
-        
+
 
     def __setup_plot(self):
         '''
@@ -290,8 +292,8 @@ class Plot(Operation):
         if self.width is None:
             self.width = 8
 
-        self.figures = {'PPI':[], 'RHI':[]} 
-        self.axes = {'PPI':[], 'RHI':[]}        
+        self.figures = {'PPI':[], 'RHI':[]}
+        self.axes = {'PPI':[], 'RHI':[]}
         self.cb_axes = []
         self.pf_axes = []
         self.cmaps = []
@@ -325,10 +327,10 @@ class Plot(Operation):
                 ax_r.firsttime = True
                 ax_r.index = 0
                 ax_r.press = None
-                
+
                 self.axes['PPI'].append(ax_p)
                 self.axes['RHI'].append(ax_r)
-                
+
                 if self.showprofile:
                     cax = self.__add_axes(ax, size=size, pad=pad)
                     cax.tick_params(labelsize=8)
@@ -345,7 +347,7 @@ class Plot(Operation):
                 else:
                     ax_p = fig.add_subplot(1, 1, 1, polar=self.polar)
                     print('sin projection')
-                                
+
                 ax_r = fig.add_subplot(1, 1, 1, polar=self.polar)
                 ax_p.tick_params(labelsize=8)
                 ax_p.firsttime = True
@@ -421,7 +423,7 @@ class Plot(Operation):
             if ax.firsttime:
                 if self.xaxis != 'time':
                     xmin = self.xmin
-                    xmax = self.xmax                    
+                    xmax = self.xmax
                 else:
                     xmin = self.tmin
                     xmax = self.tmin + self.xrange*60*60
@@ -429,9 +431,9 @@ class Plot(Operation):
                     ax.xaxis.set_major_locator(LinearLocator(9))
                 ymin = self.ymin if self.ymin is not None else numpy.nanmin(self.y[numpy.isfinite(self.y)])
                 ymax = self.ymax if self.ymax is not None else numpy.nanmax(self.y[numpy.isfinite(self.y)])
-                
+
                 ax.set_facecolor(self.bgcolor)
-                
+
                 if self.xscale:
                     ax.xaxis.set_major_formatter(FuncFormatter(
                         lambda x, pos: '{0:g}'.format(x*self.xscale)))
@@ -467,7 +469,7 @@ class Plot(Operation):
 
                 ax.set_xlim(xmin, xmax)
                 ax.set_ylim(ymin, ymax)
-                
+
                 ax.firsttime = False
                 if self.grid:
                     ax.grid(True)
@@ -488,7 +490,7 @@ class Plot(Operation):
                     self.time_label,
                     (self.getDateTime(self.data.max_time)-datetime.timedelta(hours=5)).strftime(
                         '%Y-%m-%d %H:%M:%S')),
-                    size=8)                
+                    size=8)
                 if self.mode == 'PPI':
                     ax.set_yticks(ax.get_yticks(), labels=ax.get_yticks(), color='white')
                     ax.yaxis.labelpad = 28
@@ -561,7 +563,7 @@ class Plot(Operation):
         '''
         '''
         if self.mode is not None:
-            ang = 'AZ' if self.mode == 'RHI' else 'EL'    
+            ang = 'AZ' if self.mode == 'RHI' else 'EL'
             folder = '_{}_{}_{}'.format(self.mode, ang, self.mode_value)
             label = '{}{}_{}'.format(ang[0], self.mode_value, self.save_code)
         else:
@@ -591,12 +593,12 @@ class Plot(Operation):
                     )
                 with cbook.get_sample_data(file_logo) as file:
                     IM_LOGO = image.imread(file)
-                    if self.mode == 'PPI':
-                        IM_X    = 94
-                        IM_Y    = 90
-                    else:
-                        IM_X    = 500
-                        IM_Y    = 290
+                    alto_logo = IM_LOGO.shape[0]  # Altura del logo en píxeles
+                    ancho_logo= IM_LOGO.shape[1] # ancho del logo en pixeles
+                    fig_height = fig.get_figheight() * fig.dpi
+                    fig_width = fig.get_figwidth() * fig.dpi
+                    IM_X    = fig_width - ancho_logo - 160  # Pegado al borde derecho
+                    IM_Y    =  fig_height - alto_logo - 95  # Pegado al borde superior
                 logo=fig.figimage(IM_LOGO,IM_X,IM_Y,zorder=3,alpha=0.7)
             else:
                 figname = os.path.join(

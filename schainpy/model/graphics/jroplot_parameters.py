@@ -513,10 +513,12 @@ class PolarMapPlot(Plot):
         self.titles = ['{} {}'.format(
             self.data.parameters[x], title) for x in self.channels]
 
+
+
 class WeatherParamsPlot(Plot):
-    
+
     plot_type = 'scattermap'
-    buffering = False    
+    buffering = False
 
     def setup(self):
 
@@ -564,10 +566,10 @@ class WeatherParamsPlot(Plot):
         data = {}
         meta = {}
 
-        if hasattr(dataOut, 'nFFTPoints'):
-            factor = dataOut.normFactor
-        else:
-            factor = 1
+        ##if hasattr(dataOut, 'nFFTPoints'):
+        ##    factor = dataOut.normFactor*10.0 # CONSIDERACION ENTRE PULSE PAIR Y FFT
+        ##else:
+        ##    factor = 1
 
         if hasattr(dataOut, 'dparam'):
             tmp = getattr(dataOut, 'data_param')
@@ -575,18 +577,34 @@ class WeatherParamsPlot(Plot):
             #print("-------------------self.attr_data[0]",self.attr_data[0])
             if 'S' in self.attr_data[0]:
                 if self.attr_data[0]=='S':
-                    tmp = 10*numpy.log10(10.0*getattr(dataOut, 'data_param')[:,0,:]/(factor))
+                    tmp = 10*numpy.log10(10.0*getattr(dataOut, 'data_param')[:,0,:]) ## /(factor))   ya no considerar factor se aplica factor jroproc_parametrs
                 if self.attr_data[0]=='SNR':
                     tmp = 10*numpy.log10(getattr(dataOut, 'data_param')[:,3,:])
             else:
                 tmp = getattr(dataOut, 'data_param')[:,vars[self.attr_data[0]],:]
 
         if self.mask:
+            #---------nuevo procesamiento mask----------------#
+            """
+            self.mask1 = 0.1   # Umbral para alturas < index
+            self.mask =  0.3   # Umbral para alturas >= index
+            # Crear máscaras por rangos de altura
+            print("SHAPE: ",dataOut.data_param.shape)
+            mask1 = (dataOut.data_param[:,3,:] < self.mask1) & (numpy.arange(dataOut.data_param.shape[3])[None, None, :] <  self.index)
+            mask  = (dataOut.data_param[:,3,:] < self.mask)  & (numpy.arange(dataOut.data_param.shape[3])[None, None, :] >= self.index)
+            # Aplicar filtros
+            tmp[mask1] = numpy.nan
+            tmp[mask]  = numpy.nan
+            mask       = numpy.nansum((tmp, numpy.roll(tmp, 1),numpy.roll(tmp, -1)), axis=0) == tmp
+            tmp[mask]  = numpy.nan
+            """
+            #-----------------------original---------------------#
             mask = dataOut.data_param[:,3,:] < self.mask
             tmp[mask] = numpy.nan
             mask = numpy.nansum((tmp, numpy.roll(tmp, 1),numpy.roll(tmp, -1)), axis=0) == tmp
-            tmp[mask] = numpy.nan            
+            tmp[mask] = numpy.nan
 
+            #------------------------------------------------------#
         r = dataOut.heightList
         delta_height = r[1]-r[0]
         valid = numpy.where(r>=0)[0]
@@ -626,7 +644,7 @@ class WeatherParamsPlot(Plot):
         z = data['data']
         r = data['r']
         self.titles = []
-        
+
         self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
         self.zmin = self.zmin if self.zmin is not None else numpy.nanmin(z)
 
@@ -644,7 +662,7 @@ class WeatherParamsPlot(Plot):
                 self.ymax = self.yrange
                 self.ymin = 0
                 self.xmax = self.xrange if self.xrange else numpy.nanmax(r)
-                self.xmin = -self.xrange if self.xrange else -numpy.nanmax(r)
+                self.xmin = 0 #-self.xrange if self.xrange else -numpy.nanmax(r)  # HARDCODE
                 self.setrhilimits = False
             else:
                 self.ymin = 0
@@ -662,7 +680,7 @@ class WeatherParamsPlot(Plot):
             y = km2deg(y) + self.latitude
             if self.xrange:
                 self.ylabel= 'Latitude'
-                self.xlabel= 'Longitude'                
+                self.xlabel= 'Longitude'
 
                 self.xmin = km2deg(-self.xrange) + self.longitude
                 self.xmax = km2deg(self.xrange) + self.longitude
@@ -688,7 +706,7 @@ class WeatherParamsPlot(Plot):
         else:
             norm = None
 
-        for i, ax in enumerate(axes):            
+        for i, ax in enumerate(axes):
 
             if norm is None:
                 ax.plt = ax.pcolormesh(x, y, z[i], cmap=self.colormap, vmin=self.zmin, vmax=self.zmax)
@@ -727,7 +745,7 @@ class WeatherParamsPlot(Plot):
                     reader_p = shpreader.BasicReader(shape_p, encoding='latin1')
                     reader_c = shpreader.BasicReader(capitales, encoding='latin1')
                     reader_v = shpreader.BasicReader(vias, encoding='latin1')
-                    caps = [x for x in reader_c.records() if x.attributes['DEPARTA']=='PIURA' and x.attributes['CATEGORIA']=='CIUDAD']
+                    caps = [x for x in reader_c.records() if x.attributes['DEPARTA']=='JUNIN' and x.attributes['CATEGORIA']=='CIUDAD']
                     districts = [x for x in reader_d.records() if x.attributes['NAME_1']=='Piura']
                     provs = [x for x in reader_p.records()]
                     vias = [x for x in reader_v.records()]
@@ -741,13 +759,14 @@ class WeatherParamsPlot(Plot):
                     ax.add_feature(shape_feature)
 
                     for cap in caps:
-                        if cap.attributes['NOMBRE'] in ('PIURA', 'SULLANA', 'PAITA', 'SECHURA', 'TALARA'):
-                            ax.text(cap.attributes['X'], cap.attributes['Y'], cap.attributes['NOMBRE'], size=8, color='white', weight='bold')
+                        if cap.attributes['NOMBRE'] in ('CONCEPCIÓN', 'HUANCAYO', 'JAUJA', 'LA OROYA', 'CHUPACA'):
+                            ax.text(cap.attributes['X'], cap.attributes['Y'], cap.attributes['NOMBRE'], size=7, color='white', weight='bold')
                         elif cap.attributes['NOMBRE'] in ('NEGRITOS', 'SAN LUCAS', 'QUERECOTILLO', 'TAMBO GRANDE', 'CHULUCANAS', 'CATACAOS', 'LA UNION'):
-                            ax.text(cap.attributes['X'], cap.attributes['Y'], cap.attributes['NOMBRE'].title(), size=7, color='white')
-                else:                    
+                            ax.text(cap.attributes['X'], cap.attributes['Y'], cap.attributes['NOMBRE'].title(), size=6, color='white')
+                    ax.plot(-75.3199751, -12.041787, '*', color='orange')
+                else:
                     ax.grid(color='grey', alpha=0.5, linestyle='--', linewidth=1)
-                
+
                 if self.xrange<=10:
                     ranges = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
                 elif self.xrange<=30:
