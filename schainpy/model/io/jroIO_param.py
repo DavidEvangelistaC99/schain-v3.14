@@ -429,7 +429,7 @@ class HDFWriter(Operation):
                 dataAux = getattr(self.dataOut, self.dataList[i])
                 if self.setType == 'weather' and self.dataList[i] == 'data_param':
                     if self.setChannel is None: 
-                        dataAux = dataAux[:,self.weather_vars[self.weather_var],:]
+                        dataAux = dataAux[self.weather_vars[self.weather_var]]
                     else:
                         dataAux = dataAux[self.setChannel,self.weather_vars[self.weather_var],:]
                         dataAux = numpy.reshape(dataAux,(1,dataAux.shape[0],dataAux.shape[1]))
@@ -719,9 +719,9 @@ class HDFWriter(Operation):
                 ds[self.blockIndex] = getattr(self.dataOut, attr)
             else:
                 if self.blocksPerFile == 1:
-                    mask = self.dataOut.data_param[:,3,:][ch] < self.mask
-                    tmp = getattr(self.dataOut, attr)[:,self.weather_vars[self.weather_var],:][ch]
+                    tmp = getattr(self.dataOut, attr)[self.weather_vars[self.weather_var]][ch]
                     if self.mask:
+                        mask = self.dataOut.data_param[:,3,:][ch] < self.mask
                         tmp[mask] = numpy.nan
                     ds[:] = tmp
                 else:

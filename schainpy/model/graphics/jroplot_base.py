@@ -292,8 +292,8 @@ class Plot(Operation):
         if self.width is None:
             self.width = 8
 
-        self.figures = {'PPI':[], 'RHI':[]}
-        self.axes = {'PPI':[], 'RHI':[]}
+        self.figures = {'PPI':[], 'RHI':[], 'SPC:':[]}
+        self.axes = {'PPI':[], 'RHI':[], 'SPC:':[]}
         self.cb_axes = []
         self.pf_axes = []
         self.cmaps = []

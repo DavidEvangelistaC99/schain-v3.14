@@ -1537,21 +1537,18 @@ class PulsePair_vRF(Operation):
         n= Numero de PRF's de entrada
         '''
         self.__initime        = None
-        ####print("[INICIO]-setup  del METODO PULSE PAIR")
         self.__lastdatatime   = 0
         self.__dataReady      = False
         self.__buffer         = 0
         self.__profIndex      = 0
         self.noise            = None
-        self.__nch            = dataOut.nChannels
-        print("canales",self.__nch)
+        self.__nch            = dataOut.nChannels        
         self.__nHeis          = dataOut.nHeights
         self.removeDC         = removeDC
         self.lambda_          = 3.0e8/(9345.0e6)
         self.ippSec           = dataOut.ippSeconds
         self.nCohInt          = dataOut.nCohInt
-        ####print("IPPseconds",dataOut.ippSeconds)
-        ####print("ELVALOR DE n es:", n)
+        
         if n == None:
             raise ValueError("n should be specified.")
 
@@ -1617,147 +1614,80 @@ class PulsePair_vRF(Operation):
         #------------------Calculo de Potencia ------------------------
         pair0       = self.__buffer*numpy.conj(self.__buffer)#* 10.0
         pair0       = pair0.real
+        pair1       = self.__buffer[:,:-1,:]*numpy.conjugate(self.__buffer[:,1:,:])
         #-----------------Calculo de Cscp------------------------------ New
-        if len(self.__buffer)>1:
-            cspc_pair01 = self.__buffer[0]*numpy.conjugate(self.__buffer[1])
+        cspc_pair01 = self.__buffer[0]*numpy.conjugate(self.__buffer[1])
+        data_ccf = numpy.nanmean(cspc_pair01,axis=0)/(numpy.sqrt(numpy.nanmean(pair0[0],axis=0)*numpy.nanmean(pair0[1],axis=0)))
+        
         #------------------  Data Decodificada------------------------
         pwcode =  1
         if dataOut.flagDecodeData == True:
-            # Cambio CHIRP
             pwcode = numpy.sum(numpy.abs(dataOut.code[0])**2)
-            # pwcode = numpy.sum(dataOut.code[0]**2)
-        #------------------Calculo de Ruido x canal--------------------
-        self.noise  = numpy.zeros(self.__nch)
-
-        for i in range(self.__nch):
-            daux         = numpy.sort(pair0[i,:,:],axis= None)
-            self.noise[i]=hildebrand_sekhon( daux/pwcode,self.nCohInt)
-
-        data_noise       = self.noise
-        self.noise       = self.noise.reshape(self.__nch,1)
-        self.noise       = numpy.tile(self.noise,[1,self.__nHeis])
-        noise_buffer     = self.noise.reshape(self.__nch,1,self.__nHeis)
-        noise_buffer     = numpy.tile(noise_buffer,[1,self.__nProf,1])
-
-
-        #------------------ Potencia recibida= P , Potencia senal = S , Ruido= N--
-        #------------------   P= S+N  ,P=lag_0/N ---------------------------------
-        #-------------------- Power --------------------------------------------------
-        data_power         = numpy.nanmean(pair0,axis=1)/(self.nCohInt*pwcode)
-        #--------------------CCF------------------------------------------------------
-        if len(self.__buffer)>1:
-            data_ccf          =numpy.nanmean(cspc_pair01,axis=0)/(numpy.sqrt(numpy.nanmean(pair0[0],axis=0)*numpy.nanmean(pair0[1],axis=0)))
-        else:
-            data_ccf = 0
-        #------------------  Senal  --------------------------------------------------
-        data_intensity  = (pair0-noise_buffer*self.nCohInt)/(self.nCohInt*pwcode)
-        data_intensity   = numpy.nanmean(data_intensity,axis=1)
-
-        #----------------- Calculo de Frecuencia y Velocidad doppler--------
-        pair1            = self.__buffer[:,:-1,:]*numpy.conjugate(self.__buffer[:,1:,:])
-        lag_1            = numpy.sum(pair1,1)
-        data_freq        = (-1/(2.0*math.pi*self.ippSec*self.nCohInt))*numpy.angle(lag_1)
-        data_velocity    = (self.lambda_/2.0)*data_freq
-
-        #---------------- Potencia promedio estimada de la Senal-----------
-        lag_0            = data_power
-        S                = lag_0-self.noise
-        #---------------- Frecuencia Doppler promedio ---------------------
-        lag_1            = lag_1/((self.n-1)*pwcode*self.nCohInt)
-        R1               = numpy.abs(lag_1)
-
-        #---------------- Calculo del SNR----------------------------------
-        data_snrPP       = S/self.noise
-        '''
-        for i in range(self.__nch):
-            for j in range(self.__nHeis):
-                if data_snrPP[i][j]  < 1.e-20:
-                    data_snrPP[i][j] = 1.e-20
-
-        '''
-        data_snrPP[data_snrPP<1.e-20] = 1.e-20
-        #----------------- Calculo del ancho espectral ----------------------
-        L                = S/R1
-        L                = numpy.where(L<0,numpy.nan,L)
-        L                = numpy.log(L)
-        tmp              = numpy.sqrt(numpy.absolute(L))
-        data_specwidth   = (self.lambda_/(2*math.sqrt(2)*math.pi*self.ippSec*self.nCohInt))*tmp
-        n                = self.__profIndex
-
+        
+        
+        lag_0 = numpy.nanmean(pair0, axis=1)/(self.nCohInt*pwcode)
+        lag_1 = numpy.sum(pair1, 1)
+        
         self.__buffer    = numpy.zeros((self.__nch, self.__nProf,self.__nHeis),  dtype='complex')
         self.__profIndex = 0
-        #print(data_snrPP)
-        #import matplotlib.pyplot as plt
-        #plt.plot(data_snrPP)
-        #plt.show()
-        #plt.savefig(f"snrPP-{pwcode}-{dataOut.utctime}.png")
-        return data_power,data_intensity,data_velocity,data_snrPP,data_specwidth,data_ccf,data_noise,n
+        n                = self.__profIndex
 
+        return lag_0, lag_1, data_ccf, n 
 
     def pulsePairbyProfiles(self,dataOut,n):
 
         self.__dataReady     =  False
-        data_power           =  None
-        data_intensity       =  None
-        data_velocity        =  None
-        data_specwidth       =  None
-        data_snrPP           =  None
-        data_ccf             =  None
-        data_noise           =  None
+        lag_0 =  None
+        lag_1 =  None
+        data_ccf =  None
 
         if dataOut.flagDataAsBlock:
-            self.putDataByBlock(data=dataOut.data,n=n)
+            self.putDataByBlock(data=dataOut.data, n=n)
         else:
             self.putData(data=dataOut.data)
+        
         if self.__profIndex  == self.n:
-            data_power,data_intensity, data_velocity,data_snrPP,data_specwidth,data_ccf,data_noise, n   = self.pushData(dataOut=dataOut)
-            self.__dataReady                   = True
+            lag_0, lag_1, data_ccf, n = self.pushData(dataOut=dataOut)
+            self.__dataReady = True
 
-        return data_power, data_intensity, data_velocity, data_snrPP,data_specwidth,data_ccf,data_noise
-
+        return lag_0, lag_1, data_ccf
 
     def pulsePairOp(self, dataOut, n, datatime= None):
 
         if self.__initime == None:
             self.__initime = datatime
-        data_power, data_intensity, data_velocity, data_snrPP,data_specwidth,data_ccf,data_noise = self.pulsePairbyProfiles(dataOut,n)
-        self.__lastdatatime           = datatime
+        lag_0, lag_1, data_ccf = self.pulsePairbyProfiles(dataOut,n)
 
-        if data_power is None:
-            return None, None, None,None,None,None,None,None
+        if lag_0 is None:
+            return None, None, None,None 
 
         avgdatatime    = self.__initime
-        deltatime      = datatime - self.__lastdatatime
         self.__initime = datatime
 
-        return data_power, data_intensity, data_velocity, data_snrPP,data_specwidth,data_ccf, data_noise, avgdatatime
+        return lag_0, lag_1, data_ccf, avgdatatime
 
     def run(self, dataOut,n = None,removeDC= False, overlapping= False,wradar=False,**kwargs):
 
         if dataOut.flagDataAsBlock:
             n = int(dataOut.nProfiles)
-            #print("n",n)
 
         if not self.isConfig:
-            self.setup(dataOut = dataOut, n    = n , removeDC=removeDC , wradar=wradar,**kwargs)
+            self.setup(dataOut = dataOut, n=n , removeDC=removeDC , wradar=wradar,**kwargs)
             self.isConfig   = True
 
-        data_power, data_intensity, data_velocity,data_snrPP,data_specwidth,data_ccf, data_noise,avgdatatime = self.pulsePairOp(dataOut, n, dataOut.utctime)
-        dataOut.flagNoData                         = True
+        lag_0, lag_1, data_ccf, avgdatatime = self.pulsePairOp(dataOut, n, dataOut.utctime)
+        dataOut.flagNoData  = True
 
         if self.__dataReady:
-            dataOut.nCohInt        *= self.n
-            dataOut.dataPP_POWER    = data_power# P valor que corresponde a POTENCIA MOMENTO
-            dataOut.dataPP_POW      = data_intensity # S
-            dataOut.dataPP_DOP      = data_velocity
-            dataOut.dataPP_SNR      = data_snrPP
-            dataOut.dataPP_WIDTH    = data_specwidth
-            dataOut.dataPP_CCF      = data_ccf
-            dataOut.dataPP_NOISE    = data_noise
-            dataOut.PRFbyAngle      = self.n         #numero de PRF*cada angulo rotado que equivale a un tiempo.
-            dataOut.nProfiles       = int(dataOut.nProfiles/n)
-            dataOut.utctime         = avgdatatime
-            dataOut.flagNoData      = False
+            dataOut.nCohInt = self.nCohInt
+            dataOut.data_pair0  = lag_0
+            dataOut.data_pair1  = lag_1
+            dataOut.data_ccf = data_ccf
+            dataOut.PRFbyAngle = self.n         #numero de PRF*cada angulo rotado que equivale a un tiempo.
+            dataOut.nProfiles = int(dataOut.nProfiles/n)
+            dataOut.utctime = avgdatatime
+            dataOut.flagNoData = False
+            dataOut.N = n
         return dataOut
 
 class Xcorr(Operation):

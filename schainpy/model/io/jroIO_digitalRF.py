@@ -56,6 +56,7 @@ class DigitalRFReader(ProcessingUnit):
         self.dtype         = None
         self.oldAverage    = None
         self.path          = None
+        self.verbose = True
 
     def close(self):
         print('Average of writing to digital rf format is ', self.oldAverage * 1000)
@@ -246,6 +247,7 @@ class DigitalRFReader(ProcessingUnit):
               code=numpy.ones((1, 1), dtype=int),
               getByBlock=0,
               nProfileBlocks=1,
+              verbose=True,
               **kwargs):
         '''
         In this method we should set all initial parameters.
@@ -266,7 +268,7 @@ class DigitalRFReader(ProcessingUnit):
         self.nCohInt        = nCohInt
         self.flagDecodeData = flagDecodeData
         self.i              = 0
-
+        self.verbose        = verbose
         self.getByBlock     = getByBlock
         self.nProfileBlocks = nProfileBlocks
         if online:
@@ -276,7 +278,6 @@ class DigitalRFReader(ProcessingUnit):
         if not os.path.isdir(path):
             raise ValueError("[Reading] Directory %s does not exist" % path)
 
-        #print("path",path)
         try:
             self.digitalReadObj = digital_rf.DigitalRFReader(
                 path, load_all_metadata=True)
@@ -366,11 +367,11 @@ class DigitalRFReader(ProcessingUnit):
             endDatetime   = datetime.datetime.combine(endDate, endTime)
             endUTCSecond  = (endDatetime - datetime.datetime(1970,
                                                             1, 1)).total_seconds()# + self.__timezone
-        #print(channelList[0])
+
         start_index, end_index = self.digitalReadObj.get_bounds(channelNameList[channelList[0]])
         if start_index==None or end_index==None:
              print("Check error No data,  start_index: ",start_index,",end_index: ",end_index)
-             #return 0
+
         if not startUTCSecond:
             startUTCSecond = start_index / self.__sample_rate
         if start_index     > startUTCSecond * self.__sample_rate:
@@ -418,9 +419,6 @@ class DigitalRFReader(ProcessingUnit):
 
         self.__samples_to_read  = int(nSamples)  # FIJO: AHORA 40
         self.__nChannels        = len(self.__channelList)
-        #print("------------------------------------------")
-        #print("self.__samples_to_read",self.__samples_to_read)
-        #print("self.__nSamples",self.__nSamples)
         # son iguales y el buffer_index da 0
         self.__startUTCSecond   = startUTCSecond
         self.__endUTCSecond     = endUTCSecond
@@ -457,13 +455,7 @@ class DigitalRFReader(ProcessingUnit):
         self.count         = 0
         self.executionTime = 0
 
-    def __reload(self):
-        #         print
-        #         print "%s not in range [%s, %s]" %(
-        #                                           datetime.datetime.utcfromtimestamp(self.thisSecond - self.__timezone),
-        #                                           datetime.datetime.utcfromtimestamp(self.__startUTCSecond - self.__timezone),
-        #                                           datetime.datetime.utcfromtimestamp(self.__endUTCSecond - self.__timezone)
-        #                                           )
+    def __reload(self):        
         print("[Reading] reloading metadata ...")
 
         try:
@@ -539,12 +531,10 @@ class DigitalRFReader(ProcessingUnit):
         for thisChannelName in self.__channelNameList:  # TODO VARIOS CHANNELS?
             for indexSubchannel in range(self.__num_subchannels):
                 try:
-                    t0     = time()
-                    #print("thisUNixSample",self.__thisUnixSample)
+                    t0     = time()                    
                     result = self.digitalReadObj.read_vector_c81d(self.__thisUnixSample,
                                                                   self.__samples_to_read,
-                                                                  thisChannelName, sub_channel=indexSubchannel)
-                    #print("result--------------",result)
+                                                                  thisChannelName, sub_channel=indexSubchannel)                    
                     self.executionTime  = time() - t0
                     if self.oldAverage is None:
                         self.oldAverage = self.executionTime
@@ -589,7 +579,8 @@ class DigitalRFReader(ProcessingUnit):
         if not dataOk:
             return False
 
-        print("[Reading] %s: %d samples <> %f sec" % (datetime.datetime.utcfromtimestamp(self.thisSecond - self.__timezone),
+        if self.verbose:
+            print("[Reading] %s: %d samples <> %f sec" % (datetime.datetime.utcfromtimestamp(self.thisSecond - self.__timezone),
                                                       self.__samples_to_read,
                                                       self.__timeInterval))
 
@@ -617,13 +608,13 @@ class DigitalRFReader(ProcessingUnit):
                 self.flagDiscontinuousBlock
                 self.flagIsNewBlock
         '''
-        #print("getdata")
+
         err_counter = 0
         self.dataOut.flagNoData = True
 
 
         if self.__isBufferEmpty():
-            #print("hi")
+
             self.__flagDiscontinuousBlock = False
 
             while True:
@@ -652,7 +643,6 @@ class DigitalRFReader(ProcessingUnit):
 
             if not self.getByBlock:
 
-                #print("self.__bufferIndex",self.__bufferIndex)# este valor siempre es cero aparentemente
                 self.dataOut.data = self.__data_buffer[:, self.__bufferIndex:self.__bufferIndex + self.__nSamples]
                 self.dataOut.utctime = ( self.__thisUnixSample + self.__bufferIndex) / self.__sample_rate
                 self.dataOut.flagNoData = False
@@ -684,16 +674,13 @@ class DigitalRFReader(ProcessingUnit):
         if self.__printInfo == False:
             return
 
-        # self.systemHeaderObj.printInfo()
-        # self.radarControllerHeaderObj.printInfo()
-
         self.__printInfo = False
 
     def printNumberOfBlock(self):
         '''
         '''
         return
-        # print self.profileIndex
+
 
     def run(self, **kwargs):
         '''
@@ -843,7 +830,7 @@ class DigitalRFWriter(Operation):
         Inputs:
             dataOut: object with the data
         '''
-        # print dataOut.__dict__
+
         self.dataOut = dataOut
         if not self.isConfig:
             self.setup(dataOut, path, frequency, fileCadence,
@@ -852,12 +839,7 @@ class DigitalRFWriter(Operation):
 
         self.writeData()
 
-        ## self.currentSample += 1
-        # if self.dataOut.flagDataAsBlock or self.currentSample == 1:
-        # self.writeMetadata()
-        ## if self.currentSample == self.__nProfiles: self.currentSample = 0
-
-        return dataOut# en la version 2.7 no aparece este return
+        return dataOut
 
     def close(self):
         print('[Writing] - Closing files ')

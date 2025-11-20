@@ -566,22 +566,17 @@ class WeatherParamsPlot(Plot):
         data = {}
         meta = {}
 
-        ##if hasattr(dataOut, 'nFFTPoints'):
-        ##    factor = dataOut.normFactor*10.0 # CONSIDERACION ENTRE PULSE PAIR Y FFT
-        ##else:
-        ##    factor = 1
-
         if hasattr(dataOut, 'dparam'):
             tmp = getattr(dataOut, 'data_param')
         else:
-            #print("-------------------self.attr_data[0]",self.attr_data[0])
+        
             if 'S' in self.attr_data[0]:
                 if self.attr_data[0]=='S':
-                    tmp = 10*numpy.log10(10.0*getattr(dataOut, 'data_param')[:,0,:]) ## /(factor))   ya no considerar factor se aplica factor jroproc_parametrs
+                    tmp = 10*numpy.log10(10.0*getattr(dataOut, 'data_param')[0])
                 if self.attr_data[0]=='SNR':
-                    tmp = 10*numpy.log10(getattr(dataOut, 'data_param')[:,3,:])
+                    tmp = 10*numpy.log10(getattr(dataOut, 'data_param')[3])
             else:
-                tmp = getattr(dataOut, 'data_param')[:,vars[self.attr_data[0]],:]
+                tmp = getattr(dataOut, 'data_param')[vars[self.attr_data[0]]]
 
         if self.mask:
             #---------nuevo procesamiento mask----------------#

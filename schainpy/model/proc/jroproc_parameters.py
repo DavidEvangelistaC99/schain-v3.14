@@ -126,26 +126,11 @@ class ParametersProc(ProcessingUnit):
             if hasattr(self.dataIn, 'profileIndex'):
                 self.dataOut.profileIndex = self.dataIn.profileIndex
 
-            if hasattr(self.dataIn, 'dataPP_POW'):
-                self.dataOut.dataPP_POW = self.dataIn.dataPP_POW
-
-            if hasattr(self.dataIn, 'dataPP_POWER'):
-                self.dataOut.dataPP_POWER = self.dataIn.dataPP_POWER
-
-            if hasattr(self.dataIn, 'dataPP_DOP'):
-                self.dataOut.dataPP_DOP = self.dataIn.dataPP_DOP
-
-            if hasattr(self.dataIn, 'dataPP_SNR'):
-                self.dataOut.dataPP_SNR = self.dataIn.dataPP_SNR
-
-            if hasattr(self.dataIn, 'dataPP_WIDTH'):
-                self.dataOut.dataPP_WIDTH = self.dataIn.dataPP_WIDTH
-
-            if hasattr(self.dataIn, 'dataPP_CCF'):
-                self.dataOut.dataPP_CCF = self.dataIn.dataPP_CCF
-
-            if hasattr(self.dataIn, 'dataPP_NOISE'):
-                self.dataOut.dataPP_NOISE = self.dataIn.dataPP_NOISE
+            if hasattr(self.dataIn, 'data_pair0'):
+                self.dataOut.data_pair0 = self.dataIn.data_pair0
+                self.dataOut.data_pair1 = self.dataIn.data_pair1
+                self.dataOut.data_ccf = self.dataIn.data_ccf
+                self.dataOut.N = self.dataIn.N
 
             if hasattr(self.dataIn, 'flagAskMode'):
                 self.dataOut.flagAskMode = self.dataIn.flagAskMode
@@ -3943,11 +3928,10 @@ class WeatherRadar(Operation):
         Operation.__init__(self)
 
     def setup(self,dataOut,variableList= None,Pt=0,Gt=0,Gr=0,Glna=0,lambda_=0, aL=0,
-                tauW= 0,thetaT=0,thetaR=0,Km =0,CR_Flag=False,offset=0,sesgoZD=0):
+                tauW= 0,thetaT=0,thetaR=0,Km =0,CR_Flag=False,sesgoZD=0):
 
         self.nCh      = dataOut.nChannels
         self.nHeis    = dataOut.nHeights
-        self.offset   = offset
         deltaHeight   = dataOut.heightList[1] - dataOut.heightList[0]
         #self.Range    = numpy.arange(dataOut.nHeights)*deltaHeight + dataOut.heightList[0]+min_index*deltaHeight
         self.Range    = dataOut.heightList
@@ -3970,37 +3954,74 @@ class WeatherRadar(Operation):
         Denominator   = (Pt *(10**(Gt/10.0))*(10**(Gr/10.0))*(10**(Glna/10.0))* lambda_**2 * SPEED_OF_LIGHT * tauW * numpy.pi*thetaT*thetaR)
         self.RadarConstant = Numerator/Denominator
         self.variableList  = variableList
+        self._lambda = 3.0e8/9345.0e6
         if self.variableList== None:
             self.variableList= ['Z','D','R','P']
 
-    def setMoments(self, dataOut):
-        # S, V, W, SNR, Z, D, P, R
-        type  = dataOut.inputUnit
-        nCh   = dataOut.nChannels
-        nHeis = dataOut.nHeights
-        data_param = numpy.zeros((nCh, 8, nHeis))
-        if type == "Voltage":
-            factor            = 1
-            #print("SHAPE:",dataOut.dataPP_POW.shape)
-            data_param[:,0,:] = dataOut.dataPP_POW/(factor)#dataOut.dataPP_POWER/(factor)
-            data_param[:,1,:] = dataOut.dataPP_DOP
-            data_param[:,2,:] = dataOut.dataPP_WIDTH
-            data_param[:,3,:] = dataOut.dataPP_SNR
-        if type == "Spectra":
-            factor = dataOut.normFactor
-            data_param[:,0,:] = dataOut.data_pow/(factor)
-            data_param[:,1,:] = dataOut.data_dop
-            data_param[:,2,:] = dataOut.data_width
-            data_param[:,3,:] = dataOut.data_snr
-        return data_param
+    def setMoments(self, dataOut, mask):
+        
+        if dataOut.inputUnit == "Voltage":
+            nCh   = dataOut.nChannels
+            lag_0 = dataOut.data_pair0.transpose(1, 0, 2)
+            # lag_1 = dataOut.data_pair1.transpose(1, 0, 2)
+            data_param = numpy.zeros((8, *lag_0.shape))
+            dataOut.pwcode = 1        
+            if dataOut.flagDecodeData == True:
+                dataOut.pwcode = numpy.sum(numpy.abs(dataOut.code[0])**2)
+            noise = numpy.zeros(nCh)
+            for i in range(self.nCh):
+                daux  = numpy.sort(lag_0[i,:,:]*dataOut.nCohInt*dataOut.pwcode, axis= None)
+                noise[i]=hildebrand_sekhon( daux/dataOut.pwcode, dataOut.nCohInt)        
+            data_intensity = numpy.array([lag_0[i]*dataOut.nCohInt*dataOut.pwcode-noise[i]*dataOut.nCohInt for i in range(len(noise))])/(dataOut.nCohInt*dataOut.pwcode)
+            data_snrPP = numpy.zeros(lag_0.shape)
+            for i, n in enumerate(noise):
+                data_snrPP = (lag_0[i,:,:]-n)/n
+            data_snrPP[data_snrPP<1.e-20] = 1.e-20
+        
+            data_param[0] = data_intensity
+            data_param[3] = data_snrPP
+            dataOut.data_noise = noise
+        elif dataOut.inputUnit == "Spectra":
+            data_param = numpy.zeros((8, *dataOut.data_pow.transpose(1, 0, 2).shape))
+            data_param[0] = dataOut.data_pow.transpose(1, 0, 2)/dataOut.normFactor            
+            data_param[3] = dataOut.data_snr.transpose(1, 0, 2)
+            dataOut.data_noise = dataOut.noise
+        
+        self.mask = data_param[3] < 10**(mask/10)
+        self.mask = numpy.tile(self.mask, (8, 1, 1, 1))
+        dataOut.data_param = data_param
+        return dataOut
 
+    def getRadialVelocity_V(self,dataOut):
+        if dataOut.inputUnit == "Voltage":            
+            lag_1 = dataOut.data_pair1.transpose(1, 0, 2)
+            freq = (-1/(2.0*math.pi*dataOut.ippSeconds*dataOut.nCohInt))*numpy.angle(lag_1)
+            data_velocity = (self._lambda/2.0)*freq
+            return data_velocity
+        elif dataOut.inputUnit == "Spectra":
+            return dataOut.data_dop.transpose(1, 0, 2)
+        
+    def getAnchoEspectral_W(self,dataOut):
+        if dataOut.inputUnit == "Voltage":            
+            lag_0 = dataOut.data_pair0.transpose(1, 0, 2)
+            lag_1 = dataOut.data_pair1.transpose(1, 0, 2)
+            R1 = numpy.abs(lag_1/((dataOut.N-1)*dataOut.pwcode*dataOut.nCohInt))
+            L = numpy.array([lag_0[i]-dataOut.data_noise[i] for i in range(len(dataOut.data_noise))])/R1
+            L = numpy.where(L<0,numpy.nan,L)
+            L = numpy.log(L)
+            tmp = numpy.sqrt(numpy.absolute(L))
+            data_specwidth = (self._lambda/(2*math.sqrt(2)*math.pi*dataOut.ippSeconds*dataOut.nCohInt))*tmp
+            return data_specwidth
+        elif dataOut.inputUnit == "Spectra":
+            return dataOut.data_width.transpose(1, 0, 2)
+    
     def getCoeficienteCorrelacionROhv_R(self,dataOut):
         type  = dataOut.inputUnit
         nHeis = dataOut.nHeights
         data_RhoHV_R = numpy.zeros((nHeis))
         if type == "Voltage":
-            avgcoherenceComplex= dataOut.dataPP_CCF
-            data_RhoHV_R = numpy.abs(avgcoherenceComplex)
+            print(dataOut.data_ccf.shape)
+            data_RhoHV_R = numpy.abs(dataOut.data_ccf)
         if type == "Spectra":
             data_RhoHV_R = dataOut.getCoherence()
 
@@ -4011,7 +4032,7 @@ class WeatherRadar(Operation):
         nHeis = dataOut.nHeights
         data_PhiD_P = numpy.zeros((nHeis))
         if type == "Voltage":
-            avgcoherenceComplex= dataOut.dataPP_CCF
+            avgcoherenceComplex= dataOut.data_ccf
             if phase:
                 data_PhiD_P = numpy.arctan2(avgcoherenceComplex.imag,
                                      avgcoherenceComplex.real) * 180 / numpy.pi
@@ -4020,10 +4041,10 @@ class WeatherRadar(Operation):
 
         return data_PhiD_P
 
-    def getReflectividad_D(self,dataOut,type):
+    def getReflectividad_D(self, dataOut):
         '''-----------------------------Potencia de Radar -Signal S-----------------------------'''
 
-        Pr = dataOut.data_param[:,0,:]
+        Pr = dataOut.data_param[0]
         '''---------------------------- Calculo de Noise y threshold para Reflectividad---------'''
 
         Pr = Pr/100.0 # Conversion Watt
@@ -4031,11 +4052,6 @@ class WeatherRadar(Operation):
         if not self.CR_Flag:
             self.n_radar       = numpy.zeros((self.nCh,self.nHeis))
             self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
-            #for R in range(self.nHeis):
-            #    self.n_radar[:,R] = self.RadarConstant*Pr[:,R]* (self.Range[:,R]*(10**3))**2
-
-            #    self.Z_radar[:,R] = self.n_radar[:,R]* self.lambda_**4/( numpy.pi**5 * self.Km**2)
-
             self.n_radar[:,:] = self.RadarConstant*Pr[:,:]* (self.Range[:,:]*(10**3))**2
             self.Z_radar[:,:] = self.n_radar[:,:]* self.lambda_**4/( numpy.pi**5 * self.Km**2)
             
@@ -4049,51 +4065,43 @@ class WeatherRadar(Operation):
 
             dBZeh = 10*numpy.log10(Zeh) + factor
         else:
-            self.Z_radar       = numpy.zeros((self.nCh,self.nHeis))
+            self.Z_radar = numpy.zeros(Pr.shape)
+            Range = numpy.zeros(Pr.shape)
+            for i in range(Pr.shape[0]):
+                Range[i] = numpy.tile(dataOut.heightList, (Pr.shape[1], 1))
 
-            #for R in range(self.nHeis):
-            #    self.Z_radar[0,R]= 10*numpy.log10(Pr[0,R])+20*numpy.log10(self.Range[0,R]*10**3)+67.41-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)#63.58,65.26,68.91
-            #    self.Z_radar[1,R]= 10*numpy.log10(Pr[1,R])+20*numpy.log10(self.Range[1,R]*10**3)+67.17-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)#64.26,65.79,62.33
-            
-            self.Z_radar[0,:]= 10*numpy.log10(Pr[0,:])+20*numpy.log10(self.Range[0,:]*10**3)+67.41-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)#63.58,65.26,68.91
-            self.Z_radar[1,:]= 10*numpy.log10(Pr[1,:])+20*numpy.log10(self.Range[1,:]*10**3)+67.17-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)#63.58,65.26,68.91
+            self.Z_radar[0,:]= 10*numpy.log10(Pr[0,:])+20*numpy.log10(Range[0,:]*10**3)+67.41-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)#63.58,65.26,68.91
+            self.Z_radar[1,:]= 10*numpy.log10(Pr[1,:])+20*numpy.log10(Range[1,:]*10**3)+67.17-10*numpy.log10(self.Pt)-59-10*numpy.log10(self.tauW)#63.58,65.26,68.91
 
             dBZeh= self.Z_radar
 
-        if type=='N':
-            return dBZeh
-        elif type=='D':
-            Zdb_D = dBZeh[0] - dBZeh[1]- self.sesgoZD
-            return Zdb_D
-
-    def getRadialVelocity_V(self,dataOut):
-        velRadial_V = dataOut.data_param[:,1,:]
-        return velRadial_V
-
-    def getAnchoEspectral_W(self,dataOut):
-        Sigmav_W = dataOut.data_param[:,2,:]
-        return Sigmav_W
-
+        return dBZeh
 
     def run(self,dataOut,variableList=None,Pt=1.58,Gt=38.5,Gr=38.5,Glna=59.0,lambda_=0.032, aL=1,
-                tauW= 0.2,thetaT=0.0314,thetaR=0.0314,Km =0.93,CR_Flag=0,offset=0,sesgoZD=0):
+                tauW= 0.2,thetaT=0.0314,thetaR=0.0314,Km =0.93,CR_Flag=0,sesgoZD=0, mask=None):
         if not self.isConfig:
             self.setup(dataOut= dataOut, variableList=variableList,Pt=Pt,Gt=Gt,Gr=Gr,Glna=Glna,lambda_=lambda_, aL=aL,
-                        tauW= tauW,thetaT=thetaT,thetaR=thetaR,Km =Km,CR_Flag=CR_Flag,offset=offset,sesgoZD=sesgoZD)
+                        tauW= tauW,thetaT=thetaT,thetaR=thetaR,Km =Km,CR_Flag=CR_Flag,sesgoZD=sesgoZD)
             self.isConfig = True
 
-        dataOut.data_param = self.setMoments(dataOut)
+        dataOut = self.setMoments(dataOut, mask)
 
         for i in range(len(self.variableList)):
+            if self.variableList[i] == 'V':
+                dataOut.data_param[1] = self.getRadialVelocity_V(dataOut=dataOut)
+            if self.variableList[i] == 'W':
+                dataOut.data_param[2] = self.getAnchoEspectral_W(dataOut=dataOut)
             if self.variableList[i] == 'Z':
-                dataOut.data_param[:,4,:] = self.getReflectividad_D(dataOut=dataOut,type='N')
+                dataOut.data_param[4] = self.getReflectividad_D(dataOut=dataOut)
             if self.variableList[i] == 'D' and dataOut.nChannels>1:
-                dataOut.data_param[:,5,:] = self.getReflectividad_D(dataOut=dataOut,type='D')
+                dataOut.data_param[5] = self.Z_radar[0] - self.Z_radar[1]- self.sesgoZD
             if self.variableList[i] == 'P' and dataOut.nChannels>1:
-                dataOut.data_param[:,6,:] = self.getFasediferencialPhiD_P(dataOut=dataOut, phase=True)
+                dataOut.data_param[6] = self.getFasediferencialPhiD_P(dataOut=dataOut, phase=True)
             if self.variableList[i] == 'R' and dataOut.nChannels>1:
-                dataOut.data_param[:,7,:] = self.getCoeficienteCorrelacionROhv_R(dataOut)
+                dataOut.data_param[7] = self.getCoeficienteCorrelacionROhv_R(dataOut)
 
+        if mask is not None:
+            dataOut.data_param[self.mask] = numpy.nan
         return dataOut
 
 class PedestalInformation(Operation):
@@ -4147,7 +4155,7 @@ class PedestalInformation(Operation):
                         self.fp.close()
                         self.fp = h5py.File(self.filename, 'r')
                         self.ele = self.fp['Data']['ele_pos'][:]
-                        self.azi = self.fp['Data']['azi_pos'][:] + 26.27 #+ self.heading
+                        self.azi = self.fp['Data']['azi_pos'][:] + 26.27 + self.heading
                         self.azi[self.azi>360] = self.azi[self.azi>360] - 360
                         self.time_pedestal = self.fp['Data']['utc'][:] # N 1.5
                         log.log('Opening file: {}'.format(self.filename), self.name)
@@ -4225,7 +4233,6 @@ class PedestalInformation(Operation):
 
         self.find_next_file()
 
-        #az, el, scan = self.get_values()
         az, el, scan,time_pedestal = self.get_values() # N 5
 
         dataOut.flagNoData = False
@@ -4237,7 +4244,6 @@ class PedestalInformation(Operation):
         dataOut.elevation = round(el, 2)
         dataOut.mode_op = scan
         dataOut.time_pedestal = round(time_pedestal,2)   # N 6
-        #log.log("TIME-----------------{}".format(self.delay),dataOut.time_pedestal)
         return dataOut
 
 class Block360(Operation):
@@ -4246,8 +4252,6 @@ class Block360(Operation):
     isConfig       = False
     __profIndex    = 0
     __initime      = None
-    __lastdatatime = None
-    __buffer       = None
     __dataReady    = False
     n              = None
     index          = 0
@@ -4261,115 +4265,108 @@ class Block360(Operation):
         n= Numero de PRF's de entrada
         '''
         self.__initime        = None
-        self.__lastdatatime   = 0
         self.__dataReady      = False
-        self.__buffer         = 0
         self.index            = 0
-        self.attr = attr
-        self.__buffer  = []
+        self.attrs = attr
+        for a in self.attrs:
+            setattr(self, a, [])
         self.azi       = []
         self.ele       = []
-        self.__noise   = []
         self.__time_pedestal = [] # c1
         self.angles = angles
         self.horario= horario
         self.heading = heading
         self.bottom  = bottom
 
-    def putData(self, data, attr):
+    def putData(self, data):
         '''
         Add a profile to he __buffer and increase in one the __profiel Index
         '''
-        tmp= getattr(data, attr)
-        self.__buffer.append(tmp)
+        for attr in self.attrs:
+            getattr(self, attr).append(getattr(data, attr))
+        
         self.azi.append(data.azimuth)
         self.ele.append(data.elevation)
-        self.__time_pedestal.append(data.time_pedestal) # c2        
-        try:
-            #print("SHOW ------", type(data.dataPP_NOISE),data.dataPP_NOISE.shape,"value:",data.dataPP_NOISE)
-            self.__noise.append(data.dataPP_NOISE)
-        except:
-            #print("SHOW ------", type(data.noise),data.noise.shape,"value:",data.noise)
-            self.__noise.append(data.noise)
-        self.__profIndex  += 1
+        self.__time_pedestal.append(data.time_pedestal) # c2
+        self.__profIndex += 1
 
     def pushData(self, data, case_flag):
         '''
         '''
 
-        data_360 = numpy.array(self.__buffer).transpose(1, 2, 0, 3)
+        data_360 = [numpy.array(getattr(self, x)) for x in self.attrs]
+        
         data_p   = numpy.array(self.azi)
-        data_e   = numpy.array(self.ele)
-        data_n   = numpy.array(self.__noise)
+        data_e   = numpy.array(self.ele)        
         time_pedestal  = numpy.array(self.__time_pedestal) #c3
-        n   = self.__profIndex
 
-        self.__buffer = []
+        for x in self.attrs:
+            setattr(self, x, [])
+
         self.azi      = []
         self.ele      = []
-        self.__noise  = []
         self.__time_pedestal = [] # c4
         self.__profIndex = 0
 
         if case_flag in (0, 1, -1):
-            self.putData(data=data, attr = self.attr)
+            self.putData(data=data)
 
-        return data_360, n, data_p, data_e, data_n ,time_pedestal #time_pedestal c5
-
+        return data_360, data_p, data_e, time_pedestal #time_pedestal c5
+    
     def byProfiles(self, dataOut):
 
         self.__dataReady = False
         data_360 =  []
         data_p = None
-        data_e = None
-        data_n = None
+        data_e = None        
         time_pedestal = None # c6
 
-        self.putData(data=dataOut, attr = self.attr)
+        self.putData(data=dataOut)
 
         if self.__profIndex > 5:
-            case_flag = self.checkcase()
-
+            case_flag = self.checkcase()            
             if self.flagMode == 1: #'AZI':
                 if case_flag == 0: #Ya giró
-                    self.__buffer.pop() #Erase last data
+                    for x in self.attrs:
+                        getattr(self, x).pop() #Erase last data
                     self.azi.pop()
                     self.ele.pop()
                     self.__time_pedestal.pop() # c7
-                    data_360 ,n,data_p,data_e,data_n,time_pedestal = self.pushData(dataOut, case_flag) # time_pedestal c8
+                    data_360, data_p,data_e,time_pedestal = self.pushData(dataOut, case_flag) # time_pedestal c8
                     if len(data_p)>350:
                         self.__dataReady = True
             elif self.flagMode == 0: #'ELE'
                 if case_flag == 1: #Bajada
-                    self.__buffer.pop() #Erase last data
+                    for x in self.attrs:
+                        getattr(self, x).pop() #Erase last data
                     self.azi.pop()
                     self.ele.pop()
                     self.__time_pedestal.pop() #c9
-                    data_360, n, data_p, data_e, data_n,time_pedestal  = self.pushData(dataOut, case_flag) # time_pedestal c10
+                    data_360, data_p, data_e, time_pedestal  = self.pushData(dataOut, case_flag) # time_pedestal c10
                     self.__dataReady = True
                 if case_flag == -1: #Subida
-                    self.__buffer.pop() #Erase last data
+                    for x in self.attrs:
+                        getattr(self, x).pop() #Erase last data
                     self.azi.pop()
                     self.ele.pop()
                     self.__time_pedestal.pop() # time_pedestal c11
-                    data_360, n, data_p, data_e, data_n, time_pedestal  = self.pushData(dataOut, case_flag) # time_pedestal c12
+                    data_360, data_p, data_e,  time_pedestal  = self.pushData(dataOut, case_flag) # time_pedestal c12
                     #self.__dataReady = True
 
-        return data_360, data_p, data_e, data_n ,time_pedestal  #time_pedestal c13
+        return data_360, data_p, data_e, time_pedestal  #time_pedestal c13
 
 
     def blockOp(self, dataOut, datatime= None):
         if self.__initime == None:
             self.__initime = datatime
-        data_360, data_p, data_e, data_n,time_pedestal = self.byProfiles(dataOut) # time_pedestal c14
-        self.__lastdatatime = datatime
+        data_360, data_p, data_e, time_pedestal = self.byProfiles(dataOut) # time_pedestal c14
 
         avgdatatime = self.__initime
         if self.n==1:
             avgdatatime = datatime
 
         self.__initime = datatime
-        return data_360, avgdatatime, data_p, data_e, data_n ,time_pedestal # time_pedestal c15
+        return data_360, avgdatatime, data_p, data_e, time_pedestal # time_pedestal c15
 
     def checkcase(self):
 
@@ -4414,35 +4411,34 @@ class Block360(Operation):
             elif (middle>start and end<middle):
                 return -1
 
-    def run(self, dataOut, attr_data='dataPP_POWER', runNextOp = False, angles=[],horario=True,heading=0,bottom=0,**kwargs):
+    def run(self, dataOut, attr_data, runNextOp=False, angles=[], horario=True, heading=0, bottom=0, **kwargs):
 
         dataOut.attr_data = attr_data
         dataOut.runNextOp = runNextOp
 
         if not self.isConfig:
-            self.setup(dataOut=dataOut, attr=attr_data, angles=angles,horario=horario, heading=heading,bottom=bottom,**kwargs)
+            self.setup(dataOut=dataOut, attr=attr_data, angles=angles, horario=horario, heading=heading, bottom=bottom, **kwargs)
             self.isConfig   = True
 
-        data_360, avgdatatime, data_p, data_e, data_n,time_pedestal = self.blockOp(dataOut, dataOut.utctime) # time_pedestal c16
-
+        data_360, avgdatatime, data_p, data_e, time_pedestal = self.blockOp(dataOut, dataOut.utctime) # time_pedestal c16
         dataOut.flagNoData = True
         if self.__dataReady:
             mean_az = numpy.mean(data_p[25:-25])
             mean_el = numpy.mean(data_e[25:-25])
             if round(mean_az,1) in angles or round(mean_el,1) in angles:
-                setattr(dataOut, attr_data, data_360 )
+                for i, attr in enumerate(self.attrs):
+                    setattr(dataOut, attr, data_360[i] )
                 dataOut.data_azi   = data_p+self.heading
                 dataOut.data_azi[dataOut.data_azi>360]=dataOut.data_azi[dataOut.data_azi>360]-360
                 dataOut.data_ele   = data_e
                 dataOut.radar_sweep_time  = time_pedestal # time_pedestal c17
                 dataOut.utctime    = avgdatatime
-                dataOut.data_noise = data_n
                 dataOut.flagNoData = False
                 dataOut.flagMode   = self.flagMode
                 dataOut.mode_op    = self.mode_op
             else:
                 log.warning('Skipping angle {} / {}'.format(round(mean_az,1), round(mean_el,1)))
-
+        
         return dataOut
 
 class MergeProc(ProcessingUnit):
