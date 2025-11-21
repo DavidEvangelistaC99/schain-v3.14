@@ -3928,12 +3928,11 @@ class WeatherRadar(Operation):
         Operation.__init__(self)
 
     def setup(self,dataOut,variableList= None,Pt=0,Gt=0,Gr=0,Glna=0,lambda_=0, aL=0,
-                tauW= 0,thetaT=0,thetaR=0,Km =0,CR_Flag=False,sesgoZD=0):
+                tauW= 0,thetaT=0,thetaR=0,Km =0,CR_Flag=False,sesgoZD=0, noise_angle=None):
 
         self.nCh      = dataOut.nChannels
         self.nHeis    = dataOut.nHeights
-        deltaHeight   = dataOut.heightList[1] - dataOut.heightList[0]
-        #self.Range    = numpy.arange(dataOut.nHeights)*deltaHeight + dataOut.heightList[0]+min_index*deltaHeight
+        self.angle    = noise_angle        
         self.Range    = dataOut.heightList
         self.Range    = self.Range.reshape(1,self.nHeis)
         self.Range    = numpy.tile(self.Range,[self.nCh,1])
@@ -3969,18 +3968,20 @@ class WeatherRadar(Operation):
             if dataOut.flagDecodeData == True:
                 dataOut.pwcode = numpy.sum(numpy.abs(dataOut.code[0])**2)
             noise = numpy.zeros(nCh)
-            for i in range(self.nCh):
-                daux  = numpy.sort(lag_0[i,:,:]*dataOut.nCohInt*dataOut.pwcode, axis= None)
-                noise[i]=hildebrand_sekhon( daux/dataOut.pwcode, dataOut.nCohInt)        
-            data_intensity = numpy.array([lag_0[i]*dataOut.nCohInt*dataOut.pwcode-noise[i]*dataOut.nCohInt for i in range(len(noise))])/(dataOut.nCohInt*dataOut.pwcode)
+            if self.angle is None or dataOut.angle == self.angle or dataOut.data_noise is None:                
+                for i in range(self.nCh):
+                    daux  = numpy.sort(lag_0[i,:,:]*dataOut.nCohInt*dataOut.pwcode, axis= None)
+                    noise[i]=hildebrand_sekhon( daux/dataOut.pwcode, dataOut.nCohInt)        
+                dataOut.data_noise = noise
+            data_intensity = numpy.array([lag_0[i]*dataOut.nCohInt*dataOut.pwcode-dataOut.data_noise[i]*dataOut.nCohInt for i in range(len(dataOut.data_noise))])/(dataOut.nCohInt*dataOut.pwcode)
             data_snrPP = numpy.zeros(lag_0.shape)
-            for i, n in enumerate(noise):
+            for i, n in enumerate(dataOut.data_noise):
                 data_snrPP = (lag_0[i,:,:]-n)/n
             data_snrPP[data_snrPP<1.e-20] = 1.e-20
         
             data_param[0] = data_intensity
             data_param[3] = data_snrPP
-            dataOut.data_noise = noise
+            
         elif dataOut.inputUnit == "Spectra":
             data_param = numpy.zeros((8, *dataOut.data_pow.transpose(1, 0, 2).shape))
             data_param[0] = dataOut.data_pow.transpose(1, 0, 2)/dataOut.normFactor            
@@ -4019,8 +4020,7 @@ class WeatherRadar(Operation):
         type  = dataOut.inputUnit
         nHeis = dataOut.nHeights
         data_RhoHV_R = numpy.zeros((nHeis))
-        if type == "Voltage":
-            print(dataOut.data_ccf.shape)
+        if type == "Voltage":            
             data_RhoHV_R = numpy.abs(dataOut.data_ccf)
         if type == "Spectra":
             data_RhoHV_R = dataOut.getCoherence()
@@ -4078,11 +4078,12 @@ class WeatherRadar(Operation):
         return dBZeh
 
     def run(self,dataOut,variableList=None,Pt=1.58,Gt=38.5,Gr=38.5,Glna=59.0,lambda_=0.032, aL=1,
-                tauW= 0.2,thetaT=0.0314,thetaR=0.0314,Km =0.93,CR_Flag=0,sesgoZD=0, mask=None):
+                tauW= 0.2,thetaT=0.0314,thetaR=0.0314,Km =0.93,CR_Flag=0,sesgoZD=0, mask=None, noise_angle=None):
         if not self.isConfig:
-            self.setup(dataOut= dataOut, variableList=variableList,Pt=Pt,Gt=Gt,Gr=Gr,Glna=Glna,lambda_=lambda_, aL=aL,
-                        tauW= tauW,thetaT=thetaT,thetaR=thetaR,Km =Km,CR_Flag=CR_Flag,sesgoZD=sesgoZD)
+            self.setup(dataOut = dataOut, variableList=variableList,Pt=Pt,Gt=Gt,Gr=Gr,Glna=Glna,lambda_=lambda_, aL=aL,
+                        tauW= tauW,thetaT=thetaT,thetaR=thetaR,Km =Km,CR_Flag=CR_Flag,sesgoZD=sesgoZD, noise_angle=noise_angle)
             self.isConfig = True
+            dataOut.data_noise = None
 
         dataOut = self.setMoments(dataOut, mask)
 
@@ -4425,6 +4426,7 @@ class Block360(Operation):
         if self.__dataReady:
             mean_az = numpy.mean(data_p[25:-25])
             mean_el = numpy.mean(data_e[25:-25])
+            dataOut.angle = round(mean_el, 1)
             if round(mean_az,1) in angles or round(mean_el,1) in angles:
                 for i, attr in enumerate(self.attrs):
                     setattr(dataOut, attr, data_360[i] )
