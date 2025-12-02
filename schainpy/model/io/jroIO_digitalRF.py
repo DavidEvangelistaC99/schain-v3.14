@@ -14,7 +14,6 @@ import os
 import time
 import datetime
 import numpy
-import timeit
 from fractions import Fraction
 from time import time
 from time import sleep
@@ -483,17 +482,6 @@ class DigitalRFReader(ProcessingUnit):
 
         return False
 
-    def timeit(self, toExecute):
-        t0                  = time.time()
-        toExecute()
-        self.executionTime  = time.time() - t0
-        if self.oldAverage is None:
-            self.oldAverage = self.executionTime
-        self.oldAverage     = (self.executionTime + self.count *
-                           self.oldAverage) / (self.count + 1.0)
-        self.count          = self.count + 1.0
-        return
-
     def __readNextBlock(self, seconds=30, volt_scale=1/20000.0):
         '''
         NOTA: APLICACION RADAR METEOROLOGICO
@@ -531,17 +519,9 @@ class DigitalRFReader(ProcessingUnit):
         for thisChannelName in self.__channelNameList:  # TODO VARIOS CHANNELS?
             for indexSubchannel in range(self.__num_subchannels):
                 try:
-                    t0     = time()                    
                     result = self.digitalReadObj.read_vector_c81d(self.__thisUnixSample,
                                                                   self.__samples_to_read,
-                                                                  thisChannelName, sub_channel=indexSubchannel)                    
-                    self.executionTime  = time() - t0
-                    if self.oldAverage is None:
-                        self.oldAverage = self.executionTime
-                    self.oldAverage     = (
-                        self.executionTime + self.count * self.oldAverage) / (self.count + 1.0)
-                    self.count = self.count + 1.0
-
+                                                                  thisChannelName, sub_channel=indexSubchannel)
                 except IOError as e:
                     # read next profile
                     self.__flagDiscontinuousBlock = True
@@ -569,7 +549,8 @@ class DigitalRFReader(ProcessingUnit):
                                                                                              self.__samples_to_read))
                     break
 
-                self.__data_buffer[indexChannel, :] = result * volt_scale
+                self.__data_buffer[indexChannel, :] = result
+                self.__data_buffer[indexChannel, :] *= volt_scale
                 indexChannel+=1
 
                 dataOk       = True

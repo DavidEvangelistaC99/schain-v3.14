@@ -3962,7 +3962,7 @@ class WeatherRadar(Operation):
         if dataOut.inputUnit == "Voltage":
             nCh   = dataOut.nChannels
             lag_0 = dataOut.data_pair0.transpose(1, 0, 2)
-            # lag_1 = dataOut.data_pair1.transpose(1, 0, 2)
+            
             data_param = numpy.zeros((8, *lag_0.shape))
             dataOut.pwcode = 1        
             if dataOut.flagDecodeData == True:
@@ -3976,9 +3976,8 @@ class WeatherRadar(Operation):
             data_intensity = numpy.array([lag_0[i]*dataOut.nCohInt*dataOut.pwcode-dataOut.data_noise[i]*dataOut.nCohInt for i in range(len(dataOut.data_noise))])/(dataOut.nCohInt*dataOut.pwcode)
             data_snrPP = numpy.zeros(lag_0.shape)
             for i, n in enumerate(dataOut.data_noise):
-                data_snrPP = (lag_0[i,:,:]-n)/n
-            data_snrPP[data_snrPP<1.e-20] = 1.e-20
-        
+                data_snrPP[i] = (lag_0[i,:,:]-n)/n
+
             data_param[0] = data_intensity
             data_param[3] = data_snrPP
             
@@ -3987,8 +3986,8 @@ class WeatherRadar(Operation):
             data_param[0] = dataOut.data_pow.transpose(1, 0, 2)/dataOut.normFactor            
             data_param[3] = dataOut.data_snr.transpose(1, 0, 2)
             dataOut.data_noise = dataOut.noise
-        
-        self.mask = data_param[3] < 10**(mask/10)
+               
+        self.mask = data_param[3] < 10**(mask/10)        
         self.mask = numpy.tile(self.mask, (8, 1, 1, 1))
         dataOut.data_param = data_param
         return dataOut
