@@ -763,15 +763,8 @@ class Decoder(Operation):
 
     def __convolutionByBlockInTime(self, data):
 
-        repetitions = int(self.__nProfiles / self.nCode)
-        junk = numpy.lib.stride_tricks.as_strided(self.code, (repetitions, self.code.size), (0, self.code.itemsize))
-        junk = junk.flatten()
-        code_block = numpy.reshape(junk, (self.nCode*repetitions, self.nBaud))
-        profilesList = range(self.__nProfiles)
-
         for i in range(self.__nChannels):
-            for j in profilesList:
-                self.datadecTime[i,j,:] = numpy.correlate(data[i,j,:], code_block[j,:], mode='full')[self.nBaud-1:]
+            self.datadecTime[i] = signal.correlate(data[i], self.code, mode='full')[:self.__nProfiles,self.nBaud-1:]
         return self.datadecTime
 
     def __convolutionByBlockInFreq(self, data):
