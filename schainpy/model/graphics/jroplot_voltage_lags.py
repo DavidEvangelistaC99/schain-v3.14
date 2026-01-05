@@ -185,6 +185,95 @@ class RTILPPlot(RTIPlot):
                                        cmap=plt.get_cmap(self.colormap)
                                        )
 
+class SatRTILPPlot(RTIPlot):
+    '''
+    Written by C. Portilla
+    '''
+    '''
+       Plot for RTI Long Pulse Using Cross Products Analysis
+    '''
+
+    CODE = 'RTILP'
+    colormap = 'Reds'
+    plot_name = 'RTI LP'
+    plot_type = 'pcolorbuffer'
+
+    def setup(self):
+        self.xaxis = 'time'
+        self.ncols = 1
+        self.nrows = 2
+        self.nplots = self.nrows
+
+        self.ylabel = 'Range [km]'
+        self.xlabel = 'Time (LT)'
+
+        self.cb_label = 'Intensity (dB)'
+
+        self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.1, 'right':0.95})
+
+
+        self.titles = ['{} Channel {}'.format(
+            self.plot_name.upper(), '0'),'{} Channel {}'.format(
+                self.plot_name.upper(), '1'),'{} Channel {}'.format(
+                    self.plot_name.upper(), '2'),'{} Channel {}'.format(
+                        self.plot_name.upper(), '3')]
+
+
+    def update(self, dataOut):
+
+        data = {}
+        meta = {}
+        data['rti'] = dataOut.sat_indices
+        data['NRANGE'] = dataOut.NRANGE
+        #print("dataOut.sat_indices", dataOut.sat_indices)
+
+        return data, meta
+
+    def plot(self):
+
+        NRANGE = self.data['NRANGE'][-1]
+        self.x = self.data.times
+        self.y = self.data.yrange[0:NRANGE]
+
+        self.z = self.data['rti']
+        z = self.z
+        x = self.x
+        y = self.y
+        '''self.z = numpy.ma.masked_invalid(self.z)
+
+        if self.decimation is None:
+            x, y, z = self.fill_gaps(self.x, self.y, self.z)
+        else:
+            x, y, z = self.fill_gaps(*self.decimate())'''
+
+        for n, ax in enumerate(self.axes):
+
+            '''self.zmax = self.zmax if self.zmax is not None else numpy.max(
+                self.z[1][0,12:40])
+            self.zmin = self.zmin if self.zmin is not None else numpy.min(
+                self.z[1][0,12:40])'''
+
+            if ax.firsttime:
+
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
+
+                print("LOL",z[n].T)
+                ax.plt = ax.pcolormesh(x, y, z[n].T,
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
+                                       cmap=plt.get_cmap(self.colormap)
+                                       )
+
+            else:
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
+                ax.plt.remove()
+                ax.plt = ax.pcolormesh(x, y, z[n].T,
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
+                                       cmap=plt.get_cmap(self.colormap)
+                                       )
 
 class DenRTIPlot(RTIPlot):
     '''

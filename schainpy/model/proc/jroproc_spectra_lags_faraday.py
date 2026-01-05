@@ -1419,7 +1419,7 @@ class IntegrationFaradaySpectra(Operation):
                         
                         avg=numpy.median(buffer_cspc[[t for t in range(buffer_cspc.shape[0]) if t not in lt],:],axis=0)
                     else:
-                        avg = numpy.mean(buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:], axis=0)
+                        avg=numpy.mean(buffer_cspc[[t for t in range(buffer_cspc.shape[0]) if t not in lt],:],axis=0)
                         
                     #print("avg2",avg)
                     for p in list(outliers_IDs_cspc):

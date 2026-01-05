@@ -103,3 +103,5 @@ ENV/
 
 #vscode settings
 schainpy/.vscode/
+
+schainpy/model/proc/*.csv

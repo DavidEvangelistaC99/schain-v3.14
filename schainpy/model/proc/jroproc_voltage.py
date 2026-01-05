@@ -15,6 +15,7 @@ import datetime
 import collections.abc
 import csv
 import ast #new added
+from scipy import signal
 
 try:
     from schainpy.model.proc import fitacf_guess
@@ -236,12 +237,131 @@ class CombineChannels_V2(Operation):
 
 class saturatedBlock(Operation):
     '''
+    Created by C. Portilla
     hardcoded for the moment to Hybrid experiment
     '''
-    def run(self, dataOut, limit = 70):
+
+    def ca_cfar_alpha(self, N, pfa):
+        """
+        Analytical CA-CFAR scale factor for exponential noise:
+        alpha = N * (pfa^{-1/N} - 1)
+        Works as a decent initial approximation for SO-CFAR.
+        """
+        return N * (pfa**(-1.0 / N) - 1.0)
 
 
+    def so_cfar_1d(self, power, T=12, G=2, pfa=1e-6, alpha=None, pad_mode='edge'):
+        """
+        Smallest-Of CFAR (SO-CFAR) for 1-D power profile.
+        Parameters
+        ----------
+        power : 1D np.array (float)
+            Power values (non-negative). NaN are allowed (treated as missing).
+        T : int
+            Number of training cells PER SIDE (left and right).
+        G : int
+            Number of guard cells per side.
+        pfa : float
+            Desired probability of false alarm (used to compute alpha if not provided).
+        alpha : float or None
+            If provided, use this scaling factor for threshold. Otherwise compute
+            CA-CFAR alpha and use it as approximation.
+        pad_mode : {'edge','constant'}
+            Padding behavior for edges; 'edge' repeats edge values, 'constant' pads with zero.
+        Returns
+        -------
+        detections : boolean array same shape as power
+            True where detections occurred (satellite candidates).
+        threshold : float array same shape as power
+            Computed threshold for each CUT (NaN where not computable).
+        ref_estimate : float array
+            reference noise estimate (min of left/right averages).
+        notes:
+            - cells near edges where full training window does not fit are returned as False
+            - input may contain NaN; training windows containing NaN are treated by ignoring NaNs
+        Complexity: O(N) using cumulative sums.
+        """
+        power = numpy.asarray(power, dtype=float)
+        N = len(power)
+        if alpha is None:
+            alpha = self.ca_cfar_alpha(2 * T, pfa)  # use CA alpha as initial approximation
+
+        # Minimum number of samples needed around a CUT
+        pad = T + G
+        # pad array to simplify indexing; choose edge padding to avoid introducing zeros in quiet backgrounds
+        if pad_mode == 'edge':
+            p = numpy.pad(power, pad_width=pad, mode='edge')
+        else:
+            p = numpy.pad(power, pad_width=pad, mode='constant', constant_values=0.0)
+
+        # cumulative sum but treating NaN: we'll compute sums and counts ignoring NaN
+        vals = numpy.nan_to_num(p, nan=0.0)
+        counts = (~numpy.isnan(p)).astype(float)
+
+        csum = numpy.concatenate(([0.0], numpy.cumsum(vals)))  # length len(p)+1
+        ccount = numpy.concatenate(([0.0], numpy.cumsum(counts)))
+
+        # helper to get sum over interval [a,b) in padded indices
+        def window_sum(a, b):
+            return csum[b] - csum[a]
+        def window_count(a, b):
+            return ccount[b] - ccount[a]
+
+        detections = numpy.zeros(N, dtype=bool)
+        threshold = numpy.full(N, numpy.nan, dtype=float)
+        ref_est = numpy.full(N, numpy.nan, dtype=float)
+
+        # prepare padded index of original element i -> i_p = i + pad
+        idx = numpy.arange(N) + pad
+
+        for k, i_p in enumerate(idx):
+            # left window [i_p - G - T, i_p - G)
+            l0 = int(i_p - G - T)
+            l1 = int(i_p - G)
+            # right window [i_p + G + 1, i_p + G + 1 + T)
+            r0 = int(i_p + G + 1)
+            r1 = int(r0 + T)
+
+            # safety check (should be fine due to padding)
+            if l0 < 0 or r1 > len(p):
+                continue
+
+            sum_l = window_sum(l0, l1)
+            cnt_l = window_count(l0, l1)
+            sum_r = window_sum(r0, r1)
+            cnt_r = window_count(r0, r1)
+
+            # compute averages ignoring NaNs (if too few samples, skip)
+            if cnt_l < max(1, 0.5 * T) or cnt_r < max(1, 0.5 * T):
+                # not enough valid training cells -> leave as no detection (or you could choose to adapt)
+                continue
+
+            avg_l = sum_l / cnt_l
+            avg_r = sum_r / cnt_r
+
+            ref = min(avg_l, avg_r)  #0.5*(avg_l+avg_r) #min(avg_l, avg_r) #
+            ref_est[k] = ref
+            thr = alpha * ref
+            threshold[k] = thr
+
+            vcut = power[k]
+            if numpy.isnan(vcut):
+                # cannot test a NaN CUT; treat as not detection (or optionally mark)
+                continue
+            # Decision
+            if vcut > thr:
+                detections[k] = True
+
+
+        return detections, threshold, ref_est
+
+    def run(self, dataOut, limit = 70, mode = 0):
+        
+        #self.setup()
+        #print("TEST is equal Ch 0 ", dataOut.data[0,0:15,:])
+        #print("TEST is equal Ch 1 ", dataOut.data[0,0:15,:])
         z = numpy.abs(dataOut.data)
+        
         # Working place
         # data z  (4, 150, 334) -> (4,128,334)
         z_new = z [:,:128,:]
@@ -251,17 +371,52 @@ class saturatedBlock(Operation):
 
         idx = []
         jars_fix = 1 # to solve, the samplpes are not enough correct
-        sample_trh = slice(35,200 - jars_fix)
-        time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime)
-        if time_text.hour > 23 or time_text.hour < 5: sample_trh = slice(45,200 - jars_fix) #10
 
-
+        # Identify the saturated profile groups
         for i in range(8):
-            if (z_new[1,i,:,sample_trh] > limit).any():
+            hardTarget = False
+
+            if mode == 0:
+                sample_trh = slice(40,200 - jars_fix)
+                time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime)
+                if time_text.hour > 23 or time_text.hour < 5: sample_trh = slice(45,200 - jars_fix) #10
+
+                hardTarget = (z_new[1,i,:,sample_trh] > limit).any()
+
+            elif mode == 1:
+                # Array to save (and plot) satellites
+                dataOut.sat_indices = numpy.zeros([2,200 - jars_fix])
+
+                Ch_list = [0,1]
+                detections = []
+                aux_hardTarget = []
+                sample_trh = slice(25,200 - jars_fix)
+                for Ch in Ch_list:
+                    self.z_new = numpy.average(z_new[Ch,i,:,sample_trh], axis=0)
+                    # Typical values T=12, G=8, pfa=4e-2 Hybrid experiment
+                    detection,_,_ = self.so_cfar_1d(self.z_new, T=12, G=8, pfa=4e-2, pad_mode='edge')
+                    detections.append(detection)
+                    aux_hardTarget.append(sum(detection) >= 2)
+
+                    sat_indices = numpy.where(detection,0.125, 0) # Convert the detection in a fraction of block
+                    #if detection.any() == True: print("aaBs", sat_indices)
+                    dataOut.sat_indices[Ch, sample_trh] += sat_indices
+
+                detections = numpy.logical_or.reduce(detections)
+                #hardTarget = detections.any() # At least 1 target in both Ch
+                #hardTarget = sum(detections) >= 2 # At least 2 targets in both Ch
+                hardTarget = numpy.array(aux_hardTarget).any()  # At least 2 targets in any Ch
+
+            else:
+                return log.warning("Any filter BLock mode selected")
+
+            if hardTarget: # Save index and print
                 idx.append(i)
-                print(f"Debrid detected at {i}", (z_new[1,i,:,sample_trh] > limit).any()) # use to print each profile is being changed
-                #print(z_new[1,i,:,sample_trh])
-        if len(idx) != 8:
+                print(f"Debris detected at {i}", (z_new[1,i,:,sample_trh] > limit).any())
+        
+
+        # Deals what to do with saturated profile groups
+        if len(idx) < 7:#len(idx) != 8:
             candidates = numpy.setdiff1d(numpy.arange(8), idx)
             result = numpy.array([candidates[numpy.abs(candidates - i).argmin()] for i in idx])
             for n,i in enumerate(idx):
@@ -272,6 +427,92 @@ class saturatedBlock(Operation):
         else:
             print("All profiles saturated")
 
+        # Temporal correction of JARS2 sampling issue - AllISR 2025
+        '''print(dataOut.data[0,10,197], dataOut.data[0,10,198], dataOut.data[0,10,199], dataOut.data[0,10,200], dataOut.data[0,10,201])
+        print("Jars correction")'''
+        dataOut.data[:,:,199] = dataOut.data[:,:,199- jars_fix]
+
+        return dataOut
+
+
+class saturatedBlock_Sat(saturatedBlock):
+    '''
+    Created by C. Portilla
+    hardcoded for the moment to Hybrid experiment
+    '''
+
+    def run(self, dataOut, limit = 70, mode = 0):
+
+        #self.setup()
+        #print("TEST is equal Ch 0 ", dataOut.data[0,0:15,:])
+        #print("TEST is equal Ch 1 ", dataOut.data[0,0:15,:])
+        z = numpy.abs(dataOut.data)
+        
+        # Working place
+        # data z  (4, 150, 334) -> (4,128,334)
+        z_new = z [:,:128,:]
+        dataOut_extra = dataOut.data[:, 128:, :]
+        z_new = z_new.reshape(4, 8, 16, 334)
+        dataOut_z_new = z_new.reshape(4, 8, 16, 334)
+
+        idx = []
+        jars_fix = 1 # to solve, the samplpes are not enough correct
+        sample_trh = slice(40,200 - jars_fix)
+        time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime)
+        if time_text.hour > 23 or time_text.hour < 5: sample_trh = slice(45,200 - jars_fix) #10
+
+        # Identify the saturated profile groups
+        dataOut.sat_indices = numpy.zeros([2,200 - jars_fix])
+        for i in range(8):
+            hardTarget = False
+
+            if mode == 0:
+                hardTarget = (z_new[1,i,:,sample_trh] > limit).any()
+
+            elif mode == 1:
+                Ch_list = [0,1]
+                detections = []
+                aux_hardTarget = []
+                sample_trh = slice(25,200 - jars_fix)
+                for Ch in Ch_list:
+                    self.z_new = numpy.average(z_new[Ch,i,:,sample_trh], axis=0)
+                    # Typical values T=12, G=8, pfa=4e-2 Hybrid experiment
+                    detection,_,_ = self.so_cfar_1d(self.z_new, T=12, G=8, pfa=4e-2, pad_mode='edge')
+                    #print("aa", detection)
+                    detections.append(detection)
+                    aux_hardTarget.append(sum(detection) >= 2)
+
+                    sat_indices = numpy.where(detection,0.125, 0)
+                    #if detection.any() == True: print("aaBs", sat_indices)
+                    dataOut.sat_indices[Ch, sample_trh] += sat_indices
+
+                #detections = numpy.array(sorted(list(set(numpy.concatenate(detections))))) # join satellites indexes
+                detections = numpy.logical_or.reduce(detections)
+                
+                hardTarget = numpy.array(aux_hardTarget).any()  # At least 2 targets in any Ch
+
+            else:
+                return log.warning("Any filter BLock mode selected")
+
+            if hardTarget:
+                idx.append(i)
+                print(f"Debris detected at {i}", (z_new[1,i,:,sample_trh] > limit).any()) # use to print each profile is being changed
+                #print(z_new[1,i,:,sample_trh])
+        
+
+        # Deals what to do with saturated profile groups
+        if len(idx) < 7:#len(idx) != 8:
+            candidates = numpy.setdiff1d(numpy.arange(8), idx)
+            result = numpy.array([candidates[numpy.abs(candidates - i).argmin()] for i in idx])
+            for n,i in enumerate(idx):
+                #print(i,result[n]) # use to print each profile is being changed indexes
+                #z_new[:,i,:,23:200] = z_new[:,result[n],:,23:200]
+                get_block = lambda x: slice(x*16, (x+1)*16)
+                dataOut.data[:,get_block(i),:] = dataOut.data[:,get_block(result[n]),:]
+        else:
+            print("All profiles saturated")
+
+        # Temporal correction of JARS2 sampling issue - AllISR 2025
         '''print(dataOut.data[0,10,197], dataOut.data[0,10,198], dataOut.data[0,10,199], dataOut.data[0,10,200], dataOut.data[0,10,201])
         print("Jars correction")'''
         dataOut.data[:,:,199] = dataOut.data[:,:,199- jars_fix]
@@ -3692,9 +3933,9 @@ class FaradayAngleAndDPPower(Operation):
         #plt.plot(numpy.abs(dataOut.kabxys_integrated[4][:,j,0]+dataOut.kabxys_integrated[5][:,j,0])+numpy.abs(dataOut.kabxys_integrated[6][:,j,0]+dataOut.kabxys_integrated[7][:,j,0]),dataOut.heightList)
         #plt.axvline((dataOut.pan+dataOut.pbn))
         #print(numpy.shape(dataOut.p))
-        plt.plot(dataOut.ph2,dataOut.heightList)
-        plt.plot(dataOut.phi,dataOut.heightList)
-
+        plt.plot(dataOut.ph2,dataOut.heightList, 'r', label='$P_{H_2}$')
+        plt.plot(dataOut.phi,dataOut.heightList, 'k--', label='$\Phi$')
+        plt.legend()
         plt.xlim(1000,1000000000)
         #plt.ylim(50,400)
         plt.grid()
@@ -3798,16 +4039,16 @@ class ElectronDensityFaraday(Operation):
             dataOut.sdn1[i]=numpy.sqrt(dataOut.sdn1[i])*fact
 
         #print("dphi: ", dataOut.dphi)
-        '''
-        if dataOut.flagDecodeData:
+        
+        '''if True: #dataOut.flagDecodeData:
             #exit(1)
             import matplotlib.pyplot as plt
             plt.plot(abs(dataOut.dphi),dataOut.heightList)
             plt.grid()
         #plt.xlim(0,1e7)
-            plt.show()
+            plt.show()'''
 
-            '''
+            
         #print("dH: ", dataOut.heightList[1]-dataOut.heightList[0])
         
     
@@ -4073,10 +4314,12 @@ class NormalizeDPPowerRoberto_V2(Operation):
         #print(dataOut.cf,dataOut.cflast[0])
         
 
-         ### Manual cf correction ###
+        ### Manual cf correction ###
+        # To Do: Pasarlo a funcion aparte - usar una sola rutina para DP e Hybrid - local path
+
         flagcfcorrection = True
 
-        time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime)
+        time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime) # time in UTC
         DOY = time_text.timetuple().tm_yday
         print("Bounds 3: ", dataOut.heightList[i1], dataOut.heightList[i2])
         print('time text', time_text, DOY)
@@ -4112,37 +4355,44 @@ class NormalizeDPPowerRoberto_V2(Operation):
         
         ###
         import pandas as pd
+        localtime = dataOut.utctime - 5*3600
+        DOY = (datetime.datetime.utcfromtimestamp(localtime)).timetuple().tm_yday # DOY in UTC-5
+        YEAR = (datetime.datetime.utcfromtimestamp(localtime)).year # YEAR in UTC-5
+        path = os.path.join(os.path.dirname(__file__), f'cf{str(YEAR)}{str(DOY)}.csv')
 
-        path = os.path.join(os.path.dirname(__file__), f'cf2025{str(DOY)}.csv')
-        df = pd.read_csv(path)
-        cf_time = df['timestamp'].to_numpy() 
-        cf_cf = df['cf'].to_numpy() 
+        if ~os.path.exists(path): flagcfcorrection = False; print("No cf path")
 
-        dt_num = time_text   
-        dt_array = pd.to_datetime(cf_time, unit="s", utc=True)
+        if flagcfcorrection:
+            df = pd.read_csv(path)
+            cf_time = df['timestamp'].to_numpy() 
+            cf_cf = df['cf'].to_numpy() 
 
-        mask = (
-            (dt_array.year.to_numpy() == dt_num.year) &
-            (dt_array.dayofyear.to_numpy() == dt_num.timetuple().tm_yday) &
-            (dt_array.hour.to_numpy() == dt_num.hour) &
-            (dt_array.minute.to_numpy() == dt_num.minute)
-        )
+            dt_num = time_text   # Data time
+            dt_array = pd.to_datetime(cf_time, unit="s", utc=True) # File time
 
-        indices = numpy.where(mask)[0]
+            mask = (
+                (dt_array.year.to_numpy() == dt_num.year) &
+                (dt_array.dayofyear.to_numpy() == dt_num.timetuple().tm_yday) &
+                (dt_array.hour.to_numpy() == dt_num.hour) &
+                (dt_array.minute.to_numpy() == dt_num.minute)
+            )
 
-        print("CHECK" ,dataOut.utctime, time_text, indices)
-        print("CHECK2", cf_time)
+            indices = numpy.where(mask)[0]
+
+            print("CHECK" ,dataOut.utctime, time_text, indices)
+            print("CHECK2", cf_time)
+        # Change cf
         try:
             cf_index = indices[0]
             print("cf changed")
             dataOut.cf = cf_cf[cf_index]
+            print("***Cleaning*** cf After: ", dataOut.cf)
         except:
             print("not changed")
         ###
 
-
+        # Update cf last
         dataOut.cflast[0]=dataOut.cf
-        #print("cf: ", dataOut.cf)
 
         #print(dataOut.ph2)
         #print(dataOut.sdp2)
