@@ -7,7 +7,8 @@ import datetime
 import time
 
 # PATH = '/DATA_RM/DATA'
-PATH = '/data'
+
+PATH = '/home/david/Documents/DATA'
 
 PARAM = {
     'S':  {'zmin': -70, 'zmax':-30, 'colormap': 'jet'    , 'label': 'Power', 'wrname': 'power','cb_label': 'dBm', 'ch':0},
@@ -679,3 +680,5 @@ sr Rx 5 Mhz
 En este experimento se observa que la h0 = -1.4
 
 """
+
+# python sophy_proc_hyo_union_.py CHIRP@2025-10-16T19-30-55 --parameters SNR  --plot --save --rmDC --label 25_MARZO --range 60 --mask 0.35
