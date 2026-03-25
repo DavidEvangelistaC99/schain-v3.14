@@ -13,7 +13,7 @@ data.
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.9
 - digital_rf 2.6.7
 - matplotlib 3.5.1
 - numpy <1.24
