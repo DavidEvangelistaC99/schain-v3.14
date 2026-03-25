@@ -27,8 +27,8 @@ First, ensure that you have the above-listed dependencies installed, then clone
 the repository and install as normal python package:
 
 ```
-conda create -n schain-merge python=3.9
-conda activate schain-merge
+conda create -n schain-v3.14 python=3.9
+conda activate schain-v3.14
 pip install "setuptools<60"
 pip install -e .
 ```
