@@ -26,11 +26,20 @@ pip install schainpy
 First, ensure that you have the above-listed dependencies installed, then clone
 the repository and install as normal python package:
 
-```bash
-git clone https://github.com/JRO-Peru/schainpy.git
-cd schain
-git checkout `branch-name` (optional)
-sudo pip install ./
+```
+conda create -n schain-merge python=3.9
+conda activate schain-merge
+pip install "setuptools<60"
+pip install -e .
+```
+
+```
+pip install click
+pip install "numpy<1.24"
+pip install zmq
+pip install matplotlib==3.5.1
+pip install scipy==1.8.0
+pip install digital_rf==2.6.7
 ```
 
 ### Using Docker
