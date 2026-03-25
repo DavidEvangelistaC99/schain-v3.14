@@ -193,6 +193,7 @@ class JROData(GenericData):
     error = None
     data = None
     nmodes = None
+    h0 = 0
     metadata_list = ['heightList', 'timeZone', 'type']
 
     def __str__(self):
@@ -923,14 +924,19 @@ class Parameters(Spectra):
 
         return
 
+    def getNoise(self):
+
+        return self.spc_noise
+
+    noise = property(getNoise, setValue, "I'm the 'Noise' property.")
 
 class PlotterData(object):
     '''
     Object to hold data to be plotted
     '''
 
-    MAXNUMX = 200
-    MAXNUMY = 200
+    MAXNUMX = 1000 #200
+    MAXNUMY = 1000 #200
 
     def __init__(self, code, exp_code, localtime=True):
 
@@ -1015,7 +1021,7 @@ class PlotterData(object):
 
         self.__heights = [H for tm in self.times]
 
-    def jsonify(self, tm, plot_name, plot_type, decimate=False):
+    def jsonify(self, tm, plot_name, plot_type, key=None, decimate=False):
         '''
         Convert data to json
         '''
@@ -1044,7 +1050,8 @@ class PlotterData(object):
         meta['type'] = plot_type
         meta['interval'] = float(self.interval)
         meta['localtime'] = self.localtime
-        meta['yrange'] = self.roundFloats(self.yrange[::dy].tolist())
+        meta['yrange'] = self.roundFloats(self.lat[::dy].tolist())
+        meta['xrange'] = self.roundFloats(self.lon[::dy].tolist())
         meta.update(self.meta)
         ret['metadata'] = meta
         return json.dumps(ret)
