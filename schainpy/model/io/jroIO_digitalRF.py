@@ -26,6 +26,7 @@ from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecora
 
 import pickle
 try:
+    os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
     import digital_rf
 except:
     pass
@@ -55,6 +56,7 @@ class DigitalRFReader(ProcessingUnit):
         self.dtype = None
         self.oldAverage = None
         self.path = None
+        self.verbose = True
 
     def close(self):
         print('Average of writing to digital rf format is ', self.oldAverage * 1000)
@@ -72,7 +74,10 @@ class DigitalRFReader(ProcessingUnit):
         '''
         ippSeconds = 1.0 * self.__nSamples / self.__sample_rate
 
-        nProfiles = 1.0 / ippSeconds  # Number of profiles in one second
+        if not self.getByBlock:
+            nProfiles = 1.0 / ippSeconds  # Number of profiles in one second
+        else:
+            nProfiles = self.nProfileBlocks # Number of profiles in one block
 
         try:
             self.dataOut.radarControllerHeaderObj = RadarControllerHeader(
@@ -115,13 +120,20 @@ class DigitalRFReader(ProcessingUnit):
 
         self.dataOut.channelList = list(range(self.__num_subchannels))
 
-        self.dataOut.blocksize = self.dataOut.nChannels * self.dataOut.nHeights
+        if not self.getByBlock:
+
+            self.dataOut.blocksize   = self.dataOut.nChannels * self.dataOut.nHeights
+        else:
+            self.dataOut.blocksize   = self.dataOut.nChannels * self.dataOut.nHeights*self.nProfileBlocks
 
         # self.dataOut.channelIndexList = None
 
         self.dataOut.flagNoData = True
 
-        self.dataOut.flagDataAsBlock = False
+        if not self.getByBlock:
+            self.dataOut.flagDataAsBlock = False
+        else:
+            self.dataOut.flagDataAsBlock = True
         # Set to TRUE if the data is discontinuous
         self.dataOut.flagDiscontinuousBlock = False
 
@@ -172,6 +184,7 @@ class DigitalRFReader(ProcessingUnit):
             digitalReadObj = digital_rf.DigitalRFReader(path)
 
         channelNameList = digitalReadObj.get_channels()
+        channelNameList = ['ch0'] #,'ch1']
 
         if not channelNameList:
             return []
@@ -234,6 +247,9 @@ class DigitalRFReader(ProcessingUnit):
               nBaud=1,
               flagDecodeData=False,
               code=numpy.ones((1, 1), dtype=numpy.int32),
+              getByBlock=0,
+              nProfileBlocks=1,
+              verbose=True,
               **kwargs):
         '''
         In this method we should set all initial parameters.
@@ -254,6 +270,13 @@ class DigitalRFReader(ProcessingUnit):
         self.nCohInt = nCohInt
         self.flagDecodeData = flagDecodeData
         self.i = 0
+        self.verbose        = verbose
+        self.getByBlock     = getByBlock
+        self.nProfileBlocks = nProfileBlocks
+        if online:
+            print('Waiting for RF data..')
+            sleep(40)
+        
         if not os.path.isdir(path):
             raise ValueError("[Reading] Directory %s does not exist" % path)
 
@@ -264,6 +287,7 @@ class DigitalRFReader(ProcessingUnit):
             self.digitalReadObj = digital_rf.DigitalRFReader(path)
 
         channelNameList = self.digitalReadObj.get_channels()
+        channelNameList = ['ch0'] #,'ch1']
 
         if not channelNameList:
             raise ValueError("[Reading] Directory %s does not have any files" % path)
@@ -301,6 +325,8 @@ class DigitalRFReader(ProcessingUnit):
 
         self.__frequency = self.fixed_metadata_dict.get('frequency', 1)
 
+        # self.__frequency = 9.345e9
+
         self.__timezone = self.fixed_metadata_dict.get('timezone', 18000)
 
         try:
@@ -337,15 +363,18 @@ class DigitalRFReader(ProcessingUnit):
         if startDate:
             startDatetime = datetime.datetime.combine(startDate, startTime)
             startUTCSecond = (
-                startDatetime - datetime.datetime(1970, 1, 1)).total_seconds() + self.__timezone
+                startDatetime - datetime.datetime(1970, 1, 1)).total_seconds()#  + self.__timezone
 
         if endDate:
             endDatetime = datetime.datetime.combine(endDate, endTime)
             endUTCSecond = (endDatetime - datetime.datetime(1970,
-                                                            1, 1)).total_seconds() + self.__timezone
+                                                            1, 1)).total_seconds()#  + self.__timezone
 
         start_index, end_index = self.digitalReadObj.get_bounds(
             channelNameList[channelList[0]])
+    
+        if start_index==None or end_index==None:
+             print("Check error No data,  start_index: ",start_index,",end_index: ",end_index)
 
         if not startUTCSecond:
             startUTCSecond = start_index / self.__sample_rate
@@ -387,6 +416,8 @@ class DigitalRFReader(ProcessingUnit):
         self.__channelNameList = channelNameListFiltered
         self.__channelBoundList = channelBoundList
         self.__nSamples = nSamples
+        if self.getByBlock:
+            nSamples = nSamples*nProfileBlocks
         self.__samples_to_read = int(nSamples)  # FIJO: AHORA 40
         self.__nChannels = len(self.__channelList)
 
@@ -403,8 +434,9 @@ class DigitalRFReader(ProcessingUnit):
         # por que en el otro metodo lo primero q se hace es sumar samplestoread
         self.__thisUnixSample = int(startUTCSecond * self.__sample_rate) - self.__samples_to_read
 
+        print("samplestoread",self.__samples_to_read)
         self.__data_buffer = numpy.zeros(
-            (self.__num_subchannels, self.__samples_to_read), dtype=complex)
+            (self.__num_subchannels, self.__samples_to_read), dtype=numpy.complex)
 
         self.__setFileHeader()
         self.isConfig = True
@@ -471,6 +503,17 @@ class DigitalRFReader(ProcessingUnit):
 
     def __readNextBlock(self, seconds=30, volt_scale=1):
         '''
+        NOTA: APLICACION RADAR METEOROLOGICO
+        VALORES OBTENIDOS CON LA USRP, volt_scale = 1,conexion directa al Ch Rx.
+
+        MAXIMO
+        9886  -> 0.980 Voltiospp
+        4939  -> 0.480 Voltiospp
+        14825 -> 1.440 Voltiospp
+        18129 -> 1.940 Voltiospp
+        Para llevar al valor correspondiente de Voltaje, debemos dividir por 20000
+        y obtenemos la Amplitud correspondiente de entrada IQ.
+        volt_scale = (1/20000.0)
         '''
 
         # Set the next data
@@ -511,7 +554,21 @@ class DigitalRFReader(ProcessingUnit):
                     # read next profile
                     self.__flagDiscontinuousBlock = True
                     print("[Reading] %s" % datetime.datetime.utcfromtimestamp(self.thisSecond - self.__timezone), e)
-                    break
+                    bot = 0
+                    while(self.__flagDiscontinuousBlock):
+                        bot +=1
+                        self.__thisUnixSample += self.__samples_to_read
+                        try:
+                            result = result = self.digitalReadObj.read_vector_c81d(self.__thisUnixSample,self.__samples_to_read,thisChannelName, sub_channel=indexSubchannel)
+                            self.__flagDiscontinuousBlock=False
+                            print("Searching.. N°: ",bot,"Success",self.__thisUnixSample)
+                        except:
+                            print("Searching...N°: ",bot,"Fail", self.__thisUnixSample)
+                    if self.__flagDiscontinuousBlock==True:
+                        break
+                    else:
+                        print("New data index found...",self.__thisUnixSample)
+                    
 
                 if result.shape[0] != self.__samples_to_read:
                     self.__flagDiscontinuousBlock = True
@@ -588,20 +645,32 @@ class DigitalRFReader(ProcessingUnit):
 
                 print('[Reading] waiting %d seconds to read a new block' % seconds)
                 time.sleep(seconds)
+            
+            if not self.getByBlock:
 
-        self.dataOut.data = self.__data_buffer[:, self.__bufferIndex:self.__bufferIndex + self.__nSamples]
-        self.dataOut.utctime = (self.__thisUnixSample + self.__bufferIndex) / self.__sample_rate
-        self.dataOut.flagNoData = False
-        self.dataOut.flagDiscontinuousBlock = self.__flagDiscontinuousBlock
-        self.dataOut.profileIndex = self.profileIndex
+                self.dataOut.data = self.__data_buffer[:, self.__bufferIndex:self.__bufferIndex + self.__nSamples]
+                self.dataOut.utctime = ( self.__thisUnixSample + self.__bufferIndex) / self.__sample_rate
+                self.dataOut.flagNoData = False
+                self.dataOut.flagDiscontinuousBlock = self.__flagDiscontinuousBlock
+                self.dataOut.profileIndex = self.profileIndex
 
-        self.__bufferIndex += self.__nSamples
-        self.profileIndex += 1
+                self.__bufferIndex += self.__nSamples
+                self.profileIndex  += 1
 
-        if self.profileIndex == self.dataOut.nProfiles:
-            self.profileIndex = 0
-
-        return True
+                if self.profileIndex == self.dataOut.nProfiles:
+                    self.profileIndex = 0
+            else:
+                # ojo debo anadir el readNextBLock y el  __isBufferEmpty(
+                self.dataOut.flagNoData             = False
+                buffer = self.__data_buffer[:,self.__bufferIndex:self.__bufferIndex + self.__samples_to_read]
+                buffer = buffer.reshape((self.__nChannels, self.nProfileBlocks, int(self.__samples_to_read/self.nProfileBlocks)))
+                self.dataOut.nProfileBlocks = self.nProfileBlocks
+                self.dataOut.data = buffer
+                self.dataOut.utctime = ( self.__thisUnixSample + self.__bufferIndex) / self.__sample_rate
+                self.profileIndex  += self.__samples_to_read
+                self.__bufferIndex += self.__samples_to_read
+                self.dataOut.flagDiscontinuousBlock = self.__flagDiscontinuousBlock
+            return True
 
     def printInfo(self):
         '''

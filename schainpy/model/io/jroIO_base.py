@@ -484,6 +484,7 @@ class Reader(object):
     folderfmt = None
     open_file = open
     open_mode = 'rb'
+    filter =None
 
     def run(self):
 
@@ -522,11 +523,13 @@ class Reader(object):
         return
 
     def find_files(self, folders, ext, filefmt, startDate=None, endDate=None,
-                   expLabel='', last=False):
+                   expLabel='', filter=None,last=False):
 
         for path in folders:
             files = glob.glob1(path+'/'+expLabel, '*{}'.format(ext))
             files.sort()
+            if filter is not None:
+                files= [ file for file in files if  os.path.splitext(file)[0][-len(filter):] == filter]
             if last:
                 if files:
                     fo = files[-1]
@@ -558,7 +561,7 @@ class Reader(object):
 
     def searchFilesOffLine(self, path, startDate, endDate,
                            expLabel, ext, walk,
-                           filefmt, folderfmt):
+                           filefmt, folderfmt,filter):
         """Search files in offline mode for the given arguments
 
         Return:
@@ -572,11 +575,11 @@ class Reader(object):
             folders = path.split(',')
 
         return self.find_files(
-            folders, ext, filefmt, startDate, endDate, expLabel)
+            folders, ext, filefmt, startDate, endDate, expLabel,filter)
 
     def searchFilesOnLine(self, path, startDate, endDate,
                           expLabel, ext, walk,
-                          filefmt, folderfmt):
+                          filefmt, folderfmt,filter):
         """Search for the last file of the last folder
 
         Arguments:
@@ -596,7 +599,7 @@ class Reader(object):
             folders = path.split(',')
 
         return self.find_files(
-            folders, ext, filefmt, startDate, endDate, expLabel, last=True)
+            folders, ext, filefmt, startDate, endDate, expLabel, filter,last=True)
 
     def setNextFile(self):
         """Set the next file to be readed open it and parse de file header"""
@@ -672,7 +675,7 @@ class Reader(object):
             if fullfilename is not None:
                 break
 
-            #self.nTries = 1
+            self.nTries = 1
             nextFile = True
 
             if nFiles == (self.nFiles - 1):
@@ -742,8 +745,41 @@ class Reader(object):
 
     def checkForRealPath(self, nextFile, nextDay):
         """Check if the next file to be readed exists"""
+        if nextFile:
+            self.set += 1
+        if nextDay:
+            self.set = 0
+            self.doy += 1
+        foldercounter = 0
+        prefixDirList = [None, 'd', 'D']
+        if self.ext.lower() == ".r":  # voltage
+            prefixFileList = ['d', 'D']
+        elif self.ext.lower() == ".pdata":  # spectra
+            prefixFileList = ['p', 'P']
+        elif self.ext.lower() == ".hdf5":  # HDF5
+            prefixFileList = ['D', 'P']    # HDF5
 
-        raise NotImplementedError
+        # barrido por las combinaciones posibles
+        for prefixDir in prefixDirList:
+            thispath = self.path
+            if prefixDir != None:
+                # formo el nombre del directorio xYYYYDDD (x=d o x=D)
+                if foldercounter == 0:
+                    thispath = os.path.join(self.path, "%s%04d%03d" %
+                                            (prefixDir, self.year, self.doy))
+                else:
+                    thispath = os.path.join(self.path, "%s%04d%03d_%02d" % (
+                        prefixDir, self.year, self.doy, foldercounter))
+            for prefixFile in prefixFileList:  # barrido por las dos combinaciones posibles de "D"
+                # formo el nombre del file xYYYYDDDSSS.ext
+                filename = "%s%04d%03d%03d%s" % (prefixFile, self.year, self.doy, self.set, self.ext)
+                fullfilename = os.path.join(
+                    thispath, filename)
+
+                if os.path.exists(fullfilename):
+                    return fullfilename, filename
+
+        return None, filename
 
     def readFirstHeader(self):
         """Parse the file header"""
@@ -1165,7 +1201,7 @@ class JRODataReader(Reader):
                 address = 'ipc:///tmp/%s' % self.server
             self.server = address
             self.context = zmq.Context()
-            self.receiver = self.context.socket(zmq.SUB)
+            self.receiver = self.context.socket(zmq.PULL)
             self.receiver.connect(self.server)
             self.receiver.setsockopt(zmq.SUBSCRIBE, str.encode(str(self.topic)))
             time.sleep(0.5)
@@ -1484,6 +1520,9 @@ class JRODataWriter(Reader):
         if self.fp != None:
             self.fp.close()
 
+        if not os.path.exists(path):
+            os.mkdir(path)
+
         timeTuple = time.localtime(self.dataOut.utctime)
         subfolder = 'd%4.4d%3.3d' % (timeTuple.tm_year, timeTuple.tm_yday)
 
@@ -1491,7 +1530,7 @@ class JRODataWriter(Reader):
         setFile = self.setFile
 
         if not(os.path.exists(fullpath)):
-            os.makedirs(fullpath)
+            os.mkdir(fullpath)
             setFile = -1  # inicializo mi contador de seteo
         else:
             filesList = os.listdir(fullpath)

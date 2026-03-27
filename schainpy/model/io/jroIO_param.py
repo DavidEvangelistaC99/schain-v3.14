@@ -94,6 +94,8 @@ class HDFReader(Reader, ProcessingUnit):
         self.filefmt = "*%Y%j***"
         self.folderfmt = "*%Y%j"
         self.utcoffset = 0
+        self.filter = None
+        self.dparam = None
 
     def setup(self, **kwargs):
 
@@ -107,7 +109,7 @@ class HDFReader(Reader, ProcessingUnit):
             for nTries in range(self.nTries):
                 fullpath = self.searchFilesOnLine(self.path, self.startDate,
                     self.endDate, self.expLabel, self.ext, self.walk,
-                    self.filefmt, self.folderfmt)
+                    self.filefmt, self.folderfmt,self.filter)
                 try:
                     fullpath = next(fullpath)
                 except:
@@ -133,7 +135,7 @@ class HDFReader(Reader, ProcessingUnit):
         else:
             log.log("Searching files in {}".format(self.path), self.name)
             self.filenameList = self.searchFilesOffLine(self.path, self.startDate,
-                self.endDate, self.expLabel, self.ext, self.walk, self.filefmt, self.folderfmt)
+                self.endDate, self.expLabel, self.ext, self.walk, self.filefmt, self.folderfmt,self.filter)
 
         self.setNextFile()
 
@@ -147,7 +149,9 @@ class HDFReader(Reader, ProcessingUnit):
         self.__setBlockList()     
         # similar to master
         if 'type' in self.meta:
-            self.dataOut = eval(self.meta['type'])()   
+            self.dataOut = eval(self.meta['type'])()
+        if self.dparam:
+            setattr(self.dataOut, "dparam", 1)  
         # similar to master
         for attr in self.meta:
             setattr(self.dataOut, attr, self.meta[attr])
@@ -171,7 +175,11 @@ class HDFReader(Reader, ProcessingUnit):
         startTime = self.startTime
         endTime = self.endTime
         thisUtcTime = self.data['utctime'] + self.utcoffset
-        self.interval = numpy.min(thisUtcTime[1:] - thisUtcTime[:-1])
+        try:
+            self.interval = numpy.min(thisUtcTime[1:] - thisUtcTime[:-1])
+        except:
+            self.interval = 0
+        
         thisDatetime = datetime.datetime.utcfromtimestamp(thisUtcTime[0])
 
         thisDate = thisDatetime.date()
@@ -262,7 +270,10 @@ class HDFReader(Reader, ProcessingUnit):
             if self.data[attr].ndim == 1:
                 setattr(self.dataOut, attr, self.data[attr][self.blockIndex])
             else:
-                setattr(self.dataOut, attr, self.data[attr][:, self.blockIndex])
+                if self.dparam:
+                    setattr(self.dataOut, attr, self.data[attr])
+                else:
+                    setattr(self.dataOut, attr, self.data[attr][:, self.blockIndex])
 
         self.dataOut.flagNoData = False
         self.blockIndex += 1
@@ -364,6 +375,13 @@ class HDFWriter(Operation):
     metadataList = None
     currentDay = None
     lastTime = None
+    last_Azipos  = None
+    last_Elepos  = None
+    mode         = None
+    #-----------------------
+    Typename   = None
+    mask       = False
+    setChannel = None
 
     def __init__(self):
 
@@ -380,13 +398,33 @@ class HDFWriter(Operation):
         for key, value in kwargs.items():
             setattr(obj, key, value)
 
-    def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None, **kwargs):
+    def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None,type_data=None, localtime=True,setChannel=None, **kwargs):
         self.path = path
         self.blocksPerFile = blocksPerFile
         self.metadataList = metadataList
         self.dataList = [s.strip() for s in dataList]
+        self.setChannel    = setChannel
         self.setType = setType
+        if self.setType == "weather":
+            self.set_kwargs(**kwargs)
+            self.set_kwargs_obj(self.dataOut,**kwargs)
+            self.weather_vars = {
+                'S' : 0,
+                'V' : 1,
+                'W' : 2,
+                'SNR' : 3,
+                'Z' : 4,
+                'D' : 5,
+                'P' : 6,
+                'R' : 7,
+            }
+
+        if localtime:
+            self.getDateTime = datetime.datetime.fromtimestamp
+        else:
+            self.getDateTime = datetime.datetime.utcfromtimestamp
         self.description = description
+        self.type_data=type_data
         self.set_kwargs(**kwargs)        
 
         if self.metadataList is None:
@@ -399,6 +437,12 @@ class HDFWriter(Operation):
             dsDict = {}
             if hasattr(self.dataOut, self.dataList[i]):
                 dataAux = getattr(self.dataOut, self.dataList[i])
+                if self.setType == 'weather' and self.dataList[i] == 'data_param':
+                    if self.setChannel is None: 
+                        dataAux = dataAux[self.weather_vars[self.weather_var]]
+                    else:
+                        dataAux = dataAux[self.setChannel,self.weather_vars[self.weather_var],:]
+                        dataAux = numpy.reshape(dataAux,(1,dataAux.shape[0],dataAux.shape[1]))
                 dsDict['variable'] = self.dataList[i]
             else:
                 log.warning('Attribute {} not found in dataOut', self.name)
@@ -445,14 +489,23 @@ class HDFWriter(Operation):
             return False
 
     def run(self, dataOut, path, blocksPerFile=10, metadataList=None,
-            dataList=[], setType=None, description={}, **kwargs):
+            dataList=[], setType=None, description={}, mode= None, 
+            type_data=None, Reset = False, localtime=True, **kwargs):
 
+        if Reset:
+            self.isConfig = False
+            self.closeFile()
+            self.lastTime = None
+            self.blockIndex = 0
+        
         self.dataOut = dataOut
+        self.mode = mode
         self.set_kwargs_obj(self.dataOut, **kwargs)
         if not(self.isConfig):
             self.setup(path=path, blocksPerFile=blocksPerFile,
                        metadataList=metadataList, dataList=dataList,
-                       setType=setType, description=description, **kwargs)
+                       setType=setType, description=description,type_data=type_data,
+                       localtime=localtime, **kwargs)
 
             self.isConfig = True
             self.setNextFile()
@@ -466,8 +519,18 @@ class HDFWriter(Operation):
         path = self.path
         setFile = self.setFile
 
+        dt = self.getDateTime(self.dataOut.utctime)
+        
+
         timeTuple = time.localtime(self.dataOut.utctime)
         subfolder = 'd%4.4d%3.3d' % (timeTuple.tm_year, timeTuple.tm_yday)
+
+        if self.setType == 'weather':
+            subfolder = dt.strftime('%Y-%m-%dT%H-00-00')
+            subfolder = ''
+        else: 
+            subfolder = dt.strftime('d%Y%j')
+        
         fullpath = os.path.join(path, subfolder)
 
         if os.path.exists(fullpath):
@@ -496,6 +559,39 @@ class HDFWriter(Operation):
                                            timeTuple.tm_yday,
                                            setFile,
                                            ext)
+        elif self.setType == "weather":
+
+            #SOPHY_20200505_140215_E10.0_Z.h5
+            #SOPHY_20200505_140215_A40.0_Z.h5
+            if self.dataOut.flagMode == 1: #'AZI' #PPI
+                ang_type = 'EL'
+                mode_type = 'PPI'
+                len_aux = int(self.dataOut.data_ele.shape[0]/4)
+                mean = numpy.mean(self.dataOut.data_ele[len_aux:-len_aux])
+                ang_    = round(mean,1)
+            elif self.dataOut.flagMode == 0: #'ELE' #RHI
+                ang_type = 'AZ'
+                mode_type = 'RHI'
+                len_aux = int(self.dataOut.data_azi.shape[0]/4)
+                mean = numpy.mean(self.dataOut.data_azi[len_aux:-len_aux])
+                ang_    = round(mean,1)
+
+            file = '%s_%2.2d%2.2d%2.2d_%2.2d%2.2d%2.2d_%s%2.1f_%s%s' % (
+                'SOPHY',
+                                           dt.year,
+                                           dt.month,
+                                           dt.day,
+                                           dt.hour,
+                                           dt.minute,
+                                           dt.second,
+                                           ang_type[0],
+                                           ang_,
+                                           self.weather_var,
+                                           ext )
+            subfolder = '{}_{}_{}_{:2.1f}'.format(self.weather_var, mode_type, ang_type, ang_)
+            fullpath = os.path.join(path, subfolder)
+            if not os.path.exists(fullpath):
+                os.makedirs(fullpath)
         else:
             setFile = timeTuple.tm_hour * 60 + timeTuple.tm_min
             file = '%s%4.4d%3.3d%04d%s' % (self.optchar,
@@ -600,14 +696,23 @@ class HDFWriter(Operation):
                     sgrp = grp.create_group(label)
                 else:
                     sgrp = grp
+                if self.blocksPerFile == 1:
+                    shape = dsInfo['shape'][1:]
+                else:
+                    shape = (self.blocksPerFile, ) + dsInfo['shape'][1:]
                 if self.uniqueChannel: #Creates extra dimension to avoid the creation of multiple channels
                     setattr(self.dataOut, dsInfo['variable'], numpy.expand_dims(getattr(self.dataOut, dsInfo['variable']), axis=0))
                 for i in range(dsInfo['dsNumber']):
+                    if dsInfo['dsNumber']==1:
+                        if self.setChannel==1:
+                            i=1
                     ds = sgrp.create_dataset(
                         self.getLabel(dsInfo['variable'], i),
                         (self.blocksPerFile,) + dsInfo['shape'][1:],
                         chunks=True,
-                        dtype=dsInfo['dtype'])
+                        dtype=dsInfo['dtype'],
+                        compression='gzip',
+                        )
                     dtsets.append(ds)
                     data.append((dsInfo['variable'], i))
         fp.flush()
@@ -633,7 +738,14 @@ class HDFWriter(Operation):
             else:
                 if self.uniqueChannel and self.blockIndex != 0: #Creates extra dimension to avoid the creation of multiple channels
                     setattr(self.dataOut, attr, numpy.expand_dims(getattr(self.dataOut, attr), axis=0))
-                ds[self.blockIndex] = getattr(self.dataOut, attr)[ch]
+                if self.blocksPerFile == 1:
+                    tmp = getattr(self.dataOut, attr)[self.weather_vars[self.weather_var]][ch]
+                    if self.mask:
+                        mask = self.dataOut.data_param[:,3,:][ch] < self.mask
+                        tmp[mask] = numpy.nan
+                    ds[:] = tmp
+                else:
+                    ds[self.blockIndex] = getattr(self.dataOut, attr)[ch]
                 if self.uniqueChannel: #Deletes extra dimension created to avoid the creation of multiple channels
                     setattr(self.dataOut, attr, getattr(self.dataOut, attr)[0])
 
