@@ -32,6 +32,11 @@ conda activate schain-v3.14
 pip install "setuptools<60"
 pip install -e .
 ```
+Alternative:
+
+```
+python setup.py develop
+```
 
 ```
 pip install click
