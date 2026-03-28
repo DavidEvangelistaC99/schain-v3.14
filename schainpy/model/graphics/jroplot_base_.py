@@ -15,7 +15,7 @@ import datetime
 from collections import deque
 from functools import wraps
 from threading import Thread
-import matplotlib, re
+import matplotlib,re
 
 if 'BACKEND' in os.environ:
     matplotlib.use(os.environ['BACKEND'])
@@ -48,16 +48,6 @@ path = os.getcwd()
 global file_logo
 file_logo =os.path.join(path,"LogoIGP.png")
 
-jet_values = matplotlib.pyplot.get_cmap('jet', 100)(numpy.arange(100))[10:90]
-blu_values = matplotlib.pyplot.get_cmap(
-    'seismic_r', 20)(numpy.arange(20))[10:15]
-ncmap = matplotlib.colors.LinearSegmentedColormap.from_list(
-    'jro', numpy.vstack((blu_values, jet_values)))
-matplotlib.pyplot.register_cmap(cmap=ncmap)
-
-CMAPS = [plt.get_cmap(s) for s in ('jro', 'jet', 'viridis',
-                                   'plasma', 'inferno', 'Greys', 'seismic', 'bwr', 'coolwarm')]
-
 EARTH_RADIUS = 6.3710e3
 
 register_cmap()
@@ -65,13 +55,13 @@ register_cmap()
 def ll2xy(lat1, lon1, lat2, lon2):
 
     p = 0.017453292519943295
-    a = 0.5 - numpy.cos((lat2 - lat1) * p) / 2 + numpy.cos(lat1 * p) * \
+    a = 0.5 - numpy.cos((lat2 - lat1) * p)/2 + numpy.cos(lat1 * p) * \
         numpy.cos(lat2 * p) * (1 - numpy.cos((lon2 - lon1) * p)) / 2
     r = 12742 * numpy.arcsin(numpy.sqrt(a))
-    theta = numpy.arctan2(numpy.sin((lon2 - lon1) * p) * numpy.cos(lat2 * p), numpy.cos(lat1 * p)
-                          * numpy.sin(lat2 * p) - numpy.sin(lat1 * p) * numpy.cos(lat2 * p) * numpy.cos((lon2 - lon1) * p))
-    theta = -theta + numpy.pi / 2
-    return r * numpy.cos(theta), r * numpy.sin(theta)
+    theta = numpy.arctan2(numpy.sin((lon2-lon1)*p)*numpy.cos(lat2*p), numpy.cos(lat1*p)
+                          * numpy.sin(lat2*p)-numpy.sin(lat1*p)*numpy.cos(lat2*p)*numpy.cos((lon2-lon1)*p))
+    theta = -theta + numpy.pi/2
+    return r*numpy.cos(theta), r*numpy.sin(theta)
 
 
 def km2deg(km):
@@ -79,7 +69,7 @@ def km2deg(km):
     Convert distance in km to degrees
     '''
 
-    return numpy.rad2deg(km / EARTH_RADIUS)
+    return numpy.rad2deg(km/EARTH_RADIUS)
 
 
 def figpause(interval):
@@ -234,14 +224,8 @@ class Plot(Operation):
         self.zmin = kwargs.get('zmin', None)
         self.zmax = kwargs.get('zmax', None)
         self.zlimits = kwargs.get('zlimits', None)
-        self.xlimits = kwargs.get('xlimits', None)
-        self.xstep_given = kwargs.get('xstep_given', None)
-        self.ystep_given = kwargs.get('ystep_given', None)
-        self.autoxticks = kwargs.get('autoxticks', True)
         self.xmin = kwargs.get('xmin', None)
         self.xmax = kwargs.get('xmax', None)
-        # self.xrange = kwargs.get('xrange', 12)
-
         self.yrange = kwargs.get('yrange', None)
         self.xrange = kwargs.get('xrange', None)
         self.xscale = kwargs.get('xscale', None)
@@ -284,9 +268,6 @@ class Plot(Operation):
         self.latitude = kwargs.get('latitude', -12)
         self.longitude = kwargs.get('longitude', -74)
 
-        # condicion de ploteo
-        self.type_plot = kwargs.get('type_plot', False)
-        
         if self.server:
             if not self.server.startswith('tcp://'):
                 self.server = 'tcp://{}'.format(self.server)
@@ -298,75 +279,8 @@ class Plot(Operation):
         if isinstance(self.attr_data, str):
             self.attr_data = [self.attr_data]
 
+
     def __setup_plot(self):
-        '''
-        Common setup for all figures, here figures and axes are created
-        '''
-
-        self.setup()
-
-        self.time_label = 'LT' if self.localtime else 'UTC'
-
-        if self.width is None:
-            self.width = 8
-
-        self.figures = []
-        self.axes = []
-        self.cb_axes = []
-        self.pf_axes = []
-        self.cmaps = []
-
-        size = '15%' if self.ncols == 1 else '30%'
-        pad = '4%' if self.ncols == 1 else '8%'
-
-        if self.oneFigure:
-            if self.height is None:
-                self.height = 1.4 * self.nrows + 1
-            fig = plt.figure(figsize=(self.width, self.height),
-                             edgecolor='k',
-                             facecolor='w')
-            self.figures.append(fig)
-            for n in range(self.nplots):
-                ax = fig.add_subplot(self.nrows, self.ncols,
-                                     n + 1, polar=self.polar)
-                ax.tick_params(labelsize=8)
-                ax.firsttime = True
-                ax.index = 0
-                ax.press = None
-                ax.cbar = None
-                self.axes.append(ax)
-                if self.showprofile:
-                    cax = self.__add_axes(ax, size=size, pad=pad)
-                    cax.tick_params(labelsize=8)
-                    self.pf_axes.append(cax)
-        else:
-            if self.height is None:
-                self.height = 3
-            for n in range(self.nplots):
-                fig = plt.figure(figsize=(self.width, self.height),
-                                 edgecolor='k',
-                                 facecolor='w')
-                ax = fig.add_subplot(1, 1, 1, polar=self.polar)
-                ax.tick_params(labelsize=8)
-                ax.firsttime = True
-                ax.index = 0
-                ax.press = None
-                self.figures.append(fig)
-                self.axes.append(ax)
-                if self.showprofile:
-                    cax = self.__add_axes(ax, size=size, pad=pad)
-                    cax.tick_params(labelsize=8)
-                    self.pf_axes.append(cax)
-
-        for n in range(self.nrows):
-            if self.colormaps is not None:
-                cmap = plt.get_cmap(self.colormaps[n])
-            else:
-                cmap = plt.get_cmap(self.colormap)
-            cmap.set_bad(self.bgcolor, 1.)
-            self.cmaps.append(cmap)
-    
-    def __setup_plot_wr(self):
         '''
         Common setup for all figures, here figures and axes are created
         '''
@@ -504,75 +418,6 @@ class Plot(Operation):
         '''
         Set min and max values, labels, ticks and titles
         '''
-        for n, ax in enumerate(self.axes):
-            if ax.firsttime:
-                if self.xaxis != 'time':
-                    xmin = self.xmin
-                    xmax = self.xmax
-                else:
-                    xmin = self.tmin
-                    xmax = self.tmin + self.xrange * 60 * 60
-                    ax.xaxis.set_major_formatter(FuncFormatter(self.__fmtTime))
-                    ax.xaxis.set_major_locator(LinearLocator(int(self.xrange)+1))   # Time in hours
-                ymin = self.ymin if self.ymin is not None else numpy.nanmin(self.y[numpy.isfinite(self.y)])
-                ymax = self.ymax if self.ymax is not None else numpy.nanmax(self.y[numpy.isfinite(self.y)])
-                ax.set_facecolor(self.bgcolor)
-                if self.xscale:
-                    ax.xaxis.set_major_formatter(FuncFormatter(
-                        lambda x, pos: '{0:g}'.format(x * self.xscale)))
-                if self.yscale:
-                    ax.yaxis.set_major_formatter(FuncFormatter(
-                        lambda x, pos: '{0:g}'.format(x * self.yscale)))
-                if self.xlabel is not None:
-                    ax.set_xlabel(self.xlabel)
-                if self.ylabel is not None:
-                    ax.set_ylabel(self.ylabel)
-                if self.showprofile:
-                    if self.zlimits is not None:
-                        self.zmin, self.zmax = self.zlimits[n]
-                    self.pf_axes[n].set_ylim(ymin, ymax)
-                    self.pf_axes[n].set_xlim(self.zmin, self.zmax)
-                    self.pf_axes[n].set_xlabel('dB')
-                    self.pf_axes[n].grid(True, axis='x')
-                    [tick.set_visible(False)
-                     for tick in self.pf_axes[n].get_yticklabels()]
-                if self.colorbar and ax.cbar == None:
-                    ax.cbar = plt.colorbar(
-                        ax.plt, ax=ax, fraction=0.05, pad=0.02, aspect=10)
-                    ax.cbar.ax.tick_params(labelsize=8)
-                    ax.cbar.ax.press = None
-                    if self.cb_label:
-                        ax.cbar.set_label(self.cb_label, size=8)
-                    elif self.cb_labels:
-                        ax.cbar.set_label(self.cb_labels[n], size=8)
-                
-                ax.set_xlim(xmin, xmax)
-                ax.set_ylim(ymin, ymax)
-                ax.firsttime = False
-                if self.grid:
-                    ax.grid(True)
-            if not self.polar:
-                ax.set_title('{} {} {}'.format(
-                    self.titles[n],
-                    self.getDateTime(self.data.max_time).strftime(
-                        '%Y-%m-%d %H:%M:%S'),
-                    self.time_label),
-                    size=8)
-            else:
-                ax.set_title('{}'.format(self.titles[n]), size=8)
-                ax.set_ylim(0, 90)
-                ax.set_yticks(numpy.arange(0, 90, 20))
-                ax.yaxis.labelpad = 40
-
-        if self.firsttime:
-            for n, fig in enumerate(self.figures):
-                fig.subplots_adjust(**self.plots_adjust)
-            self.firsttime = False
-
-    def format_wr(self):
-        '''
-        Set min and max values, labels, ticks and titles
-        '''
 
         for n, ax in enumerate(self.axes[self.mode]):
             if ax.firsttime:
@@ -662,41 +507,15 @@ class Plot(Operation):
         Reset axes for redraw plots
         '''
 
-        for ax in self.axes + self.pf_axes + self.cb_axes:
+        axes = self.pf_axes + self.cb_axes + self.axes[self.mode]
+
+        for ax in axes:
             ax.clear()
             ax.firsttime = True
-            #if hasattr(ax, 'cbar') and ax.cbar:
-                #ax.cbar.remove()
+            if hasattr(ax, 'cbar') and ax.cbar:
+                ax.cbar.remove()
 
     def __plot(self):
-        '''
-        Main function to plot, format and save figures
-        '''
-
-        self.plot()
-        self.format()
-
-        for n, fig in enumerate(self.figures):
-            if self.nrows == 0 or self.nplots == 0:
-                log.warning('No data', self.name)
-                fig.text(0.5, 0.5, 'No Data', fontsize='large', ha='center')
-                fig.canvas.manager.set_window_title(self.CODE)
-                continue
-
-            fig.canvas.manager.set_window_title('{} - {}'.format(self.title,
-                                                                 self.getDateTime(self.data.max_time).strftime('%Y/%m/%d')))
-            fig.canvas.draw()
-            if self.show:
-                fig.show()
-                figpause(0.01)
-
-            if self.save:
-                self.save_figure(n)
-
-        if self.server:
-            self.send_to_server()
-        
-    def __plot_wr(self):
         '''
         Main function to plot, format and save figures
         '''
@@ -719,7 +538,7 @@ class Plot(Operation):
                 figpause(0.01)
 
             if self.save:
-                  self.save_figure_wr(n)
+                  self.save_figure(n)
 
         if self.server:
             if self.mode and self.mode == 'RHI':
@@ -735,54 +554,12 @@ class Plot(Operation):
             'interval': dataOut.timeInterval,
             'channels': dataOut.channelList
         }
-        
+
         data, meta = self.update(dataOut)
         metadata.update(meta)
         self.data.update(data, timestamp, metadata)
-    
+
     def save_figure(self, n):
-        '''
-        '''
-
-        if (self.data.max_time - self.save_time) <= self.save_period:
-            return
-
-        self.save_time = self.data.max_time
-
-        fig = self.figures[n]
-
-        if self.throttle == 0:
-            figname = os.path.join(
-                self.save,
-                self.save_code,
-                '{}_{}.png'.format(
-                    self.save_code,
-                    self.getDateTime(self.data.max_time).strftime(
-                        '%Y%m%d_%H%M%S'
-                        ),
-                    )
-                )
-            log.log('Saving figure: {}'.format(figname), self.name)
-            if not os.path.isdir(os.path.dirname(figname)):
-                os.makedirs(os.path.dirname(figname))
-            fig.savefig(figname)
-
-        figname = os.path.join(
-            self.save,
-            #self.save_code,
-            '{}_{}.png'.format(
-                self.save_code,
-                self.getDateTime(self.data.min_time).strftime(
-                    '%Y%m%d'
-                    ),
-                )
-            )
-        log.log('Saving figure: {}'.format(figname), self.name)
-        if not os.path.isdir(os.path.dirname(figname)):
-            os.makedirs(os.path.dirname(figname))
-        fig.savefig(figname)
-
-    def save_figure_wr(self, n):
         '''
         '''
         if self.mode is not None:
@@ -861,26 +638,23 @@ class Plot(Operation):
 
         if self.exp_code == None:
             log.warning('Missing `exp_code` skipping sending to server...')
-        
+
         last_time = self.data.max_time
         interval = last_time - self.sender_time
         if interval < self.sender_period:
             return
 
         self.sender_time = last_time
-        
-        attrs = ['titles', 'zmin', 'zmax', 'tag', 'ymin', 'ymax', 'zlimits']
+
+        attrs = ['titles', 'zmin', 'zmax', 'tag', 'ymin', 'ymax']
         for attr in attrs:
             value = getattr(self, attr)
             if value:
                 if isinstance(value, (numpy.float32, numpy.float64)):
                     value = round(float(value), 2)
                 self.data.meta[attr] = value
-        #if self.colormap == 'jet':
         if self.colormap == 'jet' or self.colormap == 'sophy_w':
             self.data.meta['colormap'] = 'Jet'
-        elif 'RdBu' in self.colormap:
-            self.data.meta['colormap'] = 'RdBu'
         elif 'sophy_v' in self.colormap:
             self.data.meta['colormap'] = 'RdBu'
         else:
@@ -888,7 +662,7 @@ class Plot(Operation):
         self.data.meta['interval'] = int(interval)
 
         self.sender_queue.append(last_time)
-        
+
         while True:
             try:
                 tm = self.sender_queue.popleft()
@@ -942,19 +716,19 @@ class Plot(Operation):
         '''
         Must be defined in the child class, update self.data with new data
         '''
-        
+
         data = {
             self.CODE: getattr(dataOut, 'data_{}'.format(self.CODE))
         }
         meta = {}
 
         return data, meta
-    
+
     def run(self, dataOut, **kwargs):
         '''
         Main plotting routine
         '''
-        
+
         if self.isConfig is False:
             self.__setup(**kwargs)
 
@@ -974,33 +748,26 @@ class Plot(Operation):
 
         tm = getattr(dataOut, self.attr_time)
 
-        if self.data and 'time' in self.xaxis and (tm - self.tmin) >= self.xrange * 60 * 60:
+        if self.data and 'time' in self.xaxis and (tm - self.tmin) >= self.xrange*60*60:
             self.save_time = tm
-            if self.type_plot == True:
-                self.__plot_wr()
-            else:
-                self.__plot()
-            self.tmin += self.xrange * 60 * 60
+            self.__plot()
+            self.tmin += self.xrange*60*60
             self.data.setup()
             self.clear_figures()
 
         self.__update(dataOut, tm)
 
         if self.isPlotConfig is False:
-            print(self.type_plot)
-            if self.type_plot == True:
-                self.__setup_plot_wr()
-            else:
-                self.__setup_plot()
+            self.__setup_plot()
             self.isPlotConfig = True
             if self.xaxis == 'time':
                 dt = self.getDateTime(tm)
                 if self.xmin is None:
                     self.tmin = tm
-                    self.xmin = dt.hour    
-                minutes = (self.xmin - int(self.xmin)) * 60
+                    self.xmin = dt.hour
+                minutes = (self.xmin-int(self.xmin)) * 60
                 seconds = (minutes - int(minutes)) * 60
-                self.tmin = (dt.replace(hour=int(self.xmin), minute=int(minutes), second=int(seconds)) - 
+                self.tmin = (dt.replace(hour=int(self.xmin), minute=int(minutes), second=int(seconds)) -
                         datetime.datetime(1970, 1, 1)).total_seconds()
                 if self.localtime:
                     self.tmin += time.timezone
@@ -1009,20 +776,14 @@ class Plot(Operation):
                     self.xrange = self.xmax - self.xmin
 
         if self.throttle == 0:
-            if self.type_plot == True:
-                self.__plot_wr()
-            else:
-                self.__plot()
+            self.__plot()
         else:
-            self.__throttle_plot(self.__plot)  # , coerce=coerce)
+            self.__throttle_plot(self.__plot)#, coerce=coerce)
 
     def close(self):
 
         if self.data and not self.data.flagNoData:
             self.save_time = 0
-            if self.type_plot == True:
-                self.__plot_wr()
-            else:
-                self.__plot()
+            self.__plot()
         if self.data and not self.data.flagNoData and self.pause:
             figpause(10)

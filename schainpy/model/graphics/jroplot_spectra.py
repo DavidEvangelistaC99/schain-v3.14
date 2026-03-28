@@ -703,6 +703,7 @@ class RTIPlot(Plot):
         for n, ax in enumerate(self.axes):
             self.zmin = self.zmin if self.zmin else numpy.min(self.z)
             self.zmax = self.zmax if self.zmax else numpy.max(self.z)
+            data = self.data[-1]
             if ax.firsttime:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]

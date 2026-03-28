@@ -7,10 +7,11 @@ from matplotlib.patches import Circle
 from cartopy.feature import ShapelyFeature
 import cartopy.io.shapereader as shpreader
 
-from schainpy.model.graphics.jroplot_base import Plot, plt,ccrs
+from schainpy.model.graphics.jroplot_base import Plot, plt, ccrs
 from schainpy.model.graphics.jroplot_spectra import SpectraPlot, RTIPlot, CoherencePlot, SpectraCutPlot
 from schainpy.utils import log
 from schainpy.model.graphics.plotting_codes import cb_tables
+
 
 EARTH_RADIUS = 6.3710e3
 
@@ -154,16 +155,17 @@ def antenna_to_geographic(ranges, azimuths, elevations, site):
     lon, lat = cartesian_to_geographic_aeqd(x, y, site[0], site[1], R=6370997.)
 
     return lon, lat
+
 def ll2xy(lat1, lon1, lat2, lon2):
 
     p = 0.017453292519943295
-    a = 0.5 - numpy.cos((lat2 - lat1) * p) / 2 + numpy.cos(lat1 * p) * \
+    a = 0.5 - numpy.cos((lat2 - lat1) * p)/2 + numpy.cos(lat1 * p) * \
         numpy.cos(lat2 * p) * (1 - numpy.cos((lon2 - lon1) * p)) / 2
     r = 12742 * numpy.arcsin(numpy.sqrt(a))
-    theta = numpy.arctan2(numpy.sin((lon2 - lon1) * p) * numpy.cos(lat2 * p), numpy.cos(lat1 * p)
-                          * numpy.sin(lat2 * p) - numpy.sin(lat1 * p) * numpy.cos(lat2 * p) * numpy.cos((lon2 - lon1) * p))
-    theta = -theta + numpy.pi / 2
-    return r * numpy.cos(theta), r * numpy.sin(theta)
+    theta = numpy.arctan2(numpy.sin((lon2-lon1)*p)*numpy.cos(lat2*p), numpy.cos(lat1*p)
+                          * numpy.sin(lat2*p)-numpy.sin(lat1*p)*numpy.cos(lat2*p)*numpy.cos((lon2-lon1)*p))
+    theta = -theta + numpy.pi/2
+    return r*numpy.cos(theta), r*numpy.sin(theta)
 
 
 def km2deg(km):
@@ -171,7 +173,7 @@ def km2deg(km):
     Convert distance in km to degrees
     '''
 
-    return numpy.rad2deg(km / EARTH_RADIUS)
+    return numpy.rad2deg(km/EARTH_RADIUS)
 
 
 
@@ -191,23 +193,11 @@ class DobleGaussianPlot(SpectraPlot):
     # colormap = 'jet'
     # plot_type = 'pcolor'
 
-
 class DoubleGaussianSpectraCutPlot(SpectraCutPlot):
     '''
     Plot SpectraCut with Double Gaussian Fit
     '''
     CODE = 'cut_gaussian_fit'
-
-
-class SpectralFitObliquePlot(SpectraPlot):
-    '''
-    Plot for Spectral Oblique
-    '''
-    CODE = 'spc_moments'
-    colormap = 'jet'
-    plot_type = 'pcolor'
-
-
 
 class SnrPlot(RTIPlot):
     '''
@@ -220,7 +210,7 @@ class SnrPlot(RTIPlot):
     def update(self, dataOut):
 
         data = {
-            'snr': 10 * numpy.log10(dataOut.data_snr)    
+            'snr': 10*numpy.log10(dataOut.data_snr)
         }
 
         return data, {}
@@ -231,86 +221,12 @@ class DopplerPlot(RTIPlot):
     '''
 
     CODE = 'dop'
-    colormap = 'RdBu_r'
-
-    def update(self, dataOut):
-
-        data = {
-            'dop': dataOut.data_dop
-        }
-
-        return data, {}
-
-class DopplerEEJPlot(RTIPlot):
-    '''
-    Written by R. Flores
-    '''
-    '''
-    Plot for Doppler Shift EEJ
-    '''
-
-    CODE = 'dop'
-    colormap = 'RdBu_r'
-    #colormap = 'jet'
-
-    def setup(self):
-
-        self.xaxis = 'time'
-        self.ncols = 1
-        self.nrows = 2
-        self.nplots = 2
-        self.ylabel = 'Range [km]'
-        self.xlabel = 'Time'
-        self.cb_label = '(m/s)'
-        self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.1, 'right':0.95})
-        self.titles = ['{} EJJ Type {} /'.format(
-            self.CODE.upper(), x) for x in range(1,1+self.nrows)]
-
-    def update(self, dataOut):
-
-        if dataOut.mode == 11: #Double Gaussian
-            doppler = numpy.append(dataOut.Oblique_params[:,1,:],dataOut.Oblique_params[:,4,:],axis=0)
-        elif dataOut.mode == 9: #Double Skew Gaussian
-            doppler = numpy.append(dataOut.Oblique_params[:,-2,:],dataOut.Oblique_params[:,-1,:],axis=0)
-        data = {
-            'dop': doppler
-        }
-
-        return data, {}
-
-class SpcWidthEEJPlot(RTIPlot):
-    '''
-    Written by R. Flores
-    '''
-    '''
-    Plot for EEJ Spectral Width
-    '''
-
-    CODE = 'width'
-    colormap = 'RdBu_r'
     colormap = 'jet'
 
-    def setup(self):
-
-        self.xaxis = 'time'
-        self.ncols = 1
-        self.nrows = 2
-        self.nplots = 2
-        self.ylabel = 'Range [km]'
-        self.xlabel = 'Time'
-        self.cb_label = '(m/s)'
-        self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.1, 'right':0.95})
-        self.titles = ['{} EJJ Type {} /'.format(
-            self.CODE.upper(), x) for x in range(1,1+self.nrows)]
-
     def update(self, dataOut):
 
-        if dataOut.mode == 11: #Double Gaussian
-            width = numpy.append(dataOut.Oblique_params[:,2,:],dataOut.Oblique_params[:,5,:],axis=0)
-        elif dataOut.mode == 9: #Double Skew Gaussian
-            width = numpy.append(dataOut.Oblique_params[:,2,:],dataOut.Oblique_params[:,6,:],axis=0)
         data = {
-            'width': width
+            'dop': 10*numpy.log10(dataOut.data_dop)
         }
 
         return data, {}
@@ -324,11 +240,9 @@ class PowerPlot(RTIPlot):
     colormap = 'jet'
 
     def update(self, dataOut):
-
         data = {
-            'pow': 10 * numpy.log10(dataOut.data_pow / dataOut.normFactor)    
+            'pow': 10*numpy.log10(dataOut.data_pow/dataOut.normFactor)
         }
-
         return data, {}
 
 class SpectralWidthPlot(RTIPlot):
@@ -412,7 +326,7 @@ class GenericRTIPlot(Plot):
         self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.08, 'right':0.95, 'top': 0.95})
 
         if not self.xlabel:
-            self.xlabel = 'Local Time'
+            self.xlabel = 'Time'
 
         self.ylabel = 'Range [km]'
         if not self.titles:
@@ -427,13 +341,13 @@ class GenericRTIPlot(Plot):
         meta = {}
 
         return data, meta
-    
+
     def plot(self):
         # self.data.normalize_heights()
         self.x = self.data.times
         self.y = self.data.yrange
         self.z = self.data['param']
-
+        self.z = 10*numpy.log10(self.z)
         self.z = numpy.ma.masked_invalid(self.z)
 
         if self.decimation is None:
@@ -460,7 +374,7 @@ class GenericRTIPlot(Plot):
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                ax.plt.remove()
+                ax.collections.remove(ax.collections[0])
                 ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -513,22 +427,22 @@ class PolarMapPlot(Plot):
             zeniths = numpy.linspace(
                 0, self.data.meta['max_range'], data.shape[1])
             if self.mode == 'E':
-                azimuths = -numpy.radians(self.data.yrange) + numpy.pi / 2
+                azimuths = -numpy.radians(self.data.yrange)+numpy.pi/2
                 r, theta = numpy.meshgrid(zeniths, azimuths)
-                x, y = r * numpy.cos(theta) * numpy.cos(numpy.radians(self.data.meta['elevation'])), r * numpy.sin(
-                    theta) * numpy.cos(numpy.radians(self.data.meta['elevation']))
+                x, y = r*numpy.cos(theta)*numpy.cos(numpy.radians(self.data.meta['elevation'])), r*numpy.sin(
+                    theta)*numpy.cos(numpy.radians(self.data.meta['elevation']))
                 x = km2deg(x) + self.lon
                 y = km2deg(y) + self.lat
             else:
                 azimuths = numpy.radians(self.data.yrange)
                 r, theta = numpy.meshgrid(zeniths, azimuths)
-                x, y = r * numpy.cos(theta), r * numpy.sin(theta)
+                x, y = r*numpy.cos(theta), r*numpy.sin(theta)
             self.y = zeniths
 
             if ax.firsttime:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                ax.plt = ax.pcolormesh(# r, theta, numpy.ma.array(data, mask=numpy.isnan(data)),
+                ax.plt = ax.pcolormesh(  # r, theta, numpy.ma.array(data, mask=numpy.isnan(data)),
                     x, y, numpy.ma.array(data, mask=numpy.isnan(data)),
                     vmin=self.zmin,
                     vmax=self.zmax,
@@ -536,8 +450,8 @@ class PolarMapPlot(Plot):
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
-                ax.plt.remove()
-                ax.plt = ax.pcolormesh(# r, theta, numpy.ma.array(data, mask=numpy.isnan(data)),
+                ax.collections.remove(ax.collections[0])
+                ax.plt = ax.pcolormesh(  # r, theta, numpy.ma.array(data, mask=numpy.isnan(data)),
                     x, y, numpy.ma.array(data, mask=numpy.isnan(data)),
                     vmin=self.zmin,
                     vmax=self.zmax,
@@ -583,8 +497,8 @@ class PolarMapPlot(Plot):
                 ax.add_artist(plt.Circle((self.lon, self.lat),
                                          km2deg(r), color='0.6', fill=False, lw=0.2))
                 ax.text(
-                    self.lon + (km2deg(r)) * numpy.cos(60 * numpy.pi / 180),
-                    self.lat + (km2deg(r)) * numpy.sin(60 * numpy.pi / 180),
+                    self.lon + (km2deg(r))*numpy.cos(60*numpy.pi/180),
+                    self.lat + (km2deg(r))*numpy.sin(60*numpy.pi/180),
                     '{}km'.format(r),
                     ha='center', va='bottom', size='8', color='0.6', weight='heavy')
 
@@ -599,12 +513,12 @@ class PolarMapPlot(Plot):
         self.titles = ['{} {}'.format(
             self.data.parameters[x], title) for x in self.channels]
 
+
+
 class WeatherParamsPlot(Plot):
 
     plot_type = 'scattermap'
     buffering = False
-    ## Sophy
-    # self.type_plot = True
 
     def setup(self):
 
@@ -635,9 +549,6 @@ class WeatherParamsPlot(Plot):
         self.indicador= 0
         self.last_data_ele = None
         self.val_mean      = None
-
-        ### SOPHY
-        self.type_plot = True
 
     def update(self, dataOut):
 
@@ -870,162 +781,3 @@ class WeatherParamsPlot(Plot):
                             '{}km'.format(R), color='skyblue', size=7)
             elif data['mode_op'] == 'RHI':
                 ax.grid(color='grey', alpha=0.5, linestyle='--', linewidth=1)
-
-class AverageDriftsPlot_v2(Plot):
-    '''
-    Plot for average 150 Km echoes
-    '''
-
-    CODE = 'average'
-    plot_type = 'scatterbuffer'
-
-    def setup(self):
-        self.xaxis = 'time'
-        self.ncols = 1
-
-        self.nplots = 2
-        self.nrows = 2
-
-        self.ylabel = 'Velocity\nm/s'
-        self.xlabel = 'Local time'
-        #self.titles = ['VERTICAL VELOCITY: AVERAGE AND ERRORS', 'ZONAL VELOCITY: AVERAGE AND ERRORS']
-        self.titles = ['VERTICAL VELOCITY: AVERAGE', 'ZONAL VELOCITY: AVERAGE']
-
-        self.colorbar = False
-        self.plots_adjust.update({'hspace':0.5, 'left': 0.1, 'bottom': 0.1, 'right':0.95, 'top': 0.95 })
-        
-
-    def update(self, dataOut):
-
-        data = {}
-        meta = {}
-
-        #data['average']= numpy.nanmean(dataOut.data_output[1:3,:], axis=1) # VERTICAL, ZONAL
-        data['average']= numpy.nanmean(dataOut.data_output[1:3,:], axis=1) # VERTICAL, ZONAL
-        data['error']= numpy.nanmean(dataOut.data_output[3:,:], axis=1) # ERROR VERTICAL, ERROR ZONAL
-        meta['yrange'] = numpy.array([])
-
-        return data, meta
-
-    def plot(self):
-
-        self.x = self.data.times
-        #self.xmin = self.data.min_time
-        #self.xmax = self.xmin + self.xrange * 60 * 60
-        self.y = self.data['average']
-        print('self.y:', self.y.shape)
-        self.y_error = self.data['error']
-        print('self.y_error:', self.y_error.shape)
-        
-        for n, ax in enumerate(self.axes):
-            if ax.firsttime:
-                self.ymin = self.ymin if self.ymin is not None else -50
-                self.ymax = self.ymax if self.ymax is not None else 50
-                self.axes[n].plot(self.x, self.y[n], c='r', ls=':', lw=1)
-            else:
-                self.axes[n].lines[0].set_data(self.x, self.y[n])
-        '''
-        for n, ax in enumerate(self.axes):
-
-            if ax.firsttime:
-                self.ymin = self.ymin if self.ymin is not None else -50
-                self.ymax = self.ymax if self.ymax is not None else 50
-                ax.scatter(self.x, self.y[n], c='g', s=0.8)
-                #ax.errorbar(self.x, self.y[n], yerr = self.y_error[n,:], ecolor='r', elinewidth=0.2, fmt='|')
-            else:
-                ax.scatter(self.x, self.y[n], c='g', s=0.8)
-                #ax.errorbar(self.x, self.y[n], yerr = self.y_error[n,:], ecolor='r', elinewidth=0.2, fmt='|')
-        '''
-class AverageDriftsPlot_bck(Plot):
-    '''
-    Plot for average 150 Km echoes
-    '''
-    CODE = 'average'
-    plot_type = 'scatterbuffer'
-
-    def setup(self):
-        self.xaxis = 'time'
-        self.ncols = 1
-        self.nplots = 2
-        self.nrows = 2
-        self.ylabel = 'Velocity\nm/s'
-        self.xlabel = 'Time'
-        self.titles = ['VERTICAL VELOCITY: AVERAGE', 'ZONAL VELOCITY: AVERAGE']
-        self.colorbar = False
-        self.plots_adjust.update({'hspace':0.5, 'left': 0.1, 'bottom': 0.1, 'right':0.95, 'top': 0.95 })
-        
-        
-
-    def update(self, dataOut):
-
-        data = {}
-        meta = {}
-        data['average']= numpy.nanmean(dataOut.data_output[1:3,:], axis=1) # VERTICAL, ZONAL
-        meta['yrange'] = numpy.array([])
-
-        return data, meta
-
-    def plot(self):
-
-        self.x = self.data.times
-        self.y = self.data['average']
-        
-        for n, ax in enumerate(self.axes):
-            if ax.firsttime:
-
-                if self.zlimits is not None:
-                    self.axes[n].set_ylim(self.zlimits[n])
-                self.axes[n].plot(self.x, self.y[n], c='r', ls='-', lw=1)
-            else:
-
-                if self.zlimits is not None:              
-                    ax.set_ylim((self.zlimits[n]))                    
-                self.axes[n].lines[0].set_data(self.x, self.y[n])
-
-class AverageDriftsPlot(Plot):
-    '''
-    Plot for average 150 Km echoes
-    '''
-    CODE = 'average'
-    plot_type = 'scatterbuffer'
-
-    def setup(self):
-        self.xaxis = 'time'
-        self.ncols = 1
-        self.nplots = 2
-        self.nrows = 2
-        self.ylabel = 'Velocity\nm/s'
-        self.xlabel = 'Local Time'
-        self.titles = ['150 kM VERTICAL VELOCITY: AVERAGE', '150 kM ZONAL VELOCITY: AVERAGE']
-        self.colorbar = False
-        self.plots_adjust.update({'hspace':0.5, 'left': 0.1, 'bottom': 0.1, 'right':0.95, 'top': 0.95 })
-        
-        
-
-    def update(self, dataOut):
-
-        data = {}
-        meta = {}
-        data['average']= dataOut.avg_output[0:2] # VERTICAL, ZONAL velocities
-        meta['yrange'] = numpy.array([])
-
-        return data, meta
-
-    def plot(self):
-
-        self.x = self.data.times
-        self.y = self.data['average']
-
-        for n, ax in enumerate(self.axes):
-
-            if ax.firsttime:
-
-                if self.zlimits is not None: 
-                    ax.set_ylim((self.zlimits[n]))
-                self.axes[n].plot(self.x, self.y[n], c='r', ls='-', lw=1)
-            else:
-          
-                if self.zlimits is not None:              
-                    ax.set_ylim((self.zlimits[n]))                    
-                self.axes[n].lines[0].set_data(self.x, self.y[n])
-                
