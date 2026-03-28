@@ -65,6 +65,7 @@ class SpectraProc(ProcessingUnit):
         self.dataOut.beam.azimuthList = self.dataIn.beam.azimuthList
         self.dataOut.beam.zenithList = self.dataIn.beam.zenithList
         self.dataOut.runNextUnit = self.dataIn.runNextUnit
+        self.dataOut.h0 = self.dataIn.h0
         try:
             self.dataOut.step = self.dataIn.step
         except:
@@ -728,7 +729,7 @@ class removeInterference(Operation):
             median_imag = int(numpy.median(numpy.imag(
                 junkcspc_interf[mask_prof[ind[list(range(3 * num_prof // 4))]], :])))
             comp_mask_prof = [int(e) for e in comp_mask_prof]
-            junkcspc_interf[comp_mask_prof, :] = complex(
+            junkcspc_interf[comp_mask_prof, :] = numpy.complex(
                 median_real, median_imag)
 
             for iprof in range(num_prof):

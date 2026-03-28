@@ -95,7 +95,9 @@ class ProcessingUnit(object):
         
         for op, optype, opkwargs in self.operations:
             aux = self.dataOut.copy()
-            if optype == 'other' and not self.dataOut.flagNoData:
+            if not hasattr(self.dataOut, 'runNextOp'):
+                self.dataOut.runNextOp = False
+            if optype == 'other' and (not self.dataOut.flagNoData or self.dataOut.runNextOp):
                 self.dataOut = op.run(self.dataOut, **opkwargs)
             elif optype == 'external' and not self.dataOut.flagNoData:
                 op.queue.put(aux)
