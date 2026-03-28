@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 desc = "USRP_test"
 filename = "USRP_processing.xml"
 
-path = '/home/david/Documents/DATA/CHIRP@2025-10-07T19-57-06/rawdata/'
-figpath = '/home/david/Documents/DATA/CHIRP@2025-10-07T19-57-06/rawdata'
+path = '/home/david/Documentos/DATA/CHIRP@2025-10-07T19-57-06/rawdata/'
+figpath = '/home/david/Documentos/DATA/CHIRP@2025-10-07T19-57-06/rawdata'
 
 ## REVISION ##
 ## 1 ##
