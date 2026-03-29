@@ -533,7 +533,7 @@ def main(args):
                     op.addParameter(name='save', value=path_plots, format='str')
                 op.addParameter(name='save_period', value=-1)
                 op.addParameter(name='show', value=args.show)
-                op.addParameter(name='channels', value=[0])
+                op.addParameter(name='channels', value='0,')
                 op.addParameter(name='zmin', value=PARAM[param]['zmin'], format='int')
                 op.addParameter(name='zmax', value=PARAM[param]['zmax'], format='int')
                 op.addParameter(name='yrange', value=20, format='int')

@@ -118,7 +118,8 @@ class DigitalRFReader(ProcessingUnit):
             numpy.arange(self.__nSamples, dtype=numpy.float32) * \
             self.__deltaHeigth
 
-        self.dataOut.channelList = list(range(self.__num_subchannels))
+        #self.dataOut.channelList = list(range(self.__num_subchannels))
+        self.dataOut.channelList = list(range(len(self.__channelList)))
 
         if not self.getByBlock:
 
@@ -184,7 +185,7 @@ class DigitalRFReader(ProcessingUnit):
             digitalReadObj = digital_rf.DigitalRFReader(path)
 
         channelNameList = digitalReadObj.get_channels()
-        channelNameList = ['ch0']#,'ch1']
+        channelNameList = ['ch0','ch1']#,'ch1']
 
         if not channelNameList:
             return []
@@ -287,7 +288,7 @@ class DigitalRFReader(ProcessingUnit):
             self.digitalReadObj = digital_rf.DigitalRFReader(path)
 
         channelNameList = self.digitalReadObj.get_channels()
-        channelNameList = ['ch0']#,'ch1']
+        channelNameList = ['ch0','ch1']#,'ch1']
 
         if not channelNameList:
             raise ValueError("[Reading] Directory %s does not have any files" % path)
@@ -435,9 +436,9 @@ class DigitalRFReader(ProcessingUnit):
         self.__thisUnixSample = int(startUTCSecond * self.__sample_rate) - self.__samples_to_read
 
         print("samplestoread",self.__samples_to_read)
-        self.__data_buffer = numpy.zeros(
-            (self.__num_subchannels, self.__samples_to_read), dtype=numpy.complex)
-
+        #self.__data_buffer = numpy.zeros(
+        #    (self.__num_subchannels, self.__samples_to_read), dtype=numpy.complex)
+        self.__data_buffer    = numpy.zeros((int(len(channelList)), self.__samples_to_read), dtype=numpy.complex_)
         self.__setFileHeader()
         self.isConfig = True
 
@@ -577,7 +578,9 @@ class DigitalRFReader(ProcessingUnit):
                                                                                              self.__samples_to_read))
                     break
                 
-                self.__data_buffer[indexSubchannel, :] = result * volt_scale
+                #self.__data_buffer[indexSubchannel, :] = result * volt_scale
+                self.__data_buffer[indexChannel, :] = result
+                self.__data_buffer[indexChannel, :] *= volt_scale
                 indexChannel += 1
 
                 dataOk = True
@@ -587,7 +590,8 @@ class DigitalRFReader(ProcessingUnit):
         if not dataOk:
             return False
 
-        print("[Reading] %s: %d samples <> %f sec" % (datetime.datetime.utcfromtimestamp(self.thisSecond - self.__timezone),
+        if self.verbose:
+            print("[Reading] %s: %d samples <> %f sec" % (datetime.datetime.utcfromtimestamp(self.thisSecond - self.__timezone),
                                                       self.__samples_to_read,
                                                       self.__timeInterval))
 
