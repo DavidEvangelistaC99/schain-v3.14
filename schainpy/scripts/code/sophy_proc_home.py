@@ -72,7 +72,7 @@ def main(args):
     path_save = os.path.join(PATH, experiment, 'param{}'.format(label))
     
     if conf['usrp_tx']['code_type_1'] == 'CHIRP':
-        RMIX = 6.3 #5.85 #5.625 5.28, 5.45
+        RMIX = 7.0 #6.3 #5.85 #5.625 5.28, 5.45
         H0   = -1.74   
     else:
         RMIX = 4.8 
