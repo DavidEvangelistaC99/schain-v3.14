@@ -453,8 +453,9 @@ class HDFWriter(Operation):
             elif isinstance(dataAux, (int, float, numpy.integer, numpy.float32)):
                 dsDict['nDim'] = 0
             else:
-                if self.uniqueChannel: #Creates extra dimension to avoid the creation of multiple channels
-                    dataAux = numpy.expand_dims(dataAux, axis=0)
+                pass
+                #if self.uniqueChannel: #Creates extra dimension to avoid the creation of multiple channels
+                #    dataAux = numpy.expand_dims(dataAux, axis=0)
                 dsDict['nDim'] = len(dataAux.shape)
                 dsDict['shape'] = dataAux.shape
                 dsDict['dsNumber'] = dataAux.shape[0]
@@ -700,8 +701,11 @@ class HDFWriter(Operation):
                     shape = dsInfo['shape'][1:]
                 else:
                     shape = (self.blocksPerFile, ) + dsInfo['shape'][1:]
-                if self.uniqueChannel: #Creates extra dimension to avoid the creation of multiple channels
-                    setattr(self.dataOut, dsInfo['variable'], numpy.expand_dims(getattr(self.dataOut, dsInfo['variable']), axis=0))
+                
+                ## cambio para SOPHY, quitamos
+                
+                #if self.uniqueChannel: #Creates extra dimension to avoid the creation of multiple channels
+                #    setattr(self.dataOut, dsInfo['variable'], numpy.expand_dims(getattr(self.dataOut, dsInfo['variable']), axis=0))
                 for i in range(dsInfo['dsNumber']):
                     if dsInfo['dsNumber']==1:
                         if self.setChannel==1:
@@ -736,8 +740,8 @@ class HDFWriter(Operation):
             if ch == -1:
                 ds[self.blockIndex] = getattr(self.dataOut, attr)
             else:
-                if self.uniqueChannel and self.blockIndex != 0: #Creates extra dimension to avoid the creation of multiple channels
-                    setattr(self.dataOut, attr, numpy.expand_dims(getattr(self.dataOut, attr), axis=0))
+                #if self.uniqueChannel and self.blockIndex != 0: #Creates extra dimension to avoid the creation of multiple channels
+                #    setattr(self.dataOut, attr, numpy.expand_dims(getattr(self.dataOut, attr), axis=0))
                 if self.blocksPerFile == 1:
                     tmp = getattr(self.dataOut, attr)[self.weather_vars[self.weather_var]][ch]
                     if self.mask:
@@ -746,8 +750,8 @@ class HDFWriter(Operation):
                     ds[:] = tmp
                 else:
                     ds[self.blockIndex] = getattr(self.dataOut, attr)[ch]
-                if self.uniqueChannel: #Deletes extra dimension created to avoid the creation of multiple channels
-                    setattr(self.dataOut, attr, getattr(self.dataOut, attr)[0])
+                #if self.uniqueChannel: #Deletes extra dimension created to avoid the creation of multiple channels
+                #    setattr(self.dataOut, attr, getattr(self.dataOut, attr)[0])
 
         self.fp.flush()
         self.blockIndex += 1
