@@ -184,7 +184,7 @@ class DigitalRFReader(ProcessingUnit):
             digitalReadObj = digital_rf.DigitalRFReader(path)
 
         channelNameList = digitalReadObj.get_channels()
-        channelNameList = ['ch0'] #,'ch1']
+        channelNameList = ['ch0']#,'ch1']
 
         if not channelNameList:
             return []
@@ -287,7 +287,7 @@ class DigitalRFReader(ProcessingUnit):
             self.digitalReadObj = digital_rf.DigitalRFReader(path)
 
         channelNameList = self.digitalReadObj.get_channels()
-        channelNameList = ['ch0'] #,'ch1']
+        channelNameList = ['ch0']#,'ch1']
 
         if not channelNameList:
             raise ValueError("[Reading] Directory %s does not have any files" % path)
