@@ -202,6 +202,8 @@ class Plot(Operation):
         self.sender_queue = deque(maxlen=10)
         self.plots_adjust = {'left': 0.125, 'right': 0.9, 'bottom': 0.15, 'top': 0.9, 'wspace': 0.2, 'hspace': 0.2}
 
+        #self.type_plot = False
+
     def __fmtTime(self, x, pos):
         '''
         '''
@@ -285,7 +287,7 @@ class Plot(Operation):
         self.longitude = kwargs.get('longitude', -74)
 
         # condicion de ploteo
-        self.type_plot = kwargs.get('type_plot', False)
+        # self.type_plot = kwargs.get('type_plot', False)
         
         if self.server:
             if not self.server.startswith('tcp://'):
@@ -667,6 +669,19 @@ class Plot(Operation):
             ax.firsttime = True
             #if hasattr(ax, 'cbar') and ax.cbar:
                 #ax.cbar.remove()
+    
+    def clear_figures_wr(self):
+        '''
+        Reset axes for redraw plots
+        '''
+
+        axes = self.pf_axes + self.cb_axes + self.axes[self.mode]
+
+        for ax in axes:
+            ax.clear()
+            ax.firsttime = True
+            if hasattr(ax, 'cbar') and ax.cbar:
+                ax.cbar.remove()
 
     def __plot(self):
         '''
@@ -702,7 +717,7 @@ class Plot(Operation):
         '''
 
         self.plot()
-        self.format()
+        self.format_wr()
         figures = self.figures[self.mode]
         for n, fig in enumerate(figures):
             if self.nrows == 0 or self.nplots == 0:
@@ -976,19 +991,25 @@ class Plot(Operation):
 
         if self.data and 'time' in self.xaxis and (tm - self.tmin) >= self.xrange * 60 * 60:
             self.save_time = tm
-            if self.type_plot == True:
+            if self.plot_operation == 'weather_radar':
                 self.__plot_wr()
             else:
                 self.__plot()
             self.tmin += self.xrange * 60 * 60
             self.data.setup()
-            self.clear_figures()
+            if self.plot_operation == 'weather_radar':
+                self.clear_figures_wr()
+            else:
+                self.clear_figures()
 
         self.__update(dataOut, tm)
 
         if self.isPlotConfig is False:
-            print(self.type_plot)
-            if self.type_plot == True:
+
+
+            ###PRINT DE PLOT OPERATION
+            #print(self.plot_operation)
+            if self.plot_operation == 'weather_radar':
                 self.__setup_plot_wr()
             else:
                 self.__setup_plot()
@@ -1009,7 +1030,7 @@ class Plot(Operation):
                     self.xrange = self.xmax - self.xmin
 
         if self.throttle == 0:
-            if self.type_plot == True:
+            if self.plot_operation == 'weather_radar':
                 self.__plot_wr()
             else:
                 self.__plot()
@@ -1020,7 +1041,7 @@ class Plot(Operation):
 
         if self.data and not self.data.flagNoData:
             self.save_time = 0
-            if self.type_plot == True:
+            if self.plot_operation == 'weather_radar':
                 self.__plot_wr()
             else:
                 self.__plot()

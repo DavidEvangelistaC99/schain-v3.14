@@ -29,6 +29,10 @@ class SpectraPlot(Plot):
     plot_type = 'pcolor'
     buffering = False
 
+
+    ## attribute for plot operation, to be used in jroplot_base.py
+    plot_operation = 'spectra'
+
     def setup(self):
 
         self.nplots = len(self.data.channels)

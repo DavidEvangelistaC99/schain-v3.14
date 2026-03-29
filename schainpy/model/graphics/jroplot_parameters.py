@@ -603,8 +603,9 @@ class WeatherParamsPlot(Plot):
 
     plot_type = 'scattermap'
     buffering = False
-    ## Sophy
-    # self.type_plot = True
+    
+    ## Sophy, to be used in jroplot_base.py 
+    plot_operation = 'weather_radar'
 
     def setup(self):
 
@@ -637,7 +638,7 @@ class WeatherParamsPlot(Plot):
         self.val_mean      = None
 
         ### SOPHY
-        self.type_plot = True
+        #self.type_plot = True
 
     def update(self, dataOut):
 
@@ -778,7 +779,9 @@ class WeatherParamsPlot(Plot):
                 self.ymin = km2deg(-numpy.nanmax(r)) + self.latitude
                 self.ymax = km2deg(numpy.nanmax(r)) + self.latitude
 
-        self.clear_figures()
+
+        #### funcion nueva ubicada en jroplot_base.py
+        self.clear_figures_wr()
 
         if data['mode_op'] == 'PPI':
             axes = self.axes['PPI']
