@@ -72,7 +72,7 @@ def main(args):
     path_save = os.path.join(PATH, experiment, 'param{}'.format(label))
     
     if conf['usrp_tx']['code_type_1'] == 'CHIRP':
-        RMIX = 6.3 #5.85 #5.625 5.28, 5.45
+        RMIX = 7.0 #6.3 #5.85 #5.625 5.28, 5.45
         H0   = -1.74   
     else:
         RMIX = 4.8 
@@ -681,4 +681,4 @@ En este experimento se observa que la h0 = -1.4
 
 """
 
-# python sophy_proc_hyo_union_.py CHIRP@2025-10-16T19-30-55 --parameters SNR  --plot --save --rmDC --label 25_MARZO --range 60 --mask 0.35
+# python sophy_proc.py CHIRP@2025-10-16T19-30-55 --parameters SNR  --plot --save --rmDC --label 30_03_26 --range 60 --mask -9.0
