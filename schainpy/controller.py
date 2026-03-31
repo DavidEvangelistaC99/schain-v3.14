@@ -654,6 +654,12 @@ class Project(Process):
 
         self.filename = filename
 
+    '''
+    Llamada del método run de cada unidad de procesamiento. El método call 
+    de cada unidad de procesamiento se encarga de ejecutar las operaciones 
+    y retornar un valor que indica si la unidad de procesamiento ha termi-
+    nado su ejecución o si ha ocurrido un error.
+    '''
     def runProcs(self):
 
         err = False
