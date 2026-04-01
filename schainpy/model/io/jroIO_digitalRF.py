@@ -185,7 +185,7 @@ class DigitalRFReader(ProcessingUnit):
             digitalReadObj = digital_rf.DigitalRFReader(path)
 
         channelNameList = digitalReadObj.get_channels()
-        channelNameList = ['ch0','ch1']#,'ch1']
+        # channelNameList = ['ch0','ch1']#,'ch1']
 
         if not channelNameList:
             return []
@@ -281,6 +281,9 @@ class DigitalRFReader(ProcessingUnit):
         if not os.path.isdir(path):
             raise ValueError("[Reading] Directory %s does not exist" % path)
 
+        '''
+        Create digitalReadObj object from DigitalRF library. 
+        '''
         try:
             self.digitalReadObj = digital_rf.DigitalRFReader(
                 path, load_all_metadata=True)
@@ -288,7 +291,7 @@ class DigitalRFReader(ProcessingUnit):
             self.digitalReadObj = digital_rf.DigitalRFReader(path)
 
         channelNameList = self.digitalReadObj.get_channels()
-        channelNameList = ['ch0','ch1']#,'ch1']
+        # channelNameList = ['ch0','ch1']
 
         if not channelNameList:
             raise ValueError("[Reading] Directory %s does not have any files" % path)
@@ -296,8 +299,9 @@ class DigitalRFReader(ProcessingUnit):
         if not channelList:
             channelList = list(range(len(channelNameList)))
 
-        ##########  Reading metadata ######################
-
+        '''
+        Reading metadata 
+        '''
         top_properties = self.digitalReadObj.get_properties(
             channelNameList[channelList[0]])
 
@@ -305,14 +309,17 @@ class DigitalRFReader(ProcessingUnit):
         self.__sample_rate = 1.0 * \
             top_properties['sample_rate_numerator'] / \
             top_properties['sample_rate_denominator']
-        # self.__samples_per_file = top_properties['samples_per_file'][0]
-        self.__deltaHeigth = 1e6 * 0.15 / self.__sample_rate  # why 0.15?
+        
+        '''
+        __deltaHeight is in km
+        '''
+        self.__deltaHeigth = 1e6 * 0.15 / self.__sample_rate
 
         this_metadata_file = self.digitalReadObj.get_digital_metadata(
             channelNameList[channelList[0]])
         metadata_bounds = this_metadata_file.get_bounds()
         self.fixed_metadata_dict = this_metadata_file.read(
-            metadata_bounds[0])[metadata_bounds[0]]  # GET FIRST HEADER
+            metadata_bounds[0])[metadata_bounds[0]]
 
         try:
             self.__processingHeader = self.fixed_metadata_dict['processingHeader']
@@ -326,7 +333,8 @@ class DigitalRFReader(ProcessingUnit):
 
         self.__frequency = self.fixed_metadata_dict.get('frequency', 1)
 
-        # self.__frequency = 9.345e9
+        print("Frequency")
+        print(self.__frequency)
 
         self.__timezone = self.fixed_metadata_dict.get('timezone', 18000)
 
