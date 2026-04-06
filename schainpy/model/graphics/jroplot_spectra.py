@@ -670,6 +670,11 @@ class RTIPlot(Plot):
     CODE = 'rti'
     colormap = 'jet'
     plot_type = 'pcolorbuffer'
+    
+    '''
+    Parameters to be used in jroplot_base.py
+    '''
+    plot_operation = 'rti'
 
     def setup(self):
         self.xaxis = 'time'
@@ -705,8 +710,8 @@ class RTIPlot(Plot):
             x, y, z = self.fill_gaps(*self.decimate())
 
         for n, ax in enumerate(self.axes):
-            self.zmin = self.zmin if self.zmin else numpy.min(self.z)
-            self.zmax = self.zmax if self.zmax else numpy.max(self.z)
+            # self.zmin = self.zmin if self.zmin else numpy.min(self.z)
+            # self.zmax = self.zmax if self.zmax else numpy.max(self.z)
             data = self.data[-1]
             if ax.firsttime:
                 if self.zlimits is not None:
