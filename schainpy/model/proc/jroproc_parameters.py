@@ -7743,6 +7743,7 @@ class PedestalInformation(Operation):
 
 class Block360(Operation):
     '''
+    Acumulacion de perfiles para un barrido.
     '''
     isConfig       = False
     __profIndex    = 0
