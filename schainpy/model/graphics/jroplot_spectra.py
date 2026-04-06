@@ -672,7 +672,7 @@ class RTIPlot(Plot):
     plot_type = 'pcolorbuffer'
     
     '''
-    Parameters to be used in jroplot_base.py
+    Parameter to be used in jroplot_base.py
     '''
     plot_operation = 'rti'
 
