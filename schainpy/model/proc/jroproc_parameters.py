@@ -7481,7 +7481,7 @@ class WeatherRadar(Operation):
             data_param[0] = dataOut.data_pow.transpose(1, 0, 2)/dataOut.normFactor            
             data_param[3] = dataOut.data_snr.transpose(1, 0, 2)
             dataOut.data_noise = dataOut.noise
-               
+                        
         self.mask = data_param[3] < 10**(mask/10)        
         self.mask = numpy.tile(self.mask, (8, 1, 1, 1))
         dataOut.data_param = data_param
