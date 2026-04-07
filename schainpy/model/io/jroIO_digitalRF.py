@@ -369,15 +369,20 @@ class DigitalRFReader(ProcessingUnit):
         startUTCSecond = None
         endUTCSecond = None
 
+        '''
+        New variable for timezone fix
+        '''
+        timezone = datetime.timedelta(seconds=self.__timezone)  # normalmente 18000
+
         if startDate:
             startDatetime = datetime.datetime.combine(startDate, startTime)
             startUTCSecond = (
-                startDatetime - datetime.datetime(1970, 1, 1)).total_seconds()#  + self.__timezone
+                startDatetime - datetime.datetime(1970, 1, 1)).total_seconds() # + self.__timezone
 
         if endDate:
             endDatetime = datetime.datetime.combine(endDate, endTime)
             endUTCSecond = (endDatetime - datetime.datetime(1970,
-                                                            1, 1)).total_seconds()#  + self.__timezone
+                                                            1, 1)).total_seconds() # + self.__timezone
 
         start_index, end_index = self.digitalReadObj.get_bounds(
             channelNameList[channelList[0]])
@@ -452,9 +457,9 @@ class DigitalRFReader(ProcessingUnit):
 
         print("[Reading] Digital RF Data was found from %s to %s " % (
             datetime.datetime.utcfromtimestamp(
-                self.__startUTCSecond - self.__timezone),
+                self.__startUTCSecond),# - self.__timezone),
             datetime.datetime.utcfromtimestamp(
-                self.__endUTCSecond - self.__timezone)
+                self.__endUTCSecond),# - self.__timezone)
         ))
 
         print("[Reading] Starting process from %s to %s" % (datetime.datetime.utcfromtimestamp(startUTCSecond - self.__timezone),
