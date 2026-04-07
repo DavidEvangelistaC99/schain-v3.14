@@ -79,6 +79,8 @@ def main(args):
         H0   = -2.0
 
     MASKS = args.mask.split(',')
+
+    print(MASKS)
     if len(MASKS) == 1:
         MASK1 = float(MASKS[0])
         MASK2 = float(MASKS[0])
@@ -111,6 +113,8 @@ def main(args):
 
     if not conf['usrp_tx']['enable_2']: # One Pulse
         n_pulses = 1
+
+        print("ONE PULSE")
         
         if conf['usrp_tx']['code_type_1'] == 'CHIRP':
             print("CHIRP PULSE")
@@ -216,37 +220,41 @@ def main(args):
         opObj10.addParameter(name='variableList', value=parameters)
         opObj10.addParameter(name='tauW',value=(1e-6/sample_rate)*len(code[0]))
         opObj10.addParameter(name='Pt',value=200)
+        opObj10.addParameter(name='mask',value=MASK1)
         opObj10.addParameter(name='CR_Flag',value=True)
         opObj10.addParameter(name='noise_angle', value=2.6)
 
 
         for param in parameters:
 
-            op= proc.addOperation(name='WeatherParamsPlot')
-            if args.save: op.addParameter(name='save', value=path_plots, format='str')
-            op.addParameter(name='save_period', value=-1)
-            op.addParameter(name='show', value=args.show)
-            op.addParameter(name='channels', value='0,')
-            op.addParameter(name='zmin', value=PARAM[param]['zmin'])
-            op.addParameter(name='zmax', value=PARAM[param]['zmax'])
-            op.addParameter(name='yrange', value=0.15, format='float')# esto estaba en 20
-            op.addParameter(name='xrange', value=args.range, format='float')
-            op.addParameter(name='attr_data', value=param, format='str')
-            op.addParameter(name='labels', value=[PARAM[param]['label'], PARAM[param]['label']])
-            op.addParameter(name='save_code', value=param)
-            op.addParameter(name='cb_label', value=PARAM[param]['cb_label'])
-            op.addParameter(name='colormap', value=PARAM[param]['colormap'])
-            op.addParameter(name='bgcolor', value='black')
-            op.addParameter(name='localtime', value=False)
-            op.addParameter(name='shapes', value='./shapes')
-            op.addParameter(name='latitude', value=conf['latitude'], format='float')
-            op.addParameter(name='longitude', value=conf['longitude'], format='float')
-            op.addParameter(name='map', value=True)
+            if args.plot:
 
-            if MASK1: op.addParameter(name='mask', value=MASK1, format='float')
-            if args.server:
-                op.addParameter(name='server', value='190.187.237.239:4444')
-                op.addParameter(name='exp_code', value='400')
+
+                op= proc.addOperation(name='WeatherParamsPlot')
+                if args.save: op.addParameter(name='save', value=path_plots, format='str')
+                op.addParameter(name='save_period', value=-1)
+                op.addParameter(name='show', value=args.show)
+                op.addParameter(name='channels', value='0,')
+                op.addParameter(name='zmin', value=PARAM[param]['zmin'])
+                op.addParameter(name='zmax', value=PARAM[param]['zmax'])
+                op.addParameter(name='yrange', value=0.15, format='float')# esto estaba en 20
+                op.addParameter(name='xrange', value=args.range, format='float')
+                op.addParameter(name='attr_data', value=param, format='str')
+                op.addParameter(name='labels', value=[PARAM[param]['label'], PARAM[param]['label']])
+                op.addParameter(name='save_code', value=param)
+                op.addParameter(name='cb_label', value=PARAM[param]['cb_label'])
+                op.addParameter(name='colormap', value=PARAM[param]['colormap'])
+                op.addParameter(name='bgcolor', value='black')
+                op.addParameter(name='localtime', value=False)
+                op.addParameter(name='shapes', value='./shapes')
+                op.addParameter(name='latitude', value=conf['latitude'], format='float')
+                op.addParameter(name='longitude', value=conf['longitude'], format='float')
+                op.addParameter(name='map', value=True)
+
+            #if MASK1: op.addParameter(name='mask', value=MASK1, format='float')
+                if args.server:
+                    op.addParameter(name='server', value='190.187.237.239:4444')
+                    op.addParameter(name='exp_code', value='400')
 
             desc = {
                     'Data': {
@@ -681,4 +689,4 @@ En este experimento se observa que la h0 = -1.4
 
 """
 
-# python sophy_proc.py CHIRP@2025-10-16T19-30-55 --parameters SNR  --plot --save --rmDC --label 30_03_26 --range 60 --mask -9.0
+# python sophy_proc.py CHIRP@2025-10-16T19-30-55 --parameters SNR  --plot --save --rmDC --label 31_03_26 --range 60 --mask -9.0
