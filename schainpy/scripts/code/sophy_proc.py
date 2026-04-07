@@ -48,6 +48,10 @@ def main(args):
         angles = conf['pedestal']['table']
     time_offset = args.time_offset
     parameters = args.parameters
+
+    '''
+    Changes for dates and time in the read unit.
+    '''
     start_date = conf['name'].split('@')[1].split('T')[0].replace('-', '/')
     end_date = start_date
     if args.start_time:
@@ -60,7 +64,7 @@ def main(args):
     else:
         end_time = '23:59:59'
 
-    N = int(1.0/(abs(speed_axis[0])*ipp))                                               # 1 GRADO DE RESOLUCION
+    N = int(1.0/(abs(speed_axis[0])*ipp)) 
     path = os.path.join(PATH, experiment, 'rawdata')
     #path = conf['usrp_rx']['datadir']
     path_ped = os.path.join(PATH, experiment, 'position')
