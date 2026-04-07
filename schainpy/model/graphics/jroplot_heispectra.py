@@ -14,6 +14,10 @@ from schainpy.model.graphics.jroplot_base import Plot, plt
 class SpectraHeisPlot(Plot):
 
     CODE = 'spc_heis'
+    '''
+    Attribute added to the class Plot
+    '''
+    plot_operation = 'spc_heis'
 
     def setup(self):
 
