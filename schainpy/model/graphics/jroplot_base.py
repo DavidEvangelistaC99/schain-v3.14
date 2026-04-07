@@ -973,6 +973,12 @@ class Plot(Operation):
         if self.isConfig is False:
             self.__setup(**kwargs)
 
+            '''
+            Condition to hide profile axe for SpectraHeis, Noise
+            '''
+            if self.plot_operation in ('spc_heis', 'noise'):
+                self.showprofile = False
+
             if self.localtime:
                 self.getDateTime = datetime.datetime.fromtimestamp
             else:
