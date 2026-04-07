@@ -906,6 +906,9 @@ class NoisePlot(Plot):
     CODE = 'noise'
     plot_type = 'scatterbuffer'
 
+
+    plot_operation = 'noise'
+
     def setup(self):
         self.xaxis = 'time'
         self.ncols = 1
@@ -998,6 +1001,10 @@ class SpectraCutPlot(Plot):
     CODE = 'spc_cut'
     plot_type = 'scatter'
     buffering = False
+
+    '''
+    '''
+    plot_operation = 'spc_cut'
 
     def setup(self):
 
