@@ -664,17 +664,39 @@ class Project(Process):
 
         err = False
         n = len(self.configurations)
+        flag_no_read = False
+        nProc_noRead = 0
         
         while not err:
+            n_proc = 0
             for conf in self.getUnits():
-                ok = conf.run()                
+                if flag_no_read:
+                    if n_proc >= nProc_noRead:
+                        ok = conf.run()
+                    else:
+                        n_proc += 1
+                        continue
+                else:
+                    ok = conf.run()
+
+                n_proc += 1
+
                 if ok == 'Error':
                     n -= 1
+                    continue
+                elif ok == 'no_Read' and (not flag_no_read):
+                    nProc_noRead = n_proc - 1
+                    flag_no_read = True
+                    continue
+                elif ok == 'new_Read':
+                    nProc_noRead = 0
+                    flag_no_read = False
                     continue
                 elif not ok:
                     break
             if n == 0:
                 err = True
+                break
         
     def run(self):
 
