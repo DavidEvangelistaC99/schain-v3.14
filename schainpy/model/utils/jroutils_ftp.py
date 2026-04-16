@@ -20,8 +20,8 @@ Thread = threading.Thread
 #     from gevent import sleep
 # except:
 from time import sleep
-
-from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation
+from schainpy.model.data.jrodata import *
+from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecorator
 
 class Remote(Thread):
     """
@@ -39,12 +39,13 @@ class Remote(Thread):
     username = None
     password = None
     remotefolder = None
+    key_filename=None
 
     period = 60
     fileList = []
     bussy = False
 
-    def __init__(self, server, username, password, remotefolder, period=60):
+    def __init__(self, server, username, password, remotefolder, period=60,key_filename=None):
 
         Thread.__init__(self)
 
@@ -58,14 +59,14 @@ class Remote(Thread):
         self.__remotefolder = remotefolder
 
         self.period = period
-
+        self.key_filename = key_filename
         self.fileList = []
         self.bussy = False
 
         self.stopFlag = False
 
         print("[Remote Server] Opening server: %s" % self.__server)
-        if self.open(self.__server, self.__username, self.__password, self.__remotefolder):
+        if self.open(self.__server, self.__username, self.__password, self.__remotefolder,key_filename=self.key_filename):
             print("[Remote Server] %s server was opened successfully" % self.__server)
 
         self.close()
@@ -390,12 +391,12 @@ class SSHClient(Remote):
     __sshClientObj = None
     __scpClientObj = None
 
-    def __init__(self, server, username, password, remotefolder, period=60):
+    def __init__(self, server, username, password, remotefolder, period=60,key_filename=None):
         """
         """
-        Remote.__init__(self, server, username, password, remotefolder, period)
+        Remote.__init__(self, server, username, password, remotefolder, period, key_filename)
 
-    def open(self, server, username, password, remotefolder, port=22):
+    def open(self, server, username, password, remotefolder, port=22, key_filename=None):
 
         """
             This method is used to set SSH parameters and establish a connection to a remote server
@@ -436,7 +437,10 @@ class SSHClient(Remote):
 
         self.status = 0
         try:
-            sshClientObj.connect(server, username=username, password=password, port=port)
+            if key_filename != None:
+                sshClientObj.connect(server, username=username, password=password, port=port, key_filename=key_filename)
+            else:
+                sshClientObj.connect(server, username=username, password=password, port=port)
         except paramiko.AuthenticationException as e:
     #             print "SSH username or password are incorrect: %s"
             print("[SSH Server]:", e)
@@ -451,6 +455,10 @@ class SSHClient(Remote):
 
         self.status = 1
         scpClientObj = scp.SCPClient(sshClientObj.get_transport(), socket_timeout=30)
+
+        # AMISR merge
+        self.__scpClientObj = self.__sshClientObj.open_sftp()
+
 
         if remotefolder == None:
             remotefolder = self.pwd()
@@ -562,16 +570,27 @@ class SSHClient(Remote):
         if not self.status:
             return 0
 
+        remotefile = os.path.join(self.remotefolder, os.path.split(fullfilename)[-1])
+        print("remotefile",fullfilename, remotefile)
+
+        
+        ### cambiar posiblemente debido al merge con AMISR
+
         try:
             self.__scpClientObj.put(fullfilename, remote_path=self.remotefolder)
         except scp.ScpError as e:
             print("[SSH Server]", str(e))
             return 0
+        except paramiko.SSHException as e:
+            print("[SSH Server]", str(e))
+            print(fullfilename, "to", remotefile)
+            return 0 
 
         remotefile = os.path.join(self.remotefolder, os.path.split(fullfilename)[-1])
         command = 'chmod 775 %s' % remotefile
 
-        return self.__execute(command)
+        #return self.__execute(command)
+        return 1
 
 class SendToServer(ProcessingUnit):
 
@@ -656,6 +675,180 @@ class SendToServer(ProcessingUnit):
     def close(self):
         print("[Remote Server] Stopping thread")
         self.clientObj.stop()
+
+
+class SendToServerProc(ProcessingUnit):
+
+    sendByTrigger = False
+
+    def __init__(self, **kwargs):
+
+        ProcessingUnit.__init__(self)
+
+        self.isConfig = False
+        self.clientObj = None
+        self.dataOut = Parameters()
+        self.dataOut.error=False
+        self.dataOut.flagNoData=True
+
+    def setup(self, server=None, username="", password="", remotefolder="", localfolder="",
+    ext='.png', period=60, protocol='ftp', sendByTrigger=False, key_filename=None):
+        self.server = server
+        self.username = username
+        self.password = password
+        self.remotefolder = remotefolder
+        self.clientObj = None
+        self.localfolder = localfolder
+        self.ext = ext
+        self.sendByTrigger = sendByTrigger
+        self.period = period
+        self.key_filename = key_filename
+        if self.sendByTrigger:
+            self.period = 1000000000000  #para que no se ejecute por tiempo
+
+        if str.lower(protocol) == 'ftp':
+            self.clientObj = FTPClient(server, username, password, remotefolder, period)
+
+        if str.lower(protocol) == 'ssh':
+            self.clientObj = SSHClient(self.server, self.username, self.password,
+             self.remotefolder, period=600000,key_filename=self.key_filename)
+
+        if not self.clientObj:
+            raise ValueError("%s has been chosen as remote access protocol but it is not valid" %protocol)
+
+        print("Send to Server setup complete")
+
+
+    def findFiles(self):
+
+        if not type(self.localfolder) == list:
+            folderList = [self.localfolder]
+        else:
+            folderList = self.localfolder
+
+        #Remove duplicate items
+        folderList = list(set(folderList))
+
+        fullfilenameList = []
+
+        for thisFolder in folderList:
+
+            print("[Remote Server]: Searching files on %s" %thisFolder)
+
+            filenameList = glob.glob1(thisFolder, '*%s' %self.ext)
+
+            if len(filenameList) < 1:
+
+                continue
+
+            for thisFile in filenameList:
+                fullfilename = os.path.join(thisFolder, thisFile)
+
+                if fullfilename in fullfilenameList:
+                    continue
+
+                #Only files modified in the last 30 minutes are considered
+                if os.path.getmtime(fullfilename) < time.time() - 30*60:
+                    continue
+
+                fullfilenameList.append(fullfilename)
+                fullfilenameList.sort()
+
+        return fullfilenameList
+
+    def run(self, **kwargs):
+
+        if not self.isConfig:
+            self.init = time.time()
+            self.setup(**kwargs)
+            self.isConfig = True
+
+        if not self.clientObj.is_alive():
+            print("[Remote Server]: Restarting connection ")
+            self.setup( **kwargs)
+
+        if ((time.time() - self.init) >= self.period  and not self.sendByTrigger) or  (self.sendByTrigger and not self.dataIn.flagNoData):
+            fullfilenameList = self.findFiles()
+            if self.sendByTrigger:
+                if self.clientObj.upload(fullfilenameList[-1]): #last file to send
+                    print("[Remote Server] upload finished successfully")
+            else:
+                for file in fullfilenameList:
+                    self.clientObj.upload(file)
+
+            # if self.clientObj.updateFileList(fullfilenameList):
+            #     print("[Remote Server]: Sending the next files ", str(fullfilenameList))
+
+            self.init = time.time()
+
+    def close(self):
+        print("[Remote Server] Stopping thread")
+        self.clientObj.stop()
+
+class SendByRSYNCProc(ProcessingUnit):
+
+    sendByTrigger = False
+
+    def __init__(self, **kwargs):
+
+        ProcessingUnit.__init__(self)
+
+        self.isConfig = False
+        self.dataOut = Parameters()
+        self.dataOut.error=False
+        self.dataOut.flagNoData=True
+
+    def setup(self, server="", username="", remotefolder="", localfolder="",sendByTrigger=True,
+        period=60, key_filename=None, port=22 ,param1="", param2=""):
+        self.server = server
+        self.username = username
+        self.remotefolder = remotefolder
+        self.localfolder = localfolder
+        self.period = period
+        self.key_filename = key_filename
+        if type(param1)==str:
+            self.param1 = list(param1.split(","))
+        else:
+            self.param1 = param1
+        if type(param2)==str:
+            self.param2 = list(param2.split(","))
+        else:
+            self.param2 = param2
+        self.port = port
+        self.sendByTrigger = sendByTrigger
+        if self.sendByTrigger:
+            self.period = 1000000000000  #para que no se ejecute por tiempo
+        self.command ="rsync "
+
+    def syncFolders(self):
+        self.command ="rsync "
+        for p1 in self.param1:
+            self.command += " -"+str(p1)
+        for p2 in self.param2:
+            self.command += " --"+str(p2)
+        if self.key_filename != None:
+            self.command += """ "ssh -i {} -p {}" """.format(self.key_filename, self.port)
+        self.command += " {} ".format(self.localfolder)
+        self.command += " {}@{}:{}".format(self.username,self.server,self.remotefolder)
+        print("CMD: ",self.command)
+        #os.system(self.command)
+        return
+
+    def run(self, **kwargs):
+
+        if not self.isConfig:
+            self.init = time.time()
+            self.setup(**kwargs)
+            self.isConfig = True
+
+        if self.sendByTrigger and not self.dataIn.flagNoData:
+            self.syncFolders()
+        else:
+            if (time.time() - self.init) >= self.period:
+                self.syncFolders()
+                self.init = time.time()
+
+        return
 
 
 class FTP(object):
@@ -764,9 +957,11 @@ class FTP(object):
             self.ftp.mkd(dirname)
         except:
             print('Error creating remote folder:%s' % dirname)
-            return 1
+            return False
+            # return 1
 
-        return 0
+        #return 0
+        return True
 
 
     def delete(self, filename):
@@ -784,9 +979,9 @@ class FTP(object):
             self.ftp.delete(filename)
         except:
             print('Error deleting remote file:%s' % filename)
-            return 1
+            return False #1
 
-        return 0
+        return True #0
 
     def download(self, filename, localfolder):
         """
@@ -834,7 +1029,7 @@ class FTP(object):
         self.file.write(block)
 
 
-    def upload(self, filename, remotefolder=None):
+    def upload(self, filename, remotefolder=None, mkdir=False):
         """
         upload is used to uploading local file to remote directory
 
@@ -843,6 +1038,8 @@ class FTP(object):
 
             remotefolder    - remote directory
 
+            mkdir         - if the remote folder doesn't exist, it will created
+
         Returns:
             self.status    - 1 in error case else 0
         """
@@ -850,6 +1047,11 @@ class FTP(object):
         if remotefolder == None:
             remotefolder = self.remotefolder
 
+        if mkdir:
+            if self.if_dir_exist(remotefolder):
+                pass
+            else:
+                self.mkdir_r(remotefolder)
         self.status = 0
 
         try:
@@ -863,6 +1065,7 @@ class FTP(object):
 
             print('Uploading: ' + tail)
             self.ftp.storbinary(command, self.file)
+            print(self.cmd('SITE CHMOD 755 {}'.format(tail)))
             print('Upload Completed')
 
         except ftplib.all_errors:
@@ -936,6 +1139,63 @@ class FTP(object):
 
         return infoList, self.folderList
 
+    def ch_dir(self,remotefolder):
+        """
+        ch_dir is used to change working directory of remote server and get folder and file list
+
+        Input:
+            remotefolder    - current working directory
+
+        Affects:
+            self.fileList    - file list of working directory
+
+        Return:
+            infoList    - list with filenames and size of file in bytes
+
+            self.folderList    -    folder list
+        """
+
+        self.remotefolder = remotefolder
+        print('Change to ' + self.remotefolder)
+        try:
+            self.ftp.cwd(remotefolder)
+        except ftplib.all_errors:
+            print('Error Change to ' + self.remotefolder)
+            infoList = None
+            self.folderList = None
+            return infoList,self.folderList
+
+        self.dirList = []
+
+        try:
+            self.dirList = self.ftp.nlst()
+
+        except ftplib.error_perm as resp:
+            if str(resp) == "550 No files found":
+                    print("no files in this directory")
+                    infoList = None
+                    self.folderList = None
+                    return infoList,self.folderList
+        except ftplib.all_errors:
+            print('Error Displaying Dir-Files')
+            infoList = None
+            self.folderList = None
+            return infoList,self.folderList
+
+        infoList = []
+        self.fileList = []
+        self.folderList = []
+        for f in self.dirList:
+            name,ext = os.path.splitext(f)
+            if ext != '':
+                self.fileList.append(f)
+                value = (f,self.ftp.size(f))
+                infoList.append(value)
+
+            if ext == '':
+                self.folderList.append(f)
+
+        return infoList,self.folderList
 
     def close(self):
         """
@@ -948,6 +1208,85 @@ class FTP(object):
         """
         self.ftp.close()
 
+    def get_sub_dirs(self, path):
+        """
+        used internal
+
+        Inputs:
+            path    - path to split in sub folders
+
+        Returns:
+            sub_dirs    - list of sub folders
+        """
+        sub_dirs = path.split("/")
+        if sub_dirs[0]=="/":
+            sub_dirs.pop(0)
+        if sub_dirs[-1]=="/":
+            sub_dirs.pop(-1)
+        return sub_dirs
+
+    def if_dir_exist(self,path):
+        """
+        check if a the path folder exists in the ftp server
+
+        Inputs:
+            path    - path to check
+
+        Returns:
+            status    - True if exists and False if it doesn't
+        """
+        sub_dirs = self.get_sub_dirs(path)
+        main =  self.ftp.pwd()
+        #print(main)
+        for subdir in sub_dirs:
+            folders = self.ftp.nlst(main)
+            #print(folders)
+            if (os.path.join(main,subdir) in folders):
+                main = os.path.join(main,subdir)
+                #print(main)
+                continue
+            else:
+                return False
+        return True
+
+    def cmd(self,command):
+        """
+        excecute a command in the FTP server
+        """
+        return self.ftp.sendcmd(command)
+
+    def mkdir_r(self,path):
+        """
+        create a remote folder and create sub folders if it is necessary
+
+        Inputs:
+            path    - path to create
+
+        Returns:
+            status    - True if succesfull else  False
+        """
+        sub_dirs = self.get_sub_dirs(path)
+        main =  self.ftp.pwd()
+        st = False
+        #print(main)
+        for subdir in sub_dirs:
+            folders = self.ftp.nlst(main)
+            #print(folders)
+            folder = (os.path.join(main,subdir))
+
+            if  (folder in folders):
+                main = folder
+                #print("new_main",main)
+                continue
+            else:
+                print("creating...",folder)
+                st = self.mkd(folder)
+                print(self.cmd('SITE CHMOD 755 {}'.format(folder)))
+                main = folder
+
+        return st
+
+@MPDecorator
 class SendByFTP(Operation):
 
     def __init__(self, **kwargs):
