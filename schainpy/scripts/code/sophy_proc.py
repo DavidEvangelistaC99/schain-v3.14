@@ -694,3 +694,4 @@ En este experimento se observa que la h0 = -1.4
 """
 
 # python sophy_proc.py CHIRP@2025-10-16T19-30-55 --parameters SNR  --plot --save --rmDC --label 31_03_26 --range 60 --mask -9.0
+# python sophy_proc.py CHIRP_DP@2025-12-11T15-20-07 --parameters SNR  --plot --save --rmDC --label 14_04_26 --range 60 --mask -9.0
