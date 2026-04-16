@@ -72,6 +72,7 @@ class HDFReader(Reader, ProcessingUnit):
         endDate='2019/01/31',
         startTime='00:00:00',
         endTime='23:59:59',
+        utcoffset='-18000'
         # description=json.dumps(desc),
         # extras=json.dumps(extras),
         )
@@ -97,6 +98,14 @@ class HDFReader(Reader, ProcessingUnit):
         self.filter = None
         self.dparam = None
 
+
+        ## Cambios AMISR
+        self.flagUpdateDataOut = False
+        self.dataOut = Parameters()
+        self.dataOut.error=False            ## NOTE: Importante definir esto antes inicio
+        self.dataOut.flagNoData = True
+
+
     def setup(self, **kwargs):
 
         self.set_kwargs(**kwargs)
@@ -110,6 +119,7 @@ class HDFReader(Reader, ProcessingUnit):
                 fullpath = self.searchFilesOnLine(self.path, self.startDate,
                     self.endDate, self.expLabel, self.ext, self.walk,
                     self.filefmt, self.folderfmt,self.filter)
+                pathname, filename = os.path.split(fullpath)
                 try:
                     fullpath = next(fullpath)
                 except:
@@ -154,11 +164,36 @@ class HDFReader(Reader, ProcessingUnit):
             setattr(self.dataOut, "dparam", 1)  
         # similar to master
         for attr in self.meta:
-            setattr(self.dataOut, attr, self.meta[attr])
+            if "processingHeaderObj" in attr:
+                self.flagUpdateDataOut=True
+            at = attr.split('.')
+
+            if len(at) > 1:
+                setattr(eval("self.dataOut."+at[0]),at[1], self.meta[attr])
+            else:
+                setattr(self.dataOut, attr, self.meta[attr])
 
         self.blockIndex = 0
 
+        if self.flagUpdateDataOut:
+            self.updateDataOut()
+
         return
+    
+    def updateDataOut(self):
+        
+        self.dataOut.azimuthList = self.dataOut.processingHeaderObj.azimuthList
+        self.dataOut.elevationList = self.dataOut.processingHeaderObj.elevationList
+        self.dataOut.heightList = self.dataOut.processingHeaderObj.heightList
+        self.dataOut.ippSeconds = self.dataOut.processingHeaderObj.ipp
+        self.dataOut.elevationList = self.dataOut.processingHeaderObj.elevationList
+        self.dataOut.channelList = self.dataOut.processingHeaderObj.channelList
+        self.dataOut.nCohInt = self.dataOut.processingHeaderObj.nCohInt
+        self.dataOut.nFFTPoints = self.dataOut.processingHeaderObj.nFFTPoints
+        self.flagUpdateDataOut = False
+        self.dataOut.frequency = self.dataOut.radarControllerHeaderObj.frequency
+        #self.dataOut.heightList = self.dataOut.processingHeaderObj.heightList
+
 
     def __setBlockList(self):
         '''
@@ -181,7 +216,7 @@ class HDFReader(Reader, ProcessingUnit):
             self.interval = 0
         
         thisDatetime = datetime.datetime.utcfromtimestamp(thisUtcTime[0])
-
+        self.startFileDatetime = thisDatetime
         thisDate = thisDatetime.date()
         thisTime = thisDatetime.time()
 
@@ -215,6 +250,37 @@ class HDFReader(Reader, ProcessingUnit):
             grp = self.fp['Metadata']
             for name in grp:
                 meta[name] = grp[name][()]
+
+        if self.extras:
+            for key, value in self.extras.items():
+                meta[key] = value
+        self.meta = meta
+
+        return
+    
+    def __readMetadata2(self):
+        '''
+        Reads Metadata
+        '''
+        meta = {}
+        
+        if self.description:
+            for key, value in self.description['Metadata'].items():
+                meta[key] = self.fp[value][()]
+        else:
+            grp = self.fp['Metadata']
+            for item in grp.values():
+                name = item.name
+                if isinstance(item, h5py.Dataset):
+                    name = name.split("/")[-1]
+                    meta[name] = item[()]
+                else:
+                    grp2 = self.fp[name]
+                    Obj = name.split("/")[-1]
+
+                    for item2 in grp2.values():
+                        name2 = Obj+"."+item2.name.split("/")[-1]
+                        meta[name2] = item2[()]
 
         if self.extras:
             for key, value in self.extras.items():
@@ -265,7 +331,11 @@ class HDFReader(Reader, ProcessingUnit):
         return
 
     def getData(self):
-
+        if not self.isDateTimeInRange(self.startFileDatetime, self.startDate, self.endDate, self.startTime, self.endTime):
+            self.dataOut.flagNoData = True
+            self.blockIndex = self.blocksPerFile
+            self.dataOut.error = True     # TERMINA EL PROGRAMA
+            return
         for attr in self.data:
             if self.data[attr].ndim == 1:
                 setattr(self.dataOut, attr, self.data[attr][self.blockIndex])
@@ -278,10 +348,21 @@ class HDFReader(Reader, ProcessingUnit):
         self.dataOut.flagNoData = False
         self.blockIndex += 1
 
-        log.log("Block No. {}/{} -> {}".format(
-            self.blockIndex,
-            self.blocksPerFile,
-            self.dataOut.datatime.ctime()), self.name)
+        if self.blockIndex == 1:
+
+            log.log("Block No. {}/{} -> {}".format(
+                self.blockIndex,
+                self.blocksPerFile,
+                self.dataOut.datatime.ctime()), self.name)
+        else:
+            log.log("Block No. {}/{} ".format(
+                self.blockIndex,
+                self.blocksPerFile),self.name)
+
+        if self.blockIndex == self.blocksPerFile:
+            self.setNextFile()
+
+        self.dataOut.flagNoData = False
 
         return
 
@@ -365,6 +446,7 @@ class HDFWriter(Operation):
     path = None
     setFile = None
     fp = None
+    ds = None
     firsttime = True
     # Configurations
     blocksPerFile = None
@@ -383,6 +465,11 @@ class HDFWriter(Operation):
     mask       = False
     setChannel = None
 
+    ## amisr
+    timeZone = "ut"
+    hourLimit = 3
+    breakDays = True
+
     def __init__(self):
 
         Operation.__init__(self)
@@ -398,7 +485,7 @@ class HDFWriter(Operation):
         for key, value in kwargs.items():
             setattr(obj, key, value)
 
-    def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None,type_data=None, localtime=True,setChannel=None, **kwargs):
+    def setup(self, path=None, blocksPerFile=10, metadataList=None, dataList=None, setType=None, description=None,timeZone = "ut",hourLimit = 3, breakDays=True,type_data=None, localtime=True,setChannel=None, **kwargs):
         self.path = path
         self.blocksPerFile = blocksPerFile
         self.metadataList = metadataList
@@ -425,11 +512,15 @@ class HDFWriter(Operation):
             self.getDateTime = datetime.datetime.utcfromtimestamp
         self.description = description
         self.type_data=type_data
+        self.timeZone = timeZone
+        self.hourLimit = hourLimit
+        self.breakDays = breakDays
         self.set_kwargs(**kwargs)        
 
         if self.metadataList is None:
             self.metadataList = self.dataOut.metadata_list
 
+        self.metadataList = list(set(self.metadataList))
         tableList = []
         dsList = []
 
@@ -463,12 +554,17 @@ class HDFWriter(Operation):
 
             dsList.append(dsDict)
 
+        self.blockIndex = 0
         self.dsList = dsList
         self.currentDay = self.dataOut.datatime.date()
 
     def timeFlag(self):
         currentTime = self.dataOut.utctime
-        timeTuple = time.localtime(currentTime)
+        timeTuple = None
+        if self.timeZone == "lt":
+            timeTuple = time.localtime(currentTime)
+        else :
+            timeTuple = time.gmtime(currentTime)
         dataDay = timeTuple.tm_yday
 
         if self.lastTime is None:
@@ -479,7 +575,7 @@ class HDFWriter(Operation):
         timeDiff = currentTime - self.lastTime
 
         # Si el dia es diferente o si la diferencia entre un dato y otro supera la hora
-        if dataDay != self.currentDay:
+        if (dataDay != self.currentDay) and self.breakDays:
             self.currentDay = dataDay
             return True
         elif timeDiff > 3 * 60 * 60:
@@ -519,11 +615,14 @@ class HDFWriter(Operation):
         ext = self.ext
         path = self.path
         setFile = self.setFile
+        timeTuple = None
 
         dt = self.getDateTime(self.dataOut.utctime)
-        
 
-        timeTuple = time.localtime(self.dataOut.utctime)
+        if self.timeZone == "lt":
+            timeTuple = time.localtime(self.dataOut.utctime)
+        elif self.timeZone == "ut":
+            timeTuple = time.gmtime(self.dataOut.utctime)
         subfolder = 'd%4.4d%3.3d' % (timeTuple.tm_year, timeTuple.tm_yday)
 
         if self.setType == 'weather':
@@ -668,6 +767,58 @@ class HDFWriter(Operation):
                     value = 0
             grp.create_dataset(self.getLabel(self.metadataList[i]), data=value)
         return
+    
+    def writeMetadata2(self, fp):
+
+        if self.description:
+            if 'Metadata' in self.description:
+                grp = fp.create_group('Metadata')
+            else:
+                grp = fp
+        else:
+            grp = fp.create_group('Metadata')
+
+        for i in range(len(self.metadataList)):
+
+            attribute = self.metadataList[i]
+            attr = attribute.split('.')
+            if len(attr) > 1:
+                if not hasattr(eval("self.dataOut."+attr[0]),attr[1]):
+                    log.warning('Metadata: {}.{} not found'.format(attr[0],attr[1]), self.name)
+                    continue
+                value = getattr(eval("self.dataOut."+attr[0]),attr[1])
+                if isinstance(value, bool):
+                    if value is True:
+                        value = 1
+                    else:
+                        value = 0
+                if isinstance(value,type(None)):
+                    log.warning("Invalid value detected, {} is None".format(attribute), self.name)
+                    value = 0
+                grp2 = None
+                if not 'Metadata/'+attr[0] in fp:
+                    grp2 = fp.create_group('Metadata/'+attr[0])
+                else:
+                    grp2 = fp['Metadata/'+attr[0]]
+                grp2.create_dataset(attr[1], data=value)
+
+            else:
+                if not hasattr(self.dataOut, attr[0] ):
+                    log.warning('Metadata: `{}` not found'.format(attribute), self.name)
+                    continue
+                value = getattr(self.dataOut, attr[0])
+                if isinstance(value, bool):
+                    if value is True:
+                        value = 1
+                    else:
+                        value = 0
+                if isinstance(value, type(None)):
+                    log.error("Value {} is None".format(attribute),self.name)
+                    
+                grp.create_dataset(self.getLabel(attribute), data=value)
+
+        return
+    
 
     def writeData(self, fp):
 
@@ -734,6 +885,23 @@ class HDFWriter(Operation):
         if (self.blockIndex == self.blocksPerFile) or self.timeFlag():
             self.closeFile()
             self.setNextFile()
+            self.dataOut.flagNoData = False
+            self.blockIndex = 0
+            
+        if self.blockIndex == 0:
+            #Setting HDF5 File
+            self.fp = h5py.File(self.filename, 'w')
+            #write metadata
+            self.writeMetadata2(self.fp)
+            #Write data
+            self.writeData(self.fp)
+            log.log('Block No. {}/{} --> {}'.format(self.blockIndex+1, self.blocksPerFile,self.dataOut.datatime.ctime()), self.name)
+        elif (self.blockIndex % 10 ==0):
+            log.log('Block No. {}/{} --> {}'.format(self.blockIndex+1, self.blocksPerFile,self.dataOut.datatime.ctime()), self.name)
+        else:
+
+            log.log('Block No. {}/{}'.format(self.blockIndex+1, self.blocksPerFile), self.name)
+            
 
         for i, ds in enumerate(self.ds):
             attr, ch = self.data[i]
@@ -756,6 +924,9 @@ class HDFWriter(Operation):
         self.fp.flush()
         self.blockIndex += 1
         log.log('Block No. {}/{}'.format(self.blockIndex, self.blocksPerFile), self.name)
+
+        self.fp.flush()
+        self.dataOut.flagNoData = True
 
         return
 

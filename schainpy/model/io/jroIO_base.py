@@ -711,7 +711,10 @@ class Reader(object):
         #print(filename)
         self.filename = filename
         self.fileSize = os.path.getsize(filename)
-        self.fp = self.open_file(filename, self.open_mode)
+        try:
+            self.fp = self.open_file(filename, self.open_mode)
+        except Exception as e:
+            raise schainpy.admin.SchainError("[Reading] Error in {} file, unable to open".format(filename))
         self.flagIsNewFile = 1
 
         return 1
@@ -719,16 +722,24 @@ class Reader(object):
     @staticmethod
     def isDateTimeInRange(dt, startDate, endDate, startTime, endTime):
         """Check if the given datetime is in range"""
+        startDateTime= datetime.datetime.combine(startDate,startTime)
+        endDateTime = datetime.datetime.combine(endDate,endTime)
 
         OneDay=False
         if OneDay:
+            
             if startDate <= dt.date() <= endDate:
                 if startTime <= dt.time() <= endTime:
                     return True
+            if startDateTime <= dt <= endDateTime:
+                return True
             return False
         else:
             if datetime.datetime.combine(startDate, startTime) <= datetime.datetime.combine(dt.date(), dt.time()) <= datetime.datetime.combine(endDate, endTime):
                 return True
+            
+
+
             return False
 
     def verifyFile(self, filename):
