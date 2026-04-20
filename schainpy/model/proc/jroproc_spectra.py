@@ -16,8 +16,11 @@ import numpy
 from schainpy.model.proc.jroproc_base import ProcessingUnit, MPDecorator, Operation
 from schainpy.model.data.jrodata import Spectra
 from schainpy.model.data.jrodata import hildebrand_sekhon
+from schainpy.model.data import _noise
 from schainpy.utils import log
-
+import matplotlib.pyplot as plt
+from schainpy.model.io.utilsIO import getHei_index
+import datetime
 
 class SpectraProc(ProcessingUnit):
 
@@ -29,9 +32,11 @@ class SpectraProc(ProcessingUnit):
         self.firstdatatime = None
         self.profIndex = 0
         self.dataOut = Spectra()
+        self.dataOut.error=False
         self.id_min = None
         self.id_max = None
         self.setupReq = False  # Agregar a todas las unidades de proc
+        self.nsamplesFFT = 0
 
     def __updateSpecFromVoltage(self):
 
@@ -44,6 +49,9 @@ class SpectraProc(ProcessingUnit):
         except:
             pass
         self.dataOut.radarControllerHeaderObj = self.dataIn.radarControllerHeaderObj.copy()
+        self.dataOut.radarControllerHeaderObj = self.dataIn.radarControllerHeaderObj.copy()
+        self.dataOut.ippSeconds = self.dataIn.ippSeconds
+        self.dataOut.ipp = self.dataIn.ipp
         self.dataOut.systemHeaderObj = self.dataIn.systemHeaderObj.copy()
         self.dataOut.channelList = self.dataIn.channelList
         self.dataOut.heightList = self.dataIn.heightList
@@ -56,6 +64,7 @@ class SpectraProc(ProcessingUnit):
         self.dataOut.flagShiftFFT = False
         self.dataOut.nCohInt = self.dataIn.nCohInt
         self.dataOut.nIncohInt = 1
+        self.dataOut.deltaHeight = self.dataIn.deltaHeight
         self.dataOut.windowOfFilter = self.dataIn.windowOfFilter
         self.dataOut.frequency = self.dataIn.frequency
         self.dataOut.realtime = self.dataIn.realtime
@@ -64,6 +73,14 @@ class SpectraProc(ProcessingUnit):
         self.dataOut.beam.codeList = self.dataIn.beam.codeList
         self.dataOut.beam.azimuthList = self.dataIn.beam.azimuthList
         self.dataOut.beam.zenithList = self.dataIn.beam.zenithList
+
+        self.dataOut.codeList = self.dataIn.codeList
+        self.dataOut.azimuthList = self.dataIn.azimuthList
+        self.dataOut.elevationList = self.dataIn.elevationList
+        self.dataOut.code = self.dataIn.code
+        self.dataOut.nCode = self.dataIn.nCode
+        self.dataOut.flagProfilesByRange = self.dataIn.flagProfilesByRange
+        self.dataOut.nProfilesByRange = self.dataIn.nProfilesByRange
         self.dataOut.runNextUnit = self.dataIn.runNextUnit
         self.dataOut.h0 = self.dataIn.h0
         try:
@@ -123,10 +140,24 @@ class SpectraProc(ProcessingUnit):
         self.dataOut.blockSize = blocksize
         self.dataOut.flagShiftFFT = False
 
-    def run(self, nProfiles=None, nFFTPoints=None, pairsList=None, ippFactor=None, shift_fft=False, runNextUnit = 0):
+    def run(self, nProfiles=None, nFFTPoints=None, pairsList=None, ippFactor=None, shift_fft=False,
+            zeroPad=False, zeroPoints=0, runNextUnit = 0):
         self.dataIn.runNextUnit = runNextUnit
+        try:
+            _type = self.dataIn.type.decode("utf-8")
+            self.dataIn.type = _type
+        except Exception as e:
+            #print("spc -> ",self.dataIn.type, e)
+            pass
         if self.dataIn.type == "Spectra":
-            self.dataOut.copy(self.dataIn)
+            try:
+                self.dataOut.copy(self.dataIn)
+                self.dataOut.radarControllerHeaderObj = self.dataIn.radarControllerHeaderObj.copy()
+                self.dataOut.processingHeaderObj = self.dataIn.processingHeaderObj.copy()
+                self.dataOut.nProfiles = self.dataOut.nFFTPoints
+                #self.dataOut.nHeights = len(self.dataOut.heightList)
+            except Exception as e:
+                print("Error dataIn ",e)
             if shift_fft:
                 # desplaza a la derecha en el eje 2 determinadas posiciones
                 shift = int(self.dataOut.nFFTPoints / 2)
@@ -141,6 +172,9 @@ class SpectraProc(ProcessingUnit):
         elif self.dataIn.type == "Voltage":
 
             self.dataOut.flagNoData = True
+            self.dataOut.radarControllerHeaderObj = self.dataIn.radarControllerHeaderObj.copy()
+            self.dataOut.processingHeaderObj = self.dataIn.processingHeaderObj.copy()
+
 
             if nFFTPoints == None:
                 raise ValueError("This SpectraProc.run() need nFFTPoints input variable")
@@ -150,6 +184,21 @@ class SpectraProc(ProcessingUnit):
 
             if ippFactor == None:
                 self.dataOut.ippFactor = 1
+            else:
+                self.dataOut.ippFactor = ippFactor
+
+            if self.buffer is None:
+                if not zeroPad:
+                    self.buffer = numpy.zeros((self.dataIn.nChannels,
+                                           nProfiles,
+                                           self.dataIn.nHeights),
+                                          dtype='complex')
+                    zeroPoints = 0
+                else:
+                    self.buffer = numpy.zeros((self.dataIn.nChannels,
+                                           nFFTPoints+int(zeroPoints),
+                                           self.dataIn.nHeights),
+                                          dtype='complex')
             
             self.dataOut.nFFTPoints = nFFTPoints
 
@@ -161,7 +210,8 @@ class SpectraProc(ProcessingUnit):
 
             if self.dataIn.flagDataAsBlock:
                 nVoltProfiles = self.dataIn.data.shape[1]
-                if nVoltProfiles == nProfiles:
+                zeroPoints = 0
+                if nVoltProfiles == nProfiles or zeroPad:
                     self.buffer = self.dataIn.data.copy()
                     self.profIndex = nVoltProfiles
 
@@ -189,6 +239,8 @@ class SpectraProc(ProcessingUnit):
                     self.profIndex += nProfiles
                     self.id_min += nProfiles
                     self.id_max += nProfiles
+                    if self.id_max == nVoltProfiles:
+                        self.reader.bypass = False
                 else:
                     raise ValueError("The type object %s has %d profiles, it should just has %d profiles" % (
                         self.dataIn.type, self.dataIn.data.shape[1], nProfiles))
@@ -200,7 +252,7 @@ class SpectraProc(ProcessingUnit):
             if self.firstdatatime == None:
                 self.firstdatatime = self.dataIn.utctime
 
-            if self.profIndex % nProfiles == 0:
+            if self.profIndex % nProfiles == 0 or (zeroPad and zeroPoints==0):
                 self.__updateSpecFromVoltage()
                 if pairsList == None:
                     self.dataOut.pairsList = [pair for pair in itertools.combinations(self.dataOut.channelList, 2)]
@@ -209,8 +261,48 @@ class SpectraProc(ProcessingUnit):
                 self.__getFft()
                 self.dataOut.flagNoData = False
                 self.firstdatatime = None
+                self.nsamplesFFT = self.profIndex
                 if not self.reader.bypass:
                     self.profIndex = 0
+            #update Processing Header:
+            self.dataOut.processingHeaderObj.dtype = "Spectra"
+            self.dataOut.processingHeaderObj.nFFTPoints = self.dataOut.nFFTPoints
+            self.dataOut.processingHeaderObj.nSamplesFFT = self.nsamplesFFT
+            self.dataOut.processingHeaderObj.nIncohInt = 1
+
+        elif self.dataIn.type == "Parameters":  #when get data from h5 spc file
+
+            self.dataOut.data_spc = self.dataIn.data_spc
+            self.dataOut.data_cspc = self.dataIn.data_cspc
+            self.dataOut.data_outlier = self.dataIn.data_outlier
+            self.dataOut.nProfiles = self.dataIn.nProfiles
+            self.dataOut.nIncohInt = self.dataIn.nIncohInt
+            self.dataOut.nFFTPoints = self.dataIn.nFFTPoints
+            self.dataOut.ippFactor = self.dataIn.ippFactor
+            self.dataOut.max_nIncohInt = self.dataIn.max_nIncohInt
+            self.dataOut.radarControllerHeaderObj = self.dataIn.radarControllerHeaderObj.copy()
+            self.dataOut.ProcessingHeader = self.dataIn.ProcessingHeader.copy()
+            self.dataOut.ippSeconds = self.dataIn.ippSeconds
+            self.dataOut.ipp = self.dataIn.ipp
+            #self.dataOut.abscissaList = self.dataIn.getVelRange(1)
+            #self.dataOut.spc_noise = self.dataIn.getNoise()
+            #self.dataOut.spc_range = (self.dataIn.getFreqRange(1) , self.dataIn.getAcfRange(1) , self.dataIn.getVelRange(1))
+            # self.dataOut.normFactor = self.dataIn.normFactor
+            if hasattr(self.dataIn, 'channelList'):
+                self.dataOut.channelList = self.dataIn.channelList
+            if hasattr(self.dataIn, 'pairsList'):
+                self.dataOut.pairsList = self.dataIn.pairsList
+                self.dataOut.groupList = self.dataIn.pairsList
+
+            self.dataOut.flagNoData = False
+
+            if hasattr(self.dataIn, 'ChanDist'): #Distances of receiver channels
+                self.dataOut.ChanDist = self.dataIn.ChanDist
+            else: self.dataOut.ChanDist = None
+
+            #if hasattr(self.dataIn, 'VelRange'): #Velocities range
+            #    self.dataOut.VelRange = self.dataIn.VelRange
+            #else: self.dataOut.VelRange = None
         else:
             raise ValueError("The type of input object '%s' is not valid".format(
                 self.dataIn.type))
@@ -457,10 +549,11 @@ class GetSNR(Operation):
 
     def run(self,dataOut):
 
-        noise = dataOut.getNoise()
+        noise = dataOut.getNoise(ymin_index=-10) #Región superior donde solo debería de haber ruido
         dataOut.data_snr = (dataOut.data_spc.sum(axis=1)-noise[:,None]*dataOut.nFFTPoints)/(noise[:,None]*dataOut.nFFTPoints) #It works apparently
         dataOut.snl = numpy.log10(dataOut.data_snr)
         dataOut.snl = numpy.where(dataOut.snl<-1, numpy.nan, dataOut.snl) #snl threshold for Oblique EEJ data
+        dataOut.snl = numpy.where(dataOut.data_snr<.01, numpy.nan, dataOut.snl)
 
         return dataOut
 class removeDC(Operation):
@@ -553,6 +646,232 @@ class removeDC(Operation):
         self.dataOut.data_cspc = jcspectra
 
         return self.dataOut
+
+class getNoiseB(Operation):
+    """ 
+    Get noise from custom heights and frequency ranges,
+    offset for additional manual correction
+    J. Apaza -> developed to amisr isr spectra
+
+    """
+    __slots__ =('offset','warnings', 'isConfig', 'minIndex','maxIndex','minIndexFFT','maxIndexFFT')
+    def __init__(self):
+
+        Operation.__init__(self)
+        self.isConfig = False
+
+    def setup(self, offset=None, minHei=None, maxHei=None,minVel=None, maxVel=None, minFreq= None, maxFreq=None, warnings=False):
+
+        self.warnings = warnings
+        if minHei == None:
+            minHei = self.dataOut.heightList[0]
+
+        if maxHei == None:
+            maxHei = self.dataOut.heightList[-1]
+
+        if (minHei < self.dataOut.heightList[0]) or (minHei > maxHei):
+            if self.warnings:
+                print('minHei: %.2f is out of the heights range' % (minHei))
+                print('minHei is setting to %.2f' % (self.dataOut.heightList[0]))
+            minHei = self.dataOut.heightList[0]
+
+        if (maxHei > self.dataOut.heightList[-1]) or (maxHei < minHei):
+            if self.warnings:
+                print('maxHei: %.2f is out of the heights range' % (maxHei))
+                print('maxHei is setting to %.2f' % (self.dataOut.heightList[-1]))
+            maxHei = self.dataOut.heightList[-1]
+
+
+        #indices relativos a los puntos de fft, puede ser de acuerdo a velocidad o frecuencia
+        minIndexFFT = 0
+        maxIndexFFT = 0
+        # validacion de velocidades
+        indminPoint = None
+        indmaxPoint = None
+        if self.dataOut.type == 'Spectra':
+            if minVel == None and maxVel == None :
+
+                freqrange = self.dataOut.getFreqRange(1)
+
+                if minFreq == None:
+                    minFreq = freqrange[0]
+
+                if maxFreq == None:
+                    maxFreq = freqrange[-1]
+
+                if (minFreq < freqrange[0]) or (minFreq > maxFreq):
+                    if self.warnings:
+                        print('minFreq: %.2f is out of the frequency range' % (minFreq))
+                        print('minFreq is setting to %.2f' % (freqrange[0]))
+                    minFreq = freqrange[0]
+
+                if (maxFreq > freqrange[-1]) or (maxFreq < minFreq):
+                    if self.warnings:
+                        print('maxFreq: %.2f is out of the frequency range' % (maxFreq))
+                        print('maxFreq is setting to %.2f' % (freqrange[-1]))
+                    maxFreq = freqrange[-1]
+
+                indminPoint = numpy.where(freqrange >= minFreq)
+                indmaxPoint = numpy.where(freqrange <= maxFreq)
+
+            else:
+
+                velrange = self.dataOut.getVelRange(1)
+
+                if minVel == None:
+                    minVel = velrange[0]
+
+                if maxVel == None:
+                    maxVel = velrange[-1]
+
+                if (minVel < velrange[0]) or (minVel > maxVel):
+                    if self.warnings:
+                        print('minVel: %.2f is out of the velocity range' % (minVel))
+                        print('minVel is setting to %.2f' % (velrange[0]))
+                    minVel = velrange[0]
+
+                if (maxVel > velrange[-1]) or (maxVel < minVel):
+                    if self.warnings:
+                        print('maxVel: %.2f is out of the velocity range' % (maxVel))
+                        print('maxVel is setting to %.2f' % (velrange[-1]))
+                    maxVel = velrange[-1]
+
+                indminPoint = numpy.where(velrange >= minVel)
+                indmaxPoint = numpy.where(velrange <= maxVel)
+
+
+        # seleccion de indices para rango  REEMPLAZAR FOR FUNCION EXTERNA LUEGO
+        # minIndex = 0
+        # maxIndex = 0
+        # heights = self.dataOut.heightList
+        # inda = numpy.where(heights >= minHei)
+        # indb = numpy.where(heights <= maxHei)
+        # try:
+        #     minIndex = inda[0][0]
+        # except:
+        #     minIndex = 0
+        # try:
+        #     maxIndex = indb[0][-1]
+        # except:
+        #     maxIndex = len(heights)
+        # if (minIndex < 0) or (minIndex > maxIndex):
+        #     raise ValueError("some value in (%d,%d) is not valid" % (
+        #         minIndex, maxIndex))
+        # if (maxIndex >= self.dataOut.nHeights):
+        #     maxIndex = self.dataOut.nHeights - 1
+
+        minIndex, maxIndex = getHei_index(minHei,maxHei,self.dataOut.heightList)
+        
+
+        #############################################################3
+        # seleccion de indices para velocidades
+        if self.dataOut.type == 'Spectra':
+            try:
+                minIndexFFT = indminPoint[0][0]
+            except:
+                minIndexFFT = 0
+
+            try:
+                maxIndexFFT = indmaxPoint[0][-1]
+            except:
+                maxIndexFFT = len( self.dataOut.getFreqRange(1))
+
+        self.minIndex, self.maxIndex, self.minIndexFFT, self.maxIndexFFT = minIndex, maxIndex, minIndexFFT, maxIndexFFT
+        self.isConfig = True
+        self.offset = 1
+        if offset!=None:
+            self.offset = 10**(offset/10)
+
+
+    def run(self, dataOut, offset=None, minHei=None, maxHei=None,minVel=None, maxVel=None, minFreq= None, maxFreq=None, warnings=False):
+        self.dataOut = dataOut
+
+        if not self.isConfig:
+            self.setup(offset, minHei, maxHei,minVel, maxVel, minFreq, maxFreq, warnings)
+
+        self.dataOut.noise_estimation = None
+        noise = None
+        if self.dataOut.type == 'Voltage':
+            noise = self.dataOut.getNoise(ymin_index=self.minIndex, ymax_index=self.maxIndex)
+        elif self.dataOut.type == 'Spectra':
+            noise = numpy.zeros( self.dataOut.nChannels)
+            norm = 1
+
+            for channel in range( self.dataOut.nChannels):
+                if not hasattr(self.dataOut.nIncohInt,'__len__'):
+                    norm = 1
+                else:
+                    norm = self.dataOut.max_nIncohInt[channel]/self.dataOut.nIncohInt[channel, self.minIndex:self.maxIndex]
+
+                daux =  self.dataOut.data_spc[channel,self.minIndexFFT:self.maxIndexFFT, self.minIndex:self.maxIndex]
+                daux = numpy.multiply(daux, norm)
+                sortdata = numpy.sort(daux, axis=None)
+                noise[channel] = _noise.hildebrand_sekhon(sortdata, self.dataOut.max_nIncohInt[channel])/self.offset
+
+        else:
+            noise = self.dataOut.getNoise(xmin_index=self.minIndexFFT, xmax_index=self.maxIndexFFT, ymin_index=self.minIndex, ymax_index=self.maxIndex)
+
+        self.dataOut.noise_estimation = noise.copy() # dataOut.noise
+
+        return self.dataOut
+
+    def getNoiseByMean(self,data):
+        #data debe estar ordenado
+        data = numpy.mean(data,axis=1)
+        sortdata = numpy.sort(data, axis=None)
+        pnoise = None
+        j = 0
+
+        mean = numpy.mean(sortdata)
+        min = numpy.min(sortdata)
+        delta = mean - min
+        indexes = numpy.where(sortdata > (mean+delta))[0] #only array of indexes
+        #print(len(indexes))
+        if len(indexes)==0:
+            pnoise = numpy.mean(sortdata)
+        else:
+            j = indexes[0]
+            pnoise = numpy.mean(sortdata[0:j])
+
+        return pnoise
+
+    def getNoiseByHS(self,data, navg):
+        #data debe estar ordenado
+        #data = numpy.mean(data,axis=1)
+        sortdata = numpy.sort(data, axis=None)
+
+        lenOfData = len(sortdata)
+        nums_min = lenOfData*0.2
+
+        if nums_min <= 5:
+
+            nums_min = 5
+
+        sump = 0.
+        sumq = 0.
+
+        j = 0
+        cont = 1
+
+        while((cont == 1)and(j < lenOfData)):
+
+            sump += sortdata[j]
+            sumq += sortdata[j]**2
+            #sumq -= sump**2
+            if j > nums_min:
+                rtest = float(j)/(j-1) + 1.0/navg
+                #if ((sumq*j) > (sump**2)):
+                if ((sumq*j) > (rtest*sump**2)):
+                    j = j - 1
+                    sump = sump - sortdata[j]
+                    sumq = sumq - sortdata[j]**2
+                    cont = 0
+
+            j += 1
+
+        lnoise = sump / j
+
+        return lnoise
 
 class removeInterference(Operation):
 
@@ -886,8 +1205,13 @@ class IncohInt(Operation):
     __dataReady = False
 
     __timeInterval = None
+    incohInt = 0
+    nOutliers = 0
 
     n = None
+
+    _flagProfilesByRange = False
+    _nProfilesByRange = 0
 
     def __init__(self):
 
@@ -919,6 +1243,8 @@ class IncohInt(Operation):
         self.__profIndex = 0
         self.__dataReady = False
         self.__byTime = False
+        self.incohInt = 0
+        self.nOutliers = 0
 
         # JULIA processing
         self.__FirstBlock = True
@@ -939,7 +1265,9 @@ class IncohInt(Operation):
         Add a profile to the __buffer_spc and increase in one the __profileIndex
 
         """
-
+        if data_spc.all() == numpy.nan :
+            print("nan ")
+            return
         self.__buffer_spc += data_spc
 
         if data_cspc is None:
@@ -1041,9 +1369,17 @@ class IncohInt(Operation):
             dataOut.VelRange = dataOut.getVelRange(0)
             return dataOut
         
+        if dataOut.flagNoData == True:
+            return dataOut
+
+        if dataOut.flagProfilesByRange == True:
+            self._flagProfilesByRange = True
+
         dataOut.flagNoData = True
+        dataOut.processingHeaderObj.timeIncohInt = timeInterval
 
         if not self.isConfig:
+            self._nProfilesByRange = numpy.zeros((1,len(dataOut.heightList)))
             self.setup(n, timeInterval, overlapping)
             self.isConfig = True
 
@@ -1051,7 +1387,16 @@ class IncohInt(Operation):
                                                                                               dataOut.data_spc,
                                                                                               dataOut.data_cspc,
                                                                                               dataOut.data_dc)
+        self.incohInt += dataOut.nIncohInt
         
+
+        if isinstance(dataOut.data_outlier,numpy.ndarray) or isinstance(dataOut.data_outlier,int) or isinstance(dataOut.data_outlier, float):
+            self.nOutliers += dataOut.data_outlier
+
+        if self._flagProfilesByRange:
+            dataOut.flagProfilesByRange = True
+            self._nProfilesByRange += dataOut.nProfilesByRange
+
         if self.__dataReady:
 
             dataOut.data_spc = avgdata_spc
@@ -1059,7 +1404,8 @@ class IncohInt(Operation):
             dataOut.data_diffcspc = avgdata_diffcspc
             dataOut.data_dc = avgdata_dc  
             dataOut.nDiffIncohInt = dataOut.nIncohInt
-            dataOut.nIncohInt *= self.n           
+            dataOut.nIncohInt *= self.n
+            dataOut.data_outlier = self.nOutliers   
             if self.__FirstBlock:
                 dataOut.nDiffIncohInt *= (self.n - 1)
                 self.__FirstBlock = False
@@ -1071,12 +1417,455 @@ class IncohInt(Operation):
 
             dataOut.VelRange = dataOut.getVelRange(0)
             dataOut.FreqRange = dataOut.getFreqRange(0)/1000. #kHz
+            self.incohInt = 0
+            self.nOutliers = 0
+            self.__profIndex = 0
+            dataOut.nProfilesByRange = self._nProfilesByRange
+            self._nProfilesByRange = numpy.zeros((1,len(dataOut.heightList)))
+            self._flagProfilesByRange = False 
+            # print("IncohInt Done")
 
         return dataOut
 
+class IntegrationFaradaySpectra(Operation):
+
+    """
+    Escrito: Joab Apaza, modificado desde la operación en el branch de ISR-R.Flores, limpia e integra bloques de spc
+    
+    :param n            :   Número de spc a integrar (por número de espectros)
+    :param timeInterval :   Tiempo de spc a integrar (por tiempo de espectros)
+    :param overlapping  :   --
+    :param DPL          :   --
+    :param minHei       :   Mínima altura en km de donde se empieza a limpiar
+    :param maxHei       :   Máxima altura en km hasta donde se limpia
+    :param avg          :   Factor que controla la agresividad del limpiado, tiene 
+                            un valor 1 por defecto, usar OutliersRTIPlot para ver 
+                            como afecta el cambiar este valor
+
+    :return: dataOut
+    
+    """
+     
+    __profIndex = 0
+    __withOverapping = False
+
+    __byTime = False
+    __initime = None
+    __lastdatatime = None
+    __integrationtime = None
+
+    __buffer_spc = None
+    __buffer_cspc = None
+    __buffer_dc = None
+
+    __dataReady = False
+
+    __timeInterval = None
+    n_ints = None #matriz de numero de integracions (CH,HEI)
+    n = None
+    minHei_ind = None
+    maxHei_ind = None
+    navg = 1.0
+    factor = 0.0
+    dataoutliers = None # (CHANNELS, HEIGHTS)
+
+    _flagProfilesByRange = False
+    _nProfilesByRange = 0
+
+    def __init__(self):
+
+        Operation.__init__(self)
+
+    def setup(self, dataOut,n=None, timeInterval=None, overlapping=False, DPL=None, minHei=None, maxHei=None, avg=1,factor=0.75):
+        """
+        Set the parameters of the integration class.
+
+        Inputs:
+
+            n        :    Number of coherent integrations
+            timeInterval   :    Time of integration. If the parameter "n" is selected this one does not work
+            overlapping    :
+
+        """
+
+        self.__initime = None
+        self.__lastdatatime = 0
+
+        self.__buffer_spc = []
+        self.__buffer_cspc = []
+        self.__buffer_dc = 0
+
+        self.__profIndex = 0
+        self.__dataReady = False
+        self.__byTime = False
+
+        self.factor = factor
+        self.navg = avg
+        #self.ByLags = dataOut.ByLags   ###REDEFINIR
+        self.ByLags = False
+        self.maxProfilesInt = 0
+        self.__nChannels = dataOut.nChannels
+        if DPL != None:
+            self.DPL=DPL
+        else:
+            #self.DPL=dataOut.DPL    ###REDEFINIR
+            self.DPL=0
+
+        if n is None and timeInterval is None:
+            raise ValueError("n or timeInterval should be specified ...")
+
+        if n is not None:
+            self.n = int(n)
+        else:
+            self.__integrationtime = int(timeInterval)
+            self.n = None
+            self.__byTime = True
+
+
+        if minHei == None:
+            minHei = self.dataOut.heightList[0]
+
+        if maxHei == None:
+            maxHei = self.dataOut.heightList[-1]
+
+        if (minHei < self.dataOut.heightList[0]) or (minHei > maxHei):
+            print('minHei: %.2f is out of the heights range' % (minHei))
+            print('minHei is setting to %.2f' % (self.dataOut.heightList[0]))
+            minHei = self.dataOut.heightList[0]
+
+        if (maxHei > self.dataOut.heightList[-1]) or (maxHei < minHei):
+            print('maxHei: %.2f is out of the heights range' % (maxHei))
+            print('maxHei is setting to %.2f' % (self.dataOut.heightList[-1]))
+            maxHei = self.dataOut.heightList[-1]
+
+        ind_list1 = numpy.where(self.dataOut.heightList >= minHei)
+        ind_list2 = numpy.where(self.dataOut.heightList <= maxHei)
+        self.minHei_ind = ind_list1[0][0]
+        self.maxHei_ind = ind_list2[0][-1]
+
+    def putData(self, data_spc, data_cspc, data_dc):
+        """
+        Add a profile to the __buffer_spc and increase in one the __profileIndex
+
+        """
+
+        self.__buffer_spc.append(data_spc)
+
+        if self.__nChannels < 2:
+            self.__buffer_cspc = None
+        else:
+            self.__buffer_cspc.append(data_cspc)
+
+        if data_dc is None:
+            self.__buffer_dc = None
+        else:
+            self.__buffer_dc += data_dc
+
+        self.__profIndex += 1
+
+        return
+
+    def hildebrand_sekhon_Integration(self,sortdata,navg, factor):
+        #data debe estar ordenado
+        #sortdata = numpy.sort(data, axis=None)
+        #sortID=data.argsort()
+        lenOfData = len(sortdata)
+        nums_min = lenOfData*factor
+        if nums_min <= 5:
+            nums_min = 5
+        sump = 0.
+        sumq = 0.
+        j = 0
+        cont = 1
+        while((cont == 1)and(j < lenOfData)):
+            sump += sortdata[j]
+            sumq += sortdata[j]**2
+            if j > nums_min:
+                rtest = float(j)/(j-1) + 1.0/navg
+                if ((sumq*j) > (rtest*sump**2)):
+                    j = j - 1
+                    sump = sump - sortdata[j]
+                    sumq = sumq - sortdata[j]**2
+                    cont = 0
+            j += 1
+        #lnoise = sump / j
+        #print("H S done")
+        #return j,sortID
+        return j
+
+
+    def pushData(self):
+        """
+        Return the sum of the last profiles and the profiles used in the sum.
+
+        Affected:
+
+        self.__profileIndex
+
+        """
+        bufferH=None
+        buffer=None
+        buffer1=None
+        buffer_cspc=None
+        #print("aes: ", self.__buffer_cspc)
+        self.__buffer_spc=numpy.array(self.__buffer_spc)
+        if self.__nChannels > 1 :
+            self.__buffer_cspc=numpy.array(self.__buffer_cspc)
+
+        #print("FREQ_DC",self.__buffer_spc.shape,self.__buffer_cspc.shape)
+
+        freq_dc = int(self.__buffer_spc.shape[2] / 2)
+        #print("FREQ_DC",freq_dc,self.__buffer_spc.shape,self.nHeights)
+
+        self.dataOutliers = numpy.zeros((self.nChannels,self.nHeights)) # --> almacen de outliers
+
+        for k in range(self.minHei_ind,self.maxHei_ind):
+            if self.__nChannels > 1:
+                buffer_cspc=numpy.copy(self.__buffer_cspc[:,:,:,k])
+
+            outliers_IDs_cspc=[]
+            cspc_outliers_exist=False
+            for i in range(self.nChannels):#dataOut.nChannels):
+
+                buffer1=numpy.copy(self.__buffer_spc[:,i,:,k])
+                indexes=[]
+                #sortIDs=[]
+                outliers_IDs=[]
+
+                for j in range(self.nProfiles): #frecuencias en el tiempo
+                    # if i==0 and j==freq_dc: #NOT CONSIDERING DC PROFILE AT CHANNEL 0
+                    #     continue
+                    # if i==1 and j==0: #NOT CONSIDERING DC PROFILE AT CHANNEL 1
+                    #     continue
+                    buffer=buffer1[:,j]
+                    sortdata = numpy.sort(buffer, axis=None)
+
+                    sortID=buffer.argsort()
+                    index = _noise.hildebrand_sekhon2(sortdata,self.navg)
+
+                    #index,sortID=self.hildebrand_sekhon_Integration(buffer,1,self.factor)
+
+                    # fig,ax = plt.subplots()
+                    # ax.set_title(str(k)+" "+str(j))
+                    # x=range(len(sortdata))
+                    # ax.scatter(x,sortdata)
+                    # ax.axvline(index)
+                    # plt.show()
+
+                    indexes.append(index)
+                    #sortIDs.append(sortID)
+                    outliers_IDs=numpy.append(outliers_IDs,sortID[index:])
+
+                #print("Outliers: ",outliers_IDs)
+                outliers_IDs=numpy.array(outliers_IDs)
+                outliers_IDs=outliers_IDs.ravel()
+                outliers_IDs=numpy.unique(outliers_IDs)
+                outliers_IDs=outliers_IDs.astype(numpy.dtype('int64'))
+                indexes=numpy.array(indexes)
+                indexmin=numpy.min(indexes)
+
+
+                #print(indexmin,buffer1.shape[0], k)
+
+                # fig,ax = plt.subplots()
+                # ax.plot(sortdata)
+                # ax2 = ax.twinx()
+                # x=range(len(indexes))
+                # #plt.scatter(x,indexes)
+                # ax2.scatter(x,indexes)
+                # plt.show()
+
+                if indexmin != buffer1.shape[0]:
+                    if self.__nChannels > 1:
+                        cspc_outliers_exist= True
+
+                    lt=outliers_IDs
+                    #avg=numpy.mean(buffer1[[t for t in range(buffer1.shape[0]) if t not in lt],:],axis=0)
+
+                    for p in list(outliers_IDs):
+                        #buffer1[p,:]=avg
+                        buffer1[p,:] = numpy.NaN
+
+                    self.dataOutliers[i,k] = len(outliers_IDs)
+
+
+                self.__buffer_spc[:,i,:,k]=numpy.copy(buffer1)
+
+
+                if self.__nChannels > 1:
+                    outliers_IDs_cspc=numpy.append(outliers_IDs_cspc,outliers_IDs)
+
+
+            if self.__nChannels > 1:
+                outliers_IDs_cspc=outliers_IDs_cspc.astype(numpy.dtype('int64'))
+            if cspc_outliers_exist:
+
+                lt=outliers_IDs_cspc
+
+                #avg=numpy.mean(buffer_cspc[[t for t in range(buffer_cspc.shape[0]) if t not in lt],:],axis=0)
+                for p in list(outliers_IDs_cspc):
+                    #buffer_cspc[p,:]=avg
+                    buffer_cspc[p,:] = numpy.NaN
+
+            if self.__nChannels > 1:
+                self.__buffer_cspc[:,:,:,k]=numpy.copy(buffer_cspc)
+
+
+
+
+        nOutliers = len(outliers_IDs)
+        #print("Outliers  n: ",self.dataOutliers,nOutliers)
+        buffer=None
+        bufferH=None
+        buffer1=None
+        buffer_cspc=None
+
+
+        buffer=None
+
+        #data_spc = numpy.sum(self.__buffer_spc,axis=0)
+        data_spc = numpy.nansum(self.__buffer_spc,axis=0)
+        if self.__nChannels > 1:
+            #data_cspc = numpy.sum(self.__buffer_cspc,axis=0)
+            data_cspc = numpy.nansum(self.__buffer_cspc,axis=0)
+        else:
+            data_cspc = None
+        data_dc = self.__buffer_dc
+        #(CH, HEIGH)
+        self.maxProfilesInt = self.__profIndex - 1
+        n = self.__profIndex - self.dataOutliers # n becomes a matrix
+
+        self.__buffer_spc = []
+        self.__buffer_cspc = []
+        self.__buffer_dc = 0
+        self.__profIndex = 0
+        #print("cleaned ",data_cspc)
+        return data_spc, data_cspc, data_dc, n
+
+    def byProfiles(self, *args):
+
+        self.__dataReady = False
+        avgdata_spc = None
+        avgdata_cspc = None
+        avgdata_dc = None
+
+        self.putData(*args)
+
+        if self.__profIndex >= self.n:
+
+            avgdata_spc, avgdata_cspc, avgdata_dc, n = self.pushData()
+            self.n_ints = n
+            self.__dataReady = True
+
+        return avgdata_spc, avgdata_cspc, avgdata_dc
+
+    def byTime(self, datatime, *args):
+
+        self.__dataReady = False
+        avgdata_spc = None
+        avgdata_cspc = None
+        avgdata_dc = None
+
+        self.putData(*args)
+
+        if (datatime - self.__initime) >= self.__integrationtime:
+            avgdata_spc, avgdata_cspc, avgdata_dc, n = self.pushData()
+            self.n_ints = n
+            self.__dataReady = True
+
+        return avgdata_spc, avgdata_cspc, avgdata_dc
+
+    def integrate(self, datatime, *args):
+
+        if self.__profIndex == 0:
+            self.__initime = datatime
+
+        if self.__byTime:
+            avgdata_spc, avgdata_cspc, avgdata_dc = self.byTime(
+                datatime, *args)
+        else:
+            avgdata_spc, avgdata_cspc, avgdata_dc = self.byProfiles(*args)
+
+        if not self.__dataReady:
+            return None, None, None, None
+
+        #print("integrate", avgdata_cspc)
+        return self.__initime, avgdata_spc, avgdata_cspc, avgdata_dc
+
+    def run(self, dataOut, n=None, DPL = None,timeInterval=None, overlapping=False, minHei=None, maxHei=None, avg=1, factor=0.75):
+        self.dataOut = dataOut
+        if n == 1:
+            return self.dataOut
+        self.dataOut.processingHeaderObj.timeIncohInt = timeInterval
+        
+        if dataOut.flagProfilesByRange:
+            self._flagProfilesByRange = True
+
+        if self.dataOut.nChannels == 1:
+            self.dataOut.data_cspc = None #si es un solo canal no vale la pena acumular DATOS
+        #print("IN spc:", self.dataOut.data_spc.shape, self.dataOut.data_cspc)
+        if not self.isConfig:
+            self.setup(self.dataOut, n, timeInterval, overlapping,DPL ,minHei, maxHei, avg, factor)
+            self.isConfig = True
+
+        if not self.ByLags:
+            self.nProfiles=self.dataOut.nProfiles
+            self.nChannels=self.dataOut.nChannels
+            self.nHeights=self.dataOut.nHeights
+            avgdatatime, avgdata_spc, avgdata_cspc, avgdata_dc = self.integrate(self.dataOut.utctime,
+                                                                                self.dataOut.data_spc,
+                                                                                self.dataOut.data_cspc,
+                                                                                self.dataOut.data_dc)
+        else:
+            self.nProfiles=self.dataOut.nProfiles
+            self.nChannels=self.dataOut.nChannels
+            self.nHeights=self.dataOut.nHeights
+            avgdatatime, avgdata_spc, avgdata_cspc, avgdata_dc = self.integrate(self.dataOut.utctime,
+                                                                                self.dataOut.dataLag_spc,
+                                                                                self.dataOut.dataLag_cspc,
+                                                                                self.dataOut.dataLag_dc)
+        self.dataOut.flagNoData = True
+
+        if self._flagProfilesByRange:
+            dataOut.flagProfilesByRange = True
+            self._nProfilesByRange += dataOut.nProfilesByRange
+            
+        if self.__dataReady:
+
+            if not self.ByLags:
+                if self.nChannels == 1:
+                    #print("f int", avgdata_spc.shape)
+                    self.dataOut.data_spc = avgdata_spc
+                    self.dataOut.data_cspc = None
+                else:
+                    self.dataOut.data_spc = numpy.squeeze(avgdata_spc)
+                    self.dataOut.data_cspc = numpy.squeeze(avgdata_cspc)
+                self.dataOut.data_dc = avgdata_dc
+                self.dataOut.data_outlier = self.dataOutliers
+                
+
+            else:
+                self.dataOut.dataLag_spc = avgdata_spc
+                self.dataOut.dataLag_cspc = avgdata_cspc
+                self.dataOut.dataLag_dc = avgdata_dc
+
+                self.dataOut.data_spc=self.dataOut.dataLag_spc[:,:,:,self.dataOut.LagPlot]
+                self.dataOut.data_cspc=self.dataOut.dataLag_cspc[:,:,:,self.dataOut.LagPlot]
+                self.dataOut.data_dc=self.dataOut.dataLag_dc[:,:,self.dataOut.LagPlot]
+
+            self.dataOut.nIncohInt *= self.n_ints
+
+            self.dataOut.utctime = avgdatatime
+            self.dataOut.flagNoData = False
+            
+            dataOut.nProfilesByRange = self._nProfilesByRange
+            self._nProfilesByRange = numpy.zeros((1,len(dataOut.heightList)))
+            self._flagProfilesByRange = False 
+
+        return self.dataOut
 class dopplerFlip(Operation):
        
-    def run(self, dataOut, chann = 2):
+    def run(self, dataOut, chann = None): #2):
         # arreglo 1: (num_chan, num_profiles, num_heights)
         self.dataOut = dataOut 
         # JULIA-oblicua, indice 2
