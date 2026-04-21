@@ -733,6 +733,10 @@ class RTIPlot(Plot):
     CODE = 'rti'
     colormap = 'jet'
     plot_type = 'pcolorbuffer'
+    titles = None
+    channelList = []
+    elevationList = []
+    azimuthList = []
     
     '''
     Parameter to be used in jroplot_base.py
@@ -749,14 +753,28 @@ class RTIPlot(Plot):
         self.cb_label = 'dB'
         self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.1, 'right':0.95})
         self.titles = ['{} Channel {}'.format(
-            self.CODE.upper(), x) for x in range(self.nrows)]
+            self.CODE.upper(), x) for x in range(self.nplots)]
 
+    def update_list(self,dataOut):
+
+        if len(self.channelList) == 0:
+            self.channelList = dataOut.channelList
+        if len(self.elevationList) == 0:
+            self.elevationList = dataOut.elevationList
+        if len(self.azimuthList) == 0:
+            self.azimuthList = dataOut.azimuthList
     def update(self, dataOut):
+
+        if len(self.channelList) == 0:
+            self.update_list(dataOut)
 
         data = {}
         meta = {}
         data['rti'] = dataOut.getPower()
+        norm = dataOut.nProfiles * dataOut.max_nIncohInt * dataOut.nCohInt  * dataOut.windowOfFilter
         data['noise'] = 10 * numpy.log10(dataOut.getNoise() / dataOut.normFactor)
+        #noise = 10*numpy.log10(dataOut.getNoise()/norm)
+        # data['noise'] = noise
 
         return data, meta
 
@@ -764,8 +782,25 @@ class RTIPlot(Plot):
         self.x = self.data.times
         self.y = self.data.yrange
         self.z = self.data[self.CODE]
-
+        self.z = numpy.array(self.z, dtype=float)
         self.z = numpy.ma.masked_invalid(self.z)
+
+        try:
+            if self.channelList != None:
+                if len(self.elevationList) > 0 and len(self.azimuthList) > 0:
+                    self.titles = ['{}  Channel {} ({:2.1f} Elev,  {:2.1f} Azth)'.format(
+                        self.CODE.upper(), x, self.elevationList[x], self.azimuthList[x]) for x in self.channelList]
+                else:
+                    self.titles = ['{}  Channel {}'.format(
+                        self.CODE.upper(), x) for x in self.channelList]
+        except:
+            if self.channelList.any() != None:
+                if len(self.elevationList) > 0 and len(self.azimuthList) > 0:
+                    self.titles = ['{}  Channel {} ({:2.1f} Elev,  {:2.1f} Azth)'.format(
+                        self.CODE.upper(), x, self.elevationList[x], self.azimuthList[x]) for x in self.channelList]
+                else:
+                    self.titles = ['{} Channel {}'.format(
+                        self.CODE.upper(), x) for x in self.channelList]
 
         if self.decimation is None:
             x, y, z = self.fill_gaps(self.x, self.y, self.z)
@@ -787,7 +822,8 @@ class RTIPlot(Plot):
                 if self.showprofile:
                     ax.plot_profile = self.pf_axes[n].plot(
                         self.data['rti'][n][-1], self.y)[0]
-                    ax.plot_noise = self.pf_axes[n].plot(numpy.repeat(self.data['noise'][n][-1], len(self.y)), self.y,
+                    if "noise" in self.data:
+                        ax.plot_noise = self.pf_axes[n].plot(numpy.repeat(self.data['noise'][n][-1], len(self.y)), self.y,
                                                          color="k", linestyle="dashed", lw=1)[0]
             else:
                 if self.zlimits is not None:
@@ -800,7 +836,8 @@ class RTIPlot(Plot):
                                        )
                 if self.showprofile:
                     ax.plot_profile.set_data(self.data['rti'][n][-1], self.y)
-                    ax.plot_noise.set_data(numpy.repeat(
+                    if "noise" in self.data:
+                        ax.plot_noise.set_data(numpy.repeat(
                         self.data['noise'][n][-1], len(self.y)), self.y)
 
 
@@ -1067,6 +1104,10 @@ class SpectraCutPlot(Plot):
     CODE = 'spc_cut'
     plot_type = 'scatter'
     buffering = False
+    heights = []
+    channelList = []
+    maintitle = "Spectra Cuts"
+    flag_setIndex = False
 
     '''
     '''
@@ -1082,6 +1123,9 @@ class SpectraCutPlot(Plot):
         self.ylabel = 'Power [dB]'
         self.colorbar = False
         self.plots_adjust.update({'left':0.1, 'hspace':0.3, 'right': 0.75, 'bottom':0.08})
+
+        if len(self.selectedHeightsList) > 0:
+            self.maintitle = "Spectra Cut"# for %d km " %(int(self.selectedHeight))
 
     def update(self, dataOut):
 

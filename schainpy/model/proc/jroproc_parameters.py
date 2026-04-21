@@ -115,7 +115,7 @@ class ParametersProc(ProcessingUnit):
         self.dataOut.flagDecodeData = self.dataIn.flagDecodeData #asumo q la data esta decodificada
         self.dataOut.flagDeflipData = self.dataIn.flagDeflipData #asumo q la data esta sin flip
         self.dataOut.nCohInt = self.dataIn.nCohInt
-        self.dataOut.nIncohInt = self.dataIn.nIncohInt
+        # self.dataOut.nIncohInt = self.dataIn.nIncohInt
         self.dataOut.ippSeconds = self.dataIn.ippSeconds
         self.dataOut.windowOfFilter = self.dataIn.windowOfFilter
         self.dataOut.timeInterval1 = self.dataIn.timeInterval
