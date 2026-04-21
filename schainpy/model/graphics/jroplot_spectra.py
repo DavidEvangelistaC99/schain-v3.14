@@ -10,6 +10,12 @@ import os
 import numpy
 
 from schainpy.model.graphics.jroplot_base import Plot, plt, log
+from itertools import combinations
+from matplotlib.ticker import LinearLocator
+
+from schainpy.model.utils.BField import BField
+from scipy.interpolate import splrep
+from scipy.interpolate import splev
 
 from matplotlib import __version__ as plt_version
 
@@ -28,6 +34,9 @@ class SpectraPlot(Plot):
     colormap = 'jet'
     plot_type = 'pcolor'
     buffering = False
+    channelList = []
+    elevationList = []
+    azimuthList = []
 
 
     ## attribute for plot operation, to be used in jroplot_base.py
@@ -47,6 +56,15 @@ class SpectraPlot(Plot):
         self.plots_adjust.update({'wspace': 0.8, 'hspace':0.2, 'left': 0.2, 'right': 0.9, 'bottom': 0.18})
         self.ylabel = 'Range [km]'
 
+    def update_list(self,dataOut):
+
+        if len(self.channelList) == 0:
+            self.channelList = dataOut.channelList
+        if len(self.elevationList) == 0:
+            self.elevationList = dataOut.elevationList
+        if len(self.azimuthList) == 0:
+            self.azimuthList = dataOut.azimuthList
+    
     def update(self, dataOut):
 
         data = {}
@@ -252,6 +270,8 @@ class CrossSpectraPlot(Plot):
     zmax_coh = None
     zmin_phase = None
     zmax_phase = None
+    realChannels = None
+    crossPairs = None
     
     def setup(self):
 
@@ -273,7 +293,11 @@ class CrossSpectraPlot(Plot):
         cspc = dataOut.data_cspc
         extrapoints = spc.shape[1] % dataOut.nFFTPoints
         meta['xrange'] = (dataOut.getFreqRange(EXTRA_POINTS) / 1000., dataOut.getAcfRange(EXTRA_POINTS), dataOut.getVelRange(EXTRA_POINTS))
-        meta['pairs'] = dataOut.pairsList
+        #meta['pairs'] = dataOut.pairsList
+        meta['pairs'] = rawPairs
+        if self.crossPairs == None:
+            self.crossPairs = dataOut.pairsList
+        
 
         tmp = []
 
@@ -315,8 +339,9 @@ class CrossSpectraPlot(Plot):
             ax = self.axes[2 * n]
             if ax.firsttime:
                 ax.plt = ax.pcolormesh(x, y, coh.T,
-                                       vmin=0,
-                                       vmax=1,
+                                       vmin=self.zmin_coh,
+                                       vmax=self.zmax_coh,#vmin=0,
+                                       #vmax=1,
                                        cmap=plt.get_cmap(self.colormap_coh)
                                        )
             else:
@@ -836,7 +861,8 @@ class SpectrogramPlot(Plot):
                                        cmap=plt.get_cmap(self.colormap)
                                        )
             else:
-                ax.plt.remove()
+                # ax.plt.remove()
+                ax.collections.remove(ax.collections[0])
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -924,7 +950,9 @@ class NoisePlot(Plot):
 
         data = {}
         meta = {}
-        data['noise'] = 10 * numpy.log10(dataOut.getNoise() / dataOut.normFactor).reshape(dataOut.nChannels, 1)
+        noise =  10*numpy.log10(dataOut.getNoise())
+        noise = noise.reshape(dataOut.nChannels, 1)
+        data['noise'] = noise
         meta['yrange'] = numpy.array([])
 
         return data, meta
@@ -1317,3 +1345,622 @@ class BeaconPhase(Plot):
                   update_figfile=update_figfile)
 
         return dataOut
+
+class NoiselessSpectraPlot(Plot):
+    '''
+    Plot for Spectra data, subtracting
+    the noise in all channels, using for
+    amisr-14 data
+    '''
+
+    CODE = 'noiseless_spc'
+    colormap = 'jet'
+    plot_type = 'pcolor'
+    buffering = False
+    channelList = []
+    last_noise = None
+
+    def setup(self):
+
+        self.nplots = len(self.data.channels)
+        self.ncols = int(numpy.sqrt(self.nplots) + 0.9)
+        self.nrows = int((1.0 * self.nplots / self.ncols) + 0.9)
+        self.height = 3.5 * self.nrows
+
+        self.cb_label = 'dB'
+        if self.showprofile:
+            self.width = 5.8 * self.ncols
+        else:
+            self.width = 4.8* self.ncols
+        self.plots_adjust.update({'wspace': 0.4, 'hspace':0.4, 'left': 0.1, 'right': 0.92, 'bottom': 0.12})
+
+        self.ylabel = 'Range [km]'
+
+
+    def update_list(self,dataOut):
+        if len(self.channelList) == 0:
+            self.channelList = dataOut.channelList
+
+    def update(self, dataOut):
+
+        self.update_list(dataOut)
+        data = {}
+        meta = {}
+
+        norm = dataOut.nProfiles * dataOut.max_nIncohInt * dataOut.nCohInt  * dataOut.windowOfFilter
+        n0 = (dataOut.getNoise()/norm)
+        noise = numpy.repeat(n0,(dataOut.nFFTPoints*dataOut.nHeights)).reshape(dataOut.nChannels,dataOut.nFFTPoints,dataOut.nHeights)
+        noise = 10*numpy.log10(noise)
+
+        z = numpy.zeros((dataOut.nChannels, dataOut.nFFTPoints, dataOut.nHeights))
+        for ch in range(dataOut.nChannels):
+            if hasattr(dataOut.normFactor,'ndim'):
+                if dataOut.normFactor.ndim > 1:
+                    z[ch] = (numpy.divide(dataOut.data_spc[ch],dataOut.normFactor[ch]))
+                else:
+                    z[ch] = (numpy.divide(dataOut.data_spc[ch],dataOut.normFactor))
+            else:
+                z[ch] = (numpy.divide(dataOut.data_spc[ch],dataOut.normFactor))
+
+        z = numpy.where(numpy.isfinite(z), z, numpy.NAN)
+        spc = 10*numpy.log10(z)
+
+
+        data['spc'] = spc - noise
+        #print(spc.shape)
+        data['rti'] = spc.mean(axis=1)
+        data['noise'] = noise
+
+
+
+        # data['noise'] = noise
+        meta['xrange'] = (dataOut.getFreqRange(EXTRA_POINTS)/1000., dataOut.getAcfRange(EXTRA_POINTS), dataOut.getVelRange(EXTRA_POINTS))
+
+        return data, meta
+
+    def plot(self):
+        if self.xaxis == "frequency":
+            x = self.data.xrange[0]
+            self.xlabel = "Frequency (kHz)"
+        elif self.xaxis == "time":
+            x = self.data.xrange[1]
+            self.xlabel = "Time (ms)"
+        else:
+            x = self.data.xrange[2]
+            self.xlabel = "Velocity (m/s)"
+
+        self.titles = []
+        y = self.data.yrange
+        self.y = y
+
+        data = self.data[-1]
+        z = data['spc']
+
+        for n, ax in enumerate(self.axes):
+            #noise = data['noise'][n]
+
+            if ax.firsttime:
+                self.xmax = self.xmax if self.xmax else numpy.nanmax(x)
+                self.xmin = self.xmin if self.xmin else -self.xmax
+                self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
+                self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
+                ax.plt = ax.pcolormesh(x, y, z[n].T,
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
+                                       cmap=plt.get_cmap(self.colormap)
+                                       )
+
+                if self.showprofile:
+                    ax.plt_profile = self.pf_axes[n].plot(
+                        data['rti'][n], y)[0]
+
+
+            else:
+                ax.plt.set_array(z[n].T.ravel())
+                if self.showprofile:
+                    ax.plt_profile.set_data(data['rti'][n], y)
+
+
+            self.titles.append('CH {}'.format(self.channelList[n]))
+
+
+class NoiselessRTIPlot(RTIPlot):
+    '''
+    Plot for RTI data
+    '''
+
+    CODE = 'noiseless_rti'
+    colormap = 'jet'
+    plot_type = 'pcolorbuffer'
+    titles = None
+    channelList = []
+    elevationList = []
+    azimuthList = []
+    last_noise = None
+
+    def setup(self):
+        self.xaxis = 'time'
+        self.ncols = 1
+        #print("dataChannels ",self.data.channels)
+        self.nrows = len(self.data.channels)
+        self.nplots = len(self.data.channels)
+        self.ylabel = 'Range [km]'
+        #self.xlabel = 'Time'
+        self.cb_label = 'dB'
+        self.plots_adjust.update({'hspace':0.8, 'left': 0.08, 'bottom': 0.2, 'right':0.94})
+        self.titles = ['{} Channel {}'.format(
+            self.CODE.upper(), x) for x in range(self.nplots)]
+
+    def update_list(self,dataOut):
+        if len(self.channelList) == 0:
+            self.channelList = dataOut.channelList
+        if len(self.elevationList) == 0:
+            self.elevationList = dataOut.elevationList
+        if len(self.azimuthList) == 0:
+            self.azimuthList = dataOut.azimuthList
+
+    def update(self, dataOut):
+        if len(self.channelList) == 0:
+            self.update_list(dataOut)
+
+        data = {}
+        meta = {}
+        #print(dataOut.max_nIncohInt, dataOut.nIncohInt)
+        #print(dataOut.windowOfFilter,dataOut.nCohInt,dataOut.nProfiles,dataOut.max_nIncohInt,dataOut.nIncohInt
+        norm = dataOut.nProfiles * dataOut.max_nIncohInt * dataOut.nCohInt  * dataOut.windowOfFilter
+        n0 = 10*numpy.log10(dataOut.getNoise()/norm)
+        data['noise'] = n0
+        noise = numpy.repeat(n0,dataOut.nHeights).reshape(dataOut.nChannels,dataOut.nHeights)
+        noiseless_data = dataOut.getPower() - noise
+
+        #print("power, noise:", dataOut.getPower(), n0)
+        #print(noise)
+        #print(noiseless_data)
+        
+        data['noiseless_rti'] = noiseless_data
+
+        return data, meta
+
+    def plot(self):
+        from matplotlib import pyplot as plt
+        self.x = self.data.times
+        self.y = self.data.yrange
+        self.z = self.data['noiseless_rti']
+        self.z = numpy.array(self.z, dtype=float)
+        self.z = numpy.ma.masked_invalid(self.z)
+
+
+        try:
+            if self.channelList != None:
+                if len(self.elevationList) > 0 and len(self.azimuthList) > 0:
+                    self.titles = ['{}  Channel {} ({:2.1f} Elev,  {:2.1f} Azth)'.format(
+                        self.CODE.upper(), x, self.elevationList[x], self.azimuthList[x]) for x in self.channelList]
+                else:
+                    self.titles = ['{}  Channel {}'.format(
+                        self.CODE.upper(), x) for x in self.channelList]
+        except:
+            if self.channelList.any() != None:
+                if len(self.elevationList) > 0 and len(self.azimuthList) > 0:
+                    self.titles = ['{}  Channel {} ({:2.1f} Elev,  {:2.1f} Azth)'.format(
+                        self.CODE.upper(), x, self.elevationList[x], self.azimuthList[x]) for x in self.channelList]
+                else:
+                    self.titles = ['{} Channel {}'.format(
+                        self.CODE.upper(), x) for x in self.channelList]
+
+
+        if self.decimation is None:
+            x, y, z = self.fill_gaps(self.x, self.y, self.z)
+        else:
+            x, y, z = self.fill_gaps(*self.decimate())
+
+        dummy_var = self.axes #Extrañamente esto actualiza el valor axes
+        #print("plot shapes ", z.shape, x.shape, y.shape)
+        #print(self.axes)
+        for n, ax in enumerate(self.axes):
+
+
+            self.zmin = self.zmin if self.zmin else numpy.min(self.z)
+            self.zmax = self.zmax if self.zmax else numpy.max(self.z)
+            data = self.data[-1]
+            if ax.firsttime:
+                if (n+1) == len(self.channelList):
+                    ax.set_xlabel('Time')
+                ax.plt = ax.pcolormesh(x, y, z[n].T,
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
+                                       cmap=plt.get_cmap(self.colormap)
+                                       )
+                if self.showprofile:
+                    ax.plot_profile = self.pf_axes[n].plot(data['noiseless_rti'][n], self.y)[0]
+
+            else:
+                ax.collections.remove(ax.collections[0]) #  error while running
+                ax.plt = ax.pcolormesh(x, y, z[n].T,
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
+                                       cmap=plt.get_cmap(self.colormap)
+                                       )
+                if self.showprofile:
+                    ax.plot_profile.set_data(data['noiseless_rti'][n], self.y)
+                    # if "noise" in self.data:
+                    #     #ax.plot_noise.set_data(numpy.repeat(data['noise'][n], len(self.y)), self.y)
+                    #     ax.plot_noise.set_data(data['noise'][n], self.y)
+
+
+class OutliersRTIPlot(Plot):
+    '''
+    Plot for data_xxxx object
+    '''
+
+    CODE = 'outlier_rtc' # Range Time Counts
+    colormap = 'cool'
+    plot_type = 'pcolorbuffer'
+
+    def setup(self):
+        self.xaxis = 'time'
+        self.ncols = 1
+        self.nrows = self.data.shape('outlier_rtc')[0]
+        self.nplots = self.nrows
+        self.plots_adjust.update({'hspace':0.8, 'left': 0.08, 'bottom': 0.2, 'right':0.94})
+
+
+        if not self.xlabel:
+            self.xlabel = 'Time'
+
+        self.ylabel = 'Height [km]'
+        if not self.titles:
+            self.titles = ['Outliers Ch:{}'.format(x) for x in range(self.nrows)]
+
+    def update(self, dataOut):
+
+        data = {}
+        data['outlier_rtc'] = dataOut.data_outlier
+
+        meta = {}
+
+        return data, meta
+
+    def plot(self):
+        # self.data.normalize_heights()
+        self.x = self.data.times
+        self.y = self.data.yrange
+        self.z = self.data['outlier_rtc']
+
+        #self.z = numpy.ma.masked_invalid(self.z)
+
+        if self.decimation is None:
+            x, y, z = self.fill_gaps(self.x, self.y, self.z)
+        else:
+            x, y, z = self.fill_gaps(*self.decimate())
+
+        for n, ax in enumerate(self.axes):
+
+            self.zmax = self.zmax if self.zmax is not None else numpy.max(
+                self.z[n])
+            self.zmin = self.zmin if self.zmin is not None else numpy.min(
+                self.z[n])
+            data = self.data[-1]
+            if ax.firsttime:
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
+
+                ax.plt = ax.pcolormesh(x, y, z[n].T,
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
+                                       cmap=self.cmaps[n]
+                                       )
+                if self.showprofile:
+                    ax.plot_profile = self.pf_axes[n].plot(data['outlier_rtc'][n], self.y)[0]
+                    self.pf_axes[n].set_xlabel('')
+            else:
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
+                ax.collections.remove(ax.collections[0]) #  error while running
+                ax.plt = ax.pcolormesh(x, y, z[n].T ,
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
+                                       cmap=self.cmaps[n]
+                                       )
+                if self.showprofile:
+                    ax.plot_profile.set_data(data['outlier_rtc'][n], self.y)
+                    self.pf_axes[n].set_xlabel('')
+
+class NIncohIntRTIPlot(Plot):
+    '''
+    Plot for data_xxxx object
+    '''
+
+    CODE = 'integrations_rtc' # Range Time Counts
+    colormap = 'BuGn'
+    plot_type = 'pcolorbuffer'
+
+    def setup(self):
+        self.xaxis = 'time'
+        self.ncols = 1
+        self.nrows = self.data.shape('integrations_rtc')[0]
+        self.nplots = self.nrows
+        self.plots_adjust.update({'hspace':0.8, 'left': 0.08, 'bottom': 0.2, 'right':0.94})
+
+
+        if not self.xlabel:
+            self.xlabel = 'Time'
+
+        self.ylabel = 'Height [km]'
+        if not self.titles:
+            self.titles = ['Integration Ch:{}'.format(x) for x in range(self.nrows)]
+
+    def update(self, dataOut):
+
+        data = {}
+        data['integrations_rtc'] = dataOut.nIncohInt
+
+        meta = {}
+
+        return data, meta
+
+    def plot(self):
+        # self.data.normalize_heights()
+        self.x = self.data.times
+        self.y = self.data.yrange
+        self.z = self.data['integrations_rtc']
+
+        #self.z = numpy.ma.masked_invalid(self.z)
+
+        if self.decimation is None:
+            x, y, z = self.fill_gaps(self.x, self.y, self.z)
+        else:
+            x, y, z = self.fill_gaps(*self.decimate())
+
+        for n, ax in enumerate(self.axes):
+
+            self.zmax = self.zmax if self.zmax is not None else numpy.max(
+                self.z[n])
+            self.zmin = self.zmin if self.zmin is not None else numpy.min(
+                self.z[n])
+            data = self.data[-1]
+            if ax.firsttime:
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
+
+                ax.plt = ax.pcolormesh(x, y, z[n].T,
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
+                                       cmap=self.cmaps[n]
+                                       )
+                if self.showprofile:
+                    ax.plot_profile = self.pf_axes[n].plot(data['integrations_rtc'][n], self.y)[0]
+                    self.pf_axes[n].set_xlabel('')
+            else:
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
+                ax.collections.remove(ax.collections[0]) #  error while running
+                ax.plt = ax.pcolormesh(x, y, z[n].T ,
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
+                                       cmap=self.cmaps[n]
+                                       )
+                if self.showprofile:
+                    ax.plot_profile.set_data(data['integrations_rtc'][n], self.y)
+                    self.pf_axes[n].set_xlabel('')
+
+    
+
+class RTIMapPlot(Plot):
+    '''
+    Plot for RTI data
+
+    Example:
+
+    controllerObj = Project()
+    controllerObj.setup(id = '11', name='eej_proc', description=desc)
+    ##.......................................................................................
+    ##.......................................................................................
+    readUnitConfObj = controllerObj.addReadUnit(datatype='AMISRReader', path=inPath, startDate='2023/05/24',endDate='2023/05/24', 
+                    startTime='12:00:00',endTime='12:45:59',walk=1,timezone='lt',margin_days=1,code = code,nCode = nCode,
+                    nBaud = nBaud,nOsamp = nosamp,nChannels=nChannels,nFFT=NFFT, 
+                    syncronization=False,shiftChannels=0)
+
+    volts_proc = controllerObj.addProcUnit(datatype='VoltageProc', inputId=readUnitConfObj.getId())
+
+    opObj01 = volts_proc.addOperation(name='Decoder', optype='other')
+    opObj01.addParameter(name='code', value=code, format='floatlist')
+    opObj01.addParameter(name='nCode', value=1, format='int')
+    opObj01.addParameter(name='nBaud', value=nBaud, format='int')
+    opObj01.addParameter(name='osamp', value=nosamp, format='int')
+
+    opObj12 = volts_proc.addOperation(name='selectHeights', optype='self')
+    opObj12.addParameter(name='minHei', value='90', format='float')
+    opObj12.addParameter(name='maxHei', value='150', format='float')
+
+    proc_spc = controllerObj.addProcUnit(datatype='SpectraProc', inputId=volts_proc.getId())
+    proc_spc.addParameter(name='nFFTPoints', value='8', format='int')
+
+    opObj11 = proc_spc.addOperation(name='IncohInt', optype='other')
+    opObj11.addParameter(name='n', value='1', format='int') 
+
+    beamMapFile = "/home/japaza/Documents/AMISR_sky_mapper/UMET_beamcodes.csv"
+
+    opObj12 = proc_spc.addOperation(name='RTIMapPlot', optype='external')
+    opObj12.addParameter(name='selectedHeightsList', value='95, 100, 105, 110 ', format='int')
+    opObj12.addParameter(name='bField', value='100', format='int')
+    opObj12.addParameter(name='filename', value=beamMapFile, format='str') 
+    
+    '''
+
+    CODE = 'rti_skymap'
+    
+    plot_type = 'scatter'
+    titles = None
+    colormap = 'jet'
+    channelList = []
+    elevationList = []
+    azimuthList = []
+    last_noise = None
+    flag_setIndex = False
+    heights = []
+    dcosx = []
+    dcosy = []
+    fullDcosy = None
+    fullDcosy = None
+    hindex = []
+    mapFile = False
+    #####  BField    ####
+    flagBField = False 
+    dcosxB = []
+    dcosyB = []
+    Bmarker = ['+','*','D','x','s','>','o','^']
+  
+
+    def setup(self):
+
+        self.xaxis = 'Range (Km)'
+        if len(self.selectedHeightsList) > 0:
+            self.nplots = len(self.selectedHeightsList)
+        else: 
+            self.nplots = 4
+        self.ncols = int(numpy.ceil(self.nplots/2))
+        self.nrows = int(numpy.ceil(self.nplots/self.ncols))  
+        self.ylabel = 'dcosy'
+        self.xlabel = 'dcosx'
+        self.colorbar = True
+        self.width = 6 + 4.1*self.nrows
+        self.height = 3 + 3.5*self.ncols
+        
+
+        if self.extFile!=None:
+            try:
+                pointings =  numpy.genfromtxt(self.extFile, delimiter=',')
+                full_azi = pointings[:,1]
+                full_elev = pointings[:,2]
+                self.fullDcosx = numpy.cos(numpy.radians(full_elev))*numpy.sin(numpy.radians(full_azi))
+                self.fullDcosy = numpy.cos(numpy.radians(full_elev))*numpy.cos(numpy.radians(full_azi))
+                mapFile = True
+            except Exception as e:
+                self.extFile = None
+                print(e)
+
+
+    def update_list(self,dataOut):
+        if len(self.channelList) == 0:
+            self.channelList = dataOut.channelList
+        if len(self.elevationList) == 0:
+            self.elevationList = dataOut.elevationList
+        if len(self.azimuthList) == 0:
+            self.azimuthList = dataOut.azimuthList
+        a = numpy.radians(numpy.asarray(self.azimuthList))
+        e = numpy.radians(numpy.asarray(self.elevationList))
+        self.heights = dataOut.heightList
+        self.dcosx = numpy.cos(e)*numpy.sin(a)
+        self.dcosy = numpy.cos(e)*numpy.cos(a)
+
+        if len(self.bFieldList)>0:
+            datetObj = datetime.datetime.fromtimestamp(dataOut.utctime)
+            doy = datetObj.timetuple().tm_yday
+            year = datetObj.year
+            # self.dcosxB, self.dcosyB 
+            ObjB = BField(year=year,doy=doy,site=2,heights=self.bFieldList)
+            [dcos, alpha, nlon, nlat] = ObjB.getBField()
+
+            alpha_location = numpy.zeros((nlon,2,len(self.bFieldList)))
+            for ih in range(len(self.bFieldList)):
+                alpha_location[:,0,ih] = dcos[:,0,ih,0]
+                for ilon in numpy.arange(nlon):
+                    myx = (alpha[ilon,:,ih])[::-1]
+                    myy = (dcos[ilon,:,ih,0])[::-1]
+                    tck = splrep(myx,myy,s=0)
+                    mydcosx = splev(ObjB.alpha_i,tck,der=0)
+
+                    myx = (alpha[ilon,:,ih])[::-1]
+                    myy = (dcos[ilon,:,ih,1])[::-1]
+                    tck = splrep(myx,myy,s=0)
+                    mydcosy = splev(ObjB.alpha_i,tck,der=0)
+                    alpha_location[ilon,:,ih] = numpy.array([mydcosx, mydcosy])
+                self.dcosxB.append(alpha_location[:,0,ih])
+                self.dcosyB.append(alpha_location[:,1,ih])
+            self.flagBField = True
+            
+        if len(self.celestialList)>0:
+            #getBField(self.bFieldList, date)
+            #pass = kwargs.get('celestial', [])
+            pass
+
+
+    def update(self, dataOut):
+
+        if len(self.channelList) == 0:
+            self.update_list(dataOut)
+
+        if not self.flag_setIndex:
+            if len(self.selectedHeightsList)>0:
+                for sel_height in self.selectedHeightsList:
+                    index_list = numpy.where(self.heights >= sel_height)
+                    index_list = index_list[0]
+                    self.hindex.append(index_list[0])    
+            self.flag_setIndex = True
+
+        data = {}
+        meta = {}
+
+        data['rti_skymap'] = dataOut.getPower()
+        norm = dataOut.nProfiles * dataOut.max_nIncohInt * dataOut.nCohInt  * dataOut.windowOfFilter
+        noise = 10*numpy.log10(dataOut.getNoise()/norm)
+        data['noise'] = noise
+
+        return data, meta
+
+    def plot(self):
+
+        self.x = self.dcosx
+        self.y = self.dcosy
+        self.z = self.data[-1]['rti_skymap']
+        self.z = numpy.array(self.z, dtype=float)
+
+        if len(self.hindex) > 0:
+            index = self.hindex
+        else:
+            index = numpy.arange(0, len(self.heights), int((len(self.heights))/4.2))
+
+        self.titles = ['Height {:.2f} km '.format(self.heights[i])+" " for i in index]
+        for n, ax in enumerate(self.axes):
+
+            if ax.firsttime:
+ 
+                self.xmax = self.xmax if self.xmax else numpy.nanmax(self.x)
+                self.xmin = self.xmin if self.xmin else numpy.nanmin(self.x)
+                self.ymax = self.ymax if self.ymax else numpy.nanmax(self.y)
+                self.ymin = self.ymin if self.ymin else numpy.nanmin(self.y)     
+                self.zmax = self.zmax if self.zmax else numpy.nanmax(self.z)
+                self.zmin = self.zmin if self.zmin else numpy.nanmin(self.z)
+
+                if self.extFile!=None:
+                    ax.scatter(self.fullDcosx, self.fullDcosy, marker="+", s=20)
+
+                ax.plt = ax.scatter(self.x, self.y, c=self.z[:,index[n]], cmap = 'jet',vmin = self.zmin,
+                    s=60, marker="s", vmax = self.zmax)
+                
+
+                ax.minorticks_on()
+                ax.grid(which='major', axis='both')
+                ax.grid(which='minor', axis='x')
+
+                if self.flagBField :
+
+                    for ih in range(len(self.bFieldList)):
+                        label = str(self.bFieldList[ih]) + ' km'
+                        ax.plot(self.dcosxB[ih], self.dcosyB[ih], color='k', marker=self.Bmarker[ih % 8], 
+                                         label=label,   linestyle='--',  ms=4.0,lw=0.5)
+                    handles, labels = ax.get_legend_handles_labels()
+                    a = -0.05
+                    b = 1.15 - 1.19*(self.nrows)
+                    self.axes[0].legend(handles,labels, bbox_to_anchor=(a,b), prop={'size': (5.8+ 1.1*self.nplots)}, title='B Field ⊥')
+            
+            else:
+                
+                ax.plt = ax.scatter(self.x, self.y, c=self.z[:,index[n]], cmap = 'jet',vmin = self.zmin,
+                     s=80, marker="s", vmax = self.zmax)
+
+                if self.flagBField :
+                    for ih in range(len(self.bFieldList)):
+                        ax.plot (self.dcosxB[ih], self.dcosyB[ih], color='k', marker=self.Bmarker[ih % 8],
+                                linestyle='--', ms=4.0,lw=0.5)
+
