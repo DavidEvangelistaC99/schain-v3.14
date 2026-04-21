@@ -8,7 +8,7 @@ import time
 
 # PATH = '/DATA_RM/DATA'
 
-PATH = '/home/david/Documents/DATA'
+PATH = '/home/idi/Documents/DATA'
 
 PARAM = {
     'S':  {'zmin': -70, 'zmax':-30, 'colormap': 'jet'    , 'label': 'Power', 'wrname': 'power','cb_label': 'dBm', 'ch':0},
@@ -690,7 +690,6 @@ En este experimento se observa que la h0 = -1.2
 DRONE TEST_PN_RHI@2024-10-30T20-33-34
 sr Rx 5 Mhz
 En este experimento se observa que la h0 = -1.4
-
 """
 
 # python sophy_proc.py CHIRP@2025-10-16T19-30-55 --parameters SNR  --plot --save --rmDC --label 31_03_26 --range 60 --mask -9.0
