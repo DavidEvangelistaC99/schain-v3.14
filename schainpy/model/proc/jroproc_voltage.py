@@ -39,10 +39,28 @@ class VoltageProc(ProcessingUnit):
 
         if self.dataIn.type == 'AMISR':
             self.__updateObjFromAmisrInput()
+        
+        if self.dataOut.buffer_empty:
+            if self.dataIn.type == 'Voltage':
+                self.dataOut.copy(self.dataIn)
+                self.dataOut.runNextUnit = runNextUnit
+                self.dataOut.radarControllerHeaderObj = self.dataIn.radarControllerHeaderObj.copy()
 
-        if self.dataIn.type == 'Voltage':
-            self.dataOut.copy(self.dataIn)
-            self.dataOut.runNextUnit = runNextUnit
+                self.dataOut.ippSeconds = self.dataIn.ippSeconds
+                self.dataOut.ipp = self.dataIn.ipp
+
+                #update Processing Header:
+                self.dataOut.processingHeaderObj.heightList = self.dataOut.heightList
+                self.dataOut.processingHeaderObj.ipp =  self.dataOut.ipp
+                self.dataOut.processingHeaderObj.nCohInt =  self.dataOut.nCohInt
+                self.dataOut.processingHeaderObj.dtype =  self.dataOut.type
+                self.dataOut.processingHeaderObj.channelList =  self.dataOut.channelList
+                self.dataOut.processingHeaderObj.azimuthList =  self.dataOut.azimuthList
+                self.dataOut.processingHeaderObj.elevationList =  self.dataOut.elevationList
+                self.dataOut.processingHeaderObj.codeList =  self.dataOut.nChannels
+                self.dataOut.processingHeaderObj.heightList =  self.dataOut.heightList
+                self.dataOut.processingHeaderObj.heightResolution  = self.dataOut.heightList[1] - self.dataOut.heightList[0]
+                
 
 
         #self.dataOut.flagNoData=True
@@ -98,11 +116,26 @@ class VoltageProc(ProcessingUnit):
 class selectChannels(Operation):
 
     def run(self, dataOut, channelList):
+        
+        if  isinstance(channelList, int):
+            channelList = [channelList]
+
+        self.channelList = channelList
+        if len(self.channelList) == 0:
+            print("Missing channelList")
+            return dataOut
 
 
 
 
         channelIndexList = []
+        if not dataOut.buffer_empty: # cuando se usa proc volts como buffer de datos
+            return dataOut
+        if  type(dataOut.channelList) is not list:    #leer array desde HDF5
+            try:
+                dataOut.channelList = dataOut.channelList.tolist()
+            except Exception as e:
+                print("Select Channels: ",e)
         self.dataOut = dataOut
         for channel in channelList:
             if channel not in self.dataOut.channelList:
@@ -110,12 +143,20 @@ class selectChannels(Operation):
 
             index = self.dataOut.channelList.index(channel)
             channelIndexList.append(index)
-        self.selectChannelsByIndex(channelIndexList)
+        
+        dataOut = self.selectChannelsByIndex(dataOut,channelIndexList)
+        
+        #update Processing Header:
+        dataOut.processingHeaderObj.channelList = dataOut.channelList
+        dataOut.processingHeaderObj.elevationList = dataOut.elevationList
+        dataOut.processingHeaderObj.azimuthList = dataOut.azimuthList
+        dataOut.processingHeaderObj.codeList = dataOut.codeList
+        dataOut.processingHeaderObj.nChannels = len(dataOut.channelList)
+        
+        return dataOut
 
-        return self.dataOut
 
-
-    def selectChannelsByIndex(self, channelIndexList):
+    def selectChannelsByIndex(self, dataOut, channelIndexList):
         """
         Selecciona un bloque de datos en base a canales segun el channelIndexList
 
@@ -133,63 +174,79 @@ class selectChannels(Operation):
         Return:
             None
         """
+        # for channelIndex in channelIndexList:
+        #     if channelIndex not in dataOut.channelIndexList:
+        #         raise ValueError("The value %d in channelIndexList is not valid" %channelIndex)
 
-        for channelIndex in channelIndexList:
-            if channelIndex not in self.dataOut.channelIndexList:
-                raise ValueError("The value %d in channelIndexList is not valid" % channelIndex)
-
-        if self.dataOut.type == 'Voltage':
-            if self.dataOut.flagDataAsBlock:
+        if dataOut.type == 'Voltage':
+            if dataOut.flagDataAsBlock:
                 """
                 Si la data es obtenida por bloques, dimension = [nChannels, nProfiles, nHeis]
                 """
-                data = self.dataOut.data[channelIndexList, :, :]
+                data = dataOut.data[channelIndexList,:,:]
             else:
-                data = self.dataOut.data[channelIndexList, :]
+                data = dataOut.data[channelIndexList,:]
 
-            self.dataOut.data = data
-            # self.dataOut.channelList = [self.dataOut.channelList[i] for i in channelIndexList]
-            self.dataOut.channelList = range(len(channelIndexList))
+            dataOut.data = data
+            # dataOut.channelList = [dataOut.channelList[i] for i in channelIndexList]
+            dataOut.channelList = [n for n in range(len(channelIndexList))]
+            
+        elif dataOut.type == 'Spectra':
+            if hasattr(dataOut, 'data_spc'):
+                if dataOut.data_spc is None:
+                    raise ValueError("data_spc is None")
+                    return dataOut
+                else:
+                    data_spc = dataOut.data_spc[channelIndexList, :]
+                    dataOut.data_spc = data_spc
 
-        elif self.dataOut.type == 'Spectra':
-            data_spc = self.dataOut.data_spc[channelIndexList, :]
-            data_dc = self.dataOut.data_dc[channelIndexList, :]
+            # if hasattr(dataOut, 'data_dc') :# and
+            #     if dataOut.data_dc is None:
+            #         raise ValueError("data_dc is None")
+            #         return dataOut
+            #     else:
+            #         data_dc = dataOut.data_dc[channelIndexList, :]
+            #         dataOut.data_dc = data_dc
+            # dataOut.channelList = [dataOut.channelList[i] for i in channelIndexList]
+            dataOut.channelList = channelIndexList
+            dataOut = self.__selectPairsByChannel(dataOut,channelIndexList)
+         
 
-            self.dataOut.data_spc = data_spc
-            self.dataOut.data_dc = data_dc
+        dataOut.elevationList = numpy.asarray(dataOut.elevationList)
+        dataOut.azimuthList = numpy.asarray(dataOut.azimuthList)
+        dataOut.codeList = numpy.asarray(dataOut.codeList)
+        if (len(dataOut.elevationList) > 0):
+            dataOut.elevationList = dataOut.elevationList[channelIndexList]
+            dataOut.azimuthList = dataOut.azimuthList[channelIndexList]
+            dataOut.codeList = dataOut.codeList[channelIndexList]
+            
+        return dataOut
 
-            # self.dataOut.channelList = [self.dataOut.channelList[i] for i in channelIndexList]
-            self.dataOut.channelList = range(len(channelIndexList))
-            self.__selectPairsByChannel(channelIndexList)
-
-        return 1
-
-    def __selectPairsByChannel(self, channelList=None):
-
+    def __selectPairsByChannel(self, dataOut, channelList=None):
+   
         if channelList == None:
             return
 
         pairsIndexListSelected = []
-        for pairIndex in self.dataOut.pairsIndexList:
+        for pairIndex in dataOut.pairsIndexList:
             # First pair
-            if self.dataOut.pairsList[pairIndex][0] not in channelList:
+            if dataOut.pairsList[pairIndex][0] not in channelList:
                 continue
             # Second pair
-            if self.dataOut.pairsList[pairIndex][1] not in channelList:
+            if dataOut.pairsList[pairIndex][1] not in channelList:
                 continue
 
             pairsIndexListSelected.append(pairIndex)
-
         if not pairsIndexListSelected:
-            self.dataOut.data_cspc = None
-            self.dataOut.pairsList = []
+            dataOut.data_cspc = None
+            dataOut.pairsList = []
             return
 
-        self.dataOut.data_cspc = self.dataOut.data_cspc[pairsIndexListSelected]
-        self.dataOut.pairsList = [self.dataOut.pairsList[i]
+        dataOut.data_cspc = dataOut.data_cspc[pairsIndexListSelected]
+        dataOut.pairsList = [dataOut.pairsList[i]
                                   for i in pairsIndexListSelected]
 
-        return
+        return dataOut
 
 class selectHeights(Operation):
 
@@ -211,8 +268,13 @@ class selectHeights(Operation):
 
         self.dataOut = dataOut
 
+        if type(minHei) == int or type(minHei) == float:
+            v_minHei= True 
+        else:
+            v_minHei= False
+        
         #if minHei and maxHei:
-        if 1:
+        if v_minHei and maxHei:
             if minHei == None:
                minHei = self.dataOut.heightList[0]
 
@@ -244,6 +306,8 @@ class selectHeights(Operation):
 
         self.selectHeightsByIndex(minIndex, maxIndex)
         #print(self.dataOut.nHeights)
+
+        dataOut.processingHeaderObj.heightList = dataOut.heightList
 
 
         return self.dataOut
@@ -315,40 +379,53 @@ class selectHeights(Operation):
 
         return 1
 
-
 class filterByHeights(Operation):
 
+    ifConfig=False
+    deltaHeight = None
+    newdelta=None
+    newheights=None
+    r=None
+    h0=None
+    nHeights=None
+
     def run(self, dataOut, window):
-
-        deltaHeight = dataOut.heightList[1] - dataOut.heightList[0]
-
+    
         if window == None:
-            window = (dataOut.radarControllerHeaderObj.txA / dataOut.radarControllerHeaderObj.nBaud) / deltaHeight
-
-        newdelta = deltaHeight * window
-        r = dataOut.nHeights % window
-        newheights = (dataOut.nHeights - r) / window
-
-        if newheights <= 1:
-            raise ValueError("filterByHeights: Too few heights. Current number of heights is %d and window is %d" % (dataOut.nHeights, window))
+            window = (dataOut.radarControllerHeaderObj.txA/dataOut.radarControllerHeaderObj.nBaud) / self.deltaHeight
+	
+        if not self.ifConfig: #and dataOut.useInputBuffer:
+            self.deltaHeight = dataOut.heightList[1] - dataOut.heightList[0]
+            self.ifConfig = True
+            self.newdelta = self.deltaHeight * window
+            self.r = dataOut.nHeights % window
+            self.newheights = (dataOut.nHeights-self.r)/window
+            self.h0 = dataOut.heightList[0]
+            self.nHeights = dataOut.nHeights
+            if self.newheights <= 1:
+                raise ValueError("filterByHeights: Too few heights. Current number of heights is %d and window is %d" %(dataOut.nHeights, window))
 
         if dataOut.flagDataAsBlock:
             """
             Si la data es obtenida por bloques, dimension = [nChannels, nProfiles, nHeis]
             """
-            buffer = dataOut.data[:, :, 0:int(dataOut.nHeights - r)]
-            buffer = buffer.reshape(dataOut.nChannels, dataOut.nProfiles, int(dataOut.nHeights / window), window)
-            buffer = numpy.sum(buffer, 3)
+            buffer = dataOut.data[:, :, 0:int(self.nHeights-self.r)]
+            buffer = buffer.reshape(dataOut.nChannels, dataOut.nProfiles, int(self.nHeights/window), window)
+            buffer = numpy.sum(buffer,3)
 
         else:
-            buffer = dataOut.data[:, 0:int(dataOut.nHeights - r)]
-            buffer = buffer.reshape(dataOut.nChannels, int(dataOut.nHeights / window), int(window))
-            buffer = numpy.sum(buffer, 2)
+            buffer = dataOut.data[:,0:int(self.nHeights-self.r)]
+            buffer = buffer.reshape(dataOut.nChannels,int(self.nHeights/window),int(window))
+            buffer = numpy.sum(buffer,2)
 
         dataOut.data = buffer
-        dataOut.heightList = dataOut.heightList[0] + numpy.arange(newheights) * newdelta
+        dataOut.heightList = self.h0 + numpy.arange( self.newheights )*self.newdelta
         dataOut.windowOfFilter = window
 
+        #update Processing Header:
+        dataOut.processingHeaderObj.heightList = dataOut.heightList
+        dataOut.processingHeaderObj.nWindows = window
+        
         return dataOut
 
 class setOffset(Operation):
@@ -3843,6 +3920,1167 @@ class SSheightProfiles(Operation):
 
         return dataOut
 
+class cleanHeightsInterf(Operation):
+    """
+    Escrito: Joab Apaza, creado para eliminar interferencias en alturas específicas
+
+    :param heightsList  :   Listado de alturas a eliminar
+    :param repeats      :   Numero de repeticiones del listado en el rango del IPP
+    :param step         :   Distancia en km hasta la prox repeticion del listado
+    :param factor       :   Fator de atenuación
+    :param idate        :   fecha de la interferencia
+    :param startH       :   hora de inicio de la interferencia
+    :param endH         :   hora de finalización de la interferencia
+
+    :return: dataOut
+    
+    """
+    
+    __slots__ =('heights_indx', 'repeats', 'step', 'factor', 'idate', 'idxs','config','wMask')
+    def __init__(self):
+        self.repeats = 0
+        self.factor=1
+        self.wMask = None
+        self.config = False
+        self.idxs = None
+        self.heights_indx = None
+
+    def run(self, dataOut, heightsList, repeats=0, step=0, factor=1, idate=None, startH=None, endH=None):
+
+        #print(dataOut.data.shape)
+
+        startTime = datetime.datetime.combine(idate,startH)
+        endTime =  datetime.datetime.combine(idate,endH)
+        currentTime = datetime.datetime.fromtimestamp(dataOut.utctime)
+
+        if currentTime < startTime or currentTime > endTime:
+            return dataOut
+        if not self.config:
+
+            #print(wMask)
+            heights = [float(hei) for hei in heightsList]
+            for r in range(repeats):
+                 heights += [ (h+(step*(r+1))) for h in heights]
+            #print(heights)
+            heiList = dataOut.heightList
+            self.heights_indx = [getHei_index(h,h,heiList)[0] for h in heights]
+
+            self.wMask = numpy.asarray(factor)
+            self.wMask = numpy.tile(self.wMask,(repeats+2))
+            self.config = True
+
+        """
+        getNoisebyHildebrand(self, channel=None, ymin_index=None, ymax_index=None)
+        """
+        #print(self.noise =10*numpy.log10(dataOut.getNoisebyHildebrand(ymin_index=self.min_ref, ymax_index=self.max_ref)))
+
+
+        for ch in range(dataOut.data.shape[0]):
+            i = 0
+
+
+            for hei in self.heights_indx:
+                h = hei - 1
+
+
+                if dataOut.data.ndim < 3:
+                    module = numpy.absolute(dataOut.data[ch,h])
+                    prev_h1 = numpy.absolute(dataOut.data[ch,h-1])
+                    dataOut.data[ch,h] = (dataOut.data[ch,h])/module * prev_h1
+
+                    #dataOut.data[ch,hei-1] = (dataOut.data[ch,hei-1])*self.wMask[i]
+                else:
+                    module = numpy.absolute(dataOut.data[ch,:,h])
+                    prev_h1 = numpy.absolute(dataOut.data[ch,:,h-1])
+                    dataOut.data[ch,:,h] = (dataOut.data[ch,:,h])/module * prev_h1
+                    #dataOut.data[ch,:,hei-1] = (dataOut.data[ch,:,hei-1])*self.wMask[i]
+                    #print("done")
+                i += 1
+
+
+        return dataOut
+
+class SSheightProfiles2(Operation):
+    
+    """
+    Escrito: Joab Apaza, basado en la Operación SSheightProfiles
+    Procesa por perfiles y por bloques, Para procesar pulso largo
+    Versión corregida y actualizada para trabajar con RemoveProfileSats2
+
+    :param step     :   Pasos en la selección de alturas, equivalente a filtrar por alturas, incrementar disminuye la resolución
+    :param nsamples :   Numero de altura a seleccionar
+    :param code     :   En caso de codificación del pulso, tambien se decodifica
+    :param repeat   :   Numero de repeticiones del codigo
+
+
+    :return: dataOut
+    
+    
+    """
+   
+    bufferShape   = None
+    profileShape  = None
+    sshProfiles   = None
+    profileIndex  = None
+    #nsamples      = None
+    #step          = None
+    #deltaHeight = None
+    #init_range  = None
+    __slots__ = ('step', 'nsamples', 'deltaHeight', 'init_range', 'isConfig', '__nChannels',
+                '__nProfiles', '__nHeis', 'deltaHeight', 'new_nHeights')
+    def __init__(self, **kwargs):
+        Operation.__init__(self, **kwargs)
+        self.isConfig = False
+    def setup(self,dataOut ,step = None , nsamples = None):
+        if step == None and nsamples == None:
+            raise ValueError("step or nheights should be specified ...")
+        self.step         = step
+        self.nsamples     = nsamples
+        self.__nChannels  = int(dataOut.nChannels)
+        self.__nProfiles  = int(dataOut.nProfiles)
+        self.__nHeis      = int(dataOut.nHeights)
+        residue     =  (self.__nHeis - self.nsamples) % self.step
+        if residue != 0:
+            print("The residue is %d, step=%d should be multiple of %d to avoid loss of %d samples"%(residue,step,self.__nProfiles - self.nsamples,residue))
+        self.deltaHeight      =  dataOut.heightList[1] - dataOut.heightList[0]
+        self.init_range = dataOut.heightList[0]
+        #numberProfile    =  self.nsamples
+        numberSamples    =  (self.__nHeis - self.nsamples)/self.step
+        self.new_nHeights    =  numberSamples
+        self.bufferShape  = int(self.__nChannels), int(numberSamples), int(self.nsamples)  # nchannels, nsamples , nprofiles
+        self.profileShape = int(self.__nChannels), int(self.nsamples), int(numberSamples)  # nchannels, nprofiles, nsamples
+        self.buffer       = numpy.zeros(self.bufferShape , dtype=numpy.complex_)
+        self.sshProfiles  = numpy.zeros(self.profileShape, dtype=numpy.complex_)
+    def getNewProfiles(self, data, code=None, repeat=None):
+        if code is not None:
+            code = numpy.array(code)
+            code_block = code
+            if repeat is not None:
+                code_block = numpy.repeat(code_block, repeats=repeat, axis=1)
+        if data.ndim < 3:
+            data = data.reshape(self.__nChannels,1,self.__nHeis )
+        #print("buff, data, :",self.buffer.shape, data.shape,self.sshProfiles.shape, code_block.shape)
+        for ch in range(self.__nChannels):
+            for i in range(int(self.new_nHeights)): #nuevas alturas
+                if code is not None:
+                    self.buffer[ch,i,:] = data[ch,:,i*self.step:i*self.step + self.nsamples]*code_block
+                else:
+                    self.buffer[ch,i,:] = data[ch,:,i*self.step:i*self.step + self.nsamples]#*code[dataOut.profileIndex,:]
+        for j in range(self.__nChannels): #en los cananles
+            self.sshProfiles[j,:,:] = numpy.transpose(self.buffer[j,:,:])
+        #print("new profs Done")
+    def run(self, dataOut, step, nsamples, code = None, repeat = None):
+        # print("running")
+        if dataOut.flagNoData == True:
+            return dataOut
+        dataOut.flagNoData = True
+        #print("init  data shape:", dataOut.data.shape)
+        #print("ch: {}  prof: {}  hs: {}".format(int(dataOut.nChannels),
+        #                int(dataOut.nProfiles),int(dataOut.nHeights)))
+        profileIndex            = None
+        # if not dataOut.flagDataAsBlock:
+        #     dataOut.nProfiles = 1
+        if not self.isConfig:
+            self.setup(dataOut, step=step , nsamples=nsamples)
+            #print("Setup done")
+            self.isConfig = True
+        dataBlock = None
+        nprof = 1
+        if dataOut.flagDataAsBlock:
+            nprof = int(dataOut.nProfiles)
+        #print("dataOut nProfiles:", dataOut.nProfiles)
+        for profile in range(nprof):
+            if dataOut.flagDataAsBlock:
+                #print("read blocks")
+                self.getNewProfiles(dataOut.data[:,profile,:], code=code, repeat=repeat)
+            else:
+                #print("read profiles")
+                self.getNewProfiles(dataOut.data, code=code, repeat=repeat) #only one channe
+            if profile == 0:
+                dataBlock = self.sshProfiles.copy()
+            else:   #by blocks
+                dataBlock = numpy.concatenate((dataBlock,self.sshProfiles), axis=1) #profile axis
+                #print("by blocks: ",dataBlock.shape, self.sshProfiles.shape)
+        profileIndex  =  self.nsamples
+        #deltaHeight   =  dataOut.heightList[1] - dataOut.heightList[0]
+        ippSeconds    =  (self.deltaHeight*1.0e-6)/(0.15)
+        dataOut.data            = dataBlock
+        #print("show me: ",self.step,self.deltaHeight, dataOut.heightList, self.new_nHeights)
+        dataOut.heightList      = numpy.arange(int(self.new_nHeights)) *self.step*self.deltaHeight + self.init_range
+        dataOut.sampled_heightsFFT = self.nsamples
+        dataOut.ippSeconds      = ippSeconds
+        dataOut.step            = self.step
+        dataOut.deltaHeight     = self.step*self.deltaHeight
+        dataOut.flagNoData      = False
+        if dataOut.flagDataAsBlock:
+            dataOut.nProfiles       = int(dataOut.nProfiles*self.nsamples)
+        else:
+            dataOut.nProfiles       = int(self.nsamples)
+        dataOut.profileIndex    = dataOut.nProfiles
+        dataOut.flagDataAsBlock = True
+        dataBlock = None
+        #print("new data shape:", dataOut.data.shape, dataOut.utctime)
+        #update Processing Header:
+        dataOut.processingHeaderObj.heightList = dataOut.heightList
+        dataOut.processingHeaderObj.ipp = ippSeconds
+        dataOut.processingHeaderObj.heightResolution = dataOut.deltaHeight
+        #dataOut.processingHeaderObj.profilesPerBlock = nProfiles
+        
+        # # dataOut.data = CH, PROFILES, HEIGHTS
+        #print(dataOut.data .shape)
+        if dataOut.flagProfilesByRange:
+            # #assuming the same remotion for all channels
+            aux = [ self.nsamples - numpy.count_nonzero(dataOut.data[0, :, h]==0)  for h in range(len(dataOut.heightList))]
+            dataOut.nProfilesByRange = (numpy.asarray(aux)).reshape((1,len(dataOut.heightList) ))
+            #print(dataOut.nProfilesByRange.shape)
+        else:
+            dataOut.nProfilesByRange = numpy.ones((1, len(dataOut.heightList)))*dataOut.nProfiles
+        return dataOut
+
+class RemoveProfileSats2(Operation):
+    '''
+    Escrito: Joab Apaza
+    Omite los perfiles contaminados con señal de satélites, usando una altura de referencia y
+    promedia todas las alturas para los cálculos
+    In: 
+        n       =   Cantidad de perfiles que se acumularan, usualmente 10 segundos
+        navg    =   Porcentaje de perfiles que puede considerarse como satélite, máximo 90%
+        minHei  =   mínima altura de donde se considera datos a eliminar (km)
+        minRef  =   mínima altura de referencia (km)
+        maxRef  =   máxima altura de referencia (km)
+        nBins   =   Cantidad de bins en el histograma de detección, usar debug para entender mejor
+        profile_margin  =   Numero de perfiles extra a considerar antes y depués de los detectados con la operación
+        th_hist_outlier =   Umbral de número de detecciones  
+        nProfilesOut    =   Cantidad de perfiles en la salida, por bloques o perfiles(1) 
+        
+        Pensado para remover interferencias de las YAGI, se puede adaptar a otras interferencias
+        remYagi     =  Activa la funcion de remoción de interferencias de la YAGI
+        nProfYagi   =  Cantidad de perfiles que son afectados, acorde NTX de la YAGI
+        offYagi     =  
+        minHJULIA   =  Altura mínima donde aparece la señal referencia de JULIA (-50)
+        maxHJULIA   =  Altura máxima donde aparece la señal referencia de JULIA (-15)
+        debug       = Activa los gráficos, recomendable ejecutar para ajustar los parámetros
+                      para un experimento en específico.
+
+    ** se modifica para remover interferencias puntuales, es decir, desde otros radares.
+    Inicialmente se ha configurado para omitir también los perfiles de la YAGI en los datos
+    de AMISR-ISR.
+    Out:
+        profile clean
+    '''
+    __buffer_data = []
+    __buffer_times = []
+    buffer = None
+    outliers_IDs_list = []
+    __slots__ = ('n','navg','profileMargin','thHistOutlier','minHei_idx','maxHei_idx','nHeights',
+        'first_utcBlock','__profIndex','init_prof','end_prof','lenProfileOut','nChannels','cohFactor',
+        '__count_exec','__initime','__dataReady','__ipp', 'minRef', 'maxRef', 'debug','prev_pnoise','thfactor')
+    def __init__(self, **kwargs):
+        Operation.__init__(self, **kwargs)
+        self.isConfig = False
+        self.currentTime = None
+    def setup(self,dataOut, n=None , navg=0.9, profileMargin=50,thHistOutlier=15,minHei=None, maxHei=None, nBins=10,
+        minRef=None, maxRef=None, debug=False, remYagi=False, nProfYagi = 0, offYagi=0,  minHJULIA=None,  maxHJULIA=None,
+        idate=None,startH=None,endH=None, thfactor=1 ):
+        if n == None and timeInterval == None:
+            raise ValueError("nprofiles or timeInterval should be specified ...")
+        if n != None:
+            self.n = n
+        self.navg = navg
+        self.profileMargin = profileMargin
+        self.thHistOutlier = thHistOutlier
+        self.__profIndex = 0
+        self.buffer = None
+        self._ipp = dataOut.ippSeconds
+        self.n_prof_released = 0
+        self.heightList = dataOut.heightList
+        self.init_prof = 0
+        self.end_prof = 0
+        self.__count_exec = 0
+        self.__profIndex = 0
+        self.first_utcBlock = None
+        self.prev_pnoise = None
+        self.nBins  = nBins
+        self.thfactor = thfactor
+        #self.__dh = dataOut.heightList[1] - dataOut.heightList[0]
+        minHei = minHei
+        maxHei = maxHei
+        if minHei==None :
+            minHei = dataOut.heightList[0]
+        if maxHei==None :
+            maxHei = dataOut.heightList[-1]
+        self.minHei_idx,self.maxHei_idx =  getHei_index(minHei, maxHei, dataOut.heightList)
+        self.min_ref, self.max_ref = getHei_index(minRef, maxRef, dataOut.heightList)
+        self.nChannels = dataOut.nChannels
+        self.nHeights = dataOut.nHeights
+        self.test_counter = 0
+        self.debug = debug
+        self.remYagi = remYagi
+        self.cohFactor = dataOut.nCohInt
+        if self.remYagi :
+            if minHJULIA==None or maxHJULIA==None:
+                raise ValueError("Parameters minHYagi and minHYagi are necessary!")
+                return 
+            if idate==None or startH==None or endH==None:
+                raise ValueError("Date and hour parameters are necessary!")
+                return 
+            self.minHJULIA_idx,self.maxHJULIA_idx =  getHei_index(minHJULIA, maxHJULIA, dataOut.heightList)
+            self.offYagi = offYagi
+            self.nTxYagi = nProfYagi
+            self.startTime = datetime.datetime.combine(idate,startH)
+            self.endTime =  datetime.datetime.combine(idate,endH)
+        log.warning("Be careful with the selection of parameters for sats removal! It is avisable to \
+activate the debug parameter in this operation for calibration", self.name)
+    def filterSatsProfiles(self):
+        data = self.__buffer_data.copy()
+        #print(data.shape)
+        nChannels, profiles, heights = data.shape
+        indexes=numpy.zeros([], dtype=int)
+        indexes = numpy.delete(indexes,0)
+        indexesYagi=numpy.zeros([], dtype=int)
+        indexesYagi = numpy.delete(indexesYagi,0)
+        indexesYagi_up=numpy.zeros([], dtype=int)
+        indexesYagi_up = numpy.delete(indexesYagi_up,0)
+        indexesYagi_down=numpy.zeros([], dtype=int)
+        indexesYagi_down = numpy.delete(indexesYagi_down,0)
+        indexesJULIA=numpy.zeros([], dtype=int)
+        indexesJULIA = numpy.delete(indexesJULIA,0)
+        outliers_IDs=[]
+      
+        div = profiles//self.nBins
+        for c in range(nChannels):
+            #print(self.min_ref,self.max_ref)
+            import scipy.signal
+            b, a = scipy.signal.butter(3, 0.5)
+            #noise_ref = (data[c,:,self.min_ref:self.max_ref] * numpy.conjugate(data[c,:,self.min_ref:self.max_ref]))
+            noise_ref = numpy.abs(data[c,:,self.min_ref:self.max_ref])
+            lnoise = len(noise_ref[0,:])
+            #print(noise_ref.shape)
+            noise_ref = noise_ref.mean(axis=1)
+            #fnoise = noise_ref
+            fnoise  = scipy.signal.filtfilt(b, a, noise_ref)
+            #noise_refdB = 10* numpy.log10(noise_ref)
+            #print("Noise ",numpy.percentile(noise_ref,95))
+            p95 = numpy.percentile(fnoise,95)
+            mean_noise = fnoise.mean()
+            
+            if self.prev_pnoise != None:
+                if mean_noise < (1.1 * self.prev_pnoise) and mean_noise > (0.9 * self.prev_pnoise):
+                    mean_noise = 0.9*mean_noise + 0.1*self.prev_pnoise
+                    self.prev_pnoise = mean_noise
+                else:
+                    mean_noise = self.prev_pnoise
+            else:
+                self.prev_pnoise = mean_noise
+            std = fnoise.std()+ fnoise.mean()
+            #power = (data[c,:,self.minHei_idx:self.maxHei_idx] * numpy.conjugate(data[c,:,self.minHei_idx:self.maxHei_idx]))
+            power = numpy.abs(data[c,:,self.minHei_idx:self.maxHei_idx])
+            npower = len(power[0,:])
+            #print(power.shape)
+            power = power.mean(axis=1) 
+            fpower = scipy.signal.filtfilt(b, a, power)
+            #print(power.shape)
+            #powerdB = 10* numpy.log10(power)
+            #th = p95 * self.thfactor
+            th = mean_noise * self.thfactor
+            
+            index = numpy.where(fpower > th )
+            #print("Noise ",mean_noise, p95)
+            #print(index)
+            
+            if  index[0].size <= int(self.navg*profiles):       #outliers from sats
+                indexes = numpy.append(indexes, index[0])
+            index2low = numpy.where(fpower < (th*0.5 ))          #outliers from no TX
+            if  index2low[0].size <= int(self.navg*profiles):
+                indexes = numpy.append(indexes, index2low[0])
+            #print("sdas ", noise_ref.mean())
+            
+            if self.remYagi :
+                #print(self.minHJULIA_idx, self.maxHJULIA_idx)
+                powerJULIA = (data[c,:,self.minHJULIA_idx:self.maxHJULIA_idx] * numpy.conjugate(data[c,:,self.minHJULIA_idx:self.maxHJULIA_idx])).real
+                powerJULIA = powerJULIA.mean(axis=1)
+                th_JULIA = powerJULIA.mean()*0.85
+                indexJULIA = numpy.where(powerJULIA >= th_JULIA )
+                indexesJULIA= numpy.append(indexesJULIA, indexJULIA[0])
+                # fig, ax = plt.subplots()
+                # ax.plot(powerJULIA)  
+                # ax.axhline(th_JULIA, color='r')
+                # plt.grid()
+                # plt.show()
+            if self.debug:
+                fig, ax = plt.subplots()
+                ax.plot(fpower, label="power")
+                #ax.plot(fnoise, label="noise ref")
+                ax.axhline(th, color='g', label="th")
+                #ax.axhline(std, color='b', label="mean")
+                ax.legend()
+                plt.grid()
+                plt.show()
+            #print(indexes)
+        #outliers_IDs = outliers_IDs.astype(numpy.dtype('int64'))
+        #outliers_IDs = numpy.unique(outliers_IDs)
+        # print(indexesJULIA)
+        if len(indexesJULIA > 1):
+            iJ = indexesJULIA
+            locs = [ (iJ[n]-iJ[n-1]) > 5  for n in range(len(iJ))]
+            locs_2 = numpy.where(locs)[0]
+            #print(locs_2, indexesJULIA[locs_2-1])
+            indexesYagi_up = numpy.append(indexesYagi_up, indexesJULIA[locs_2-1])
+            indexesYagi_down = numpy.append(indexesYagi_down, indexesJULIA[locs_2])
+            
+            indexesYagi_up = numpy.append(indexesYagi_up,indexesJULIA[-1])
+            indexesYagi_down = numpy.append(indexesYagi_down,indexesJULIA[0])
+            indexesYagi_up = numpy.unique(indexesYagi_up)
+            indexesYagi_down = numpy.unique(indexesYagi_down)
+            aux_ind = [ numpy.arange( (self.offYagi + k)+1, (self.offYagi + k + self.nTxYagi)+1, 1, dtype=int) for k in indexesYagi_up]
+            indexesYagi_up = (numpy.asarray(aux_ind)).flatten()
+            
+            aux_ind2 = [ numpy.arange( (k - self.nTxYagi)+1, k+1 , 1, dtype=int) for k in indexesYagi_down]
+            indexesYagi_down = (numpy.asarray(aux_ind2)).flatten()
+            indexesYagi = numpy.append(indexesYagi,indexesYagi_up)
+            indexesYagi = numpy.append(indexesYagi,indexesYagi_down)
+            
+            indexesYagi = indexesYagi[ (indexesYagi >= 0) & (indexesYagi<profiles)]
+            indexesYagi = numpy.unique(indexesYagi)
+        #print("indexes: " ,indexes)
+        outs_lines = numpy.unique(indexes)
+        #print(outs_lines)
+        #Agrupando el histograma de outliers,
+        my_bins = numpy.linspace(0,int(profiles), div, endpoint=True)
+        hist, bins =  numpy.histogram(outs_lines,bins=my_bins)
+        #print("hist: ",hist)
+        hist_outliers_indexes = numpy.where(hist >= self.thHistOutlier)[0]      #es outlier
+        # print(hist_outliers_indexes)
+        if len(hist_outliers_indexes>0):
+            hist_outliers_indexes = numpy.append(hist_outliers_indexes,hist_outliers_indexes[-1]+1)
+        bins_outliers_indexes = [int(i)+1 for i in (bins[hist_outliers_indexes])] #
+        outlier_loc_index = []
+        #print("out indexes ", bins_outliers_indexes)
+        # if len(bins_outliers_indexes) <= 2:
+        #     extprof = 0
+        # else:
+        #     extprof = self.profileMargin
+        
+        extprof = self.profileMargin
+        outlier_loc_index = [e for n in range(len(bins_outliers_indexes)) for e in range(bins_outliers_indexes[n]-extprof,bins_outliers_indexes[n] + extprof) ]
+        outlier_loc_index = numpy.asarray(outlier_loc_index)
+        # if len(outlier_loc_index)>1:
+        #     ipmax = numpy.where(fpower==fpower.max())[0]
+        #     print("pmax: ",ipmax)
+        
+        #print("outliers Ids: ", outlier_loc_index, outlier_loc_index.shape)
+        outlier_loc_index = outlier_loc_index[ (outlier_loc_index >= 0) & (outlier_loc_index<profiles)]
+        #print("outliers final: ", outlier_loc_index)
+        
+        if self.debug:
+            x, y = numpy.meshgrid(numpy.arange(profiles), self.heightList)
+            fig, ax = plt.subplots(nChannels,2,figsize=(8, 6))
+            
+            for i in range(nChannels):
+                dat = data[i,:,:].real
+                dat = 10* numpy.log10((data[i,:,:] * numpy.conjugate(data[i,:,:])).real)
+                m = numpy.nanmean(dat)
+                o = numpy.nanstd(dat)
+                if nChannels>1:
+                    c = ax[i][0].pcolormesh(x, y, dat.T, cmap ='jet', vmin = 60, vmax = 70)
+                    ax[i][0].vlines(outs_lines,650,700, linestyles='dashed', label = 'outs', color='w')
+                    #fig.colorbar(c)
+                    ax[i][0].vlines(outlier_loc_index,700,750, linestyles='dashed', label = 'outs', color='r')
+                    ax[i][1].hist(outs_lines,bins=my_bins)
+                    if self.remYagi :
+                        ax[0].vlines(indexesYagi,750,850, linestyles='dashed', label = 'yagi', color='m')
+                else:
+                    c = ax[0].pcolormesh(x, y, dat.T, cmap ='jet', vmin = 60, vmax = (70+2*self.cohFactor))
+                    ax[0].vlines(outs_lines,650,700, linestyles='dashed', label = 'outs', color='w')
+                    #fig.colorbar(c)
+                    ax[0].vlines(outlier_loc_index,700,750, linestyles='dashed', label = 'outs', color='r')
+                    
+                    ax[1].hist(outs_lines,bins=my_bins)
+                    if self.remYagi :
+                        ax[0].vlines(indexesYagi,750,850, linestyles='dashed', label = 'yagi', color='m')
+            plt.show()
+        
+        if self.remYagi and (self.currentTime < self.startTime and self.currentTime < self.endTime):
+            outlier_loc_index = numpy.append(outlier_loc_index,indexesYagi)
+        self.outliers_IDs_list = numpy.unique(outlier_loc_index)
+        
+        #print("outs list: ", self.outliers_IDs_list)
+        return self.__buffer_data
+    def fillBuffer(self, data, datatime):
+        if self.__profIndex == 0:
+            self.__buffer_data = data.copy()
+        else:
+            self.__buffer_data = numpy.concatenate((self.__buffer_data,data), axis=1)#en perfiles
+        self.__profIndex += 1
+        self.__buffer_times.append(datatime)
+    def getData(self, data, datatime=None):
+        if self.__profIndex  == 0:
+            self.__initime = datatime
+        self.__dataReady = False
+        self.fillBuffer(data, datatime)
+        dataBlock = None
+        if self.__profIndex == self.n:
+            #print("apnd : ",data)
+            dataBlock = self.filterSatsProfiles()
+            self.__dataReady = True
+        return dataBlock
+        if dataBlock is None:
+            return None, None
+        return dataBlock
+    def releaseBlock(self):
+        if self.n % self.lenProfileOut != 0:
+            raise ValueError("lenProfileOut %d must be submultiple of nProfiles %d" %(self.lenProfileOut, self.n))
+            return None
+        data = self.buffer[:,self.init_prof:self.end_prof:,:]  #ch, prof, alt
+        self.init_prof = self.end_prof
+        self.end_prof += self.lenProfileOut
+        #print("data release shape: ",dataOut.data.shape, self.end_prof)
+        self.n_prof_released += 1
+        return data
+    def run(self, dataOut, n=None, navg=0.9, nProfilesOut=1, profile_margin=50, th_hist_outlier=15,minHei=None,nBins=10,
+            maxHei=None, minRef=None, maxRef=None, debug=False, remYagi=False, nProfYagi = 0, offYagi=0, minHJULIA=None, maxHJULIA=None,
+            idate=None,startH=None,endH=None, thfactor=1):
+        if not self.isConfig:
+            #print("init p idx: ", dataOut.profileIndex )
+            self.setup(dataOut,n=n, navg=navg,profileMargin=profile_margin,thHistOutlier=th_hist_outlier,minHei=minHei,
+                nBins=10, maxHei=maxHei, minRef=minRef, maxRef=maxRef, debug=debug, remYagi=remYagi, nProfYagi = nProfYagi, 
+                offYagi=offYagi, minHJULIA=minHJULIA,maxHJULIA=maxHJULIA,idate=idate,startH=startH,endH=endH, thfactor=thfactor)
+            self.isConfig = True
+        dataBlock = None
+        self.currentTime = datetime.datetime.fromtimestamp(dataOut.utctime)
+        if not dataOut.buffer_empty: #hay datos acumulados
+            if self.init_prof == 0:
+                self.n_prof_released = 0
+                self.lenProfileOut = nProfilesOut
+                dataOut.flagNoData = False
+                #print("tp 2 ",dataOut.data.shape)
+                self.init_prof = 0
+                self.end_prof = self.lenProfileOut
+                dataOut.nProfiles = self.lenProfileOut
+            if nProfilesOut == 1:
+                dataOut.flagDataAsBlock = False
+            else:
+                dataOut.flagDataAsBlock = True
+            #print("prof: ",self.init_prof)
+            dataOut.flagNoData = False
+            if numpy.isin(self.n_prof_released, self.outliers_IDs_list):
+                #print("omitting: ", self.n_prof_released)
+                dataOut.flagNoData = True
+            dataOut.ippSeconds = self._ipp
+            dataOut.utctime = self.first_utcBlock + self.init_prof*self._ipp
+            # print("time: ", dataOut.utctime, self.first_utcBlock, self.init_prof,self._ipp,dataOut.ippSeconds)
+            #dataOut.data = self.releaseBlock()
+            #########################################################3
+            if self.n % self.lenProfileOut != 0:
+                raise ValueError("lenProfileOut %d must be submultiple of nProfiles %d" %(self.lenProfileOut, self.n))
+                return None
+            dataOut.data = None
+            if nProfilesOut == 1:
+                dataOut.data = self.buffer[:,self.end_prof-1,:]  #ch, prof, alt
+            else:
+                dataOut.data = self.buffer[:,self.init_prof:self.end_prof,:]  #ch, prof, alt
+            self.init_prof = self.end_prof
+            self.end_prof += self.lenProfileOut
+            #print("data release shape: ",dataOut.data.shape, self.end_prof, dataOut.flagNoData)
+            self.n_prof_released += 1
+            if self.end_prof >= (self.n +self.lenProfileOut):
+                self.init_prof = 0
+                self.__profIndex = 0
+                self.buffer = None
+                dataOut.buffer_empty = True
+                self.outliers_IDs_list = []
+                self.n_prof_released = 0
+                dataOut.flagNoData = False #enviar ultimo aunque sea outlier :(
+                #print("cleaning...", dataOut.buffer_empty)
+            dataOut.profileIndex    = self.__profIndex
+            ####################################################################
+            return dataOut
+        #print("tp 223 ",dataOut.data.shape)
+        dataOut.flagNoData = True
+        try:
+            #dataBlock = self.getData(dataOut.data.reshape(self.nChannels,1,self.nHeights), dataOut.utctime)
+            dataBlock = self.getData(numpy.reshape(dataOut.data,(self.nChannels,1,self.nHeights)), dataOut.utctime)
+            self.__count_exec +=1
+        except Exception as e:
+            print("Error getting profiles data",self.__count_exec )
+            print(e)
+            sys.exit()
+        if self.__dataReady:
+            #print("omitting: ", len(self.outliers_IDs_list))
+            self.__count_exec = 0
+            #dataOut.data =
+            #self.buffer = numpy.flip(dataBlock, axis=1)
+            self.buffer = dataBlock
+            self.first_utcBlock = self.__initime
+            dataOut.utctime = self.__initime
+            dataOut.nProfiles  = self.__profIndex
+            #dataOut.flagNoData = False
+            self.init_prof = 0
+            self.__profIndex = 0
+            self.__initime = None
+            dataBlock = None
+            self.__buffer_times = []
+            dataOut.error = False
+            dataOut.useInputBuffer = True
+            dataOut.buffer_empty = False
+            #print("1 ch: {}  prof: {}  hs: {}".format(int(dataOut.nChannels),int(dataOut.nProfiles),int(dataOut.nHeights)))
+        #print(self.__count_exec)
+        return dataOut
+
+class remHeightsIppInterf(Operation):
+    def __init__(self, **kwargs):
+        
+        Operation.__init__(self, **kwargs)
+        self.isConfig = False
+        self.heights_indx = None
+        self.heightsList = []
+        
+        self.ipp1 = None
+        self.ipp2 = None
+        self.tx1 = None
+        self.tx2 = None 
+        self.dh1 = None
+    def setup(self, dataOut, ipp1=None, ipp2=None, tx1=None, tx2=None, dh1=None, 
+                     idate=None, startH=None, endH=None):
+        self.ipp1 = ipp1
+        self.ipp2 = ipp2
+        self.tx1 = tx1
+        self.tx2 = tx2 
+        self.dh1 = dh1
+       
+        _maxIpp1R = dataOut.heightList.max()
+        _n_repeats = int(_maxIpp1R / ipp2)
+        _init_hIntf = (tx1 + ipp2/2)+ dh1
+        _n_hIntf = int(tx2 / dh1)
+        self.heightsList = [_init_hIntf+n*ipp2 for n in range(_n_repeats) ]
+        heiList = dataOut.heightList
+        self.heights_indx = [getHei_index(h,h,heiList)[0] for h in self.heightsList]
+        
+        self.heights_indx = [ numpy.asarray([k for k in range(_n_hIntf+2)])+(getHei_index(h,h,heiList)[0] -1) for h in self.heightsList]
+        self.heights_indx  = numpy.asarray(self.heights_indx )
+        self.isConfig = True
+        self.startTime = datetime.datetime.combine(idate,startH)
+        self.endTime =  datetime.datetime.combine(idate,endH)
+        #print(self.startTime, self.endTime)
+        #print("nrepeats: ", _n_repeats, " _nH: ",_n_hIntf )
+    
+        log.warning("Heights set to zero (km): ",  self.name)
+        log.warning(str((dataOut.heightList[self.heights_indx].flatten())),  self.name)
+        log.warning("Be careful with the selection of heights for noise calculation!")
+    def run(self, dataOut, ipp1=None, ipp2=None, tx1=None, tx2=None, dh1=None, idate=None,
+                     startH=None, endH=None):
+        #print(locals().values())
+        if None in locals().values():
+            log.warning('Missing kwargs, invalid values """None""" ', self.name)
+            return dataOut
+        if not self.isConfig:
+            self.setup(dataOut, ipp1=ipp1, ipp2=ipp2, tx1=tx1, tx2=tx2, dh1=dh1, 
+                 idate=idate, startH=startH, endH=endH)
+        dataOut.flagProfilesByRange = False
+        currentTime = datetime.datetime.fromtimestamp(dataOut.utctime)
+        if currentTime < self.startTime or currentTime > self.endTime:
+            return dataOut
+        for ch in range(dataOut.data.shape[0]):
+            for hk in self.heights_indx.flatten():
+                if dataOut.data.ndim < 3:
+                    dataOut.data[ch,hk] = 0.0 + 0.0j
+                else:
+                    dataOut.data[ch,:,hk] =  0.0 + 0.0j
+        dataOut.flagProfilesByRange = True
+        
+        return dataOut
+
+class profiles2Block(Operation):
+    '''
+    Escrito: Joab Apaza
+    genera un bloque de perfiles, AMISR normalmente entrega datos perfil a perfil
+    
+        
+    Out:
+        block
+    '''
+    isConfig = False
+    __buffer_data = []
+    __buffer_times = []
+    __profIndex = 0
+    __byTime = False
+    __initime = None
+    __lastdatatime = None
+    buffer = None
+    n = None
+    __dataReady = False
+    __nChannels = None
+    __nHeis = None
+    
+    def __init__(self, **kwargs):
+        Operation.__init__(self, **kwargs)
+        self.isConfig = False
+    def setup(self,n=None, timeInterval=None):
+        if n == None and timeInterval == None:
+            raise ValueError("n or timeInterval should be specified ...")
+        if n != None:
+            self.n = n
+            self.__byTime = False
+        else:
+            self.__integrationtime = timeInterval #* 60. #if (type(timeInterval)!=integer) -> change this line
+            self.n = 9999
+            self.__byTime = True
+        self.__profIndex = 0
+    def fillBuffer(self, data, datatime):
+        if self.__profIndex == 0:
+            self.__buffer_data = data.copy()
+        else:
+            self.__buffer_data = numpy.concatenate((self.__buffer_data,data), axis=1)#en perfiles
+        self.__profIndex += 1
+        self.__buffer_times.append(datatime)
+    def getData(self, data, datatime=None):
+        if self.__initime == None:
+            self.__initime = datatime
+        if data.ndim < 3:
+                data = data.reshape(self.__nChannels,1,self.__nHeis )
+        if self.__byTime:
+            dataBlock = self.byTime(data, datatime)
+        else:
+            dataBlock = self.byProfiles(data, datatime)
+        self.__lastdatatime = datatime
+        if dataBlock is None:
+            return None, None
+        return dataBlock, self.__buffer_times
+    
+    def byProfiles(self, data, datatime):
+        self.__dataReady = False
+        dataBlock = None
+        #         n = None
+        # print data
+        # raise
+        self.fillBuffer(data, datatime)
+        if self.__profIndex == self.n:
+            dataBlock = self.__buffer_data
+            self.__dataReady = True
+        return dataBlock
+    def byTime(self, data, datatime):
+        self.__dataReady = False
+        dataBlock = None
+        n = None
+        self.fillBuffer(data, datatime)
+        if (datatime - self.__initime) >= self.__integrationtime:
+            dataBlock = self.__buffer_data
+            self.n = self.__profIndex
+            self.__dataReady = True
+        return dataBlock
+    
+    def run(self, dataOut, n=None, timeInterval=None, **kwargs):
+        if not self.isConfig:
+            self.setup(n=n, timeInterval=timeInterval, **kwargs)
+            self.__nChannels = dataOut.nChannels
+            self.__nHeis = len(dataOut.heightList)
+            self.isConfig = True
+        if dataOut.flagDataAsBlock:
+            """
+            Si la data es leida por bloques, dimension = [nChannels, nProfiles, nHeis]
+            """
+            raise ValueError("The data is already a block")
+            return
+        else:
+            
+            dataBlock, timeBlock = self.getData(dataOut.data, dataOut.utctime)
+            
+        # print(dataOut.data.shape)
+        #   dataOut.timeInterval *= n
+        dataOut.flagNoData = True
+        if self.__dataReady:
+            dataOut.data = dataBlock
+            dataOut.flagDataAsBlock = True
+            dataOut.utctime = timeBlock[-1]
+            dataOut.nProfiles = self.__profIndex
+            # print avgdata, avgdatatime
+            # raise
+            dataOut.flagNoData = False
+            self.__profIndex = 0
+            self.__initime = None
+            #update Processing Header:
+            # print(dataOut.data.shape)
+        return dataOut
+
+class remFaradayProfiles(Operation):
+    """
+    This Operation eliminates the profiles affected by the Taus transmitted in the Faraday DP experiment, this class
+    creates a boolean array where the affected AMISR profiles are previously identified and filters them during processing.
+
+    :param channel  :   Main channel to clean
+    :param nChannels:   Number of channels in AMISR
+    :param nProfiles:   Number of profiles per Blck in AMISR
+    :param nBlocks  :   NUmber of blocks in AMISR
+    :param nIpp1    :   NTX in AMISR
+    :param nIpp2    :   NTX in JRO
+    :param nTx2     :   Efective NTX in JRO (NTX -nNoise) (200 - 68 )
+    :param nTaus    :   Number of Delay TxB 
+    :param offTaus  :   Offset to start removing Taus, some taus are in the Tx pulse of AMISR, so they do not need to be removed.
+    :param iTaus    :   Lenght of the interference, number of heights affected in each Tau.
+    :param nfft     :   Repetitions per beam in AMISR
+    :param offIpp   :   To synchronize the 1PPS of AMISR with the xPPS of JRO
+
+    :return: dataOut
+    
+    :author : Joab Apaza
+    """
+    def __init__(self, **kwargs):
+        
+        Operation.__init__(self, **kwargs)
+        self.isConfig = False
+        self.nprofile2 = 0
+        self.profile = 0
+        self.flagRun = False
+        self.flagRemove = False
+        self.k = 0
+    def setup(self, channel,nChannels=5, nProfiles=300,nBlocks=100, nIpp2=300, nTx2=132, nTaus=22, offTaus=14, iTaus=8,
+                     nfft=1):
+
+        self.nIpp2 = nIpp2
+        self.channel = channel
+        self.nChannels = nChannels
+        self.nTx2 = nTx2
+        self.nTaus = nTaus
+        
+        booldataset = numpy.ones( (nBlocks, nProfiles) )
+        self.profilesFlag = None
+        #marking the afected profiles
+        f_iTaus=False
+        f_ntx = False
+        fi = 0
+        k = 0
+        kt =0
+        fi_reps = 0
+        for i in range(nBlocks):
+            for j in range(nProfiles):
+                # fi 0---nTaus
+                #
+                if k%nIpp2==0:  #each sync PPs or 2, 3, or 5
+                    f_ntx = True
+                    kt = 0
+                if f_ntx:
+                    
+                    if kt%nTaus==0: #each sequence of Taus
+                        f_iTaus = True
+                        fi = 0
+                    if f_iTaus:
+                        if fi > offTaus:
+                            booldataset[i, j]=0   #Afected profile
+                        fi += 1
+                        if fi == nTaus: #restart the taus sequence
+                            fi = 0
+                            f_iTaus = False
+                            fi_reps += 1
+                    if fi_reps == (nTx2/nTaus):
+                        fi = 0
+                        fi_reps = 0
+                        f_ntx=False
+                        #break
+                    kt += 1
+                k += 1
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111)
+        # cax = ax.pcolormesh(booldataset, cmap='plasma')
+        # cbar = fig.colorbar(cax)
+        # plt.show()
+        #reshape the Flag as AMISR reader 
+        
+        profPerCH = int( (nProfiles) / (nfft*nChannels))
+        new_block = numpy.empty( (nBlocks, nChannels, int(nProfiles/nChannels) ) )
+        # print(new_block.shape, profPerCH)
+        for thisChannel in range(nChannels):
+            ich = thisChannel
+            idx_ch = [nfft*(ich + nChannels*k) for k in range(profPerCH)]
+            #print(idx_ch)
+            if nfft > 1:
+                aux = [numpy.arange(i, i+nfft) for i in idx_ch]
+                idx_ch  = None
+                idx_ch =aux
+                idx_ch = numpy.array(idx_ch, dtype=int).flatten()
+            else:
+                idx_ch = numpy.array(idx_ch, dtype=int)
+            new_block[:,ich,:] = booldataset[:,idx_ch]
+        
+        new_block = numpy.transpose(new_block, (1,0,2))
+        new_block = numpy.reshape(new_block, (nChannels,-1))
+        #new_block = numpy.reshape(new_block, (nChannels,profPerCH*nBlocks))
+        self.profilesFlag = new_block.copy()
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111)
+        # cax = ax.pcolormesh(new_block, cmap='plasma')
+        # cbar = fig.colorbar(cax)
+        # plt.show()
+        self.isConfig = True
+        
+    def run(self,dataOut, channel=0, nChannels=5, nProfiles=300,nBlocks=100,nIpp1=100,
+             nIpp2=300, nTx2=132, nTaus=22, offTaus=12, iTaus=10, nfft=1 ,offIpp=0):
+        dataOut.flagNoData = False
+        if not self.isConfig:
+            self.setup(channel,nChannels=nChannels, nProfiles=nProfiles,nBlocks=nBlocks, nIpp2=nIpp2, 
+                    nTx2=nTx2, nTaus=nTaus, offTaus=offTaus, iTaus=iTaus, nfft=nfft)
+            #print("Setup Done")
+        #print(offIpp*nIpp1/nChannels)
+        if  not self.flagRun:
+            if self.nprofile2 < offIpp*nIpp1/nChannels :
+                self.nprofile2 += 1
+                return dataOut
+            else:
+                self.flagRun = True
+                self.profile = 0
+        
+        #check profile          ## Faraday interference
+        if self.profilesFlag[channel, self.profile]==0:
+            dataOut.flagNoData = True   # do not pass this profile
+        self.profile +=1
+        self.nprofile2 +=1 
+        if self.nprofile2 == int((nProfiles*nBlocks)/self.nChannels):
+            self.nprofile2 = 0
+            self.profile = 0
+            self.flagRun = False
+        return dataOut
+
+class RemoveProfileSats(Operation):
+    '''
+    Escrito: Joab Apaza
+    Omite los perfiles contaminados con señal de satélites, usando una altura de referencia (Operacion Obsoleta)
+    In: minHei = min_sat_range
+        max_sat_range
+        min_hei_ref
+        max_hei_ref
+        th = diference between profiles mean, ref and sats
+    Out:
+        profile clean
+    '''
+    __buffer_data = []
+    __buffer_times = []
+    buffer = None
+    outliers_IDs_list = []
+    __slots__ = ('n','navg','profileMargin','thHistOutlier','minHei_idx','maxHei_idx','nHeights',
+        'first_utcBlock','__profIndex','init_prof','end_prof','lenProfileOut','nChannels',
+        '__count_exec','__initime','__dataReady','__ipp', 'minRef', 'maxRef', 'thdB')
+    def __init__(self, **kwargs):
+        Operation.__init__(self, **kwargs)
+        self.isConfig = False
+    def setup(self,dataOut, n=None , navg=0.8, profileMargin=50,thHistOutlier=15,
+                        minHei=None, maxHei=None, minRef=None, maxRef=None, thdB=10):
+        if n == None and timeInterval == None:
+            raise ValueError("nprofiles or timeInterval should be specified ...")
+        if n != None:
+            self.n = n
+        self.navg = navg
+        self.profileMargin = profileMargin
+        self.thHistOutlier = thHistOutlier
+        self.__profIndex = 0
+        self.buffer = None
+        self._ipp = dataOut.ippSeconds
+        self.n_prof_released = 0
+        self.heightList = dataOut.heightList
+        self.init_prof = 0
+        self.end_prof = 0
+        self.__count_exec = 0
+        self.__profIndex = 0
+        self.first_utcBlock = None
+        #self.__dh = dataOut.heightList[1] - dataOut.heightList[0]
+        minHei = minHei
+        maxHei = maxHei
+        if minHei==None :
+            minHei = dataOut.heightList[0]
+        if maxHei==None :
+            maxHei = dataOut.heightList[-1]
+        self.minHei_idx,self.maxHei_idx =  getHei_index(minHei, maxHei, dataOut.heightList)
+        self.min_ref, self.max_ref = getHei_index(minRef, maxRef, dataOut.heightList)
+        self.nChannels = dataOut.nChannels
+        self.nHeights = dataOut.nHeights
+        self.test_counter = 0
+        self.thdB = thdB
+    def filterSatsProfiles(self):
+        data = self.__buffer_data
+        #print(data.shape)
+        nChannels, profiles, heights = data.shape
+        indexes=numpy.zeros([], dtype=int)
+        outliers_IDs=[]
+        for c in range(nChannels):
+            #print(self.min_ref,self.max_ref)
+            noise_ref = 10* numpy.log10((data[c,:,self.min_ref:self.max_ref] * numpy.conjugate(data[c,:,self.min_ref:self.max_ref])).real)
+            #print("Noise ",numpy.percentile(noise_ref,95))
+            p95 = numpy.percentile(noise_ref,95)
+            noise_ref = noise_ref.mean()
+            #print("Noise ",noise_ref
+            for h in range(self.minHei_idx, self.maxHei_idx):
+                power = 10* numpy.log10((data[c,:,h] * numpy.conjugate(data[c,:,h])).real)
+                #th = noise_ref + self.thdB
+                th = noise_ref + 1.5*(p95-noise_ref)
+                index = numpy.where(power > th )
+                if index[0].size > 10 and index[0].size < int(self.navg*profiles):
+                    indexes = numpy.append(indexes, index[0])
+                #print(index[0])
+                #print(index[0])
+                # fig,ax = plt.subplots()
+                # #ax.set_title(str(k)+" "+str(j))
+                # x=range(len(power))
+                # ax.scatter(x,power)
+                # #ax.axvline(index)
+                # plt.grid()
+                # plt.show()
+            #print(indexes)
+        #outliers_IDs = outliers_IDs.astype(numpy.dtype('int64'))
+        #outliers_IDs = numpy.unique(outliers_IDs)
+        outs_lines = numpy.unique(indexes)
+        #Agrupando el histograma de outliers,
+        my_bins = numpy.linspace(0,int(profiles), int(profiles/100), endpoint=True)
+        hist, bins =  numpy.histogram(outs_lines,bins=my_bins)
+        hist_outliers_indexes = numpy.where(hist > self.thHistOutlier)       #es outlier
+        hist_outliers_indexes = hist_outliers_indexes[0]
+        # if len(hist_outliers_indexes>0):
+        #     hist_outliers_indexes = numpy.append(hist_outliers_indexes,hist_outliers_indexes[-1]+1)
+        #print(hist_outliers_indexes)
+        #print(bins, hist_outliers_indexes)
+        bins_outliers_indexes = [int(i) for i in (bins[hist_outliers_indexes])] #
+        outlier_loc_index = []
+        # for n in range(len(bins_outliers_indexes)):
+        #     for e in range(bins_outliers_indexes[n]-self.profileMargin,bins_outliers_indexes[n]+ self.profileMargin):
+        #         outlier_loc_index.append(e)
+        outlier_loc_index = [e for n in range(len(bins_outliers_indexes)) for e in range(bins_outliers_indexes[n]-self.profileMargin,bins_outliers_indexes[n]+ profiles//100 + self.profileMargin) ]
+        outlier_loc_index = numpy.asarray(outlier_loc_index)
+        #print("outliers Ids: ", outlier_loc_index, outlier_loc_index.shape)
+        outlier_loc_index = outlier_loc_index[ (outlier_loc_index >= 0) & (outlier_loc_index<profiles)]
+        #print("outliers final: ", outlier_loc_index)
+        from matplotlib import pyplot as plt
+        x, y = numpy.meshgrid(numpy.arange(profiles), self.heightList)
+        fig, ax = plt.subplots(1,2,figsize=(8, 6))
+        dat = data[0,:,:].real
+        dat = 10* numpy.log10((data[0,:,:] * numpy.conjugate(data[0,:,:])).real)
+        m = numpy.nanmean(dat)
+        o = numpy.nanstd(dat)
+        #print(m, o, x.shape, y.shape)
+        #c = ax[0].pcolormesh(x, y, dat.T, cmap ='YlGnBu', vmin = (m-2*o), vmax = (m+2*o))
+        c = ax[0].pcolormesh(x, y, dat.T, cmap ='YlGnBu', vmin = 50, vmax = 75)
+        ax[0].vlines(outs_lines,200,600, linestyles='dashed', label = 'outs', color='w')
+        fig.colorbar(c)
+        ax[0].vlines(outlier_loc_index,650,750, linestyles='dashed', label = 'outs', color='r')
+        ax[1].hist(outs_lines,bins=my_bins)
+        plt.show()
+        self.outliers_IDs_list = outlier_loc_index
+        #print("outs list: ", self.outliers_IDs_list)
+        return data
+    def fillBuffer(self, data, datatime):
+        if self.__profIndex == 0:
+            self.__buffer_data = data.copy()
+        else:
+            self.__buffer_data = numpy.concatenate((self.__buffer_data,data), axis=1)#en perfiles
+        self.__profIndex += 1
+        self.__buffer_times.append(datatime)
+    def getData(self, data, datatime=None):
+        if self.__profIndex  == 0:
+            self.__initime = datatime
+        self.__dataReady = False
+        self.fillBuffer(data, datatime)
+        dataBlock = None
+        if self.__profIndex == self.n:
+            #print("apnd : ",data)
+            dataBlock = self.filterSatsProfiles()
+            self.__dataReady = True
+        return dataBlock
+        if dataBlock is None:
+            return None, None
+        return dataBlock
+    def releaseBlock(self):
+        if self.n % self.lenProfileOut != 0:
+            raise ValueError("lenProfileOut %d must be submultiple of nProfiles %d" %(self.lenProfileOut, self.n))
+            return None
+        data = self.buffer[:,self.init_prof:self.end_prof:,:]  #ch, prof, alt
+        self.init_prof = self.end_prof
+        self.end_prof += self.lenProfileOut
+        #print("data release shape: ",dataOut.data.shape, self.end_prof)
+        self.n_prof_released += 1
+        return data
+    def run(self, dataOut, n=None, navg=0.8, nProfilesOut=1, profile_margin=50,
+                th_hist_outlier=15,minHei=None, maxHei=None, minRef=None, maxRef=None, thdB=10):
+        if not self.isConfig:
+            #print("init p idx: ", dataOut.profileIndex )
+            self.setup(dataOut,n=n, navg=navg,profileMargin=profile_margin,thHistOutlier=th_hist_outlier,
+                        minHei=minHei, maxHei=maxHei, minRef=minRef, maxRef=maxRef, thdB=thdB)
+            self.isConfig = True
+        dataBlock = None
+        if not dataOut.buffer_empty: #hay datos acumulados
+            if self.init_prof == 0:
+                self.n_prof_released = 0
+                self.lenProfileOut = nProfilesOut
+                dataOut.flagNoData = False
+                #print("tp 2 ",dataOut.data.shape)
+                self.init_prof = 0
+                self.end_prof = self.lenProfileOut
+                dataOut.nProfiles = self.lenProfileOut
+            if nProfilesOut == 1:
+                dataOut.flagDataAsBlock = False
+            else:
+                dataOut.flagDataAsBlock = True
+            #print("prof: ",self.init_prof)
+            dataOut.flagNoData = False
+            if numpy.isin(self.n_prof_released, self.outliers_IDs_list):
+                #print("omitting: ", self.n_prof_released)
+                dataOut.flagNoData = True
+            dataOut.ippSeconds = self._ipp
+            dataOut.utctime = self.first_utcBlock + self.init_prof*self._ipp
+            # print("time: ", dataOut.utctime, self.first_utcBlock, self.init_prof,self._ipp,dataOut.ippSeconds)
+            #dataOut.data = self.releaseBlock()
+            #########################################################3
+            if self.n % self.lenProfileOut != 0:
+                raise ValueError("lenProfileOut %d must be submultiple of nProfiles %d" %(self.lenProfileOut, self.n))
+                return None
+            dataOut.data = None
+            if nProfilesOut == 1:
+                dataOut.data = self.buffer[:,self.end_prof-1,:]  #ch, prof, alt
+            else:
+                dataOut.data = self.buffer[:,self.init_prof:self.end_prof,:]  #ch, prof, alt
+            self.init_prof = self.end_prof
+            self.end_prof += self.lenProfileOut
+            #print("data release shape: ",dataOut.data.shape, self.end_prof, dataOut.flagNoData)
+            self.n_prof_released += 1
+            if self.end_prof >= (self.n +self.lenProfileOut):
+                self.init_prof = 0
+                self.__profIndex = 0
+                self.buffer = None
+                dataOut.buffer_empty = True
+                self.outliers_IDs_list = []
+                self.n_prof_released = 0
+                dataOut.flagNoData = False #enviar ultimo aunque sea outlier :(
+                #print("cleaning...", dataOut.buffer_empty)
+            dataOut.profileIndex    = 0 #self.lenProfileOut
+            ####################################################################
+            return dataOut
+        #print("tp 223 ",dataOut.data.shape)
+        dataOut.flagNoData = True
+        try:
+            #dataBlock = self.getData(dataOut.data.reshape(self.nChannels,1,self.nHeights), dataOut.utctime)
+            dataBlock = self.getData(numpy.reshape(dataOut.data,(self.nChannels,1,self.nHeights)), dataOut.utctime)
+            self.__count_exec +=1
+        except Exception as e:
+            print("Error getting profiles data",self.__count_exec )
+            print(e)
+            sys.exit()
+        if self.__dataReady:
+            #print("omitting: ", len(self.outliers_IDs_list))
+            self.__count_exec = 0
+            #dataOut.data =
+            #self.buffer = numpy.flip(dataBlock, axis=1)
+            self.buffer = dataBlock
+            self.first_utcBlock = self.__initime
+            dataOut.utctime = self.__initime
+            dataOut.nProfiles  = self.__profIndex
+            #dataOut.flagNoData = False
+            self.init_prof = 0
+            self.__profIndex = 0
+            self.__initime = None
+            dataBlock = None
+            self.__buffer_times = []
+            dataOut.error = False
+            dataOut.useInputBuffer = True
+            dataOut.buffer_empty = False
+            #print("1 ch: {}  prof: {}  hs: {}".format(int(dataOut.nChannels),int(dataOut.nProfiles),int(dataOut.nHeights)))
+        #print(self.__count_exec)
+        return dataOut
+
 class removeDCHAE(Operation):
 
     def run(self, dataOut, minHei, maxHei):
@@ -4287,6 +5525,14 @@ class DecoderRoll(Operation):
 
         dataOut.flagDecodeData = True #asumo q la data esta decodificada
 
+        dataOut.radarControllerHeaderObj.code = self.code
+        dataOut.radarControllerHeaderObj.nCode = self.nCode
+        dataOut.radarControllerHeaderObj.nBaud = self.nBaud
+        dataOut.radarControllerHeaderObj.nOsamp = osamp
+        #update Processing Header:
+        dataOut.processingHeaderObj.heightList = dataOut.heightList
+        dataOut.processingHeaderObj.heightResolution = dataOut.heightList[1]-dataOut.heightList[0]
+
         if self.__profIndex == self.nCode-1:
             self.__profIndex = 0
             return dataOut
@@ -4346,6 +5592,9 @@ class ProfileConcat(Operation):
                 xf = dataOut.heightList[0] + dataOut.nHeights * deltaHeight * m
                 dataOut.heightList = numpy.arange(dataOut.heightList[0], xf, deltaHeight)
                 dataOut.ippSeconds *= m
+                #update Processing Header:
+                dataOut.processingHeaderObj.heightList = dataOut.heightList
+                dataOut.processingHeaderObj.ipp = dataOut.ippSeconds
         return dataOut
 
 class ProfileSelector(Operation):

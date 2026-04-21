@@ -183,7 +183,7 @@ class SpectraProc(ProcessingUnit):
                 nProfiles = nFFTPoints
 
             if ippFactor == None:
-                self.dataOut.ippFactor = 1
+                self.dataOut.ippFactor = self.dataIn.ippFactor
             else:
                 self.dataOut.ippFactor = ippFactor
 
