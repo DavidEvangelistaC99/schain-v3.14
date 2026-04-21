@@ -14,6 +14,7 @@ from schainpy.model.graphics.jroplot_base import Plot, plt
 class SpectraHeisPlot(Plot):
 
     CODE = 'spc_heis'
+    channelList = []
     '''
     Attribute added to the class Plot
     '''
@@ -32,6 +33,8 @@ class SpectraHeisPlot(Plot):
         self.colorbar = False
 
     def update(self, dataOut):
+        if len(self.channelList) == 0:
+            self.channelList = dataOut.channelList
 
         data = {}
         meta = {}
@@ -47,6 +50,7 @@ class SpectraHeisPlot(Plot):
         x = numpy.arange(-1 * len(self.data.yrange) / 2., len(self.data.yrange) / 2.) * (c / (2 * deltaHeight * len(self.data.yrange) * 1000))
         self.y = self.data[-1]['spc_heis']
         self.titles = []
+        #Maintitle = "Range from %d km to %d km" %(int(self.data.yrange[0]),int(self.data.yrange[-1]))
 
         for n, ax in enumerate(self.axes):
             ychannel = self.y[n, :]
@@ -54,10 +58,15 @@ class SpectraHeisPlot(Plot):
                 self.xmin = min(x) if self.xmin is None else self.xmin
                 self.xmax = max(x) if self.xmax is None else self.xmax
                 ax.plt = ax.plot(x, ychannel, lw=1, color='b')[0]
+                ax.set_ylim(ymin=self.zmin, ymax=self.zmax)
+                ax.set_xlim(xmin=self.xmin, xmax=self.xmax)
             else:
                 ax.plt.set_data(x, ychannel)
+                ax.set_ylim(ymin=self.zmin, ymax=self.zmax)
+                ax.set_xlim(xmin=self.xmin, xmax=self.xmax)
 
             self.titles.append("Channel {}: {:4.2f}dB".format(n, numpy.max(ychannel)))
+        #plt.suptitle(Maintitle)
 
 
 class RTIHeisPlot(Plot):
