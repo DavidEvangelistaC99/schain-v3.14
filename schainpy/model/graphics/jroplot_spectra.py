@@ -1118,83 +1118,103 @@ class SpectraCutPlot(Plot):
         self.nplots = len(self.data.channels)
         self.ncols = int(numpy.sqrt(self.nplots) + 0.9)
         self.nrows = int((1.0 * self.nplots / self.ncols) + 0.9)
-        self.width = 3.4 * self.ncols + 1.5
-        self.height = 3 * self.nrows
+        self.width = 4.5 * self.ncols + 2.5
+        self.height = 4.8 * self.nrows
         self.ylabel = 'Power [dB]'
         self.colorbar = False
-        self.plots_adjust.update({'left':0.1, 'hspace':0.3, 'right': 0.75, 'bottom':0.08})
+        self.plots_adjust.update({'left':0.1, 'hspace':0.3, 'right': 0.9, 'bottom':0.08})
 
         if len(self.selectedHeightsList) > 0:
             self.maintitle = "Spectra Cut"# for %d km " %(int(self.selectedHeight))
 
-    def update(self, dataOut):
 
+
+    def update(self, dataOut):
+        if len(self.channelList) == 0:
+            self.channelList = dataOut.channelList
+
+        self.heights = dataOut.heightList
+        #print("sels: ",self.selectedHeightsList)
+        if len(self.selectedHeightsList)>0 and not self.flag_setIndex:
+
+            for sel_height in self.selectedHeightsList:
+                index_list = numpy.where(self.heights >= sel_height)
+                index_list = index_list[0]
+                self.height_index.append(index_list[0])
+            #print("sels i:"", self.height_index)
+            self.flag_setIndex = True
+            #print(self.height_index)
         data = {}
         meta = {}
-        spc = 10 * numpy.log10(dataOut.data_pre[0] / dataOut.normFactor)
-        data['spc'] = spc
-        meta['xrange'] = (dataOut.getFreqRange(EXTRA_POINTS) / 1000., dataOut.getAcfRange(EXTRA_POINTS), dataOut.getVelRange(EXTRA_POINTS))
-        if self.CODE == 'cut_gaussian_fit':
-            data['gauss_fit0'] = 10 * numpy.log10(dataOut.GaussFit0 / dataOut.normFactor)
-            data['gauss_fit1'] = 10 * numpy.log10(dataOut.GaussFit1 / dataOut.normFactor)
+
+        norm = dataOut.nProfiles * dataOut.max_nIncohInt * dataOut.nCohInt  * dataOut.windowOfFilter#*dataOut.nFFTPoints
+        n0 = 10*numpy.log10(dataOut.getNoise()/norm)
+        noise = numpy.repeat(n0,(dataOut.nFFTPoints*dataOut.nHeights)).reshape(dataOut.nChannels,dataOut.nFFTPoints,dataOut.nHeights)
+
+
+        z = []
+        for ch in range(dataOut.nChannels):
+            if hasattr(dataOut.normFactor,'shape'):
+                z.append(numpy.divide(dataOut.data_spc[ch],dataOut.normFactor[ch]))
+            else:
+                z.append(numpy.divide(dataOut.data_spc[ch],dataOut.normFactor))
+
+        z = numpy.asarray(z)
+        z = numpy.where(numpy.isfinite(z), z, numpy.NAN)
+        spc = 10*numpy.log10(z)
+
+
+        data['spc'] = spc - noise
+        meta['xrange'] = (dataOut.getFreqRange(EXTRA_POINTS)/1000., dataOut.getAcfRange(EXTRA_POINTS), dataOut.getVelRange(EXTRA_POINTS))
+
         return data, meta
 
     def plot(self):
         if self.xaxis == "frequency":
-            x = self.data.xrange[0][1:]
+            x = self.data.xrange[0][0:]
             self.xlabel = "Frequency (kHz)"
         elif self.xaxis == "time":
             x = self.data.xrange[1]
             self.xlabel = "Time (ms)"
         else:
-            x = self.data.xrange[2][:-1]
-            self.xlabel = "Velocity (m/s)"
-
-        if self.CODE == 'cut_gaussian_fit':
-            x = self.data.xrange[2][:-1]
+            x = self.data.xrange[2]
             self.xlabel = "Velocity (m/s)"
 
         self.titles = []
 
         y = self.data.yrange
-        data = self.data[-1]
-        z = data['spc']
-
-        if self.height_index:
-            index = numpy.array(self.height_index)
+        z = self.data[-1]['spc']
+        #print(z.shape)
+        if len(self.height_index) > 0:
+            index = self.height_index
         else:
-            index = numpy.arange(0, len(y), int((len(y)) / 9))
+            index = numpy.arange(0, len(y), int((len(y))/9))
+        #print("inde x ", index, self.axes)
 
         for n, ax in enumerate(self.axes):
-            if self.CODE == 'cut_gaussian_fit':
-                gau0 = data['gauss_fit0']
-                gau1 = data['gauss_fit1']
+
             if ax.firsttime:
+
+
                 self.xmax = self.xmax if self.xmax else numpy.nanmax(x)
                 self.xmin = self.xmin if self.xmin else -self.xmax
-                self.ymin = self.ymin if self.ymin else numpy.nanmin(z[:,:,index])
-                self.ymax = self.ymax if self.ymax else numpy.nanmax(z[:,:,index])
+                self.ymin = self.ymin if self.ymin else numpy.nanmin(z)
+                self.ymax = self.ymax if self.ymax else numpy.nanmax(z)
 
-                ax.plt = ax.plot(x, z[n, :, index].T, lw=0.25)
-                if self.CODE == 'cut_gaussian_fit':
-                    ax.plt_gau0 = ax.plot(x, gau0[n, :, index].T, lw=1, linestyle='-.')
-                    for i, line in enumerate(ax.plt_gau0):
-                        line.set_color(ax.plt[i].get_color())
-                    ax.plt_gau1 = ax.plot(x, gau1[n, :, index].T, lw=1, linestyle='--')
-                    for i, line in enumerate(ax.plt_gau1):
-                        line.set_color(ax.plt[i].get_color())
+
+                ax.plt = ax.plot(x, z[n, :, index].T)
                 labels = ['Range = {:2.1f}km'.format(y[i]) for i in index]
-                self.figures[0].legend(ax.plt, labels, loc='center right')
+                self.figures[0].legend(ax.plt, labels, loc='center right', prop={'size': 8})
+                ax.minorticks_on()
+                ax.grid(which='major', axis='both')
+                ax.grid(which='minor', axis='x')
             else:
                 for i, line in enumerate(ax.plt):
-                    line.set_data(x, z[n, :, index[i]].T)
-                for i, line in enumerate(ax.plt_gau0):
-                    line.set_data(x, gau0[n, :, index[i]].T)
-                    line.set_color(ax.plt[i].get_color())
-                for i, line in enumerate(ax.plt_gau1):
-                    line.set_data(x, gau1[n, :, index[i]].T)
-                    line.set_color(ax.plt[i].get_color())
-            self.titles.append('CH {}'.format(n))
+                    line.set_data(x, z[n, :, index[i]])
+
+
+            self.titles.append('CH {}'.format(self.channelList[n]))
+        plt.suptitle(self.maintitle,  fontsize=10)
 
 
 class BeaconPhase(Plot):
