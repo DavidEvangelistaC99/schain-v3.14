@@ -208,7 +208,11 @@ class Plot(Operation):
         '''
         '''
 
-        return '{}'.format(self.getDateTime(x).strftime('%H:%M'))
+        #return '{}'.format(self.getDateTime(x).strftime('%H:%M'))
+        if self.t_units == "h_m":
+            return '{}'.format(self.getDateTime(x).strftime('%H:%M'))
+        if self.t_units == "h":
+            return '{}'.format(self.getDateTime(x).strftime('%H'))
 
     def __setup(self, **kwargs):
         '''
@@ -288,6 +292,19 @@ class Plot(Operation):
 
         # condicion de ploteo
         # self.type_plot = kwargs.get('type_plot', False)
+
+        self.pf_axes = []
+        self.tmin = kwargs.get('tmin', None)
+        self.t_units = kwargs.get('t_units', "h_m")
+        self.selectedHeightsList = kwargs.get('selectedHeightsList', [])
+        self.extFile = kwargs.get('filename', None)
+        self.bFieldList = kwargs.get('bField', [])
+        self.celestialList = kwargs.get('celestial', [])
+
+        if  isinstance(self.bFieldList, int):
+            self.bFieldList = [self.bFieldList]
+        if  isinstance(self.selectedHeightsList, int):
+            self.selectedHeightsList = [self.selectedHeightsList]
         
         if self.server:
             if not self.server.startswith('tcp://'):
@@ -515,7 +532,10 @@ class Plot(Operation):
                     xmin = self.tmin
                     xmax = self.tmin + self.xrange * 60 * 60
                     ax.xaxis.set_major_formatter(FuncFormatter(self.__fmtTime))
-                    ax.xaxis.set_major_locator(LinearLocator(int(self.xrange)+1))   # Time in hours
+                    if self.t_units == "h_m":
+                        ax.xaxis.set_major_locator(LinearLocator(9))
+                    if self.t_units == "h":
+                        ax.xaxis.set_major_locator(LinearLocator(int(self.xrange)+1))   # Time in hours
                 ymin = self.ymin if self.ymin is not None else numpy.nanmin(self.y[numpy.isfinite(self.y)])
                 ymax = self.ymax if self.ymax is not None else numpy.nanmax(self.y[numpy.isfinite(self.y)])
                 ax.set_facecolor(self.bgcolor)
@@ -538,7 +558,7 @@ class Plot(Operation):
                     self.pf_axes[n].grid(True, axis='x')
                     [tick.set_visible(False)
                      for tick in self.pf_axes[n].get_yticklabels()]
-                if self.colorbar and ax.cbar == None:
+                if self.colorbar and (ax.cbar == None or not(hasattr(ax, 'cbar'))):
                     ax.cbar = plt.colorbar(
                         ax.plt, ax=ax, fraction=0.05, pad=0.02, aspect=10)
                     ax.cbar.ax.tick_params(labelsize=8)
@@ -547,7 +567,8 @@ class Plot(Operation):
                         ax.cbar.set_label(self.cb_label, size=8)
                     elif self.cb_labels:
                         ax.cbar.set_label(self.cb_labels[n], size=8)
-                
+                else:
+                    ax.cbar = None
                 ax.set_xlim(xmin, xmax)
                 ax.set_ylim(ymin, ymax)
                 ax.firsttime = False
