@@ -66,12 +66,35 @@ class SpectraPlot(Plot):
             self.azimuthList = dataOut.azimuthList
     
     def update(self, dataOut):
-
+        
+        self.update_list(dataOut)
         data = {}
         meta = {}
+
+        norm = dataOut.nProfiles * dataOut.max_nIncohInt * dataOut.nCohInt  * dataOut.windowOfFilter
+
         spc = 10 * numpy.log10(dataOut.data_spc / dataOut.normFactor)
-        data['spc'] = spc
-        data['rti'] = dataOut.getPower()
+        
+
+        if dataOut.type == "Parameters":
+            noise = 10*numpy.log10(dataOut.getNoise()/dataOut.normFactor)
+            spc = 10*numpy.log10(dataOut.data_spc/(dataOut.nProfiles))
+        else:
+            noise = 10*numpy.log10(dataOut.getNoise()/norm)
+
+            z = numpy.zeros((dataOut.nChannels, dataOut.nFFTPoints, dataOut.nHeights))
+            for ch in range(dataOut.nChannels):
+                if hasattr(dataOut.normFactor,'ndim'):
+                    if dataOut.normFactor.ndim > 1:
+                        z[ch] = (numpy.divide(dataOut.data_spc[ch],dataOut.normFactor[ch]))
+
+                    else:
+                        z[ch] = (numpy.divide(dataOut.data_spc[ch],dataOut.normFactor))
+                else:
+                    z[ch] = (numpy.divide(dataOut.data_spc[ch],dataOut.normFactor))
+            z = numpy.where(numpy.isfinite(z), z, numpy.NAN)
+            spc = 10*numpy.log10(z)
+
         if hasattr(dataOut, 'LagPlot'): #Double Pulse
             max_hei_id = dataOut.nHeights - 2*dataOut.LagPlot
             data['noise'] = 10*numpy.log10(dataOut.getNoise(ymin_index=53,ymax_index=max_hei_id)/dataOut.normFactor)
@@ -80,6 +103,15 @@ class SpectraPlot(Plot):
             data['noise'] = 10 * numpy.log10(dataOut.getNoise() / dataOut.normFactor)
         extrapoints = spc.shape[1] % dataOut.nFFTPoints
         extrapoints=1
+
+        data['spc'] = spc
+        data['rti'] = dataOut.getPower()
+        # data['rti'] = spc.mean(axis=1)
+        
+        ## PARA AMISR ACTIVAR YA VEREMOS
+        # data['noise'] = noise
+
+
         meta['xrange'] = (dataOut.getFreqRange(EXTRA_POINTS) / 1000., dataOut.getAcfRange(EXTRA_POINTS), dataOut.getVelRange(EXTRA_POINTS))
         if self.CODE == 'spc_moments':
             data['moments'] = dataOut.moments
@@ -114,6 +146,8 @@ class SpectraPlot(Plot):
 
         for n, ax in enumerate(self.axes):
             noise = data['noise'][n]
+            ## AMISR 
+            #noise = data['noise'][n][0]
 
             if self.CODE == 'spc_moments':
                 mean = data['moments'][n, 1]
@@ -155,7 +189,11 @@ class SpectraPlot(Plot):
                 if self.CODE == 'gaussian_fit':
                     ax.plt_gau0.set_data(gau0, y)
                     ax.plt_gau1.set_data(gau1, y)
-            self.titles.append('CH {}: {:3.2f}dB'.format(n, noise))
+            # self.titles.append('CH {}: {:3.2f}dB'.format(n, noise))
+            if len(self.azimuthList) > 0 and len(self.elevationList) > 0:
+                self.titles.append('CH {}: {:2.1f}elv {:2.1f}az {:3.2f}dB'.format(self.channelList[n], noise, self.elevationList[n], self.azimuthList[n]))
+            else:
+                self.titles.append('CH {}:  {:3.2f}dB'.format(self.channelList[n], noise))
 
 class SpectraObliquePlot(Plot):
     '''
