@@ -1462,6 +1462,8 @@ class NoiselessSpectraPlot(Plot):
     channelList = []
     last_noise = None
 
+    plot_operation = 'noise_spc'
+
     def setup(self):
 
         self.nplots = len(self.data.channels)
@@ -1544,8 +1546,8 @@ class NoiselessSpectraPlot(Plot):
             if ax.firsttime:
                 self.xmax = self.xmax if self.xmax else numpy.nanmax(x)
                 self.xmin = self.xmin if self.xmin else -self.xmax
-                self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
-                self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
+                #self.zmin = self.zmin if self.zmin else numpy.nanmin(z)
+                #self.zmax = self.zmax if self.zmax else numpy.nanmax(z)
                 ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
@@ -1579,6 +1581,8 @@ class NoiselessRTIPlot(RTIPlot):
     elevationList = []
     azimuthList = []
     last_noise = None
+
+    plot_operation = 'noise_rti'
 
     def setup(self):
         self.xaxis = 'time'
