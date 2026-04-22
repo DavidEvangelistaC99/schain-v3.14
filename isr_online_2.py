@@ -17,9 +17,9 @@ def main():
 
 
 
-    inPath = '/home/david/Documents/DATA/AMISR_2'
+    inPath = '/home/idi/Documents/DATA/AMISR'
     #inpath= '/home/soporte/Data/AMISR-rawdata/2022'
-    outPath = '/home/david/Documents/DATA/ISR_2/'
+    outPath = '/home/idi/Documents/DATA/AMISR/'
 
 
     #outPath = '/mnt/DATA/AMISR14/2026/ISR'
