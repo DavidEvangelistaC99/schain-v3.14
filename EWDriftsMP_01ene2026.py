@@ -17,11 +17,11 @@ controllerObj.setup(id = '191', name='test01', description=desc)
 #path = "/data/dia"
 #path = '/home/pcondor/data'
 #path = '/media/pcondor/DATA1/Database/ewdriftsschain2023prue/data'
-path = '/data/2026_03/MP_ISR/main_radar/rawdata'
+path = '/home/david/Documentos/DATA/DRIFTS/rawdata'
 #path = '/data/isr_julia'
 #pathFigure = '/media/pcondor/DATA1/Database/ewdriftsschain2023wh5'
 #pathFile = '/media/pcondor/DATA1/Database/ewdriftsdic2024MPsch/EW_Drifts_01dic'
-pathFile = '/media/pcondor/DATA1/Database/ewdriftsmar2026MPsch/EW_Drifts_01marv2'
+pathFile = '/home/david/Documentos/DATA/DRIFTS/rawdata/Drifts'
 pathFigure = pathFile
 pathFileavg = pathFile+'/avg'
 pathFiledata = pathFile+'/Drifts-data'
