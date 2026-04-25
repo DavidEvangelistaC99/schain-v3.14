@@ -8,7 +8,7 @@ import time
 
 # PATH = '/DATA_RM/DATA'
 
-PATH = '/home/idi/Documents/DATA'
+PATH = '/home/david/Documentos/DATA'
 
 PARAM = {
     'S':  {'zmin': -70, 'zmax':-30, 'colormap': 'jet'    , 'label': 'Power', 'wrname': 'power','cb_label': 'dBm', 'ch':0},
