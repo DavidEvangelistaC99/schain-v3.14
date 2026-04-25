@@ -3427,6 +3427,25 @@ class EWDriftsEstimation(Operation):
         f1.close()
         return dataOut
 
+class setHeightDrifts(Operation):
+
+    def __init__(self):
+        Operation.__init__(self)
+    def run(self, dataOut):
+        #print('h inicial ',dataOut.heightList,dataOut.heightListtmp)
+        dataOut.heightList = dataOut.heightListtmp
+        #print('regresa H ',dataOut.heightList)
+        return dataOut
+class setHeightDriftsavg(Operation):
+
+    def __init__(self):
+        Operation.__init__(self)
+    def run(self, dataOut):
+        #print('h inicial ',dataOut.heightList)
+        dataOut.heightList = dataOut.params_avg[4]
+        #print('cambia H ',dataOut.params_avg[4],dataOut.heightList)
+        return dataOut
+
 #---------------    Non Specular Meteor    ----------------
 
 class NonSpecularMeteorDetection(Operation):
