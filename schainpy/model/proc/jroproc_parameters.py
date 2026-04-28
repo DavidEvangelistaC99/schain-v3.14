@@ -1793,7 +1793,7 @@ class SpectralFitting(Operation):
                        #mode = 53.9307 #7.79008
 
                        #Removing echoes greater than mode + 3*stdv
-                       factor_stdv = 2.5
+                       factor_stdv = 3.5 #2.5
                        noval = (abs(func2clean - mode)>=(factor_stdv*stdv)).nonzero()
                        
                        if len(noval[0]) > 0:
@@ -3412,9 +3412,11 @@ class EWDriftsEstimation(Operation):
         #print(dataOut.drifts_avg)
         tini=time.localtime(dataOut.utctime)
         datefile= str(tini[0]).zfill(4)+str(tini[1]).zfill(2)+str(tini[2]).zfill(2)
-        nfile = '/home/pcondor/Database/ewdriftsschain2019/jro'+datefile+'drifts_sch3.txt'
+        
+        ## archivo comentado 
+        #nfile = '/home/pcondor/Database/ewdriftsschain2019/jro'+datefile+'drifts_sch3.txt'
         #print(dataOut.drifts_avg)
-        f1 = open(nfile,'a')
+        #f1 = open(nfile,'a')
         #print(nfile)
         #f.write(datefile)
         #numpy.savetxt(f,[datefile,datefile],fmt='%10s')
@@ -3422,9 +3424,9 @@ class EWDriftsEstimation(Operation):
         driftavgstr=str(dataOut.drifts_avg)
         #f1.write(datedriftavg)
         #f1.write(driftavgstr)
-        numpy.savetxt(f1,numpy.column_stack([tini[0],tini[1],tini[2],tini[3],tini[4]]),fmt='%4i')
-        numpy.savetxt(f1,dataOut.drifts_avg,fmt='%10.2f')
-        f1.close()
+        #numpy.savetxt(f1,numpy.column_stack([tini[0],tini[1],tini[2],tini[3],tini[4]]),fmt='%4i')
+        #numpy.savetxt(f1,dataOut.drifts_avg,fmt='%10.2f')
+        #f1.close()
         return dataOut
 
 class setHeightDrifts(Operation):
