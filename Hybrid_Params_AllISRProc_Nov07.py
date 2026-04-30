@@ -8,7 +8,7 @@ import json
 
 #  dpath = '/home/cportilla/jars/ALL_ISR/hybrid'
 # dpath = '/home/cportilla/Minotaur/2025_11/Faraday/main_radar/rawdata'
-dpath = '/mnt/compartido'
+dpath = '/mnt/compartido2'
 #dpath= '/media/cportilla/HDD/Faraday/Hybrid'
 #dpath = '/home/cportilla/PC_DATA/Hybrid'
 
@@ -17,7 +17,7 @@ controller.setup(id = '001',
                  name='Hybrid',
                  description='DP+LP')
 
-figpath='/home/idi/Documents/DATA'
+figpath='/home/idi/Documents/DATA/All-ISR'
 figpath_server=figpath
 procpath = figpath
 Show_plots = 1
