@@ -47,6 +47,14 @@ pip install scipy==1.8.0
 pip install digital_rf==2.6.7
 ```
 
+Adittional:
+
+```
+pip install pandas
+```
+
+Also, copy and paste *.json* files in *proc* folder.
+
 ### Using Docker
 
 Download Dockerfile from the repository, and create a docker image:
