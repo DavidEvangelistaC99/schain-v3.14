@@ -1,17 +1,20 @@
 
-import os
+import os, json
 import sys
 import numpy, math
 from scipy import interpolate
 from scipy.optimize import nnls
+from schainpy.model import data
 from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecorator
 from schainpy.model.data.jrodata import Voltage, hildebrand_sekhon
 from schainpy.utils import log
 from time import time, mktime, strptime, gmtime, ctime
 from scipy.optimize import least_squares
-from scipy import signal
 import datetime
+import collections.abc
 import csv
+import ast #new added
+from scipy import signal
 
 try:
     from schainpy.model.proc import fitacf_guess
@@ -40,27 +43,27 @@ class VoltageProc(ProcessingUnit):
         if self.dataIn.type == 'AMISR':
             self.__updateObjFromAmisrInput()
         
-        if self.dataOut.buffer_empty:
-            if self.dataIn.type == 'Voltage':
-                self.dataOut.copy(self.dataIn)
-                self.dataOut.runNextUnit = runNextUnit
-                self.dataOut.radarControllerHeaderObj = self.dataIn.radarControllerHeaderObj.copy()
+        #if self.dataOut.buffer_empty:
+        if self.dataIn.type == 'Voltage':
+            self.dataOut.copy(self.dataIn)
+            self.dataOut.runNextUnit = runNextUnit
+            self.dataOut.radarControllerHeaderObj = self.dataIn.radarControllerHeaderObj.copy()
 
-                self.dataOut.ippSeconds = self.dataIn.ippSeconds
-                self.dataOut.ipp = self.dataIn.ipp
+            self.dataOut.ippSeconds = self.dataIn.ippSeconds
+            self.dataOut.ipp = self.dataIn.ipp
 
-                #update Processing Header:
-                self.dataOut.processingHeaderObj.heightList = self.dataOut.heightList
-                self.dataOut.processingHeaderObj.ipp =  self.dataOut.ipp
-                self.dataOut.processingHeaderObj.nCohInt =  self.dataOut.nCohInt
-                self.dataOut.processingHeaderObj.dtype =  self.dataOut.type
-                self.dataOut.processingHeaderObj.channelList =  self.dataOut.channelList
-                self.dataOut.processingHeaderObj.azimuthList =  self.dataOut.azimuthList
-                self.dataOut.processingHeaderObj.elevationList =  self.dataOut.elevationList
-                self.dataOut.processingHeaderObj.codeList =  self.dataOut.nChannels
-                self.dataOut.processingHeaderObj.heightList =  self.dataOut.heightList
-                self.dataOut.processingHeaderObj.heightResolution  = self.dataOut.heightList[1] - self.dataOut.heightList[0]
-                
+            #update Processing Header:
+            self.dataOut.processingHeaderObj.heightList = self.dataOut.heightList
+            self.dataOut.processingHeaderObj.ipp =  self.dataOut.ipp
+            self.dataOut.processingHeaderObj.nCohInt =  self.dataOut.nCohInt
+            self.dataOut.processingHeaderObj.dtype =  self.dataOut.type
+            self.dataOut.processingHeaderObj.channelList =  self.dataOut.channelList
+            self.dataOut.processingHeaderObj.azimuthList =  self.dataOut.azimuthList
+            self.dataOut.processingHeaderObj.elevationList =  self.dataOut.elevationList
+            self.dataOut.processingHeaderObj.codeList =  self.dataOut.nChannels
+            self.dataOut.processingHeaderObj.heightList =  self.dataOut.heightList
+            self.dataOut.processingHeaderObj.heightResolution  = self.dataOut.heightList[1] - self.dataOut.heightList[0]
+            
 
 
         #self.dataOut.flagNoData=True
@@ -248,6 +251,240 @@ class selectChannels(Operation):
 
         return dataOut
 
+class CombineChannels_V2(Operation):
+    '''Digital hybrid implementation'''
+
+    def run(self, dataout, ch_list=[], comb_list=[]):
+        '''
+        Input:
+            ch_list    : list of pairs [[0,2],[1,3]] or single-index [[4], [5]]
+            comb_list  : list of operations ['sum', 'sub', 'none']
+        '''
+        comb_list = [s.strip().lower() for s in comb_list]
+        tmp = []
+        is_block = dataout.flagDataAsBlock
+
+        for (channels, comb) in zip(ch_list, comb_list):
+            i = channels[0]
+
+            if comb == 'none':
+                data = dataout.data[i, :, :] if is_block else dataout.data[i, :]
+            
+            elif comb in ('sum', 'sub'):
+                j = channels[1]
+                a = dataout.data[i, :, :] if is_block else dataout.data[i, :]
+                b = dataout.data[j, :, :] if is_block else dataout.data[j, :]
+                data = a + b if comb == 'sum' else a - b
+
+            else:
+                raise ValueError(f"Unknown combination operation: '{comb}'")
+
+            tmp.append(data)
+
+        dataout.data = numpy.array(tmp)
+        dataout.channelList = list(range(len(tmp)))
+        return dataout
+
+class saturatedBlock(Operation):
+    '''
+    Created by C. Portilla
+    hardcoded for the moment to Hybrid experiment
+    '''
+
+    def ca_cfar_alpha(self, N, pfa):
+        """
+        Analytical CA-CFAR scale factor for exponential noise:
+        alpha = N * (pfa^{-1/N} - 1)
+        Works as a decent initial approximation for SO-CFAR.
+        """
+        return N * (pfa**(-1.0 / N) - 1.0)
+
+
+    def so_cfar_1d(self, power, T=12, G=2, pfa=1e-6, alpha=None, pad_mode='edge'):
+        """
+        Smallest-Of CFAR (SO-CFAR) for 1-D power profile.
+        Parameters
+        ----------
+        power : 1D np.array (float)
+            Power values (non-negative). NaN are allowed (treated as missing).
+        T : int
+            Number of training cells PER SIDE (left and right).
+        G : int
+            Number of guard cells per side.
+        pfa : float
+            Desired probability of false alarm (used to compute alpha if not provided).
+        alpha : float or None
+            If provided, use this scaling factor for threshold. Otherwise compute
+            CA-CFAR alpha and use it as approximation.
+        pad_mode : {'edge','constant'}
+            Padding behavior for edges; 'edge' repeats edge values, 'constant' pads with zero.
+        Returns
+        -------
+        detections : boolean array same shape as power
+            True where detections occurred (satellite candidates).
+        threshold : float array same shape as power
+            Computed threshold for each CUT (NaN where not computable).
+        ref_estimate : float array
+            reference noise estimate (min of left/right averages).
+        notes:
+            - cells near edges where full training window does not fit are returned as False
+            - input may contain NaN; training windows containing NaN are treated by ignoring NaNs
+        Complexity: O(N) using cumulative sums.
+        """
+        power = numpy.asarray(power, dtype=float)
+        N = len(power)
+        if alpha is None:
+            alpha = self.ca_cfar_alpha(2 * T, pfa)  # use CA alpha as initial approximation
+
+        # Minimum number of samples needed around a CUT
+        pad = T + G
+        # pad array to simplify indexing; choose edge padding to avoid introducing zeros in quiet backgrounds
+        if pad_mode == 'edge':
+            p = numpy.pad(power, pad_width=pad, mode='edge')
+        else:
+            p = numpy.pad(power, pad_width=pad, mode='constant', constant_values=0.0)
+
+        # cumulative sum but treating NaN: we'll compute sums and counts ignoring NaN
+        vals = numpy.nan_to_num(p, nan=0.0)
+        counts = (~numpy.isnan(p)).astype(float)
+
+        csum = numpy.concatenate(([0.0], numpy.cumsum(vals)))  # length len(p)+1
+        ccount = numpy.concatenate(([0.0], numpy.cumsum(counts)))
+
+        # helper to get sum over interval [a,b) in padded indices
+        def window_sum(a, b):
+            return csum[b] - csum[a]
+        def window_count(a, b):
+            return ccount[b] - ccount[a]
+
+        detections = numpy.zeros(N, dtype=bool)
+        threshold = numpy.full(N, numpy.nan, dtype=float)
+        ref_est = numpy.full(N, numpy.nan, dtype=float)
+
+        # prepare padded index of original element i -> i_p = i + pad
+        idx = numpy.arange(N) + pad
+
+        for k, i_p in enumerate(idx):
+            # left window [i_p - G - T, i_p - G)
+            l0 = int(i_p - G - T)
+            l1 = int(i_p - G)
+            # right window [i_p + G + 1, i_p + G + 1 + T)
+            r0 = int(i_p + G + 1)
+            r1 = int(r0 + T)
+
+            # safety check (should be fine due to padding)
+            if l0 < 0 or r1 > len(p):
+                continue
+
+            sum_l = window_sum(l0, l1)
+            cnt_l = window_count(l0, l1)
+            sum_r = window_sum(r0, r1)
+            cnt_r = window_count(r0, r1)
+
+            # compute averages ignoring NaNs (if too few samples, skip)
+            if cnt_l < max(1, 0.5 * T) or cnt_r < max(1, 0.5 * T):
+                # not enough valid training cells -> leave as no detection (or you could choose to adapt)
+                continue
+
+            avg_l = sum_l / cnt_l
+            avg_r = sum_r / cnt_r
+
+            ref = min(avg_l, avg_r)  #0.5*(avg_l+avg_r) #min(avg_l, avg_r) #
+            ref_est[k] = ref
+            thr = alpha * ref
+            threshold[k] = thr
+
+            vcut = power[k]
+            if numpy.isnan(vcut):
+                # cannot test a NaN CUT; treat as not detection (or optionally mark)
+                continue
+            # Decision
+            if vcut > thr:
+                detections[k] = True
+
+
+        return detections, threshold, ref_est
+
+    def run(self, dataOut, limit = 70, mode = 0):
+        
+        #self.setup()
+        #print("TEST is equal Ch 0 ", dataOut.data[0,0:15,:])
+        #print("TEST is equal Ch 1 ", dataOut.data[0,0:15,:])
+        z = numpy.abs(dataOut.data)
+        
+        # Working place
+        # data z  (4, 150, 334) -> (4,128,334)
+        z_new = z [:,:128,:]
+        dataOut_extra = dataOut.data[:, 128:, :]
+        z_new = z_new.reshape(4, 8, 16, 334)
+        dataOut_z_new = z_new.reshape(4, 8, 16, 334)
+
+        idx = []
+        jars_fix = 1 # to solve, the samplpes are not enough correct
+
+        # Identify the saturated profile groups
+        for i in range(8):
+            hardTarget = False
+
+            if mode == 0:
+                sample_trh = slice(40,200 - jars_fix)
+                time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime)
+                if time_text.hour > 23 or time_text.hour < 5: sample_trh = slice(45,200 - jars_fix) #10
+
+                hardTarget = (z_new[1,i,:,sample_trh] > limit).any()
+
+            elif mode == 1:
+                # Array to save (and plot) satellites
+                dataOut.sat_indices = numpy.zeros([2,200 - jars_fix])
+
+                Ch_list = [0,1]
+                detections = []
+                aux_hardTarget = []
+                sample_trh = slice(25,200 - jars_fix)
+                for Ch in Ch_list:
+                    self.z_new = numpy.average(z_new[Ch,i,:,sample_trh], axis=0)
+                    # Typical values T=12, G=8, pfa=4e-2 Hybrid experiment
+                    detection,_,_ = self.so_cfar_1d(self.z_new, T=12, G=8, pfa=4e-2, pad_mode='edge')
+                    detections.append(detection)
+                    aux_hardTarget.append(sum(detection) >= 2)
+
+                    sat_indices = numpy.where(detection,0.125, 0) # Convert the detection in a fraction of block
+                    #if detection.any() == True: print("aaBs", sat_indices)
+                    dataOut.sat_indices[Ch, sample_trh] += sat_indices
+
+                detections = numpy.logical_or.reduce(detections)
+                #hardTarget = detections.any() # At least 1 target in both Ch
+                #hardTarget = sum(detections) >= 2 # At least 2 targets in both Ch
+                hardTarget = numpy.array(aux_hardTarget).any()  # At least 2 targets in any Ch
+
+            else:
+                return log.warning("Any filter BLock mode selected")
+
+            if hardTarget: # Save index and print
+                idx.append(i)
+                print(f"Debris detected at {i}", (z_new[1,i,:,sample_trh] > limit).any())
+        
+
+        # Deals what to do with saturated profile groups
+        if len(idx) < 7:#len(idx) != 8:
+            candidates = numpy.setdiff1d(numpy.arange(8), idx)
+            result = numpy.array([candidates[numpy.abs(candidates - i).argmin()] for i in idx])
+            for n,i in enumerate(idx):
+                #print(i,result[n]) # use to print each profile is being changed indexes
+                #z_new[:,i,:,23:200] = z_new[:,result[n],:,23:200]
+                get_block = lambda x: slice(x*16, (x+1)*16)
+                dataOut.data[:,get_block(i),:] = dataOut.data[:,get_block(result[n]),:]
+        else:
+            print("All profiles saturated")
+
+        # Temporal correction of JARS2 sampling issue - AllISR 2025
+        '''print(dataOut.data[0,10,197], dataOut.data[0,10,198], dataOut.data[0,10,199], dataOut.data[0,10,200], dataOut.data[0,10,201])
+        print("Jars correction")'''
+        dataOut.data[:,:,199] = dataOut.data[:,:,199- jars_fix]
+
+        return dataOut
+
+
 class selectHeights(Operation):
 
     def run(self, dataOut, minHei=None, maxHei=None, minIndex=None, maxIndex=None):
@@ -362,14 +599,23 @@ class selectHeights(Operation):
 
             # Spectra
             data_spc = self.dataOut.data_spc[:, :, minIndex:maxIndex + 1]
+            if hasattr(self.dataOut, "ByLags"):
+                if self.dataOut.ByLags:
+                    self.dataOut.dataLag_spc = self.dataOut.dataLag_spc[:, :, minIndex:maxIndex + 1]
 
             data_cspc = None
             if self.dataOut.data_cspc is not None:
                 data_cspc = self.dataOut.data_cspc[:, :, minIndex:maxIndex + 1]
+                if hasattr(self.dataOut, "ByLags"):
+                    if self.dataOut.ByLags:
+                        self.dataOut.dataLag_cspc = self.dataOut.dataLag_cspc[:, :, minIndex:maxIndex + 1]
 
             data_dc = None
             if self.dataOut.data_dc is not None:
                 data_dc = self.dataOut.data_dc[:, minIndex:maxIndex + 1]
+                if hasattr(self.dataOut, "ByLags"):
+                    if self.dataOut.ByLags:
+                        self.dataOut.dataLag_dc = self.dataOut.dataLag_dc[:, minIndex:maxIndex + 1]
 
             self.dataOut.data_spc = data_spc
             self.dataOut.data_cspc = data_cspc
@@ -2531,6 +2777,7 @@ class NormalizeDPPowerRoberto_V2(Operation):
 
             for j in range(int(n/m)):
                 k=int(j+i*n/(2*m))
+                #print("a,b",a[k],b[k])
                 if(a[k]>0.0 and b[k]>0.0):
                     chisq[i]+=(numpy.log10(b[k]*temp[i]/a[k]))**2
                     an=an+1
@@ -2539,63 +2786,193 @@ class NormalizeDPPowerRoberto_V2(Operation):
                 chisq[i]/=an
 
         for i in range(int(2*m-1)):
+            #print("xi",chisq[i])
             if(chisq[i]<chmin and chisq[i]>1.0e-6):
                 chmin=chisq[i]
                 cf=temp[i]
         return cf
 
+ 
 
     def normalize(self,dataOut):
-
+        # cf .- constant factor of normalization
+        
         if self.aux==1:
             dataOut.cf=numpy.zeros(1,'float32')
             dataOut.cflast=numpy.zeros(1,'float32')
             self.aux=0
 
-        if (dataOut.ut_Faraday>=11.5 and dataOut.ut_Faraday<23):
+        print(dataOut.ut_Faraday)
+
+        if (dataOut.ut_Faraday>=11.5 and dataOut.ut_Faraday<23): # 6 30am to 6pm
             i2=(500.-dataOut.range1[0])/dataOut.DH
             i1=(200.-dataOut.range1[0])/dataOut.DH
 
-        else:
-            inda = numpy.where(dataOut.heightList >= 200) #200 km
+        elif(dataOut.ut_Faraday>=5 and dataOut.ut_Faraday<8): # 0 am to 3am
+            inda = numpy.where(dataOut.heightList >= 330) # 260 #200 km 
             minIndex = inda[0][0]
-            indb = numpy.where(dataOut.heightList < 700) # 700 km
+            indb = numpy.where(dataOut.heightList < 470) # 350 # 700 km
+            maxIndex = indb[0][-1]
+            print(minIndex)
+            print(dataOut.heightList)
+
+            ph2max_idx = numpy.nanargmax(dataOut.ph2[minIndex:maxIndex])
+            #print("dataOut.ph2[minIndex:maxIndex]: ", dataOut.ph2[minIndex:maxIndex])
+            #print("dataOut.ph2: ", dataOut.ph2)
+            #print("dataOut.phi: ", dataOut.phi)
+            print("minIndex", minIndex, "maxIndex", maxIndex)
+            print(ph2max_idx)
+
+            ph2max_idx += minIndex
+
+            i2 = maxIndex #ph2max_idx + 6
+            i1 = minIndex #ph2max_idx - 6
+
+            print("ELSE^^^^^^^^^^^^^^^^^^^^^")
+            print(dataOut.heightList[i1])
+            print(dataOut.heightList[i2])
+        elif(dataOut.ut_Faraday>=8 and dataOut.ut_Faraday<11.5): # 3 am to 6 30am ADDED
+            inda = numpy.where(dataOut.heightList >= 260) # 260 #200 km 
+            minIndex = inda[0][0]
+            indb = numpy.where(dataOut.heightList < 350) # 350 # 700 km
             maxIndex = indb[0][-1]
 
             ph2max_idx = numpy.nanargmax(dataOut.ph2[minIndex:maxIndex])
+            #print("dataOut.ph2[minIndex:maxIndex]: ", dataOut.ph2[minIndex:maxIndex])
+            #print("dataOut.ph2: ", dataOut.ph2)
+            print("minIndex", minIndex, "maxIndex", maxIndex)
+            print(ph2max_idx)
+
+            ph2max_idx += minIndex
+
+            i2 = maxIndex #ph2max_idx + 6
+            i1 = minIndex #ph2max_idx - 6
+
+            print("ELSE^^^^^^^^^^^^^^^^^^^^^")
+            print(dataOut.heightList[i1])
+            print(dataOut.heightList[i2])
+        else: #6pm to 12am
+            inda = numpy.where(dataOut.heightList >= 200) #200 km 
+            minIndex = inda[0][0]
+            indb = numpy.where(dataOut.heightList < 700) # 700 km
+            maxIndex = indb[0][-1]
+            print(minIndex)
+            print(dataOut.heightList)
+
+            ph2max_idx = numpy.nanargmax(dataOut.ph2[minIndex:maxIndex])
+            #print("dataOut.ph2[minIndex:maxIndex]: ", dataOut.ph2[minIndex:maxIndex])
+            #print("dataOut.ph2: ", dataOut.ph2)
+            '''
+            #if dataOut.flagTeTiCorrection:
+            if 1:
+                import matplotlib.pyplot as plt
+                plt.figure()
+                plt.plot(dataOut.ph2[minIndex:maxIndex],dataOut.heightList[minIndex:maxIndex],'*-')
+                plt.show()
+                '''
             ph2max_idx += minIndex
 
             i2 = ph2max_idx + 6
             i1 = ph2max_idx - 6
+
+            print(dataOut.heightList[i1])
+            print(dataOut.heightList[i2])
+        '''
+        elif(dataOut.ut_Faraday>=1.66 and dataOut.ut_Faraday<3.16): # 20 40 - 22 10 (1 40 - 3 10)
+            inda = numpy.where(dataOut.heightList >= 435) #200 km 
+            minIndex = inda[0][0]
+            indb = numpy.where(dataOut.heightList < 480) # 700 km
+            maxIndex = indb[0][-1]
+            print(minIndex)
+            print(dataOut.heightList)
+
+            ph2max_idx = numpy.nanargmax(dataOut.ph2[minIndex:maxIndex])
+            #print("dataOut.ph2[minIndex:maxIndex]: ", dataOut.ph2[minIndex:maxIndex])
+            #print("dataOut.ph2: ", dataOut.ph2)
+            print("minIndex", minIndex, "maxIndex", maxIndex)
+            print(ph2max_idx)
+            
+            ph2max_idx += minIndex
+
+            i2 = maxIndex #ph2max_idx + 6
+            i1 = minIndex #ph2max_idx - 6
+
+            print("ELSE^^^^^^^^^^^^^^^^^^^^^")
+            print(dataOut.heightList[i1])
+            print(dataOut.heightList[i2])
+        '''
+        
 
         try:
             dataOut.heightList[i2]
         except:
             i2 -= 1
 
+        '''
+        if not dataOut.flagSpreadF:
+            i2=(420-dataOut.range1[0])/dataOut.DH
+        else:
+            i2=(620-dataOut.range1[0])/dataOut.DH
+            '''
+        #i1=(200 -dataOut.range1[0])/dataOut.DH
+        ##print(i1*dataOut.DH)
+        ##print(i2*dataOut.DH)
+
         i1=int(i1)
         i2=int(i2)
+        print("Bounds 1: ", dataOut.heightList[i1],dataOut.heightList[i2])
+        '''
+        print(dataOut.ph2)
+        import matplotlib.pyplot as plt
+        plt.plot(dataOut.ph2,dataOut.heightList)
+        plt.xlim(1.e5,1.e8)
+        plt.show()
+        '''
+        #print("Flag: ",dataOut.flagTeTiCorrection)
+        #print(dataOut.dphi[i1::])
+        #print(dataOut.ph2[:])
 
         if dataOut.flagTeTiCorrection:
             for i in range(dataOut.NSHTS):
                 dataOut.ph2[i]/=dataOut.cf
                 dataOut.sdp2[i]/=dataOut.cf
 
+        #'''
+        #if dataOut.flagSpreadF:
         if hasattr(dataOut, 'flagSpreadF') and dataOut.flagSpreadF:
+            print("flagSpreadF activated!!")
             i2=int((700-dataOut.range1[0])/dataOut.DH)
+            #print(dataOut.ph2)
+            #print(dataOut.heightList)
             nanindex = numpy.argwhere(numpy.isnan(dataOut.ph2))
+            #print("nanindex",nanindex)
             i1 = nanindex[-1][0] #VER CUANDO i1>i2
             if i1 != numpy.shape(dataOut.heightList)[0]:
                 i1 += 1+2 #Se suma uno para no tomar el nan, se suma 2 para no tomar datos nan de "phi" debido al calculo de la derivada
             if i1 >= i2:
                 i1 = i2-4
+        #print("i1, i2",i1,i2)
+        #print(dataOut.heightList)
+        #print("Bounds: ", dataOut.heightList[i1],dataOut.heightList[i2])
+        #print(dataOut.dphi[33])
+        #print(dataOut.ph2[33])
+        #print(dataOut.dphi[i1::])
+        #print(dataOut.ph2[i1::])
+        #'''
+        print("Bounds 2: ", dataOut.heightList[i1],dataOut.heightList[i2])
 
         try:
             dataOut.cf=self.normal(dataOut.dphi[i1::], dataOut.ph2[i1::], i2-i1, 1)
 
         except:
-            print("except")
+            print("except: chi factor not achieved in normalization")
             dataOut.cf = numpy.nan
+
+        #print("cf: ",dataOut.cf)
+        #print(dataOut.ph2)
+        #input()
+        #  in case of spread F, normalize much higher
+        #print("dens: ", dataOut.dphi,dataOut.ph2)
 
         night_first1= 300.0#350.0
         night_end= 450.0
@@ -2612,12 +2989,99 @@ class NormalizeDPPowerRoberto_V2(Operation):
             except:
                 pass
 
+        #print(dataOut.cf,dataOut.cflast[0])
+        
+
+        ### Manual cf correction ###
+        # To Do: Pasarlo a funcion aparte - usar una sola rutina para DP e Hybrid - local path
+
+        flagcfcorrection = True
+
+        time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime) # time in UTC
+        DOY = time_text.timetuple().tm_yday
+        print("Bounds 3: ", dataOut.heightList[i1], dataOut.heightList[i2])
+        print('time text', time_text, DOY)
+        if flagcfcorrection:
+            print("***Cleaning*** cflast: ", dataOut.cflast[0])
+            print("***Cleaning*** cf: ", dataOut.cf)
+            path = os.path.join(os.path.dirname(__file__), 'normalize_factor2.json')
+            with open(path) as f:
+                jsondata= json.load(f)
+
+            corrections = {}
+            for condition in jsondata['conditions']:
+                year = condition['year']
+                doy = condition['doy']
+                cf = condition['cf']
+                
+                for time_condition in condition['time']:
+                    hour = time_condition[0]
+                    minute = time_condition[1]
+                    corrections[(year, doy, hour, minute)] = cf
+            key = (time_text.year, DOY, time_text.hour, time_text.minute)
+
+            if key in corrections:
+                cf_value = corrections[key]
+                
+                if isinstance(cf_value, str) and "cflast" in cf_value:
+                    dataOut.cf = eval(cf_value)  #ast.literal_eval(cf_value) 
+                else:
+                    dataOut.cf = float(cf_value)
+                
+                print(f"Correction applied: {dataOut.cf}")
+            print("***Cleaning*** cf After: ", dataOut.cf)
+        
+        ###
+        import pandas as pd
+        localtime = dataOut.utctime - 5*3600
+        DOY = (datetime.datetime.utcfromtimestamp(localtime)).timetuple().tm_yday # DOY in UTC-5
+        YEAR = (datetime.datetime.utcfromtimestamp(localtime)).year # YEAR in UTC-5
+        path = os.path.join(os.path.dirname(__file__), f'cf{str(YEAR)}{str(DOY)}.csv')
+
+        if ~os.path.exists(path): flagcfcorrection = False; print("No cf path")
+
+        if flagcfcorrection:
+            df = pd.read_csv(path)
+            cf_time = df['timestamp'].to_numpy() 
+            cf_cf = df['cf'].to_numpy() 
+
+            dt_num = time_text   # Data time
+            dt_array = pd.to_datetime(cf_time, unit="s", utc=True) # File time
+
+            mask = (
+                (dt_array.year.to_numpy() == dt_num.year) &
+                (dt_array.dayofyear.to_numpy() == dt_num.timetuple().tm_yday) &
+                (dt_array.hour.to_numpy() == dt_num.hour) &
+                (dt_array.minute.to_numpy() == dt_num.minute)
+            )
+
+            indices = numpy.where(mask)[0]
+
+            print("CHECK" ,dataOut.utctime, time_text, indices)
+            print("CHECK2", cf_time)
+        # Change cf
+        try:
+            cf_index = indices[0]
+            print("cf changed")
+            dataOut.cf = cf_cf[cf_index]
+            print("***Cleaning*** cf After: ", dataOut.cf)
+        except:
+            print("not changed")
+        ###
+
+        # Update cf last
         dataOut.cflast[0]=dataOut.cf
+
+        #print(dataOut.ph2)
+        #print(dataOut.sdp2)
 
         ## normalize double pulse power and error bars to Faraday
         for i in range(dataOut.NSHTS):
             dataOut.ph2[i]*=dataOut.cf
             dataOut.sdp2[i]*=dataOut.cf
+        #print(dataOut.ph2)
+        #print(dataOut.sdp2)
+        #exit(1)
 
         for i in range(dataOut.NSHTS):
             dataOut.ph2[i]=(max(1.0, dataOut.ph2[i]))
@@ -2626,6 +3090,10 @@ class NormalizeDPPowerRoberto_V2(Operation):
     def run(self,dataOut):
 
         self.normalize(dataOut)
+        #print(dataOut.ph2)
+        #print(dataOut.sdp2)
+        #input()
+        #print("shape before" ,numpy.shape(dataOut.ph2))
 
         return dataOut
 
@@ -2829,6 +3297,9 @@ class DPTemperaturesEstimation(Operation):
                     else:
                         dataOut.info2[i]=0
 
+    def gaussian(self, x, a, b, c, d):
+            val = a * numpy.exp(-(x - b)**2 / (2*c**2)) + d
+            return val
     def run(self,dataOut,IBITS=16):
 
         dataOut.IBITS = IBITS
@@ -2874,8 +3345,8 @@ class DenCorrection(NormalizeDPPowerRoberto_V2):
 
         from scipy import signal
 
-        def func(params):
-            return (ratio2-self.gaussian(dataOut.heightList[:dataOut.NSHTS],params[0],params[1],params[2]))
+        #def func(params):
+        #    return (ratio2-self.gaussian(dataOut.heightList[:dataOut.NSHTS],params[0],params[1],params[2]))
 
         dataOut.info2[0] = 1
         for i in range(dataOut.NSHTS):
@@ -2932,6 +3403,32 @@ class DenCorrection(NormalizeDPPowerRoberto_V2):
                 self.TeTiEstimation(dataOut)
                 dataOut.flagTeTiCorrection = True
                 self.normalize(dataOut)
+        #'''
+        #Here save dataOut.cf
+        if savecf:
+            try:
+                import pandas as pd
+                if self.csv_flag:
+                    if not os.path.exists("./cf"):
+                        os.makedirs("./cf")
+                    self.doy_csv = datetime.datetime.fromtimestamp(dataOut.utctime).strftime('%j')
+                    self.year_csv = datetime.datetime.fromtimestamp(dataOut.utctime).strftime('%Y')
+                file = open("./cf/cf{0}{1}.csv".format(self.year_csv,self.doy_csv), "x")
+                f = csv.writer(file)
+                f.writerow(numpy.array(["timestamp", "time_string", 'cf']))  # Added time_string header
+                self.csv_flag = 0
+                print("Creating cf File")
+                print("Writing cf File")
+            except:
+                file = open("./cf/cf{0}{1}.csv".format(self.year_csv,self.doy_csv), "a")
+                f = csv.writer(file)
+                print("Writing cf File")
+            
+            # Create time string from timestamp
+            time_str = datetime.datetime.fromtimestamp(dataOut.utctime).strftime('%Y-%m-%d %H:%M:%S')
+            cf = numpy.array([dataOut.utctime, time_str, dataOut.cf])  # Added time string
+            f.writerow(cf)
+        #'''
 
         return dataOut
 
@@ -3312,6 +3809,72 @@ class DataSaveCleanerHP(Operation):
         dataOut.DensityFinal *= 1.e6 #Convert units to m^⁻3
         dataOut.EDensityFinal *= 1.e6 #Convert units to m^⁻3
 
+         ### Manual Data Cleaning
+        
+        time_text = datetime.datetime.utcfromtimestamp(dataOut.utctime)
+        DOY = time_text.timetuple().tm_yday
+        flagcleandata = True
+        if flagcleandata:
+            #print("Final Cleaning Process", time_text.hour, time_text.minute)
+            path = os.path.join(os.path.dirname(__file__), 'clean_data.json')
+            with open(path) as f:
+                jsondata= json.load(f)
+
+            corrections = {}
+            
+
+            for condition in jsondata['conditions']:
+                year = condition['year']
+                doy = condition['doy']
+                init = condition['initial_time']
+                final = condition['final_time']
+                aux_index = condition['aux_index']
+
+                only = condition.get('only')
+
+                input_time_obj = datetime.time(hour=time_text.hour, minute=time_text.minute)
+                init_time_obj = datetime.time(hour=init[0], minute=init[1])
+                final_time_obj = datetime.time(hour=final[0], minute=final[1])
+
+                is_between = init_time_obj <= input_time_obj < final_time_obj
+                
+                if (year != time_text.year) or (DOY != doy) or (is_between == False):
+                    #print("NON valid condition:", condition)
+                    continue
+                
+                print("valid condition:", condition)
+                indexi, indexf = aux_index[0], aux_index[1]
+                #index = slice(indexi, indexf)
+                #print(index, "index")
+                print(only)
+                if only == "te":
+                    print("entered only")
+
+                    dataOut.ElecTempFinal[0,indexi:indexf]=missing
+                    dataOut.EElecTempFinal[0,indexi:indexf]=missing
+                    dataOut.IonTempFinal[0,indexi:indexf]=missing
+                    dataOut.EIonTempFinal[0,indexi:indexf]=missing
+                    dataOut.PhyFinal[0,indexi:indexf]=missing
+                    dataOut.EPhyFinal[0,indexi:indexf]=missing
+                    dataOut.PheFinal[0,indexi:indexf]=missing
+                    dataOut.EPheFinal[0,indexi:indexf]=missing
+                else:
+                    dataOut.DensityFinal[0,indexi:indexf]=missing
+                    dataOut.EDensityFinal[0,indexi:indexf]=missing
+                    dataOut.ElecTempFinal[0,indexi:indexf]=missing
+                    dataOut.EElecTempFinal[0,indexi:indexf]=missing
+                    dataOut.IonTempFinal[0,indexi:indexf]=missing
+                    dataOut.EIonTempFinal[0,indexi:indexf]=missing
+                    dataOut.PhyFinal[0,indexi:indexf]=missing
+                    dataOut.EPhyFinal[0,indexi:indexf]=missing
+                    dataOut.PheFinal[0,indexi:indexf]=missing
+                    dataOut.EPheFinal[0,indexi:indexf]=missing
+                
+                print(f"** Cleaning applied ** Data eliminated at {time_text} from heigh index {indexi} to {indexf}")
+
+
+
+
         return dataOut
 
 
@@ -3638,7 +4201,7 @@ class CohInt(Operation):
     def integrateByBlock(self, dataOut):
 
         times = int(dataOut.data.shape[1]/self.n)
-        avgdata = numpy.zeros((dataOut.nChannels, times, dataOut.nHeights), dtype=complex)
+        avgdata = numpy.zeros((dataOut.nChannels, times, dataOut.nHeights), dtype=numpy.complex)
 
         id_min = 0
         id_max = self.n
@@ -6917,13 +7480,13 @@ class CrossProdHybrid(CrossProdDP):
 
                     n=dataOut.lagind[k%dataOut.NLAG] # 128=16x8
 
-                    ax=dataOut.data[0,k,dataOut.NRANGE+dataOut.NCAL+j+i*dataOut.NDT].real-dataOut.dc.real[0]
-                    ay=dataOut.data[0,k,dataOut.NRANGE+dataOut.NCAL+j+i*dataOut.NDT].imag-dataOut.dc.imag[0]
+                    ax=dataOut.data[0,k,dataOut.NRANGE+dataOut.NCAL+j+i*dataOut.NDT].real#-dataOut.dc.real[0]
+                    ay=dataOut.data[0,k,dataOut.NRANGE+dataOut.NCAL+j+i*dataOut.NDT].imag#-dataOut.dc.imag[0]
 
                     if dataOut.NRANGE+dataOut.NCAL+j+i*dataOut.NDT+2*n<dataOut.read_samples:
 
-                        bx=dataOut.data[1,k,dataOut.NRANGE+dataOut.NCAL+j+i*dataOut.NDT+2*n].real-dataOut.dc.real[1]
-                        by=dataOut.data[1,k,dataOut.NRANGE+dataOut.NCAL+j+i*dataOut.NDT+2*n].imag-dataOut.dc.imag[1]
+                        bx=dataOut.data[1,k,dataOut.NRANGE+dataOut.NCAL+j+i*dataOut.NDT+2*n].real#-dataOut.dc.real[1]
+                        by=dataOut.data[1,k,dataOut.NRANGE+dataOut.NCAL+j+i*dataOut.NDT+2*n].imag#-dataOut.dc.imag[1]
 
                     else:
 
@@ -6979,10 +7542,10 @@ class CrossProdHybrid(CrossProdDP):
 
             #self.dataOut.nptsfft2=150
             self.cnorm=float((dataOut.nProfiles-dataOut.NSCAN)/dataOut.NSCAN)
-            self.lagp0=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NAVG),'complex64')
-            self.lagp1=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NAVG),'complex64')
-            self.lagp2=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NAVG),'complex64')
-            self.lagp3=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NAVG),'complex64')
+            self.lagp0=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NAVG),'complex128')
+            self.lagp1=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NAVG),'complex128')
+            self.lagp2=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NAVG),'complex128')
+            self.lagp3=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NAVG),'complex128')
 
             #self.lagp4=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NAVG),'complex64')
             self.aux_cross_lp=0
@@ -6996,10 +7559,10 @@ class CrossProdHybrid(CrossProdDP):
 
                 range_for_n=numpy.min((dataOut.NRANGE-j,dataOut.NLAG))
 
-                buffer_aux=numpy.conj(buffer[i,:dataOut.nProfiles,j]-buffer_dc)
+                buffer_aux=numpy.conj(buffer[i,:dataOut.nProfiles,j])#-buffer_dc)
                 for n in range(range_for_n):
 
-                    c=(buffer_aux)*(buffer[i,:dataOut.nProfiles,j+n]-buffer_dc)
+                    c=(buffer_aux)*(buffer[i,:dataOut.nProfiles,j+n])#-buffer_dc)
 
                     if i==0:
                         self.lagp0[n][j][self.bcounter-1]=numpy.sum(c[:dataOut.NSCAN])
@@ -7015,61 +7578,102 @@ class CrossProdHybrid(CrossProdDP):
         self.lagp2[:,:,self.bcounter-1]=numpy.conj(self.lagp2[:,:,self.bcounter-1])
         self.lagp3[:,:,self.bcounter-1]=numpy.conj(self.lagp3[:,:,self.bcounter-1])
 
+    def LP_median_estimates_original(self,dataOut):
+
+        if self.bcounter==dataOut.NAVG:
+
+            if self.lag_products_LP_median_estimates_aux==1:
+                self.output=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NR),'complex128')
+                self.lag_products_LP_median_estimates_aux=0
+
+                #print("self,lagp0: ", numpy.sum(self.lagp0[0,0,:]))
+            for i in range(dataOut.NLAG):
+                for j in range(dataOut.NRANGE):
+                    for l in range(4): #four outputs
+                        for k in range(dataOut.NAVG):
+                            if k==0:
+                                self.output[i,j,l]=0.0+0.j
+                                if l==0:
+                                    self.lagp0[i,j,:]=sorted(self.lagp0[i,j,:], key=lambda x: x.real)  #sorted(self.lagp0[i,j,:].real)
+                                if l==1:
+                                    self.lagp1[i,j,:]=sorted(self.lagp1[i,j,:], key=lambda x: x.real)  #sorted(self.lagp1[i,j,:].real)
+                                if l==2:
+                                    self.lagp2[i,j,:]=sorted(self.lagp2[i,j,:], key=lambda x: x.real)  #sorted(self.lagp2[i,j,:].real)
+                                if l==3:
+                                    self.lagp3[i,j,:]=sorted(self.lagp3[i,j,:], key=lambda x: x.real)  #sorted(self.lagp3[i,j,:].real)
+                                #print(self.lagp0[2,100,1]);exit(1)
+                            if k>=dataOut.nkill/2 and k<dataOut.NAVG-dataOut.nkill/2:
+                                if l==0:
+                                    self.output[i,j,l]=self.output[i,j,l]+((float(dataOut.NAVG)/(float)(dataOut.NAVG-dataOut.nkill))*self.lagp0[i,j,k])
+                                if l==1:
+                                    self.output[i,j,l]=self.output[i,j,l]+((float(dataOut.NAVG)/(float)(dataOut.NAVG-dataOut.nkill))*self.lagp1[i,j,k])
+                                if l==2:
+                                    self.output[i,j,l]=self.output[i,j,l]+((float(dataOut.NAVG)/(float)(dataOut.NAVG-dataOut.nkill))*self.lagp2[i,j,k])
+                                if l==3:
+                                    self.output[i,j,l]=self.output[i,j,l]+((float(dataOut.NAVG)/(float)(dataOut.NAVG-dataOut.nkill))*self.lagp3[i,j,k])
+                                #if j== 30 and i==2 and l==0:
+                                    #print(self.output[2,30,0])
+            dataOut.output_LP=self.output
+            dataOut.data_for_RTI_LP=numpy.zeros((4,dataOut.NRANGE))
+            dataOut.data_for_RTI_LP[0],dataOut.data_for_RTI_LP[1],dataOut.data_for_RTI_LP[2],dataOut.data_for_RTI_LP[3]=self.RTI_LP(dataOut.output_LP,dataOut.NRANGE)
+            #print("output:",self.output[2,30,0])
+            #exit(1)
 
     def LP_median_estimates(self,dataOut):
 
         if self.bcounter==dataOut.NAVG:
 
             if self.lag_products_LP_median_estimates_aux==1:
-                self.output=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NR),'complex64')
+                self.output=numpy.zeros((dataOut.NLAG,dataOut.NRANGE,dataOut.NR),'complex128')
                 self.lag_products_LP_median_estimates_aux=0
-
+                #print("self,lagp0: ", numpy.sum(self.lagp0[0,0,:]))
 
             for i in range(dataOut.NLAG):
+            #my_list = ([0,1,2,3,4,5,6,7]) #hasta 7 funciona, en 6 ya no
+            #for i in my_list:
                 for j in range(dataOut.NRANGE):
                     for l in range(4): #four outputs
-
                         for k in range(dataOut.NAVG):
-
-
                             if k==0:
                                 self.output[i,j,l]=0.0+0.j
-
                                 if l==0:
                                     self.lagp0[i,j,:]=sorted(self.lagp0[i,j,:], key=lambda x: x.real)  #sorted(self.lagp0[i,j,:].real)
-
                                 if l==1:
                                     self.lagp1[i,j,:]=sorted(self.lagp1[i,j,:], key=lambda x: x.real)  #sorted(self.lagp1[i,j,:].real)
-
                                 if l==2:
                                     self.lagp2[i,j,:]=sorted(self.lagp2[i,j,:], key=lambda x: x.real)  #sorted(self.lagp2[i,j,:].real)
-
                                 if l==3:
                                     self.lagp3[i,j,:]=sorted(self.lagp3[i,j,:], key=lambda x: x.real)  #sorted(self.lagp3[i,j,:].real)
-
-
-
+                            '''
+                            x = 2
+                            if k>=x and k<dataOut.NAVG-dataOut.nkill/2:
+                                if l==0:
+                                    self.output[i,j,l]=self.output[i,j,l]+((float(dataOut.NAVG)/(float)(dataOut.NAVG-x-dataOut.nkill/2))*self.lagp0[i,j,k])
+                                if l==1:
+                                    self.output[i,j,l]=self.output[i,j,l]+((float(dataOut.NAVG)/(float)(dataOut.NAVG-x-dataOut.nkill/2))*self.lagp1[i,j,k])
+                                if l==2:
+                                    self.output[i,j,l]=self.output[i,j,l]+((float(dataOut.NAVG)/(float)(dataOut.NAVG-x-dataOut.nkill/2))*self.lagp2[i,j,k])
+                                if l==3:
+                                    self.output[i,j,l]=self.output[i,j,l]+((float(dataOut.NAVG)/(float)(dataOut.NAVG-x-dataOut.nkill/2))*self.lagp3[i,j,k])
+                                    '''
+                            #'''
                             if k>=dataOut.nkill/2 and k<dataOut.NAVG-dataOut.nkill/2:
                                 if l==0:
-
                                     self.output[i,j,l]=self.output[i,j,l]+((float(dataOut.NAVG)/(float)(dataOut.NAVG-dataOut.nkill))*self.lagp0[i,j,k])
                                 if l==1:
-                                    #print("lagp1: ",self.lagp1[0,0,:])
-                                    #input()
                                     self.output[i,j,l]=self.output[i,j,l]+((float(dataOut.NAVG)/(float)(dataOut.NAVG-dataOut.nkill))*self.lagp1[i,j,k])
-                                    #print("self.lagp1[i,j,k]: ",self.lagp1[i,j,k])
-                                    #input()
                                 if l==2:
                                     self.output[i,j,l]=self.output[i,j,l]+((float(dataOut.NAVG)/(float)(dataOut.NAVG-dataOut.nkill))*self.lagp2[i,j,k])
                                 if l==3:
-
                                     self.output[i,j,l]=self.output[i,j,l]+((float(dataOut.NAVG)/(float)(dataOut.NAVG-dataOut.nkill))*self.lagp3[i,j,k])
+                                    #'''
 
 
             dataOut.output_LP=self.output
             dataOut.data_for_RTI_LP=numpy.zeros((4,dataOut.NRANGE))
             dataOut.data_for_RTI_LP[0],dataOut.data_for_RTI_LP[1],dataOut.data_for_RTI_LP[2],dataOut.data_for_RTI_LP[3]=self.RTI_LP(dataOut.output_LP,dataOut.NRANGE)
 
+    
 
     def get_dc(self,dataOut):
 
@@ -7086,18 +7690,18 @@ class CrossProdHybrid(CrossProdDP):
 
         #print("dc:",dataOut.dc[0])
 
-    def get_dc_new(self,dataOut):
+    #def get_dc_new(self,dataOut):
 
-        if self.bcounter==0:
-            dataOut.dc_dp=numpy.zeros(dataOut.NR,dtype='complex64')
-            dataOut.dc_lp=numpy.zeros(dataOut.NR,dtype='complex64')
+        #if self.bcounter==0:
+        #    dataOut.dc_dp=numpy.zeros(dataOut.NR,dtype='complex64')
+        #    dataOut.dc_lp=numpy.zeros(dataOut.NR,dtype='complex64')
 
         #print(numpy.shape(dataOut.data))
         #input()
 
-        dataOut.dc+=numpy.sum(dataOut.data[:,:,2*dataOut.NLAG:dataOut.NRANGE],axis=(1,2))
+        #dataOut.dc+=numpy.sum(dataOut.data[:,:,2*dataOut.NLAG:dataOut.NRANGE],axis=(1,2))
 
-        dataOut.dc=dataOut.dc/float(dataOut.nProfiles*(dataOut.NRANGE-2*dataOut.NLAG))
+        #dataOut.dc=dataOut.dc/float(dataOut.nProfiles*(dataOut.NRANGE-2*dataOut.NLAG))
 
 
         #print("dc:",dataOut.dc[0])
@@ -7163,10 +7767,10 @@ class CrossProdHybrid(CrossProdDP):
                 #x02[i]=10.0*numpy.log10(x02[i])
         return x00,x01,x02,x03
 
-    def run(self, dataOut, NLAG=None, NRANGE=None, NCAL=None, DPL=None,
-        NDN=None, NDT=None, NDP=None, NSCAN=None,
-        lagind=None, lagfirst=None,
-        NAVG=None, nkill=None):
+    def run(self, dataOut, NLAG=16, NRANGE=200, NCAL=0, DPL=11,
+        NDN=0, NDT=67, NDP=67, NSCAN=128,
+        lagind=(0,1,2,3,4,5,6,7,0,3,4,5,6,8,9,10), lagfirst=(1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1),
+        NAVG=16, nkill=6):
 
         dataOut.NLAG=NLAG
         dataOut.NR=len(dataOut.channelList)
@@ -7993,7 +8597,11 @@ class LongPulseAnalysis(Operation):
         print("LP Estimation")
         with suppress_stdout_stderr():
             #pass
-            full_profile_profile.profile(numpy.transpose(dataOut.output_LP_integrated,(2,1,0)),numpy.transpose(dataOut.errors),self.powerb,dataOut.ne,dataOut.lags_LP,dataOut.thb,dataOut.bfm,dataOut.te,dataOut.ete,dataOut.ti,dataOut.eti,dataOut.ph,dataOut.eph,dataOut.phe,dataOut.ephe,dataOut.range1,dataOut.ut,dataOut.NACF,dataOut.fit_array_real,dataOut.status,dataOut.NRANGE,dataOut.IBITS)
+            full_profile_profile.profile(numpy.transpose(dataOut.output_LP_integrated,(2,1,0)),
+                                        numpy.transpose(dataOut.errors),self.powerb,dataOut.ne,dataOut.lags_LP,dataOut.thb,
+                                        dataOut.bfm,dataOut.te,dataOut.ete,dataOut.ti,dataOut.eti,dataOut.ph,dataOut.eph,
+                                        dataOut.phe,dataOut.ephe,dataOut.range1,dataOut.ut,dataOut.NACF,dataOut.fit_array_real,
+                                        dataOut.status,dataOut.NRANGE,dataOut.IBITS)
 
         print("status: ",dataOut.status)
 

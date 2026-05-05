@@ -196,7 +196,7 @@ def isFileInTimeRange(filename, startDate, endDate, startTime, endTime):
 
     # If endTime < startTime then endTime belongs to the next day
 
-    # <<<<<<<<<<<o                            o>>>>>>>>>>>
+    #<<<<<<<<<<<o                            o>>>>>>>>>>>
     #-----------o----------------------------o-----------
     #        endTime                    startTime
 
@@ -422,8 +422,8 @@ def parse_format(s, fmt):
 
     for i in range(fmt.count('%')):
         x = fmt.index('%')
-        d = DT_DIRECTIVES[fmt[x:x + 2]]
-        fmt = fmt.replace(fmt[x:x + 2], s[x:x + d])
+        d = DT_DIRECTIVES[fmt[x:x+2]]
+        fmt = fmt.replace(fmt[x:x+2], s[x:x+d])
     return fmt
 
 class Reader(object):
@@ -484,7 +484,6 @@ class Reader(object):
     folderfmt = None
     open_file = open
     open_mode = 'rb'
-    filter =None
 
     def run(self):
 
@@ -523,13 +522,10 @@ class Reader(object):
         return
 
     def find_files(self, folders, ext, filefmt, startDate=None, endDate=None,
-                   expLabel='', filter=None,last=False):
-
+                   expLabel='', last=False):
         for path in folders:
             files = glob.glob1(path+'/'+expLabel, '*{}'.format(ext))
             files.sort()
-            if filter is not None:
-                files= [ file for file in files if  os.path.splitext(file)[0][-len(filter):] == filter]
             if last:
                 if files:
                     fo = files[-1]
@@ -561,7 +557,7 @@ class Reader(object):
 
     def searchFilesOffLine(self, path, startDate, endDate,
                            expLabel, ext, walk,
-                           filefmt, folderfmt,filter):
+                           filefmt, folderfmt):
         """Search files in offline mode for the given arguments
 
         Return:
@@ -571,15 +567,16 @@ class Reader(object):
         if walk:
             folders = self.find_folders(
                 path, startDate, endDate, folderfmt)
+            #print("folders: ", folders)
         else:
             folders = path.split(',')
 
         return self.find_files(
-            folders, ext, filefmt, startDate, endDate, expLabel,filter)
+            folders, ext, filefmt, startDate, endDate, expLabel)
 
     def searchFilesOnLine(self, path, startDate, endDate,
                           expLabel, ext, walk,
-                          filefmt, folderfmt,filter):
+                          filefmt, folderfmt):
         """Search for the last file of the last folder
 
         Arguments:
@@ -599,7 +596,7 @@ class Reader(object):
             folders = path.split(',')
 
         return self.find_files(
-            folders, ext, filefmt, startDate, endDate, expLabel, filter,last=True)
+            folders, ext, filefmt, startDate, endDate, expLabel, last=True)
 
     def setNextFile(self):
         """Set the next file to be readed open it and parse de file header"""
@@ -660,7 +657,7 @@ class Reader(object):
         nextFile = True
         nextDay = False
 
-        for nFiles in range(self.nFiles + 1):            
+        for nFiles in range(self.nFiles+1):
             for nTries in range(self.nTries):
                 fullfilename, filename = self.checkForRealPath(nextFile, nextDay)
                 if fullfilename is not None:
@@ -675,7 +672,7 @@ class Reader(object):
             if fullfilename is not None:
                 break
 
-            self.nTries = 1
+            #self.nTries = 1
             nextFile = True
 
             if nFiles == (self.nFiles - 1):
@@ -703,7 +700,7 @@ class Reader(object):
 
         try:
             filename = next(self.filenameList)
-            self.fileIndex += 1
+            self.fileIndex +=1
         except StopIteration:
             self.flagNoMoreFiles = 1
             return 0
@@ -711,10 +708,7 @@ class Reader(object):
         #print(filename)
         self.filename = filename
         self.fileSize = os.path.getsize(filename)
-        try:
-            self.fp = self.open_file(filename, self.open_mode)
-        except Exception as e:
-            raise schainpy.admin.SchainError("[Reading] Error in {} file, unable to open".format(filename))
+        self.fp = self.open_file(filename, self.open_mode)
         self.flagIsNewFile = 1
 
         return 1
@@ -722,25 +716,11 @@ class Reader(object):
     @staticmethod
     def isDateTimeInRange(dt, startDate, endDate, startTime, endTime):
         """Check if the given datetime is in range"""
-        startDateTime= datetime.datetime.combine(startDate,startTime)
-        endDateTime = datetime.datetime.combine(endDate,endTime)
 
-        OneDay=False
-        if OneDay:
-            
-            if startDate <= dt.date() <= endDate:
-                if startTime <= dt.time() <= endTime:
-                    return True
-            if startDateTime <= dt <= endDateTime:
+        if startDate <= dt.date() <= endDate:
+            if startTime <= dt.time() <= endTime:
                 return True
-            return False
-        else:
-            if datetime.datetime.combine(startDate, startTime) <= datetime.datetime.combine(dt.date(), dt.time()) <= datetime.datetime.combine(endDate, endTime):
-                return True
-            
-
-
-            return False
+        return False
 
     def verifyFile(self, filename):
         """Check for a valid file
@@ -756,41 +736,8 @@ class Reader(object):
 
     def checkForRealPath(self, nextFile, nextDay):
         """Check if the next file to be readed exists"""
-        if nextFile:
-            self.set += 1
-        if nextDay:
-            self.set = 0
-            self.doy += 1
-        foldercounter = 0
-        prefixDirList = [None, 'd', 'D']
-        if self.ext.lower() == ".r":  # voltage
-            prefixFileList = ['d', 'D']
-        elif self.ext.lower() == ".pdata":  # spectra
-            prefixFileList = ['p', 'P']
-        elif self.ext.lower() == ".hdf5":  # HDF5
-            prefixFileList = ['D', 'P']    # HDF5
 
-        # barrido por las combinaciones posibles
-        for prefixDir in prefixDirList:
-            thispath = self.path
-            if prefixDir != None:
-                # formo el nombre del directorio xYYYYDDD (x=d o x=D)
-                if foldercounter == 0:
-                    thispath = os.path.join(self.path, "%s%04d%03d" %
-                                            (prefixDir, self.year, self.doy))
-                else:
-                    thispath = os.path.join(self.path, "%s%04d%03d_%02d" % (
-                        prefixDir, self.year, self.doy, foldercounter))
-            for prefixFile in prefixFileList:  # barrido por las dos combinaciones posibles de "D"
-                # formo el nombre del file xYYYYDDDSSS.ext
-                filename = "%s%04d%03d%03d%s" % (prefixFile, self.year, self.doy, self.set, self.ext)
-                fullfilename = os.path.join(
-                    thispath, filename)
-
-                if os.path.exists(fullfilename):
-                    return fullfilename, filename
-
-        return None, filename
+        raise NotImplementedError
 
     def readFirstHeader(self):
         """Parse the file header"""
@@ -893,7 +840,7 @@ class JRODataReader(Reader):
             if prefixDir != None:
                 # formo el nombre del directorio xYYYYDDD (x=d o x=D)
                 if foldercounter == 0:
-                    thispath = os.path.join(self.path, "%s%04d%03d" % 
+                    thispath = os.path.join(self.path, "%s%04d%03d" %
                                             (prefixDir, self.year, self.doy))
                 else:
                     thispath = os.path.join(self.path, "%s%04d%03d_%02d" % (
@@ -983,7 +930,6 @@ class JRODataReader(Reader):
         self.lastUTTime = self.basicHeaderObj.utc
 
         self.flagDiscontinuousBlock = 0
-
         if deltaTime > self.maxTimeStep:
             self.flagDiscontinuousBlock = 1
 
@@ -1026,7 +972,7 @@ class JRODataReader(Reader):
         self.processingHeaderObj.read(self.fp)
         self.firstHeaderSize = self.basicHeaderObj.size
 
-        datatype = int(numpy.log2((self.processingHeaderObj.processFlags & 
+        datatype = int(numpy.log2((self.processingHeaderObj.processFlags &
                                    PROCFLAG.DATATYPE_MASK)) - numpy.log2(PROCFLAG.DATATYPE_CHAR))
         if datatype == 0:
             datatype_str = numpy.dtype([('real', '<i1'), ('imag', '<i1')])
@@ -1044,7 +990,7 @@ class JRODataReader(Reader):
             raise ValueError('Data type was not defined')
 
         self.dtype = datatype_str
-        # self.ippSeconds = 2 * 1000 * self.radarControllerHeaderObj.ipp / self.c
+        #self.ippSeconds = 2 * 1000 * self.radarControllerHeaderObj.ipp / self.c
         self.fileSizeByHeader = self.processingHeaderObj.dataBlocksPerFile * self.processingHeaderObj.blockSize + \
             self.firstHeaderSize + self.basicHeaderSize * \
             (self.processingHeaderObj.dataBlocksPerFile - 1)
@@ -1080,8 +1026,8 @@ class JRODataReader(Reader):
             flag = False
         if not self.online:
             dt1 = basicHeaderObj.datatime
-            pos = self.fileSize - processingHeaderObj.blockSize - 24
-            if pos < 0:
+            pos = self.fileSize-processingHeaderObj.blockSize-24
+            if pos<0:
                 flag = False
                 log.error('Invalid size for file: {}'.format(self.filename), self.name)
             else:
@@ -1212,7 +1158,7 @@ class JRODataReader(Reader):
                 address = 'ipc:///tmp/%s' % self.server
             self.server = address
             self.context = zmq.Context()
-            self.receiver = self.context.socket(zmq.PULL)
+            self.receiver = self.context.socket(zmq.SUB)
             self.receiver.connect(self.server)
             self.receiver.setsockopt(zmq.SUBSCRIBE, str.encode(str(self.topic)))
             time.sleep(0.5)
@@ -1228,7 +1174,7 @@ class JRODataReader(Reader):
                 for nTries in range(self.nTries):
                     fullpath = self.searchFilesOnLine(self.path, self.startDate,
                         self.endDate, self.expLabel, self.ext, self.walk,
-                        self.filefmt, self.folderfmt, self.filter)
+                        self.filefmt, self.folderfmt)
 
                     try:
                         fullpath = next(fullpath)
@@ -1255,7 +1201,7 @@ class JRODataReader(Reader):
             else:
                 log.log("Searching files in {}".format(self.path), self.name)
                 self.filenameList = self.searchFilesOffLine(self.path, self.startDate,
-                    self.endDate, self.expLabel, self.ext, self.walk, self.filefmt, self.folderfmt, self.filter)
+                    self.endDate, self.expLabel, self.ext, self.walk, self.filefmt, self.folderfmt)
 
             self.setNextFile()
 
@@ -1346,7 +1292,7 @@ class JRODataReader(Reader):
             try:
                 self.getFromServer()
             except Exception as e:
-                log.warning('Invalid block...')                
+                log.warning('Invalid block...')
                 self.dataOut.flagNoData = True
 
 
@@ -1531,9 +1477,6 @@ class JRODataWriter(Reader):
         if self.fp != None:
             self.fp.close()
 
-        if not os.path.exists(path):
-            os.mkdir(path)
-
         timeTuple = time.localtime(self.dataOut.utctime)
         subfolder = 'd%4.4d%3.3d' % (timeTuple.tm_year, timeTuple.tm_yday)
 
@@ -1541,7 +1484,7 @@ class JRODataWriter(Reader):
         setFile = self.setFile
 
         if not(os.path.exists(fullpath)):
-            os.mkdir(fullpath)
+            os.makedirs(fullpath)
             setFile = -1  # inicializo mi contador de seteo
         else:
             filesList = os.listdir(fullpath)
@@ -1583,7 +1526,7 @@ class JRODataWriter(Reader):
         self.setFirstHeader()
 
         print('[Writing] Opening file: %s' % self.filename)
-
+ 
         self.__writeFirstHeader()
 
         return 1
@@ -1638,7 +1581,8 @@ class JRODataWriter(Reader):
 
         return 1
 
-    def run(self, dataOut, path, blocksPerFile=100, profilesPerBlock=64, set=None, ext=None, datatype=4, **kwargs):
+    def run(self, dataOut, path, blocksPerFile=100, profilesPerBlock=64, set=None, ext=None, datatype=4, flagManualHeader = False,**kwargs):
+        self.flagManualHeader = flagManualHeader
 
         if not(self.isConfig):
 
@@ -1658,7 +1602,7 @@ class printInfo(Operation):
         Operation.__init__(self)
         self.__printInfo = True
 
-    def run(self, dataOut, headers=['systemHeaderObj', 'radarControllerHeaderObj', 'processingHeaderObj']):
+    def run(self, dataOut, headers = ['systemHeaderObj', 'radarControllerHeaderObj', 'processingHeaderObj']):
         if self.__printInfo == False:
             return
 

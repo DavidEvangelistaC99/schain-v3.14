@@ -4,6 +4,7 @@ import time
 import math
 import datetime
 import numpy
+
 from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecorator  #YONG
 
 from .jroplot_spectra import RTIPlot, NoisePlot
@@ -17,7 +18,6 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from matplotlib.ticker import MultipleLocator, LogLocator, NullFormatter
 
-
 class RTIDPPlot(RTIPlot):
     '''
     Written by R. Flores
@@ -26,23 +26,22 @@ class RTIDPPlot(RTIPlot):
     '''
 
     CODE = 'RTIDP'
-    colormap = 'jro'
+    colormap = 'jet'
     plot_name = 'RTI'
+    plot_type = 'pcolorbuffer'
 
     def setup(self):
         self.xaxis = 'time'
         self.ncols = 1
         self.nrows = 3
         self.nplots = self.nrows
-        #self.height=10
-        if self.showSNR:
-            self.nrows += 1
-            self.nplots += 1
 
-        self.ylabel = 'Height [km]'
+        self.ylabel = 'Range [km]'
         self.xlabel = 'Time (LT)'
 
         self.cb_label = 'Intensity (dB)'
+
+        self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.1, 'right':0.95})
 
         self.titles = ['{} Channel {}'.format(
             self.plot_name.upper(), '0x1'),'{} Channel {}'.format(
@@ -53,16 +52,17 @@ class RTIDPPlot(RTIPlot):
 
         data = {}
         meta = {}
-        data[self.CODE] = dataOut.data_for_RTI_DP
-        data['NRANGE'] = dataOut.NDP
+        data['rti'] = dataOut.data_for_RTI_DP
+        data['NDP'] = dataOut.NDP
 
         return data, meta
 
     def plot(self):
 
+        NDP = self.data['NDP'][-1]
         self.x = self.data.times
-        self.y = self.data.yrange[0: self.data['NRANGE']]
-        self.z = self.data[self.CODE]
+        self.y = self.data.yrange[0:NDP]
+        self.z = self.data['rti']
         self.z = numpy.ma.masked_invalid(self.z)
 
         if self.decimation is None:
@@ -82,24 +82,23 @@ class RTIDPPlot(RTIPlot):
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
 
-                ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
+                ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
-                                       cmap=self.cmaps[n]
+                                       cmap=plt.get_cmap(self.colormap)
                                        )
             else:
-                if self.zlimits is not None:
-                    self.zmin, self.zmax = self.zlimits[n]
+                #if self.zlimits is not None:
+                    #self.zmin, self.zmax = self.zlimits[n]
                 ax.plt.remove()
-                ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
+                ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
-                                       cmap=self.cmaps[n]
+                                       cmap=plt.get_cmap(self.colormap)
                                        )
 
 
 class RTILPPlot(RTIPlot):
-
     '''
     Written by R. Flores
     '''
@@ -108,22 +107,23 @@ class RTILPPlot(RTIPlot):
     '''
 
     CODE = 'RTILP'
-    colormap = 'jro'
+    colormap = 'jet'
     plot_name = 'RTI LP'
+    plot_type = 'pcolorbuffer'
 
     def setup(self):
         self.xaxis = 'time'
         self.ncols = 1
         self.nrows = 2
         self.nplots = self.nrows
-        if self.showSNR:
-            self.nrows += 1
-            self.nplots += 1
 
-        self.ylabel = 'Height [km]'
+        self.ylabel = 'Range [km]'
         self.xlabel = 'Time (LT)'
 
         self.cb_label = 'Intensity (dB)'
+
+        self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.1, 'right':0.95})
+
 
         self.titles = ['{} Channel {}'.format(
             self.plot_name.upper(), '0'),'{} Channel {}'.format(
@@ -140,6 +140,7 @@ class RTILPPlot(RTIPlot):
         data['NRANGE'] = dataOut.NRANGE
 
         return data, meta
+
     def plot(self):
 
         NRANGE = self.data['NRANGE'][-1]
@@ -168,23 +169,111 @@ class RTILPPlot(RTIPlot):
                     self.zmin, self.zmax = self.zlimits[n]
 
 
-                ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
+                ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
-                                       cmap=self.cmaps[n]
+                                       cmap=plt.get_cmap(self.colormap)
                                        )
-                #plt.tight_layout()
+
             else:
                 if self.zlimits is not None:
                     self.zmin, self.zmax = self.zlimits[n]
                 ax.plt.remove()
-                ax.plt = ax.pcolormesh(x, y, z[n].T * self.factors[n],
+                ax.plt = ax.pcolormesh(x, y, z[n].T,
                                        vmin=self.zmin,
                                        vmax=self.zmax,
-                                       cmap=self.cmaps[n]
+                                       cmap=plt.get_cmap(self.colormap)
                                        )
-                #plt.tight_layout()
 
+class SatRTILPPlot(RTIPlot):
+    '''
+    Written by C. Portilla
+    '''
+    '''
+       Plot for RTI Long Pulse Using Cross Products Analysis
+    '''
+
+    CODE = 'RTILP'
+    colormap = 'Reds'
+    plot_name = 'RTI LP'
+    plot_type = 'pcolorbuffer'
+
+    def setup(self):
+        self.xaxis = 'time'
+        self.ncols = 1
+        self.nrows = 2
+        self.nplots = self.nrows
+
+        self.ylabel = 'Range [km]'
+        self.xlabel = 'Time (LT)'
+
+        self.cb_label = 'Intensity (dB)'
+
+        self.plots_adjust.update({'hspace':0.8, 'left': 0.1, 'bottom': 0.1, 'right':0.95})
+
+
+        self.titles = ['{} Channel {}'.format(
+            self.plot_name.upper(), '0'),'{} Channel {}'.format(
+                self.plot_name.upper(), '1'),'{} Channel {}'.format(
+                    self.plot_name.upper(), '2'),'{} Channel {}'.format(
+                        self.plot_name.upper(), '3')]
+
+
+    def update(self, dataOut):
+
+        data = {}
+        meta = {}
+        data['rti'] = dataOut.sat_indices
+        data['NRANGE'] = dataOut.NRANGE
+        #print("dataOut.sat_indices", dataOut.sat_indices)
+
+        return data, meta
+
+    def plot(self):
+
+        NRANGE = self.data['NRANGE'][-1]
+        self.x = self.data.times
+        self.y = self.data.yrange[0:NRANGE]
+
+        self.z = self.data['rti']
+        z = self.z
+        x = self.x
+        y = self.y
+        '''self.z = numpy.ma.masked_invalid(self.z)
+
+        if self.decimation is None:
+            x, y, z = self.fill_gaps(self.x, self.y, self.z)
+        else:
+            x, y, z = self.fill_gaps(*self.decimate())'''
+
+        for n, ax in enumerate(self.axes):
+
+            '''self.zmax = self.zmax if self.zmax is not None else numpy.max(
+                self.z[1][0,12:40])
+            self.zmin = self.zmin if self.zmin is not None else numpy.min(
+                self.z[1][0,12:40])'''
+
+            if ax.firsttime:
+
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
+
+                print("LOL",z[n].T)
+                ax.plt = ax.pcolormesh(x, y, z[n].T,
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
+                                       cmap=plt.get_cmap(self.colormap)
+                                       )
+
+            else:
+                if self.zlimits is not None:
+                    self.zmin, self.zmax = self.zlimits[n]
+                ax.plt.remove()
+                ax.plt = ax.pcolormesh(x, y, z[n].T,
+                                       vmin=self.zmin,
+                                       vmax=self.zmax,
+                                       cmap=plt.get_cmap(self.colormap)
+                                       )
 
 class DenRTIPlot(RTIPlot):
     '''
@@ -501,9 +590,6 @@ class TempsHPPlot(Plot):
     plot_type = 'scatterbuffer'
 
 
-    plot_operation = 'thp'
-
-
     def setup(self):
 
         self.ncols = 1
@@ -549,7 +635,7 @@ class TempsHPPlot(Plot):
         if ax.firsttime:
 
             ax.errorbar(Te, self.y, xerr=errTe, fmt='r^',elinewidth=1.0,color='r',linewidth=2.0, label='Te')
-            ax.errorbar(Ti, self.y, fmt='k^', xerr=errTi,elinewidth=1.0,color='k',linewidth=2.0, label='Ti')
+            ax.errorbar(Ti, self.y, fmt='k^', xerr=errTi,elinewidth=1.0,color='',linewidth=2.0, label='Ti')
             plt.legend(loc='lower right')
             self.ystep_given = 200
             ax.yaxis.set_minor_locator(MultipleLocator(15))
@@ -575,8 +661,6 @@ class FracsHPPlot(Plot):
     CODE = 'fracs_LP'
     plot_type = 'scatterbuffer'
 
-
-    plot_operation = 'fracs_hpp'
 
     def setup(self):
 
@@ -935,9 +1019,6 @@ class EDensityHPPlot(EDensityPlot):
     plot_name = 'Electron Density'
     plot_type = 'scatterbuffer'
 
-    ## condition 
-    plot_operation = 'edhpp'
-
     def update(self, dataOut):
         data = {}
         meta = {}
@@ -965,8 +1046,6 @@ class ACFsPlot(Plot):
     CODE = 'acfs'
     #plot_name = 'ACF'
     plot_type = 'scatterbuffer'
-
-    plot_operation = 'acfs'
 
 
     def setup(self):
@@ -1070,8 +1149,6 @@ class ACFsLPPlot(Plot):
     CODE = 'acfs_LP'
     #plot_name = 'ACF'
     plot_type = 'scatterbuffer'
-
-    plot_operation = 'acfs_lpp'
 
 
     def setup(self):
@@ -1185,10 +1262,12 @@ class CrossProductsPlot(Plot):
         self.nrows = 1
         self.nplots = 3
         self.ylabel = 'Range [km]'
+        self.titles = []
         self.width = 3.5*self.nplots
         self.height = 5.5
         self.colorbar = False
-        self.titles = []
+        self.plots_adjust.update({'wspace':.3, 'left': 0.12, 'right': 0.92, 'bottom': 0.1})
+
 
     def update(self, dataOut):
 
@@ -1202,13 +1281,14 @@ class CrossProductsPlot(Plot):
 
     def plot(self):
 
-        self.x = self.data['crossprod'][:,-1,:,:,:,:]
-        self.y = self.data.heights[0:self.data['NDP']]
+        NDP = self.data['NDP'][-1]
+        x = self.data['crossprod'][:,-1,:,:,:,:]
+        y = self.data.yrange[0:NDP]
 
         for n, ax in enumerate(self.axes):
 
-            self.xmin=numpy.min(numpy.concatenate((self.x[n][0,20:30,0,0],self.x[n][1,20:30,0,0],self.x[n][2,20:30,0,0],self.x[n][3,20:30,0,0])))
-            self.xmax=numpy.max(numpy.concatenate((self.x[n][0,20:30,0,0],self.x[n][1,20:30,0,0],self.x[n][2,20:30,0,0],self.x[n][3,20:30,0,0])))
+            self.xmin=numpy.min(numpy.concatenate((x[n][0,20:30,0,0],x[n][1,20:30,0,0],x[n][2,20:30,0,0],x[n][3,20:30,0,0])))
+            self.xmax=numpy.max(numpy.concatenate((x[n][0,20:30,0,0],x[n][1,20:30,0,0],x[n][2,20:30,0,0],x[n][3,20:30,0,0])))
 
             if ax.firsttime:
 
@@ -1232,10 +1312,10 @@ class CrossProductsPlot(Plot):
                     label4='kaxby'
                     self.xlimits.append((self.xmin,self.xmax))
 
-                ax.plotline1 = ax.plot(self.x[n][0,:,0,0], self.y, color='r',linewidth=2.0, label=label1)
-                ax.plotline2 = ax.plot(self.x[n][1,:,0,0], self.y, color='k',linewidth=2.0, label=label2)
-                ax.plotline3 = ax.plot(self.x[n][2,:,0,0], self.y, color='b',linewidth=2.0, label=label3)
-                ax.plotline4 = ax.plot(self.x[n][3,:,0,0], self.y, color='m',linewidth=2.0, label=label4)
+                ax.plotline1 = ax.plot(x[n][0,:,0,0], y, color='r',linewidth=2.0, label=label1)
+                ax.plotline2 = ax.plot(x[n][1,:,0,0], y, color='k',linewidth=2.0, label=label2)
+                ax.plotline3 = ax.plot(x[n][2,:,0,0], y, color='b',linewidth=2.0, label=label3)
+                ax.plotline4 = ax.plot(x[n][3,:,0,0], y, color='m',linewidth=2.0, label=label4)
                 ax.legend(loc='upper right')
                 ax.set_xlim(self.xmin, self.xmax)
                 self.titles.append('{}'.format(self.plot_name.upper()))
@@ -1249,10 +1329,10 @@ class CrossProductsPlot(Plot):
 
                 ax.set_xlim(self.xmin, self.xmax)
 
-                ax.plotline1[0].set_data(self.x[n][0,:,0,0],self.y)
-                ax.plotline2[0].set_data(self.x[n][1,:,0,0],self.y)
-                ax.plotline3[0].set_data(self.x[n][2,:,0,0],self.y)
-                ax.plotline4[0].set_data(self.x[n][3,:,0,0],self.y)
+                ax.plotline1[0].set_data(x[n][0,:,0,0],y)
+                ax.plotline2[0].set_data(x[n][1,:,0,0],y)
+                ax.plotline3[0].set_data(x[n][2,:,0,0],y)
+                ax.plotline4[0].set_data(x[n][3,:,0,0],y)
                 self.titles.append('{}'.format(self.plot_name.upper()))
 
 

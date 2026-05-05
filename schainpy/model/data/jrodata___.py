@@ -17,9 +17,8 @@ import json
 
 import schainpy.admin
 from schainpy.utils import log
-from .jroheaderIO import SystemHeader, RadarControllerHeader, ProcessingHeader
+from .jroheaderIO import SystemHeader, RadarControllerHeader
 from schainpy.model.data import _noise
-SPEED_OF_LIGHT = 3e8
 
 
 def getNumpyDtype(dataTypeCode):
@@ -77,9 +76,10 @@ def hildebrand_sekhon(data, navg):
     """
 
     sortdata = numpy.sort(data, axis=None)
+    sortdata = sortdata[~numpy.isnan(sortdata)]
     #print(numpy.shape(data))
     #exit()
-    '''
+    
     lenOfData = len(sortdata)
     nums_min = lenOfData*0.2
 
@@ -109,8 +109,10 @@ def hildebrand_sekhon(data, navg):
         j += 1
 
     lnoise = sump / j
-    '''
-    return _noise.hildebrand_sekhon(sortdata, navg)
+    
+    return lnoise
+    
+    #return _noise.hildebrand_sekhon(sortdata, navg)
 
 
 class Beam:
@@ -194,27 +196,7 @@ class JROData(GenericData):
     error = None
     data = None
     nmodes = None
-    h0 = 0
     metadata_list = ['heightList', 'timeZone', 'type']
-
-    ## AMISR merge
-    ippFactor = 1 #Added to correct the freq and vel range for AMISR data
-    useInputBuffer = False
-    buffer_empty = True
-    codeList = []
-    azimuthList = []
-    elevationList = []
-    last_noise = None
-    __ipp = None
-    __ippSeconds = None
-    sampled_heightsFFT = None
-    pulseLength_TxA = None
-    deltaHeight = None
-    __code = None
-    __nCode = None
-    __nBaud = None
-    unitsDescription = "The units of the parameters are according to the International System of units (Seconds, Meter, Hertz, ...), except \
-the parameters related to distances such as heightList, or heightResolution wich are in Km"
 
     def __str__(self):
 
@@ -274,7 +256,7 @@ the parameters related to distances such as heightList, or heightResolution wich
 
     def getFmaxTimeResponse(self):
 
-        period = (10 ** -6) * self.getDeltaH() / (0.15)
+        period = (10**-6) * self.getDeltaH() / (0.15)
 
         PRF = 1. / (period * self.nCohInt)
 
@@ -284,7 +266,7 @@ the parameters related to distances such as heightList, or heightResolution wich
 
     def getFmax(self):
         PRF = 1. / (self.ippSeconds * self.nCohInt)
-
+        #print("ippsec",self.ippSeconds)
         fmax = PRF
         return fmax
 
@@ -307,8 +289,6 @@ the parameters related to distances such as heightList, or heightResolution wich
         '''
         '''
         self.radarControllerHeaderObj.ippSeconds = ippSeconds
-        self.__ippSeconds = ippSeconds
-        self.__ipp = ippSeconds*SPEED_OF_LIGHT/2000.0
 
     @property
     def code(self):
@@ -321,7 +301,6 @@ the parameters related to distances such as heightList, or heightResolution wich
         '''
         '''
         self.radarControllerHeaderObj.code = code
-        self.__code = code
 
     @property
     def nCode(self):
@@ -334,7 +313,6 @@ the parameters related to distances such as heightList, or heightResolution wich
         '''
         '''
         self.radarControllerHeaderObj.nCode = ncode
-        self.__nCode = ncode
 
     @property
     def nBaud(self):
@@ -347,7 +325,6 @@ the parameters related to distances such as heightList, or heightResolution wich
         '''
         '''
         self.radarControllerHeaderObj.nBaud = nbaud
-        self.__nBaud = nbaud
 
     @property
     def ipp(self):
@@ -360,7 +337,6 @@ the parameters related to distances such as heightList, or heightResolution wich
         '''
         '''
         self.radarControllerHeaderObj.ipp = ipp
-        self.__ipp = ipp
 
     @property
     def metadata(self):
@@ -372,15 +348,10 @@ the parameters related to distances such as heightList, or heightResolution wich
 
 class Voltage(JROData):
 
-    dataPP_POW = None
-    dataPP_DOP = None
+    dataPP_POW   = None
+    dataPP_DOP   = None
     dataPP_WIDTH = None
-    dataPP_SNR = None
-
-    # To use oper
-    flagProfilesByRange = False
-    nProfilesByRange = None
-    max_nIncohInt = 1
+    dataPP_SNR   = None
 
     def __init__(self):
         '''
@@ -390,7 +361,6 @@ class Voltage(JROData):
         self.useLocalTime = True
         self.radarControllerHeaderObj = RadarControllerHeader()
         self.systemHeaderObj = SystemHeader()
-        self.processingHeaderObj = ProcessingHeader()
         self.type = "Voltage"
         self.data = None
         self.nProfiles = None
@@ -410,11 +380,10 @@ class Voltage(JROData):
         self.flagShiftFFT = False
         self.flagDataAsBlock = False  # Asumo que la data es leida perfil a perfil
         self.profileIndex = 0
-        self.ippFactor=1
         self.metadata_list = ['type', 'heightList', 'timeZone', 'nProfiles', 'channelList', 'nCohInt',
             'code', 'nCode', 'nBaud', 'ippSeconds', 'ipp']
 
-    def getNoisebyHildebrand(self, channel=None, ymin_index=None, ymax_index=None):
+    def getNoisebyHildebrand(self, channel=None, Profmin_index=None, Profmax_index=None):
         """
         Determino el nivel de ruido usando el metodo Hildebrand-Sekhon
 
@@ -423,10 +392,10 @@ class Voltage(JROData):
         """
 
         if channel != None:
-            data = self.data[channel,ymin_index:ymax_index]
+            data = self.data[channel]
             nChannels = 1
         else:
-            data = self.data[:,ymin_index:ymax_index]
+            data = self.data
             nChannels = self.nChannels
 
         noise = numpy.zeros(nChannels)
@@ -436,15 +405,17 @@ class Voltage(JROData):
             if nChannels == 1:
                 daux = power[:].real
             else:
-                daux = power[thisChannel, :].real
+                #print(power.shape)
+                daux = power[thisChannel, Profmin_index:Profmax_index, :].real
+                #print(daux.shape)
             noise[thisChannel] = hildebrand_sekhon(daux, self.nCohInt)
 
         return noise
 
-    def getNoise(self, type=1, channel=None,ymin_index=None, ymax_index=None):
+    def getNoise(self, type=1, channel=None, Profmin_index=None, Profmax_index=None):
 
         if type == 1:
-            noise = self.getNoisebyHildebrand(channel,ymin_index, ymax_index)
+            noise = self.getNoisebyHildebrand(channel, Profmin_index, Profmax_index)
 
         return noise
 
@@ -461,9 +432,6 @@ class Voltage(JROData):
 
         return powerdB
 
-    def data_pow(self):
-        return self.getPower()
-
     @property
     def timeInterval(self):
 
@@ -474,10 +442,6 @@ class Voltage(JROData):
 
 class Spectra(JROData):
 
-    data_outlier = None
-    flagProfilesByRange = False
-    nProfilesByRange = None
-
     def __init__(self):
         '''
         Constructor
@@ -486,17 +450,9 @@ class Spectra(JROData):
         self.data_dc = None
         self.data_spc = None
         self.data_cspc = None
-        # JULIA processing
-        self.data_diffcspc = 0
-        self.nDiffIncohInt = 0
-        # JULIA processing
         self.useLocalTime = True
         self.radarControllerHeaderObj = RadarControllerHeader()
         self.systemHeaderObj = SystemHeader()
-
-        ### AMISR merge
-        self.processingHeaderObj = ProcessingHeader()
-
         self.type = "Spectra"
         self.timeZone = 0
         self.nProfiles = None
@@ -518,13 +474,8 @@ class Spectra(JROData):
         self.beacon_heiIndexList = []
         self.noise_estimation = None
         self.spc_noise = None
-
-        self.codeList = []
-        self.azimuthList = []
-        self.elevationList = []
         self.metadata_list = ['type', 'heightList', 'timeZone', 'pairsList', 'channelList', 'nCohInt',
             'code', 'nCode', 'nBaud', 'ippSeconds', 'ipp', 'nIncohInt', 'nFFTPoints', 'nProfiles', 'flagDecodeData']
-        
 
     def getNoisebyHildebrand(self, xmin_index=None, xmax_index=None, ymin_index=None, ymax_index=None):
         """
@@ -537,9 +488,12 @@ class Spectra(JROData):
         noise = numpy.zeros(self.nChannels)
 
         for channel in range(self.nChannels):
+            #print(self.data_spc[0])
+            #exit(1)
             daux = self.data_spc[channel,
                                  xmin_index:xmax_index, ymin_index:ymax_index]
-            noise[channel] = hildebrand_sekhon(daux, self.max_nIncohInt[channel])
+            #print("daux",daux)
+            noise[channel] = hildebrand_sekhon(daux, self.nIncohInt)
 
         return noise
 
@@ -552,6 +506,7 @@ class Spectra(JROData):
             # this was estimated by getNoise Operation defined in jroproc_spectra.py
             return self.noise_estimation
         else:
+
             noise = self.getNoisebyHildebrand(
                 xmin_index, xmax_index, ymin_index, ymax_index)
             return noise
@@ -566,14 +521,14 @@ class Spectra(JROData):
     def getAcfRange(self, extrapoints=0):
 
         deltafreq = 10. / (self.getFmax() / (self.nFFTPoints * self.ippFactor))
-        freqrange = deltafreq * (numpy.arange(self.nFFTPoints + extrapoints) - self.nFFTPoints / 2.) - deltafreq / 2
+        freqrange = deltafreq * (numpy.arange(self.nFFTPoints + extrapoints) -self.nFFTPoints / 2.) - deltafreq / 2
 
         return freqrange
 
     def getFreqRange(self, extrapoints=0):
 
         deltafreq = self.getFmax() / (self.nFFTPoints * self.ippFactor)
-        freqrange = deltafreq * (numpy.arange(self.nFFTPoints + extrapoints) - self.nFFTPoints / 2.) - deltafreq / 2
+        freqrange = deltafreq * (numpy.arange(self.nFFTPoints + extrapoints) -self.nFFTPoints / 2.) - deltafreq / 2
 
         return freqrange
 
@@ -583,7 +538,7 @@ class Spectra(JROData):
         velrange = deltav * (numpy.arange(self.nFFTPoints + extrapoints) - self.nFFTPoints / 2.)
 
         if self.nmodes:
-            return velrange / self.nmodes
+            return velrange/self.nmodes
         else:
             return velrange
 
@@ -603,16 +558,13 @@ class Spectra(JROData):
         pwcode = 1
 
         if self.flagDecodeData:
-            try:
-                pwcode = numpy.sum(numpy.abs(self.code[0]) ** 2)
-            except Exception as e:
-                log.warning("Failed pwcode read, setting to 1")
-                pwcode = 1
-        # normFactor = min(self.nFFTPoints,self.nProfiles)*self.nIncohInt*self.nCohInt*pwcode*self.windowOfFilter
+            pwcode = numpy.sum(self.code[0]**2)
+            #pwcode = 64
+            #print("pwcode: ", pwcode)
+            #exit(1)
+        #normFactor = min(self.nFFTPoints,self.nProfiles)*self.nIncohInt*self.nCohInt*pwcode*self.windowOfFilter
         normFactor = self.nProfiles * self.nIncohInt * self.nCohInt * pwcode * self.windowOfFilter
-        if self.flagProfilesByRange:
-            normFactor *= (self.nProfilesByRange/self.nProfilesByRange.max())
-        
+
         return normFactor
 
     @property
@@ -636,43 +588,19 @@ class Spectra(JROData):
 
         timeInterval = self.ippSeconds * self.nCohInt * self.nIncohInt * self.nProfiles * self.ippFactor
         if self.nmodes:
-            return self.nmodes * timeInterval
+            return self.nmodes*timeInterval
         else:
             return timeInterval
 
     def getPower(self):
 
         factor = self.normFactor
-        power = numpy.zeros( (self.nChannels,self.nHeights) )
-        for ch in range(self.nChannels):
-            z = None
-            if hasattr(factor,'shape'):
-                if factor.ndim > 1:
-                    z = self.data_spc[ch]/factor[ch]
-                else:
-                    z = self.data_spc[ch]/factor
-            else:
-                z = self.data_spc[ch]/factor
-            z = numpy.where(numpy.isfinite(z), z, numpy.NAN)
-            avg = numpy.average(z, axis=0)
-            power[ch] = 10 * numpy.log10(avg)
-        return power
+        z = self.data_spc / factor
+        z = numpy.where(numpy.isfinite(z), z, numpy.NAN)
+        #avg = numpy.average(z, axis=1)
+        avg = numpy.nanmean(z, axis=1)
 
-    @property
-    def max_nIncohInt(self):
-
-        ints = numpy.zeros(self.nChannels)
-        for ch in range(self.nChannels):
-            if hasattr(self.nIncohInt,'shape'):
-                if self.nIncohInt.ndim > 1:
-                    ints[ch,] = self.nIncohInt[ch].max()
-                else:
-                    ints[ch,] = self.nIncohInt
-                    self.nIncohInt = int(self.nIncohInt)
-            else:
-                ints[ch,] = self.nIncohInt
-
-        return ints
+        return 10 * numpy.log10(avg)
 
     def getCoherence(self, pairsList=None, phase=False):
 
@@ -704,7 +632,7 @@ class Spectra(JROData):
 
     def setValue(self, value):
 
-        print("This property should not be initialized", value)
+        print("This property should not be initialized")
 
         return
 
@@ -733,7 +661,7 @@ class SpectraHeis(Spectra):
     def normFactor(self):
         pwcode = 1
         if self.flagDecodeData:
-            pwcode = numpy.sum(numpy.abs(self.code[0]) ** 2)
+            pwcode = numpy.sum(self.code[0]**2)
 
         normFactor = self.nIncohInt * self.nCohInt * pwcode
 
@@ -864,7 +792,7 @@ class Correlation(JROData):
             xx = numpy.zeros([4, 4])
 
             for fil in range(4):
-                xx[fil, :] = vel[fil] ** numpy.asarray(list(range(4)))
+                xx[fil, :] = vel[fil]**numpy.asarray(list(range(4)))
 
             xx_inv = numpy.linalg.inv(xx)
             xx_aux = xx_inv[0, :]
@@ -953,18 +881,6 @@ class Parameters(Spectra):
     noise_estimation = None
     GauSPC = None  # Fit gaussian SPC
     spc_noise = None
-    avg_output = None    # for 150Km processing
-    data_graph = None    # for 150Km processing
-
-    ## AMISR merge
-    data_outlier = None
-    data_vdrift = None
-    radarControllerHeaderTxt=None #header Controller like text
-    txPower = None
-    flagProfilesByRange = False
-    nProfilesByRange = None
-    #
-    
 
     def __init__(self):
         '''
@@ -972,16 +888,10 @@ class Parameters(Spectra):
         '''
         self.radarControllerHeaderObj = RadarControllerHeader()
         self.systemHeaderObj = SystemHeader()
-        self.processingHeaderObj = ProcessingHeader()
         self.type = "Parameters"
         self.timeZone = 0
         self.ippFactor = 1
-        # JULIA processing
-        self.diffcspectra = None
-        self.nDiffIncohInt = None
-        self.ccfpar = None             
-        # JULIA processing
-        
+
     def getTimeRange1(self, interval):
 
         datatime = []
@@ -1018,13 +928,14 @@ class Parameters(Spectra):
 
     noise = property(getNoise, setValue, "I'm the 'Noise' property.")
 
+
 class PlotterData(object):
     '''
     Object to hold data to be plotted
     '''
-    ## Era 1000 ambos antes de merge AMISR
-    MAXNUMX = 200 #200
-    MAXNUMY = 200 #200
+
+    MAXNUMX = 200
+    MAXNUMY = 200
 
     def __init__(self, code, exp_code, localtime=True):
 
@@ -1082,7 +993,7 @@ class PlotterData(object):
         '''
 
         self.data[tm] = data
-        
+
         for key, value in meta.items():
             setattr(self, key, value)
 
@@ -1109,26 +1020,26 @@ class PlotterData(object):
 
         self.__heights = [H for tm in self.times]
 
-    def jsonify(self, tm, plot_name, plot_type, key=None, decimate=False):
+    def jsonify(self, tm, plot_name, plot_type, decimate=False):
         '''
         Convert data to json
         '''
 
         meta = {}
         meta['xrange'] = []
-        dy = int(len(self.yrange) / self.MAXNUMY) + 1
+        dy = int(len(self.yrange)/self.MAXNUMY) + 1
         tmp = self.data[tm][self.key]
         shape = tmp.shape
         if len(shape) == 2:
             data = self.roundFloats(self.data[tm][self.key][::, ::dy].tolist())
         elif len(shape) == 3:
-            dx = int(self.data[tm][self.key].shape[1] / self.MAXNUMX) + 1
+            dx = int(self.data[tm][self.key].shape[1]/self.MAXNUMX) + 1
             data = self.roundFloats(
                 self.data[tm][self.key][::, ::dx, ::dy].tolist())
             meta['xrange'] = self.roundFloats(self.xrange[2][::dx].tolist())
         else:
             data = self.roundFloats(self.data[tm][self.key].tolist())
-        
+
         ret = {
             'plot': plot_name,
             'code': self.exp_code,
@@ -1138,8 +1049,7 @@ class PlotterData(object):
         meta['type'] = plot_type
         meta['interval'] = float(self.interval)
         meta['localtime'] = self.localtime
-        meta['yrange'] = self.roundFloats(self.lat[::dy].tolist())
-        meta['xrange'] = self.roundFloats(self.lon[::dy].tolist())
+        meta['yrange'] = self.roundFloats(self.yrange[::dy].tolist())
         meta.update(self.meta)
         ret['metadata'] = meta
         return json.dumps(ret)
