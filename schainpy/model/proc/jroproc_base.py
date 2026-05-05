@@ -66,28 +66,28 @@ class ProcessingUnit(object):
     def call(self, **kwargs):
         '''
         '''
-        mybool = (self.dataOut.type == 'Voltage') and self.dataOut.useInputBuffer and (not self.dataOut.buffer_empty) #liberar desde buffer
+        #mybool = (self.dataOut.type == 'Voltage') and self.dataOut.useInputBuffer and (not self.dataOut.buffer_empty) #liberar desde buffer
         try:
-            if mybool:
+            #if mybool:
                 #print("run yeah")
+            #    self.run(**kwargs)
+            #else:
+            if self.dataIn is not None and self.dataIn.flagNoData and not self.dataIn.error:
+                if self.dataIn.runNextUnit:
+                    return not self.dataIn.isReady()
+                else:
+                    return self.dataIn.isReady()
+            elif self.dataIn is None or not self.dataIn.error:                
+                if 'Reader' in self.name and self.bypass:
+                    print('Skipping...reader')
+                    return self.dataOut.isReady()
+                
                 self.run(**kwargs)
-            else:
-                if self.dataIn is not None and self.dataIn.flagNoData and not self.dataIn.error:
-                    if self.dataIn.runNextUnit:
-                        return not self.dataIn.isReady()
-                    else:
-                        return self.dataIn.isReady()
-                elif self.dataIn is None or not self.dataIn.error:                
-                    if 'Reader' in self.name and self.bypass:
-                        print('Skipping...reader')
-                        return self.dataOut.isReady()
-                    
-                    self.run(**kwargs)
-                    
-                elif self.dataIn.error:
-                    self.dataOut.error = self.dataIn.error
-                    self.dataOut.flagNoData = True
-                    print("exec proc error")
+                
+            elif self.dataIn.error:
+                self.dataOut.error = self.dataIn.error
+                self.dataOut.flagNoData = True
+                print("exec proc error")
                     
         except:
             err = traceback.format_exc()                    
@@ -105,7 +105,7 @@ class ProcessingUnit(object):
                 self.dataOut.runNextOp = False
             if optype == 'other' and (not self.dataOut.flagNoData or self.dataOut.runNextOp):
                 self.dataOut = op.run(self.dataOut, **opkwargs)
-            elif (optype == 'other' and self.dataOut.isReady()) or mybool:
+            elif (optype == 'other' and self.dataOut.isReady()):# or mybool:
                 try:
                     self.dataOut = op.run(self.dataOut, **opkwargs)
                 except Exception as e:
