@@ -2770,7 +2770,7 @@ class SpectralMoments(Operation):
         if (nicoh is None): nicoh = 1
         if (graph is None): graph = 0
         if (smooth is None): smooth = 0
-        elif (self.smooth < 3): smooth = 0
+        elif (smooth < 3): smooth = 0
         if (type1 is None): type1 = 0
         if (vers is None): vers = 0        
         if (fwindow is None): fwindow = numpy.zeros(oldfreq.size) + 1
@@ -3126,7 +3126,7 @@ class SpectralMoments(Operation):
         absc = dataOut.abscissaList[:-1]
         noise = dataOut.noise
         nChannel = data.shape[0]
-        data_param = numpy.zeros((nChannel, 4, data.shape[2]))    
+        # data_param = numpy.zeros((nChannel, 4, data.shape[2]))    
 
         if proc_type == 1:
             type1 = mode_fit

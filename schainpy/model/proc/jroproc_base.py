@@ -119,6 +119,7 @@ class ProcessingUnit(object):
             elif optype == 'external' and self.dataOut.error:
                 op.queue.put(copy.deepcopy(self.dataOut)) #op.queue.put(aux)
 
+        '''
         if not self.dataOut.error:
             if self.dataOut.type == 'Voltage':
                 if not self.dataOut.buffer_empty : #continue
@@ -132,6 +133,7 @@ class ProcessingUnit(object):
                 return True
         else:
             return 'Error'
+        '''
 
         try:
             if self.dataOut.runNextUnit:

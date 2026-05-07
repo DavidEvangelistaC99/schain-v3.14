@@ -410,6 +410,8 @@ class GenericRTIPlot(Plot):
     colormap = 'viridis'
     plot_type = 'pcolorbuffer'
 
+    plot_operation = 'gen_rti'
+
     def setup(self):
         self.xaxis = 'time'
         self.ncols = 1
