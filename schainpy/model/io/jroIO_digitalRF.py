@@ -248,7 +248,7 @@ class DigitalRFReader(ProcessingUnit):
         self.socket.connect("tcp://localhost:5555")
 
         self.recv_root = Path(
-            "/home/david/Documents/DATA_R/CHIRP_DP@2025-12-11T15-20-07/rawdata"
+            "/home/idi/Documents/DATA_R/CHIRP_DP@2025-12-11T15-20-07/rawdata"
         )
 
         self.recv_root.mkdir(parents=True, exist_ok=True)

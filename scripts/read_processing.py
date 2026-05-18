@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from schainpy.controller import Project
 
-path = '/home/david/Documents/DATA_R/CHIRP_DP@2025-12-11T15-20-07/rawdata/'
+path = '/home/idi/Documents/DATA/CHIRP_DP@2025-12-11T15-20-07/rawdata/'
 
 controllerObj = Project()
 # -> Project.__init__()
@@ -30,11 +30,11 @@ readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             walk=1,
                                             getByBlock = 1,
                                             nProfileBlocks = 500,
-                                            server = None,
+                                            server = True,
                                             )
 # -> Project.addReadUnit()
 # Parameters send to ReadUnitConf()
-# ReadUnitConf.setup() 
+# ReadUnitConf.setup()
 
 controllerObj.start()
 # -> Project.run()
