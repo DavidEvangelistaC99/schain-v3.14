@@ -31,8 +31,6 @@ try:
 except:
     pass
 
-import zmq
-from pathlib import Path
 
 class DigitalRFReader(ProcessingUnit):
     '''
@@ -59,9 +57,6 @@ class DigitalRFReader(ProcessingUnit):
         self.oldAverage = None
         self.path = None
         self.verbose = True
-        
-        # New parameter for zmq operation
-        self.server = None
 
     def close(self):
         print('Average of writing to digital rf format is ', self.oldAverage * 1000)
@@ -236,30 +231,6 @@ class DigitalRFReader(ProcessingUnit):
             thisDatetime += datetime.timedelta(1)
 
         return dateList
-    
-    def setupFromServer(self, server):
-
-        self.server = server
-
-        self.context = zmq.Context()
-
-        self.socket = self.context.socket(zmq.PULL)
-
-        self.socket.connect("tcp://localhost:5555")
-
-        self.recv_root = Path(
-            "/home/idi/Documents/DATA_R/CHIRP_DP@2025-12-11T15-20-07/rawdata"
-        )
-
-        self.recv_root.mkdir(parents=True, exist_ok=True)
-
-        self.digitalReadObj = None
-
-        print("[DigitalRFReader] Waiting ZMQ data ...")
-
-        self.isConfig = True
-
-        return True
 
     def setup(self, path=None,
               startDate=None,
@@ -280,7 +251,6 @@ class DigitalRFReader(ProcessingUnit):
               getByBlock=0,
               nProfileBlocks=1,
               verbose=True,
-              #server = None,
               **kwargs):
         '''
         In this method we should set all initial parameters.
@@ -304,9 +274,6 @@ class DigitalRFReader(ProcessingUnit):
         self.verbose        = verbose
         self.getByBlock     = getByBlock
         self.nProfileBlocks = nProfileBlocks
-
-        #self.server = server
-
         if online:
             print('Waiting for RF data..')
             sleep(40)
@@ -722,59 +689,6 @@ class DigitalRFReader(ProcessingUnit):
                 self.dataOut.flagDiscontinuousBlock = self.__flagDiscontinuousBlock
             return True
 
-    def getDataFromServer(self):
-
-        if not self.isConfig:
-            print("Hola this is getDataFromServer method")
-
-        try:
-
-            msg = self.socket.recv_json(flags=zmq.NOBLOCK)
-
-        except zmq.Again:
-
-            # no hay datos aún
-            return False
-
-        # ======================================================
-        # FIN
-        # ======================================================
-
-        if "END" in msg:
-
-            print("\nTRANSFERENCIA COMPLETADA")
-
-            self.dataOut.flagNoData = True
-
-            return False
-
-        # ======================================================
-        # EXTRAER
-        # ======================================================
-
-        relpath = msg["relpath"]
-
-        data = bytes.fromhex(msg["data"])
-
-        filepath = self.recv_root / relpath
-
-        filepath.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(filepath, "wb") as f:
-
-            f.write(data)
-
-        print("RECIBIDO:", relpath)
-
-        # ======================================================
-        # IMPORTANTE:
-        # marcar último archivo recibido
-        # ======================================================
-
-        self.lastFile = filepath
-
-        return True
-
     def printInfo(self):
         '''
         '''
@@ -793,42 +707,15 @@ class DigitalRFReader(ProcessingUnit):
         # print self.profileIndex
 
     def run(self, **kwargs):
-
-        # ==========================================
-        # IMPORTANTE
-        # ==========================================
-
-        if "server" in kwargs:
-            self.server = kwargs["server"]
-
-        #print("SERVER =", self.server)
-
-        # ==========================================
-        # CONFIG
-        # ==========================================
-
+        '''
+        This method will be called many times so here you should put all your code
+        '''
+        
         if not self.isConfig:
-
-            if self.server:
-
-                self.setupFromServer(self.server)
-
-            else:
-
-                self.setup(**kwargs)
-
-        # ==========================================
-        # RUN
-        # ==========================================
-
-        if self.server:
-
-            self.getDataFromServer()
-
-        else:
-
-            self.getData(seconds=self.__delay)
-
+            self.setup(**kwargs)
+        # self.i = self.i+1
+        self.getData(seconds=self.__delay)
+        
         return
 
 @MPDecorator
