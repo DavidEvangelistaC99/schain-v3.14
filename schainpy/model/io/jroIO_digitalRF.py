@@ -83,6 +83,8 @@ class DigitalRFReader(ProcessingUnit):
             self.dataOut.radarControllerHeaderObj = RadarControllerHeader(
                 self.__radarControllerHeader)
         except:
+
+            print("except")
             self.dataOut.radarControllerHeaderObj = RadarControllerHeader(
                 txA=0,
                 txB=0,
@@ -162,6 +164,8 @@ class DigitalRFReader(ProcessingUnit):
 
             self.dataOut.useLocalTime = self.fixed_metadata_dict['useLocalTime']
         except:
+
+            print("pass except")
             pass
 
         self.dataOut.ippSeconds = ippSeconds
@@ -266,7 +270,13 @@ class DigitalRFReader(ProcessingUnit):
             ext
             online
             delay
+        
+        Methods used:
+            __setFileHeader()
+            
         '''
+
+
         self.path = path
         self.nCohInt = nCohInt
         self.flagDecodeData = flagDecodeData
@@ -291,6 +301,9 @@ class DigitalRFReader(ProcessingUnit):
             self.digitalReadObj = digital_rf.DigitalRFReader(path)
 
         channelNameList = self.digitalReadObj.get_channels()
+        print("channelNameList")
+        print(channelNameList)
+
         # channelNameList = ['ch0','ch1']
 
         if not channelNameList:
@@ -306,10 +319,15 @@ class DigitalRFReader(ProcessingUnit):
             channelNameList[channelList[0]])
 
         self.__num_subchannels = top_properties['num_subchannels']
+        print("subChannels")
+        print(self.__num_subchannels)
         self.__sample_rate = 1.0 * \
             top_properties['sample_rate_numerator'] / \
             top_properties['sample_rate_denominator']
         
+        print("top_properties")
+        print(top_properties)
+
         '''
         __deltaHeight is in km
         '''
@@ -317,37 +335,54 @@ class DigitalRFReader(ProcessingUnit):
 
         this_metadata_file = self.digitalReadObj.get_digital_metadata(
             channelNameList[channelList[0]])
+        print("this_metadata_file")
+        print(this_metadata_file)
+
         metadata_bounds = this_metadata_file.get_bounds()
+        print("metadata_bounds")
+        print(metadata_bounds)
         self.fixed_metadata_dict = this_metadata_file.read(
             metadata_bounds[0])[metadata_bounds[0]]
+        
+        print("fixed_metadata_dict")
+        print(self.fixed_metadata_dict)
 
         try:
             self.__processingHeader = self.fixed_metadata_dict['processingHeader']
+            print("self.__processingHeader")
+            print(self.__processingHeader)
             self.__radarControllerHeader = self.fixed_metadata_dict['radarControllerHeader']
+            # radarControllerHeader doesn't exist 
             self.__systemHeader = self.fixed_metadata_dict['systemHeader']
             self.dtype = pickle.loads(self.fixed_metadata_dict['dtype'])
         except:
+            print("pass")
             pass
 
         self.__frequency = None
 
         self.__frequency = self.fixed_metadata_dict.get('frequency', 1)
 
-        print("Frequency")
-        print(self.__frequency)
+        # print("Frequency")
+        # print(self.__frequency)
 
         self.__timezone = self.fixed_metadata_dict.get('timezone', 18000)
 
         try:
             nSamples = self.fixed_metadata_dict['nSamples']
+            print("nSamples")
+            print(nSamples)
         except:
+            print("pass")
             nSamples = None
 
         self.__firstHeigth = 0
 
         try:
             codeType = self.__radarControllerHeader['codeType']
+            print("radarControllerHeader")
         except:
+            print("pass")
             codeType = 0
 
         try:
@@ -355,7 +390,12 @@ class DigitalRFReader(ProcessingUnit):
                 nCode = self.__radarControllerHeader['nCode']
                 nBaud = self.__radarControllerHeader['nBaud']
                 code = self.__radarControllerHeader['code']
+                print(nCode)
+                print(nBaud)
+                print(code)
+            print("pass if")
         except:
+            print("pass")
             pass
 
         if not ippKm:
@@ -386,6 +426,9 @@ class DigitalRFReader(ProcessingUnit):
 
         start_index, end_index = self.digitalReadObj.get_bounds(
             channelNameList[channelList[0]])
+        
+        print("indexes")
+        print(start_index, end_index)
     
         if start_index==None or end_index==None:
              print("Check error No data,  start_index: ",start_index,",end_index: ",end_index)
@@ -404,6 +447,8 @@ class DigitalRFReader(ProcessingUnit):
         if not nSamples:
             if not ippKm:
                 raise ValueError("[Reading] nSamples or ippKm should be defined")
+            print("Calculate nSamples")
+            # IPP is a parameters defined in setup "DigitalRFReader" from Project
             nSamples = int(ippKm / (1e6 * 0.15 / self.__sample_rate))
         channelBoundList = []
         channelNameListFiltered = []
@@ -423,6 +468,11 @@ class DigitalRFReader(ProcessingUnit):
         self.__nCode = nCode
         self.__nBaud = nBaud
         self.__code = code
+
+        print(self.__codeType)
+        print(self.__nCode)
+        print(self.__nBaud)
+        print(self.__code)
 
         self.__datapath = path
         self.__online = online
@@ -451,7 +501,7 @@ class DigitalRFReader(ProcessingUnit):
         print("samplestoread",self.__samples_to_read)
         #self.__data_buffer = numpy.zeros(
         #    (self.__num_subchannels, self.__samples_to_read), dtype=numpy.complex)
-        self.__data_buffer    = numpy.zeros((int(len(channelList)), self.__samples_to_read), dtype=numpy.complex_)
+        self.__data_buffer    = numpy.zeros((int(len(channelList)), self.__samples_to_read), dtype=numpy.complex64)
         self.__setFileHeader()
         self.isConfig = True
 

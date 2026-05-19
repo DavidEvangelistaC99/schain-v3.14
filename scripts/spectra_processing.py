@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 desc = "USRP_test"
 filename = "USRP_processing.xml"
 
-path = '/home/idi/Documents/DATA/CHIRP@2025-08-27T21-34-16/rawdata/'
-figpath = '/home/idi/Documents/DATA/CHIRP@2025-08-27T21-34-16/rawdata'
+path = '/home/idi/Documents/zmq/SIN@2026-01-21T00-00-01/rawdata/'
+figpath = '/home/idi/Documents/zmq/SIN@2026-01-21T00-00-01/rawdata'
 
 ## REVISION ##
 ## 1 ##
@@ -39,8 +39,8 @@ ymax = '60'
 
 readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             path=path,
-                                            startDate="2025/01/01",
-                                            endDate="2025/12/30",
+                                            startDate="2026/01/01",
+                                            endDate="2026/12/30",
                                             startTime='00:00:00',
                                             endTime='23:59:59',
                                             delay=0,
