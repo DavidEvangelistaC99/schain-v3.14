@@ -12,6 +12,9 @@ import matplotlib.pyplot as plt
 desc = "USRP_test"
 filename = "USRP_processing.xml"
 
+
+# path = '/home/idi/Documents/DATA/CHIRP_DP@2025-12-11T15-20-07/rawdata/'
+# figpath = '/home/idi/Documents/DATA/CHIRP_DP@2025-12-11T15-20-07/rawdata'
 path = '/home/idi/Documents/zmq/SIN@2026-01-21T00-00-01/rawdata/'
 figpath = '/home/idi/Documents/zmq/SIN@2026-01-21T00-00-01/rawdata'
 
@@ -53,7 +56,7 @@ readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             getByBlock = 1,
                                             nProfileBlocks = 500,
 
-
+                                            server = True,
                                             # Importante para el uso con el radar SOPHy
                                             ippKm = 60)
 

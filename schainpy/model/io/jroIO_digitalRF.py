@@ -24,6 +24,9 @@ from schainpy.model.data.jroheaderIO import RadarControllerHeader, SystemHeader
 from schainpy.model.data.jrodata import Voltage
 from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecorator
 
+import zmq
+import json
+
 import pickle
 try:
     os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
@@ -83,8 +86,6 @@ class DigitalRFReader(ProcessingUnit):
             self.dataOut.radarControllerHeaderObj = RadarControllerHeader(
                 self.__radarControllerHeader)
         except:
-
-            print("except")
             self.dataOut.radarControllerHeaderObj = RadarControllerHeader(
                 txA=0,
                 txB=0,
@@ -111,7 +112,6 @@ class DigitalRFReader(ProcessingUnit):
         self.dataOut.dtype = self.dtype
 
         # self.dataOut.nChannels = 0
-
         # self.dataOut.nHeights = 0
 
         self.dataOut.nProfiles = int(nProfiles)
@@ -148,7 +148,8 @@ class DigitalRFReader(ProcessingUnit):
         self.dataOut.dstFlag = 0
 
         self.dataOut.errorCount = 0
-
+        
+        
         try:
             self.dataOut.nCohInt = self.fixed_metadata_dict.get(
                 'nCohInt', self.nCohInt)
@@ -165,9 +166,8 @@ class DigitalRFReader(ProcessingUnit):
             self.dataOut.useLocalTime = self.fixed_metadata_dict['useLocalTime']
         except:
 
-            print("pass except")
             pass
-
+        
         self.dataOut.ippSeconds = ippSeconds
 
         # Time interval between profiles
@@ -254,6 +254,7 @@ class DigitalRFReader(ProcessingUnit):
               code=numpy.ones((1, 1), dtype=numpy.int32),
               getByBlock=0,
               nProfileBlocks=1,
+              server = False,
               verbose=True,
               **kwargs):
         '''
@@ -276,7 +277,6 @@ class DigitalRFReader(ProcessingUnit):
             
         '''
 
-
         self.path = path
         self.nCohInt = nCohInt
         self.flagDecodeData = flagDecodeData
@@ -284,241 +284,361 @@ class DigitalRFReader(ProcessingUnit):
         self.verbose        = verbose
         self.getByBlock     = getByBlock
         self.nProfileBlocks = nProfileBlocks
-        if online:
-            print('Waiting for RF data..')
-            sleep(40)
-        
-        if not os.path.isdir(path):
-            raise ValueError("[Reading] Directory %s does not exist" % path)
+        self.server = server
 
-        '''
-        Create digitalReadObj object from DigitalRF library. 
-        '''
-        try:
-            self.digitalReadObj = digital_rf.DigitalRFReader(
-                path, load_all_metadata=True)
-        except:
-            self.digitalReadObj = digital_rf.DigitalRFReader(path)
+        self.channels__ = set()
 
-        channelNameList = self.digitalReadObj.get_channels()
-        print("channelNameList")
-        print(channelNameList)
+        if self.server is True:
 
-        # channelNameList = ['ch0','ch1']
+            META_ADDR = "tcp://localhost:5556"
 
-        if not channelNameList:
-            raise ValueError("[Reading] Directory %s does not have any files" % path)
+            ctx = zmq.Context()
+            meta_sock = ctx.socket(zmq.SUB)
+            meta_sock.connect(META_ADDR)
 
-        if not channelList:
-            channelList = list(range(len(channelNameList)))
+            meta_sock.setsockopt_string(
+                zmq.SUBSCRIBE,
+                ""
+            )
 
-        '''
-        Reading metadata 
-        '''
-        top_properties = self.digitalReadObj.get_properties(
-            channelNameList[channelList[0]])
+            poller = zmq.Poller()
+            poller.register(meta_sock, zmq.POLLIN)
 
-        self.__num_subchannels = top_properties['num_subchannels']
-        print("subChannels")
-        print(self.__num_subchannels)
-        self.__sample_rate = 1.0 * \
-            top_properties['sample_rate_numerator'] / \
-            top_properties['sample_rate_denominator']
-        
-        print("top_properties")
-        print(top_properties)
+            events = dict(poller.poll())
 
-        '''
-        __deltaHeight is in km
-        '''
-        self.__deltaHeigth = 1e6 * 0.15 / self.__sample_rate
+            for _ in range(2):
 
-        this_metadata_file = self.digitalReadObj.get_digital_metadata(
-            channelNameList[channelList[0]])
-        print("this_metadata_file")
-        print(this_metadata_file)
+                topic, payload = meta_sock.recv_multipart()
 
-        metadata_bounds = this_metadata_file.get_bounds()
-        print("metadata_bounds")
-        print(metadata_bounds)
-        self.fixed_metadata_dict = this_metadata_file.read(
-            metadata_bounds[0])[metadata_bounds[0]]
-        
-        print("fixed_metadata_dict")
-        print(self.fixed_metadata_dict)
+                metadata = json.loads(
+                    payload.decode()
+                )
 
-        try:
-            self.__processingHeader = self.fixed_metadata_dict['processingHeader']
-            print("self.__processingHeader")
-            print(self.__processingHeader)
-            self.__radarControllerHeader = self.fixed_metadata_dict['radarControllerHeader']
-            # radarControllerHeader doesn't exist 
-            self.__systemHeader = self.fixed_metadata_dict['systemHeader']
-            self.dtype = pickle.loads(self.fixed_metadata_dict['dtype'])
-        except:
-            print("pass")
-            pass
+                print("\n================================")
+                print("METADATA RECEIVED")
+                print("================================")
 
-        self.__frequency = None
+                print("Topic:", topic.decode())
 
-        self.__frequency = self.fixed_metadata_dict.get('frequency', 1)
+                print(json.dumps(
+                    metadata,
+                    indent=4
+                ))
 
-        # print("Frequency")
-        # print(self.__frequency)
+                #topic, payload = meta_sock.recv_multipart()
 
-        self.__timezone = self.fixed_metadata_dict.get('timezone', 18000)
+                channel = topic.decode()
+                self.channels__.add(channel)
 
-        try:
-            nSamples = self.fixed_metadata_dict['nSamples']
-            print("nSamples")
-            print(nSamples)
-        except:
-            print("pass")
-            nSamples = None
+            channelNameList = list(self.channels__)
+            # self.channels__ reemplaza a channelNameList en zmq
 
-        self.__firstHeigth = 0
+            self.__num_subchannels = 1
+            self.__sample_rate = 1.0 * metadata['receiver']['samp_rate']
 
-        try:
-            codeType = self.__radarControllerHeader['codeType']
-            print("radarControllerHeader")
-        except:
-            print("pass")
+            self.__deltaHeigth = 1e6 * 0.15 / self.__sample_rate
+
+            self.__frequency = 1
+
+            self.__timezone = 1
+
+            nSamples = int(ippKm / (1e6 * 0.15 / self.__sample_rate))
+
+            self.__firstHeigth = 0
+
             codeType = 0
 
-        try:
-            if codeType:
-                nCode = self.__radarControllerHeader['nCode']
-                nBaud = self.__radarControllerHeader['nBaud']
-                code = self.__radarControllerHeader['code']
-                print(nCode)
-                print(nBaud)
-                print(code)
-            print("pass if")
-        except:
-            print("pass")
-            pass
+            self.__ippKm = None
+            startUTCSecond = None
+            endUTCSecond = None
 
-        if not ippKm:
-            try:
-                # seconds to km
-                ippKm = self.__radarControllerHeader['ipp']
-            except:
-                ippKm = None
-        ####################################################
-        self.__ippKm = ippKm
-        startUTCSecond = None
-        endUTCSecond = None
+            '''
+            New variable for timezone fix
+            '''
+            timezone = datetime.timedelta(seconds=self.__timezone)  # normalmente 18000
 
-        '''
-        New variable for timezone fix
-        '''
-        timezone = datetime.timedelta(seconds=self.__timezone)  # normalmente 18000
+            if startDate:
+                startDatetime = datetime.datetime.combine(startDate, startTime)
+                startUTCSecond = (
+                    startDatetime - datetime.datetime(1970, 1, 1)).total_seconds() # + self.__timezone
 
-        if startDate:
-            startDatetime = datetime.datetime.combine(startDate, startTime)
-            startUTCSecond = (
-                startDatetime - datetime.datetime(1970, 1, 1)).total_seconds() # + self.__timezone
+            if endDate:
+                endDatetime = datetime.datetime.combine(endDate, endTime)
+                endUTCSecond = (endDatetime - datetime.datetime(1970,
+                                                                1, 1)).total_seconds() # + self.__timezone
+            
+            start_index = metadata['digital_rf']['start_sample']
 
-        if endDate:
-            endDatetime = datetime.datetime.combine(endDate, endTime)
-            endUTCSecond = (endDatetime - datetime.datetime(1970,
-                                                            1, 1)).total_seconds() # + self.__timezone
+            if not startUTCSecond:
+                startUTCSecond = start_index / self.__sample_rate
 
-        start_index, end_index = self.digitalReadObj.get_bounds(
-            channelNameList[channelList[0]])
-        
-        print("indexes")
-        print(start_index, end_index)
-    
-        if start_index==None or end_index==None:
-             print("Check error No data,  start_index: ",start_index,",end_index: ",end_index)
+            if start_index > startUTCSecond * self.__sample_rate:
+                startUTCSecond = start_index / self.__sample_rate
 
-        if not startUTCSecond:
-            startUTCSecond = start_index / self.__sample_rate
+            
+            self.profileIndex = 0
+            self.i = 0
+            self.__delay = delay
 
-        if start_index > startUTCSecond * self.__sample_rate:
-            startUTCSecond = start_index / self.__sample_rate
+            self.__codeType = codeType
+            self.__nCode = nCode
+            self.__nBaud = nBaud
+            self.__code = code
 
-        if not endUTCSecond:
-            endUTCSecond = end_index / self.__sample_rate
+            self.__datapath = path
+            self.__online = online
+            
+            self.__channelNameList = list(self.channels__)
+            self.__channelList = list(range(len(channelNameList)))
+            #self.__channelBoundList = channelBoundList
+            self.__nSamples = nSamples
+            if self.getByBlock:
+                nSamples = nSamples*nProfileBlocks
+            self.__samples_to_read = int(nSamples)  # FIJO: AHORA 40
+            self.__nChannels = len(list(self.channels__))
 
-        if end_index < endUTCSecond * self.__sample_rate:
-            endUTCSecond = end_index / self.__sample_rate
-        if not nSamples:
-            if not ippKm:
-                raise ValueError("[Reading] nSamples or ippKm should be defined")
-            print("Calculate nSamples")
-            # IPP is a parameters defined in setup "DigitalRFReader" from Project
-            nSamples = int(ippKm / (1e6 * 0.15 / self.__sample_rate))
-        channelBoundList = []
-        channelNameListFiltered = []
+            self.__startUTCSecond = startUTCSecond
+            self.__endUTCSecond = endUTCSecond
 
-        for thisIndexChannel in channelList:
-            thisChannelName = channelNameList[thisIndexChannel]
-            start_index, end_index = self.digitalReadObj.get_bounds(
-                thisChannelName)
-            channelBoundList.append((start_index, end_index))
-            channelNameListFiltered.append(thisChannelName)
-
-        self.profileIndex = 0
-        self.i = 0
-        self.__delay = delay
-
-        self.__codeType = codeType
-        self.__nCode = nCode
-        self.__nBaud = nBaud
-        self.__code = code
-
-        print(self.__codeType)
-        print(self.__nCode)
-        print(self.__nBaud)
-        print(self.__code)
-
-        self.__datapath = path
-        self.__online = online
-        self.__channelList = channelList
-        self.__channelNameList = channelNameListFiltered
-        self.__channelBoundList = channelBoundList
-        self.__nSamples = nSamples
-        if self.getByBlock:
-            nSamples = nSamples*nProfileBlocks
-        self.__samples_to_read = int(nSamples)  # FIJO: AHORA 40
-        self.__nChannels = len(self.__channelList)
-
-        self.__startUTCSecond = startUTCSecond
-        self.__endUTCSecond = endUTCSecond
-
-        self.__timeInterval = 1.0 * self.__samples_to_read / \
-            self.__sample_rate  # Time interval
-
-        if online:
-            # self.__thisUnixSample = int(endUTCSecond*self.__sample_rate - 4*self.__samples_to_read)
-            startUTCSecond = numpy.floor(endUTCSecond)
-
-        # por que en el otro metodo lo primero q se hace es sumar samplestoread
-        self.__thisUnixSample = int(startUTCSecond * self.__sample_rate) - self.__samples_to_read
-
-        print("samplestoread",self.__samples_to_read)
-        #self.__data_buffer = numpy.zeros(
-        #    (self.__num_subchannels, self.__samples_to_read), dtype=numpy.complex)
-        self.__data_buffer    = numpy.zeros((int(len(channelList)), self.__samples_to_read), dtype=numpy.complex64)
-        self.__setFileHeader()
-        self.isConfig = True
-
-        print("[Reading] Digital RF Data was found from %s to %s " % (
+            self.__timeInterval = 1.0 * self.__samples_to_read / \
+                self.__sample_rate  # Time interval
+            
+            # por que en el otro metodo lo primero q se hace es sumar samplestoread
+            self.__thisUnixSample = int(startUTCSecond * self.__sample_rate) - self.__samples_to_read  #4448476882500000 #4448284609500000
+            #self.__thisUnixSample = int(startUTCSecond * self.__sample_rate) - self.__samples_to_read 
+            
+            self.__data_buffer    = numpy.zeros((int(self.__nChannels), self.__samples_to_read), dtype=numpy.complex64)
+            
+            self.__setFileHeader()
+            
+            print("[Reading] Digital RF Data was found from %s to %s " % (
             datetime.datetime.utcfromtimestamp(
                 self.__startUTCSecond),# - self.__timezone),
             datetime.datetime.utcfromtimestamp(
                 self.__endUTCSecond),# - self.__timezone)
-        ))
+            ))
 
-        print("[Reading] Starting process from %s to %s" % (datetime.datetime.utcfromtimestamp(startUTCSecond - self.__timezone),
-                                                            datetime.datetime.utcfromtimestamp(
-            endUTCSecond - self.__timezone)
-        ))
-        self.oldAverage = None
-        self.count = 0
-        self.executionTime = 0
+            print("[Reading] Starting process from %s to %s" % (datetime.datetime.utcfromtimestamp(startUTCSecond - self.__timezone),
+                                                                datetime.datetime.utcfromtimestamp(
+                endUTCSecond - self.__timezone)
+            ))
+            self.oldAverage = None
+            self.count = 0
+            self.executionTime = 0
+
+
+            self.isConfig = True
+
+            '''
+            Create digitalReadObj object from DigitalRF library. 
+            '''
+            try:
+                 self.digitalReadObj = digital_rf.DigitalRFReader(
+                     path, load_all_metadata=True)
+            except:
+                self.digitalReadObj = digital_rf.DigitalRFReader(path)
+
+        else:
+
+            if online:
+                print('Waiting for RF data..')
+                sleep(40)
+            
+            if not os.path.isdir(path):
+                raise ValueError("[Reading] Directory %s does not exist" % path)
+
+            '''
+            Create digitalReadObj object from DigitalRF library. 
+            '''
+            try:
+                self.digitalReadObj = digital_rf.DigitalRFReader(
+                    path, load_all_metadata=True)
+            except:
+                self.digitalReadObj = digital_rf.DigitalRFReader(path)
+
+
+            channelNameList = self.digitalReadObj.get_channels()
+            # channelNameList = ['ch0','ch1']
+
+            if not channelNameList:
+                raise ValueError("[Reading] Directory %s does not have any files" % path)
+
+            if not channelList:
+                channelList = list(range(len(channelNameList)))
+
+            '''
+            Reading metadata 
+            '''
+            top_properties = self.digitalReadObj.get_properties(channelNameList[channelList[0]])
+            
+            self.__num_subchannels = top_properties['num_subchannels']
+
+            self.__sample_rate = 1.0 * \
+                top_properties['sample_rate_numerator'] / \
+                top_properties['sample_rate_denominator']
+            
+            '''
+            __deltaHeight is in km
+            '''
+            self.__deltaHeigth = 1e6 * 0.15 / self.__sample_rate
+
+            this_metadata_file = self.digitalReadObj.get_digital_metadata(
+                channelNameList[channelList[0]])
+
+            metadata_bounds = this_metadata_file.get_bounds()
+
+            self.fixed_metadata_dict = this_metadata_file.read(
+                metadata_bounds[0])[metadata_bounds[0]]
+            
+            try:
+                self.__processingHeader = self.fixed_metadata_dict['processingHeader']
+                self.__radarControllerHeader = self.fixed_metadata_dict['radarControllerHeader']
+                # radarControllerHeader doesn't exist 
+                self.__systemHeader = self.fixed_metadata_dict['systemHeader']
+                self.dtype = pickle.loads(self.fixed_metadata_dict['dtype'])
+            except:
+                pass
+
+            self.__frequency = None
+
+            self.__frequency = self.fixed_metadata_dict.get('frequency', 1)
+
+            self.__timezone = self.fixed_metadata_dict.get('timezone', 18000)
+
+            try:
+                nSamples = self.fixed_metadata_dict['nSamples']
+            except:
+                nSamples = None
+
+            self.__firstHeigth = 0
+
+            try:
+                codeType = self.__radarControllerHeader['codeType']
+            except:
+                codeType = 0
+
+            try:
+                if codeType:
+                    nCode = self.__radarControllerHeader['nCode']
+                    nBaud = self.__radarControllerHeader['nBaud']
+                    code = self.__radarControllerHeader['code']
+            except:
+                pass
+
+            if not ippKm:
+                try:
+                    # seconds to km
+                    ippKm = self.__radarControllerHeader['ipp']
+                except:
+                    ippKm = None
+            ####################################################
+            self.__ippKm = ippKm
+            startUTCSecond = None
+            endUTCSecond = None
+
+            '''
+            New variable for timezone fix
+            '''
+            timezone = datetime.timedelta(seconds=self.__timezone)  # normalmente 18000
+
+            if startDate:
+                startDatetime = datetime.datetime.combine(startDate, startTime)
+                startUTCSecond = (
+                    startDatetime - datetime.datetime(1970, 1, 1)).total_seconds() # + self.__timezone
+
+            if endDate:
+                endDatetime = datetime.datetime.combine(endDate, endTime)
+                endUTCSecond = (endDatetime - datetime.datetime(1970,
+                                                                1, 1)).total_seconds() # + self.__timezone
+
+            start_index, end_index = self.digitalReadObj.get_bounds(
+                channelNameList[channelList[0]])
+            
+            print(start_index)
+            print(end_index)
+        
+            if start_index==None or end_index==None:
+                print("Check error No data,  start_index: ",start_index,",end_index: ",end_index)
+
+            if not startUTCSecond:
+                startUTCSecond = start_index / self.__sample_rate
+
+            if start_index > startUTCSecond * self.__sample_rate:
+                startUTCSecond = start_index / self.__sample_rate
+
+            if not endUTCSecond:
+                endUTCSecond = end_index / self.__sample_rate
+
+            if end_index < endUTCSecond * self.__sample_rate:
+                endUTCSecond = end_index / self.__sample_rate
+            if not nSamples:
+                if not ippKm:
+                    raise ValueError("[Reading] nSamples or ippKm should be defined")
+                # IPP is a parameters defined in setup "DigitalRFReader" from Project
+                nSamples = int(ippKm / (1e6 * 0.15 / self.__sample_rate))
+            channelBoundList = []
+            channelNameListFiltered = []
+
+            for thisIndexChannel in channelList:
+                thisChannelName = channelNameList[thisIndexChannel]
+                start_index, end_index = self.digitalReadObj.get_bounds(
+                    thisChannelName)
+                channelBoundList.append((start_index, end_index))
+                channelNameListFiltered.append(thisChannelName)
+
+            self.profileIndex = 0
+            self.i = 0
+            self.__delay = delay
+
+            self.__codeType = codeType
+            self.__nCode = nCode
+            self.__nBaud = nBaud
+            self.__code = code
+
+            self.__datapath = path
+            self.__online = online
+            self.__channelList = channelList
+            self.__channelNameList = channelNameListFiltered
+            self.__channelBoundList = channelBoundList
+            self.__nSamples = nSamples
+            if self.getByBlock:
+                nSamples = nSamples*nProfileBlocks
+            self.__samples_to_read = int(nSamples)  # FIJO: AHORA 40
+            self.__nChannels = len(self.__channelList)
+
+            self.__startUTCSecond = startUTCSecond
+            self.__endUTCSecond = endUTCSecond
+
+            self.__timeInterval = 1.0 * self.__samples_to_read / \
+                self.__sample_rate  # Time interval
+
+            if online:
+                # self.__thisUnixSample = int(endUTCSecond*self.__sample_rate - 4*self.__samples_to_read)
+                startUTCSecond = numpy.floor(endUTCSecond)
+
+            # por que en el otro metodo lo primero q se hace es sumar samplestoread
+            self.__thisUnixSample = int(startUTCSecond * self.__sample_rate) - self.__samples_to_read
+
+            #self.__data_buffer = numpy.zeros(
+            #    (self.__num_subchannels, self.__samples_to_read), dtype=numpy.complex)
+            self.__data_buffer    = numpy.zeros((int(len(channelList)), self.__samples_to_read), dtype=numpy.complex64)
+            self.__setFileHeader()
+            self.isConfig = True
+
+            print("[Reading] Digital RF Data was found from %s to %s " % (
+                datetime.datetime.utcfromtimestamp(
+                    self.__startUTCSecond),# - self.__timezone),
+                datetime.datetime.utcfromtimestamp(
+                    self.__endUTCSecond),# - self.__timezone)
+            ))
+
+            print("[Reading] Starting process from %s to %s" % (datetime.datetime.utcfromtimestamp(startUTCSecond - self.__timezone),
+                                                                datetime.datetime.utcfromtimestamp(
+                endUTCSecond - self.__timezone)
+            ))
+            self.oldAverage = None
+            self.count = 0
+            self.executionTime = 0
 
     def __reload(self):
         #         print

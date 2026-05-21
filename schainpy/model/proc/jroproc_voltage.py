@@ -16,6 +16,8 @@ import csv
 import ast #new added
 from scipy import signal
 
+import matplotlib.pyplot as plt
+
 try:
     from schainpy.model.proc import fitacf_guess
     from schainpy.model.proc import fitacf_fit_short
@@ -5751,6 +5753,10 @@ class Decoder(Operation):
             #print(numpy.shape(code))
             #exit(1)
             self.datadecTime[i,:] = numpy.correlate(data[i,:], code, mode='full')[self.nBaud-1:]
+
+            t = [i for i in range(len(data[i,:]))]
+            plt.plot(t, data[i,:])
+            plt.show()
 
         return self.datadecTime
     '''
