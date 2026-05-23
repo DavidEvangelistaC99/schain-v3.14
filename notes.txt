@@ -1,0 +1,4 @@
+- La data IQ es sucesiva, al parecer solo necesita el getData() para datos IQ consecutivos
+- Guardar data IQ in dataOut
+- El socket para el flujo de datos zmq se activará cada que se llame a la función getData()
+- Verificar primero con un script de prueba ver los datos enviados por zmq
