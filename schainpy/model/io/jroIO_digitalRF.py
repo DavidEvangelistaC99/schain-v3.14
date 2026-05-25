@@ -149,7 +149,9 @@ class DigitalRFReader(ProcessingUnit):
 
         self.dataOut.errorCount = 0
         
-        
+        '''
+        Use of self.fixed_metadata_dict, atributtes don't exist
+        '''
         try:
             self.dataOut.nCohInt = self.fixed_metadata_dict.get(
                 'nCohInt', self.nCohInt)
@@ -325,8 +327,6 @@ class DigitalRFReader(ProcessingUnit):
                     indent=4
                 ))
 
-                #topic, payload = meta_sock.recv_multipart()
-
                 channel = topic.decode()
                 self.channels__.add(channel)
 
@@ -334,6 +334,7 @@ class DigitalRFReader(ProcessingUnit):
             # self.channels__ reemplaza a channelNameList en zmq
 
             self.__num_subchannels = 1
+
             self.__sample_rate = 1.0 * metadata['receiver']['samp_rate']
 
             self.__deltaHeigth = 1e6 * 0.15 / self.__sample_rate
@@ -349,13 +350,14 @@ class DigitalRFReader(ProcessingUnit):
             codeType = 0
 
             self.__ippKm = None
+
             startUTCSecond = None
             endUTCSecond = None
 
             '''
             New variable for timezone fix
             '''
-            timezone = datetime.timedelta(seconds=self.__timezone)  # normalmente 18000
+            timezone = datetime.timedelta(seconds=self.__timezone)
 
             if startDate:
                 startDatetime = datetime.datetime.combine(startDate, startTime)
@@ -367,14 +369,20 @@ class DigitalRFReader(ProcessingUnit):
                 endUTCSecond = (endDatetime - datetime.datetime(1970,
                                                                 1, 1)).total_seconds() # + self.__timezone
             
-            start_index = metadata['digital_rf']['start_sample']
+            '''
+            Calculate start_index like this for now
+            '''
 
-            if not startUTCSecond:
-                startUTCSecond = start_index / self.__sample_rate
+            try:
+                 self.digitalReadObj = digital_rf.DigitalRFReader(
+                     path, load_all_metadata=True)
+            except:
+                self.digitalReadObj = digital_rf.DigitalRFReader(path)
 
-            if start_index > startUTCSecond * self.__sample_rate:
-                startUTCSecond = start_index / self.__sample_rate
+            start_index, _ = self.digitalReadObj.get_bounds(
+                channelNameList[0])
 
+            # start_index = metadata['digital_rf']['start_sample']
             
             self.profileIndex = 0
             self.i = 0
@@ -390,11 +398,14 @@ class DigitalRFReader(ProcessingUnit):
             
             self.__channelNameList = list(self.channels__)
             self.__channelList = list(range(len(channelNameList)))
+
             #self.__channelBoundList = channelBoundList
+
             self.__nSamples = nSamples
+
             if self.getByBlock:
                 nSamples = nSamples*nProfileBlocks
-            self.__samples_to_read = int(nSamples)  # FIJO: AHORA 40
+            self.__samples_to_read = int(nSamples)
             self.__nChannels = len(list(self.channels__))
 
             self.__startUTCSecond = startUTCSecond
@@ -403,9 +414,13 @@ class DigitalRFReader(ProcessingUnit):
             self.__timeInterval = 1.0 * self.__samples_to_read / \
                 self.__sample_rate  # Time interval
             
-            # por que en el otro metodo lo primero q se hace es sumar samplestoread
-            self.__thisUnixSample = int(startUTCSecond * self.__sample_rate) - self.__samples_to_read  #4448476882500000 #4448284609500000
-            #self.__thisUnixSample = int(startUTCSecond * self.__sample_rate) - self.__samples_to_read 
+            '''
+            Plus samplestoread in () method
+            '''
+            self.__thisUnixSample = int(start_index) - self.__samples_to_read 
+
+            print("self.__thisUnixSample")
+            print(self.__thisUnixSample)
             
             self.__data_buffer    = numpy.zeros((int(self.__nChannels), self.__samples_to_read), dtype=numpy.complex64)
             
@@ -429,14 +444,6 @@ class DigitalRFReader(ProcessingUnit):
 
             self.isConfig = True
 
-            '''
-            Create digitalReadObj object from DigitalRF library. 
-            '''
-            try:
-                 self.digitalReadObj = digital_rf.DigitalRFReader(
-                     path, load_all_metadata=True)
-            except:
-                self.digitalReadObj = digital_rf.DigitalRFReader(path)
 
         else:
 
@@ -531,7 +538,8 @@ class DigitalRFReader(ProcessingUnit):
                     ippKm = self.__radarControllerHeader['ipp']
                 except:
                     ippKm = None
-            ####################################################
+            
+
             self.__ippKm = ippKm
             startUTCSecond = None
             endUTCSecond = None
@@ -541,6 +549,9 @@ class DigitalRFReader(ProcessingUnit):
             '''
             timezone = datetime.timedelta(seconds=self.__timezone)  # normalmente 18000
 
+            '''
+            Calculate time seconds
+            '''
             if startDate:
                 startDatetime = datetime.datetime.combine(startDate, startTime)
                 startUTCSecond = (
@@ -551,6 +562,9 @@ class DigitalRFReader(ProcessingUnit):
                 endUTCSecond = (endDatetime - datetime.datetime(1970,
                                                                 1, 1)).total_seconds() # + self.__timezone
 
+            '''
+            Number of samples 
+            '''
             start_index, end_index = self.digitalReadObj.get_bounds(
                 channelNameList[channelList[0]])
             
@@ -585,6 +599,12 @@ class DigitalRFReader(ProcessingUnit):
                     thisChannelName)
                 channelBoundList.append((start_index, end_index))
                 channelNameListFiltered.append(thisChannelName)
+            
+            '''
+            channelBoundList = [(4448887260000000, 4448889222499999), 
+                                (4448887265000000, 4448889210000000)]
+            channelNameListFiltered = ['ch0', 'ch1']
+            '''
 
             self.profileIndex = 0
             self.i = 0
@@ -601,9 +621,14 @@ class DigitalRFReader(ProcessingUnit):
             self.__channelNameList = channelNameListFiltered
             self.__channelBoundList = channelBoundList
             self.__nSamples = nSamples
+
             if self.getByBlock:
                 nSamples = nSamples*nProfileBlocks
-            self.__samples_to_read = int(nSamples)  # FIJO: AHORA 40
+
+            '''
+            Samples to read
+            '''
+            self.__samples_to_read = int(nSamples)
             self.__nChannels = len(self.__channelList)
 
             self.__startUTCSecond = startUTCSecond
@@ -616,8 +641,14 @@ class DigitalRFReader(ProcessingUnit):
                 # self.__thisUnixSample = int(endUTCSecond*self.__sample_rate - 4*self.__samples_to_read)
                 startUTCSecond = numpy.floor(endUTCSecond)
 
+            '''
+            Read cursor 
+            '''
             # por que en el otro metodo lo primero q se hace es sumar samplestoread
             self.__thisUnixSample = int(startUTCSecond * self.__sample_rate) - self.__samples_to_read
+
+            print("self.__thisUnixSample")
+            print(self.__thisUnixSample)
 
             #self.__data_buffer = numpy.zeros(
             #    (self.__num_subchannels, self.__samples_to_read), dtype=numpy.complex)
@@ -806,11 +837,11 @@ class DigitalRFReader(ProcessingUnit):
         self.dataOut.flagNoData = True
 
         if self.__isBufferEmpty():
-            # print("hi")
+
             self.__flagDiscontinuousBlock = False
 
             while True:
-                # print ("q ha pasado")
+                
                 if self.__readNextBlock():
                     break
                 if self.__thisUnixSample > self.__endUTCSecond * self.__sample_rate:

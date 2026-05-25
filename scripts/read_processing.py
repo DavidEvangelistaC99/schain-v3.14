@@ -9,7 +9,7 @@ from schainpy.controller import Project
 
 
 
-path = '/home/idi/Documents/zmq/SIN@2026-01-21T00-00-01/rawdata/'
+path = '/home/david/Documents/DATA/SIN@2026-01-21T00-00-01/rawdata/'
 #path = '/home/idi/Documents/DATA/CHIRP_DP@2025-12-11T15-20-07/rawdata/'
 
 controllerObj = Project()

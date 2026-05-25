@@ -26,7 +26,8 @@ from scipy.optimize import fmin_l_bfgs_b #optimize with bounds on state papamete
 from .jroproc_base import ProcessingUnit, Operation, MPDecorator
 from schainpy.model.data.jrodata import Parameters, hildebrand_sekhon
 from schainpy.model.data.jrodata import Spectra
-from scipy import asarray as ar,exp
+# from scipy import asarray as ar,exp
+from numpy import asarray as ar, exp
 from scipy.optimize import fmin, curve_fit
 from schainpy.utils import log
 import schainpy.admin
