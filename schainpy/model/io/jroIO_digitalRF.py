@@ -293,24 +293,38 @@ class DigitalRFReader(ProcessingUnit):
         if self.server is True:
 
             META_ADDR = "tcp://localhost:5556"
+            DATA_ADDR = "tcp://localhost:5555"
 
-            ctx = zmq.Context()
-            meta_sock = ctx.socket(zmq.SUB)
-            meta_sock.connect(META_ADDR)
+            self.ctx = zmq.Context()
+            self.meta_sock = self.ctx.socket(zmq.SUB)
+            self.meta_sock.connect(META_ADDR)
 
-            meta_sock.setsockopt_string(
+            self.meta_sock.setsockopt_string(
+                zmq.SUBSCRIBE,
+                ""
+            )
+
+            # =========================================
+            # IQ DATA SOCKET
+            # =========================================
+
+            self.data_sock = self.ctx.socket(zmq.SUB)
+
+            self.data_sock.connect(DATA_ADDR)
+
+            self.data_sock.setsockopt_string(
                 zmq.SUBSCRIBE,
                 ""
             )
 
             poller = zmq.Poller()
-            poller.register(meta_sock, zmq.POLLIN)
+            poller.register(self.meta_sock, zmq.POLLIN)
 
             events = dict(poller.poll())
 
-            for _ in range(2):
+            for _ in range(1):
 
-                topic, payload = meta_sock.recv_multipart()
+                topic, payload = self.meta_sock.recv_multipart()
 
                 metadata = json.loads(
                     payload.decode()
@@ -405,6 +419,8 @@ class DigitalRFReader(ProcessingUnit):
 
             if self.getByBlock:
                 nSamples = nSamples*nProfileBlocks
+
+            # This variable is used as a block
             self.__samples_to_read = int(nSamples)
             self.__nChannels = len(list(self.channels__))
 
@@ -670,6 +686,14 @@ class DigitalRFReader(ProcessingUnit):
             self.oldAverage = None
             self.count = 0
             self.executionTime = 0
+        
+        # =========================================
+        # BUFFER
+        # =========================================
+
+        self.buffer___ = numpy.array([], dtype=numpy.complex64)
+
+        print("[Reading] Receiving IQ ...")
 
     def __reload(self):
         #         print
@@ -815,6 +839,52 @@ class DigitalRFReader(ProcessingUnit):
 
     def __isBufferEmpty(self):
         return self.__bufferIndex > self.__samples_to_read - self.__nSamples  # 40960 - 40
+    
+    def getDataZmq(self):
+        '''
+        Method to used ZMQ data transmission
+        '''
+
+        # -------------------------------------
+        # RECEIVE ZMQ DATA
+        # -------------------------------------
+
+        msg = self.data_sock.recv()
+
+        iq = numpy.frombuffer(msg, dtype=numpy.complex64)
+
+        # -------------------------------------
+        # APPEND TO BUFFER
+        # -------------------------------------
+
+        self.buffer___ = numpy.concatenate((self.buffer___, iq))
+
+        # -------------------------------------
+        # PROCESS COMPLETE BLOCKS
+        # -------------------------------------
+
+        while len(self.buffer___) >= self.__samples_to_read:
+
+            # EXACT BLOCK
+            iq_block = self.buffer___[:self.__samples_to_read]
+
+            # REMOVE USED SAMPLES
+            self.buffer___ = self.buffer___[self.__samples_to_read:]
+
+            # ---------------------------------
+            # PROCESS BLOCK
+            # ---------------------------------
+
+            print("\nNEW BLOCK")
+            print(f"Samples: {len(iq_block)}")
+
+            for i, sample in enumerate(iq_block[:10]):
+
+                print(
+                    f"{i:03d} | "
+                    f"I={sample.real:.5f} "
+                    f"Q={sample.imag:.5f}"
+                )
 
     def getData(self, seconds=30, nTries=5):
         '''
@@ -915,7 +985,9 @@ class DigitalRFReader(ProcessingUnit):
         if not self.isConfig:
             self.setup(**kwargs)
         # self.i = self.i+1
-        self.getData(seconds=self.__delay)
+        
+        self.getDataZmq()
+        #self.getData(seconds=self.__delay)
         
         return
 
