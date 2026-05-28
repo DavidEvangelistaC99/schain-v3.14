@@ -316,6 +316,10 @@ class DigitalRFReader(ProcessingUnit):
                 zmq.SUBSCRIBE,
                 ""
             )
+            '''
+            Variable used for initialize IQ data adquisition
+            '''
+            self.__zmq_started = False
 
             poller = zmq.Poller()
             poller.register(self.meta_sock, zmq.POLLIN)
@@ -457,6 +461,7 @@ class DigitalRFReader(ProcessingUnit):
             self.count = 0
             self.executionTime = 0
 
+            self.dataOut.nCohInt = nCohInt
 
             self.isConfig = True
 
@@ -844,6 +849,34 @@ class DigitalRFReader(ProcessingUnit):
         '''
         Method to used ZMQ data transmission
         '''
+        
+        self.dataOut.flagNoData = True
+        self.__flagDiscontinuousBlock = False
+
+        '''
+        Initialize data adquisition
+        '''
+
+        if not self.__zmq_started:
+
+            CTRL_ADDR = "tcp://localhost:6000"
+
+            self.ctrl_sock = self.ctx.socket(zmq.REQ)
+
+            self.ctrl_sock.connect(CTRL_ADDR)
+
+            print("[CTRL] Sending READY")
+
+            self.ctrl_sock.send(b"READY")
+
+            reply = self.ctrl_sock.recv()
+
+            print("[CTRL] TX reply:", reply.decode())
+
+            # Give PUB/SUB time to stabilize
+            sleep(1)
+
+            self.__zmq_started = True
 
         # -------------------------------------
         # RECEIVE ZMQ DATA
@@ -863,7 +896,7 @@ class DigitalRFReader(ProcessingUnit):
         # PROCESS COMPLETE BLOCKS
         # -------------------------------------
 
-        while len(self.buffer___) >= self.__samples_to_read:
+        if len(self.buffer___) >= self.__samples_to_read:
 
             # EXACT BLOCK
             iq_block = self.buffer___[:self.__samples_to_read]
@@ -877,7 +910,24 @@ class DigitalRFReader(ProcessingUnit):
 
             print("\nNEW BLOCK")
             print(f"Samples: {len(iq_block)}")
+            iq_block = iq_block.reshape(1, -1)
 
+            iq_block = iq_block.reshape((self.__nChannels, self.nProfileBlocks, int(self.__samples_to_read/self.nProfileBlocks)))
+
+            self.dataOut.nProfileBlocks = self.nProfileBlocks
+            self.dataOut.data = iq_block
+            self.dataOut.utctime = ( self.__thisUnixSample + self.__bufferIndex) / self.__sample_rate
+            self.profileIndex  += self.__samples_to_read
+            self.__bufferIndex += self.__samples_to_read
+            self.dataOut.flagDiscontinuousBlock = self.__flagDiscontinuousBlock
+
+
+            print(iq_block.shape)
+
+            # print(self.ippSeconds, self.nCohInt, self.nIncohInt, self.nProfiles, self.ippFactor)
+
+
+            '''
             for i, sample in enumerate(iq_block[:10]):
 
                 print(
@@ -885,6 +935,12 @@ class DigitalRFReader(ProcessingUnit):
                     f"I={sample.real:.5f} "
                     f"Q={sample.imag:.5f}"
                 )
+            '''
+            self.dataOut.flagNoData = False
+        
+        return True
+
+        
 
     def getData(self, seconds=30, nTries=5):
         '''
@@ -951,7 +1007,10 @@ class DigitalRFReader(ProcessingUnit):
                 # ojo debo anadir el readNextBLock y el  __isBufferEmpty(
                 self.dataOut.flagNoData             = False
                 buffer = self.__data_buffer[:,self.__bufferIndex:self.__bufferIndex + self.__samples_to_read]
+                print(buffer.shape)
                 buffer = buffer.reshape((self.__nChannels, self.nProfileBlocks, int(self.__samples_to_read/self.nProfileBlocks)))
+
+                print(buffer.shape)
                 self.dataOut.nProfileBlocks = self.nProfileBlocks
                 self.dataOut.data = buffer
                 self.dataOut.utctime = ( self.__thisUnixSample + self.__bufferIndex) / self.__sample_rate
@@ -986,8 +1045,10 @@ class DigitalRFReader(ProcessingUnit):
             self.setup(**kwargs)
         # self.i = self.i+1
         
-        self.getDataZmq()
-        #self.getData(seconds=self.__delay)
+        if self.server is True:
+            self.getDataZmq()
+        else:
+            self.getData(seconds=self.__delay)
         
         return
 
