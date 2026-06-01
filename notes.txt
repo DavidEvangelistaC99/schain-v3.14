@@ -5,3 +5,4 @@
 
 
 - El ruido es de un nivel de 50 unidades, el nivel de el pulso transmitido de alrededor de 5000 unidades
+- Agregar el [READING] en la lectura de datos

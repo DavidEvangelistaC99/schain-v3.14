@@ -5794,6 +5794,13 @@ class Decoder(Operation):
             else:
 
                 self.datadecTime[i] = signal.correlate(data[i], self.code, mode='full')[:self.__nProfiles,self.nBaud-1:]
+                
+                #for j in range(5):
+                #    
+                #    plt.plot(data[i][j,:])
+                #    plt.show()
+                
+                print(data[i].shape)
 
         return self.datadecTime
 

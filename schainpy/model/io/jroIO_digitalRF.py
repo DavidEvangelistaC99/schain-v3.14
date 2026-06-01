@@ -887,9 +887,10 @@ class DigitalRFReader(ProcessingUnit):
         msg = self.data_sock.recv()
 
         iq = numpy.frombuffer(msg, dtype=numpy.complex64)
-
-
-        print("RX packet:", len(iq))
+        
+        #plt.plot(numpy.abs(iq.flatten()))
+        #plt.show()
+        
 
         # -------------------------------------
         # APPEND TO BUFFER
@@ -909,78 +910,42 @@ class DigitalRFReader(ProcessingUnit):
             # REMOVE USED SAMPLES
             self.buffer___ = self.buffer___[self.__samples_to_read:]
 
-            print("remaining:", len(self.buffer___))
-
             # ---------------------------------
             # PROCESS BLOCK
             # ---------------------------------
 
-            print("\nNEW BLOCK")
-            print(f"Samples: {len(iq_block)}")
+            
 
-
-            print(len(iq_block))
-            print(self.nProfileBlocks)
-            print(int(self.__samples_to_read/self.nProfileBlocks))
-
-            plt.plot(numpy.abs(iq_block.flatten()))
-
-            print("Antes del reshape")
-            samples_per_profile = 1000
-
-            for k in range(20):
-                segment = iq_block[k*samples_per_profile:(k+1)*samples_per_profile]
-
-                peak = numpy.argmax(numpy.abs(segment))
-
-                print(k, peak)
-
+            print("len de iq_block", len(iq_block))
+            #iq_block = numpy.roll(iq_block, 500)
             iq_block = iq_block.reshape(1, -1)
-
-
-
             iq_block = iq_block.reshape((self.__nChannels, self.nProfileBlocks, int(self.__samples_to_read/self.nProfileBlocks)))
 
-            print("Despues del reshape")
-            print(iq_block.shape)
-
-            for p in range(5):
-                data = numpy.abs(iq_block[0,p,:])
-
-                peak = numpy.argmax(data)
-
-                print(f"Perfil {p}: pico en bin {peak}")
+            print("iq_block shape", iq_block.shape)
 
             self.dataOut.nProfileBlocks = self.nProfileBlocks
             self.dataOut.data = iq_block
 
+            # plt.plot(numpy.abs(iq_block.flatten()))
+            # plt.show()
+
+            #print(iq_block.shape)
+            '''
+            for j in range(500):
+
+                t = [i for i in range(len(iq_block[0,j,:]))]
+                plt.plot(t,iq_block[0,j,:])
+
+                #plt.plot(numpy.abs(iq_block.flatten()))
+                plt.show()
+            '''
             
-
-            #t = [i for i in range(len(iq_block[0,1,:]))]
-            #plt.plot(t,iq_block[0,1,:])
-            plt.show()
-
 
             self.dataOut.utctime = ( self.__thisUnixSample + self.__bufferIndex) / self.__sample_rate
             self.profileIndex  += self.__samples_to_read
             self.__bufferIndex += self.__samples_to_read
+            self.__thisUnixSample += self.__samples_to_read
             self.dataOut.flagDiscontinuousBlock = self.__flagDiscontinuousBlock
-
-
-            print(iq_block.shape)
-
-            # print(self.ippSeconds, self.nCohInt, self.nIncohInt, self.nProfiles, self.ippFactor)
-
-
-            '''
-            for i, sample in enumerate(iq_block[:10]):
-
-                print(
-                    f"{i:03d} | "
-                    f"I={sample.real:.5f} "
-                    f"Q={sample.imag:.5f}"
-                )
-            '''
             self.dataOut.flagNoData = False
         
         return True

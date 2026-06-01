@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 desc = "USRP_test"
 filename = "USRP_processing.xml"
 
-path = '/home/david/Documents/DATA/SIN@2026-01-21T00-00-01/rawdata/'
-figpath = '/home/david/Documents/DATA/SIN@2026-01-21T00-00-01/rawdata'
+path = '/home/idi/Documents/DATA/SIN@2026-01-21T00-00-01/rawdata/'
+figpath = '/home/idi/Documents/DATA/SIN@2026-01-21T00-00-01/rawdata'
 
 ## REVISION ##
 ## 1 ##
@@ -74,7 +74,7 @@ op1.addParameter(name='profileRangeList', value='0,499')
 # op1.addParameter(name='profileRangeList', value='250,499')
 
 # Parameters
-A = 100000.0
+A = 1.0
 ipp = 400.0e-6
 dc = 12.0
 # Consideramos el SR RX
@@ -83,7 +83,7 @@ sr_rx = 2.5e6
 fc = 0.0e6 # 0.0e6
 bw = 1.0e6 # 1.0e6
       
-chirp_tx_1, _ = modf.chirpMod(A, ipp, dc, sr_rx, sr_rx, fc, bw, t_d = 0, window = 'R', mode_f = 0)
+chirp_tx_1, _ = modf.chirpMod(A, ipp, dc, sr_rx, sr_rx, fc, bw, t_d = 0, window = 'B', mode_f = 0)
 # chirp_tx_1 = modf.chirpModUnion(ipp, sr_rx, sr_rx, A, A, 14.6, 0.4, 0.75e6, 0.0, 1.5e6, 0.0, 'B', 'R')
 
 code_ = chirp_tx_1
@@ -111,8 +111,8 @@ procUnitConfObjSousySpectra.addParameter(name='nProfiles', value='500', format='
 
 # Remocion DC
 
-opObj13 = procUnitConfObjSousySpectra.addOperation(name='removeDC')
-opObj13.addParameter(name='mode', value='2', format='int')
+#opObj13 = procUnitConfObjSousySpectra.addOperation(name='removeDC')
+#opObj13.addParameter(name='mode', value='2', format='int')
 
 #######################################################################
 ################## PLOTEO DOMINIO DE LA FRECUENCIA ####################
