@@ -5752,11 +5752,15 @@ class Decoder(Operation):
             #print(numpy.shape(data[i,:]))
             #print(numpy.shape(code))
             #exit(1)
+
+            #t = [j for j in range(len(data[i,:]))]
+            #plt.plot(t,data[i,:])
+            #plt.show()
             self.datadecTime[i,:] = numpy.correlate(data[i,:], code, mode='full')[self.nBaud-1:]
 
-            t = [i for i in range(len(data[i,:]))]
-            plt.plot(t, data[i,:])
-            plt.show()
+            #t = [i for i in range(len(data[i,:]))]
+            #plt.plot(t, data[i,:])
+            #plt.show()
 
         return self.datadecTime
     '''
@@ -5788,6 +5792,7 @@ class Decoder(Operation):
                 r = int((RMIX + -(H0))*len(data[i,0,:])/range_km)
                 self.datadecTime[i] = numpy.concatenate((corr_2[:, :r], corr_1[:, r:]), axis=1)
             else:
+
                 self.datadecTime[i] = signal.correlate(data[i], self.code, mode='full')[:self.__nProfiles,self.nBaud-1:]
 
         return self.datadecTime

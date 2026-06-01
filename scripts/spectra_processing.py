@@ -12,11 +12,8 @@ import matplotlib.pyplot as plt
 desc = "USRP_test"
 filename = "USRP_processing.xml"
 
-
-# path = '/home/idi/Documents/DATA/CHIRP_DP@2025-12-11T15-20-07/rawdata/'
-# figpath = '/home/idi/Documents/DATA/CHIRP_DP@2025-12-11T15-20-07/rawdata'
-path = '/home/idi/Documents/DATA/SIN@2026-01-21T00-00-02/rawdata/'
-figpath = '/home/idi/Documents/DATA/SIN@2026-01-21T00-00-02/rawdata'
+path = '/home/david/Documents/DATA/SIN@2026-01-21T00-00-01/rawdata/'
+figpath = '/home/david/Documents/DATA/SIN@2026-01-21T00-00-01/rawdata'
 
 ## REVISION ##
 ## 1 ##
@@ -52,7 +49,6 @@ readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             # online=0,
                                             # walk=1,
 
-
                                             getByBlock = 1,
                                             nProfileBlocks = 500,
 
@@ -78,7 +74,7 @@ op1.addParameter(name='profileRangeList', value='0,499')
 # op1.addParameter(name='profileRangeList', value='250,499')
 
 # Parameters
-A = 1.0
+A = 100000.0
 ipp = 400.0e-6
 dc = 12.0
 # Consideramos el SR RX

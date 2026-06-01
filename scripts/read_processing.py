@@ -33,7 +33,7 @@ readUnitConfObj = controllerObj.addReadUnit(datatype='DigitalRFReader',
                                             walk=1,
                                             getByBlock = 1,
                                             nProfileBlocks = 500,
-                                            server = True,
+                                            server = False,
                                             )
 # -> Project.addReadUnit()
 # Parameters send to ReadUnitConf()
