@@ -350,6 +350,9 @@ class DigitalRFReader(ProcessingUnit):
                 channel = topic.decode()
                 self.channels__.add(channel)
 
+            print("self.channels__", self.channels__)
+            print("metadata", metadata)
+            print("start_sample", metadata['acquisition']['start_sample'] )
             channelNameList = list(self.channels__)
             # self.channels__ reemplaza a channelNameList en zmq
 
@@ -439,6 +442,7 @@ class DigitalRFReader(ProcessingUnit):
             '''
             Plus samplestoread in () method
             '''
+            start_index = metadata['acquisition']['start_sample']
             self.__thisUnixSample = int(start_index) - self.__samples_to_read 
 
             print("self.__thisUnixSample")
@@ -859,6 +863,8 @@ class DigitalRFReader(ProcessingUnit):
         Initialize data adquisition
         '''
 
+        self.__zmq_started = True
+
         if not self.__zmq_started:
 
             CTRL_ADDR = "tcp://localhost:6000"
@@ -886,18 +892,29 @@ class DigitalRFReader(ProcessingUnit):
 
         msg = self.data_sock.recv()
 
-        iq = numpy.frombuffer(msg, dtype=numpy.complex64)
+        # iq = numpy.frombuffer(msg, dtype=numpy.complex64)
+
+        # iq = numpy.frombuffer(msg, dtype=[('r','<i2'), ('i','<i2')])
+
+        tmp = numpy.frombuffer(msg, dtype='<i2')
+        tmp = tmp.reshape(-1, 2)
+
+        iq = (tmp[:,0] + 1j*tmp[:,1]).astype(numpy.complex64)
+
+        #print(iq)
+        #print(len(iq))
         
+        # sleep(40)
         #plt.plot(numpy.abs(iq.flatten()))
         #plt.show()
         
-
+        
         # -------------------------------------
         # APPEND TO BUFFER
         # -------------------------------------
 
         self.buffer___ = numpy.concatenate((self.buffer___, iq))
-
+        
         # -------------------------------------
         # PROCESS COMPLETE BLOCKS
         # -------------------------------------
@@ -914,10 +931,22 @@ class DigitalRFReader(ProcessingUnit):
             # PROCESS BLOCK
             # ---------------------------------
 
-            
-
             print("len de iq_block", len(iq_block))
+
             #iq_block = numpy.roll(iq_block, 500)
+
+            # encontrar primer índice donde se cumple condición
+            mask = numpy.abs(iq_block) > 50
+
+            if numpy.any(mask):
+                idx = numpy.argmax(mask)   # primer True
+                iq_block = numpy.roll(iq_block, -idx)
+            else:
+                print("WARNING: no values > 50 found")
+
+            #plt.plot(numpy.abs(iq_block))
+            #plt.show()
+            
             iq_block = iq_block.reshape(1, -1)
             iq_block = iq_block.reshape((self.__nChannels, self.nProfileBlocks, int(self.__samples_to_read/self.nProfileBlocks)))
 
@@ -930,16 +959,14 @@ class DigitalRFReader(ProcessingUnit):
             # plt.show()
 
             #print(iq_block.shape)
-            '''
-            for j in range(500):
 
-                t = [i for i in range(len(iq_block[0,j,:]))]
-                plt.plot(t,iq_block[0,j,:])
+            # for j in range(500):
 
-                #plt.plot(numpy.abs(iq_block.flatten()))
-                plt.show()
-            '''
-            
+            #    t = [i for i in range(len(iq_block[0,j,:]))]
+            #    plt.plot(t,iq_block[0,j,:])
+
+            #    plt.plot(numpy.abs(iq_block.flatten()))
+            #    plt.show()
 
             self.dataOut.utctime = ( self.__thisUnixSample + self.__bufferIndex) / self.__sample_rate
             self.profileIndex  += self.__samples_to_read
