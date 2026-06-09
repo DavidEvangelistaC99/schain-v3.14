@@ -936,13 +936,13 @@ class DigitalRFReader(ProcessingUnit):
             #iq_block = numpy.roll(iq_block, 500)
 
             # encontrar primer índice donde se cumple condición
-            mask = numpy.abs(iq_block) > 50
+            # mask = numpy.abs(iq_block) > 50
 
-            if numpy.any(mask):
-                idx = numpy.argmax(mask)   # primer True
-                iq_block = numpy.roll(iq_block, -idx)
-            else:
-                print("WARNING: no values > 50 found")
+            # if numpy.any(mask):
+            #     idx = numpy.argmax(mask)   # primer True
+            #     iq_block = numpy.roll(iq_block, -idx)
+            # else:
+            #     print("WARNING: no values > 50 found")
 
             #plt.plot(numpy.abs(iq_block))
             #plt.show()
