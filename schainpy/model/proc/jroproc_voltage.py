@@ -5800,7 +5800,7 @@ class Decoder(Operation):
                 #    plt.plot(data[i][j,:])
                 #    plt.show()
                 
-                print(data[i].shape)
+                #print(data[i].shape)
 
         return self.datadecTime
 
@@ -6890,8 +6890,10 @@ class PulsePair_vRF(Operation):
         pair0       = pair0.real
         pair1       = self.__buffer[:,:-1,:]*numpy.conjugate(self.__buffer[:,1:,:])
         #-----------------Calculo de Cscp------------------------------ New
-        cspc_pair01 = self.__buffer[0]*numpy.conjugate(self.__buffer[1])
-        data_ccf = numpy.nanmean(cspc_pair01,axis=0)/(numpy.sqrt(numpy.nanmean(pair0[0],axis=0)*numpy.nanmean(pair0[1],axis=0)))
+        # cspc_pair01 = self.__buffer[0]*numpy.conjugate(self.__buffer[1])
+        cspc_pair01 = self.__buffer[0]*numpy.conjugate(self.__buffer[0])
+        # data_ccf = numpy.nanmean(cspc_pair01,axis=0)/(numpy.sqrt(numpy.nanmean(pair0[0],axis=0)*numpy.nanmean(pair0[1],axis=0)))
+        data_ccf = numpy.nanmean(cspc_pair01,axis=0)/(numpy.sqrt(numpy.nanmean(pair0[0],axis=0)*numpy.nanmean(pair0[0],axis=0)))
         
         #------------------  Data Decodificada------------------------
         pwcode =  1

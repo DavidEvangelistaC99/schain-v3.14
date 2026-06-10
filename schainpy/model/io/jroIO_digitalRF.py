@@ -471,6 +471,8 @@ class DigitalRFReader(ProcessingUnit):
 
             self.isConfig = True
 
+            print("[Reading] Receiving IQ ...")
+
 
         else:
 
@@ -595,8 +597,8 @@ class DigitalRFReader(ProcessingUnit):
             start_index, end_index = self.digitalReadObj.get_bounds(
                 channelNameList[channelList[0]])
             
-            print(start_index)
-            print(end_index)
+            #print(start_index)
+            #print(end_index)
         
             if start_index==None or end_index==None:
                 print("Check error No data,  start_index: ",start_index,",end_index: ",end_index)
@@ -674,8 +676,8 @@ class DigitalRFReader(ProcessingUnit):
             # por que en el otro metodo lo primero q se hace es sumar samplestoread
             self.__thisUnixSample = int(startUTCSecond * self.__sample_rate) - self.__samples_to_read
 
-            print("self.__thisUnixSample")
-            print(self.__thisUnixSample)
+            #print("self.__thisUnixSample")
+            #print(self.__thisUnixSample)
 
             #self.__data_buffer = numpy.zeros(
             #    (self.__num_subchannels, self.__samples_to_read), dtype=numpy.complex)
@@ -703,8 +705,6 @@ class DigitalRFReader(ProcessingUnit):
         # =========================================
 
         self.buffer___ = numpy.array([], dtype=numpy.complex64)
-
-        print("[Reading] Receiving IQ ...")
 
     def __reload(self):
         #         print
@@ -931,7 +931,7 @@ class DigitalRFReader(ProcessingUnit):
             # PROCESS BLOCK
             # ---------------------------------
 
-            print("len de iq_block", len(iq_block))
+            # print("len de iq_block", len(iq_block))
 
             #iq_block = numpy.roll(iq_block, 500)
 
@@ -950,7 +950,7 @@ class DigitalRFReader(ProcessingUnit):
             iq_block = iq_block.reshape(1, -1)
             iq_block = iq_block.reshape((self.__nChannels, self.nProfileBlocks, int(self.__samples_to_read/self.nProfileBlocks)))
 
-            print("iq_block shape", iq_block.shape)
+            # print("iq_block shape", iq_block.shape)
 
             self.dataOut.nProfileBlocks = self.nProfileBlocks
             self.dataOut.data = iq_block
@@ -1044,10 +1044,10 @@ class DigitalRFReader(ProcessingUnit):
                 # ojo debo anadir el readNextBLock y el  __isBufferEmpty(
                 self.dataOut.flagNoData             = False
                 buffer = self.__data_buffer[:,self.__bufferIndex:self.__bufferIndex + self.__samples_to_read]
-                print(buffer.shape)
+                #print(buffer.shape)
                 buffer = buffer.reshape((self.__nChannels, self.nProfileBlocks, int(self.__samples_to_read/self.nProfileBlocks)))
 
-                print(buffer.shape)
+                #print(buffer.shape)
                 self.dataOut.nProfileBlocks = self.nProfileBlocks
                 self.dataOut.data = buffer
                 self.dataOut.utctime = ( self.__thisUnixSample + self.__bufferIndex) / self.__sample_rate

@@ -8358,7 +8358,11 @@ class PedestalInformation(Operation):
     def find_file(self, timestamp):
 
         dt = datetime.datetime.utcfromtimestamp(timestamp)
+
+        print("timestamp:", timestamp)
         path = os.path.join(self.path, dt.strftime('%Y-%m-%dT%H-00-00'))
+
+        print("path", path)
 
         if not os.path.exists(path):
             return False
@@ -8444,6 +8448,7 @@ class PedestalInformation(Operation):
                 log.error('No position files found in {}'.format(path), self.name)
                 raise IOError('No position files found in {}'.format(path))
             filelist = self.find_file(dataOut.utctime)
+            print("filelist", filelist)
 
             if filelist == 0:
                 N += 1
