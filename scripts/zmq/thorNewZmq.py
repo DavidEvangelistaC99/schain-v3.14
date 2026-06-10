@@ -185,6 +185,11 @@ class Thor(object):
             time_sources=[""], 	#Change
             # receiver group (apply to all)
             samplerate=1e6,
+
+            # ZMQ parameter
+            zmq=0,
+            point = 0,
+
             dev_args=dict(recv_buff_size="100000000", num_recv_frames="512"),
             stream_args={},
             tune_args={},
@@ -220,10 +225,14 @@ class Thor(object):
             subdir_cadence_s=3600,
             metadata={},
             uuid=None,
+
         )
         options.update(kwargs)
         op = self._parse_options(datadir=datadir, **options)
         self.op = op
+
+        # ZMQ
+        self.point = 0
 
         # Dict for metadata in zmq tranmission
         self.metadata_channels = {}
@@ -1150,7 +1159,7 @@ class Thor(object):
 
             self.metadata_channels[op.channel_names[ko]] = metadata_dict
 
-            print("self.metadata_channels", self.metadata_channels)
+            #print("self.metadata_channels", self.metadata_channels)
 
             # create digital RF sink
             dst = gr_drf.digital_rf_channel_sink(
@@ -1192,11 +1201,11 @@ class Thor(object):
 
             #fg.connect(convert, zmq_pub)
 
-            print("dtype =", op.ch_out_specs[ko]["dtype"])
-            print("convert =", convert)
-            print("resampler =", resampler)
-            print("rotator =", rotator)
-            print("channelizer =", channelizer)
+            #print("dtype =", op.ch_out_specs[ko]["dtype"])
+            #print("convert =", convert)
+            #print("resampler =", resampler)
+            #print("rotator =", rotator)
+            #print("channelizer =", channelizer)
 
             connections = [(u, kr)]
             if resampler is not None:
@@ -1207,14 +1216,23 @@ class Thor(object):
                 connections.append((channelizer, 0))
             if convert is not None:
                 connections.append((convert, 0))
-            
-            connections.append((dst, 0))
+
+
+            if op.zmq == 0:
+                connections.append((dst, 0))
+                #print("op.zmq", op.zmq)
+
+            else:
+                connections.append((zmq_pub, 0))
+                #print("op.zmq", op.zmq)
+                print("\nZMQ Data Acquisition ...")
+                
 
             connections = tuple(connections)
-
             # make channel connections in flowgraph
             fg.connect(*connections)
 
+            '''
             if convert is not None:
                 fg.connect(convert, zmq_pub)
             elif channelizer is not None:
@@ -1226,6 +1244,7 @@ class Thor(object):
             else:
                 # zmq publisher transmit
                 fg.connect((u, kr), zmq_pub)
+            '''
 
             # store the graph so that the blocks are not garbage collected
             graph.append(connections)
@@ -1437,6 +1456,17 @@ def _add_mainboard_group(parser):
     )
     return parser
 
+# ZMQ Parser for zmq adquisition
+def _add_zmq_group(parser):
+    zgroup = parser.add_argument_group(title="zmq")
+    zgroup.add_argument(
+        "-z",
+        "--zmq",
+        dest="zmq",
+        type=evalint,
+        help="""ZMQ aquisition (default: False)""",
+    )
+    return parser
 
 def _add_receiver_group(parser):
     recgroup = parser.add_argument_group(title="receiver")
@@ -1889,6 +1919,7 @@ def _build_thor_parser(Parser, *args):
     parser = _add_ochannel_group(parser)
     parser = _add_drf_group(parser)
     parser = _add_time_group(parser)
+    parser = _add_zmq_group(parser)
 
     parser.set_defaults(func=_run_thor)
 

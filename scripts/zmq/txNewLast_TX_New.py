@@ -1149,4 +1149,4 @@ if __name__ == '__main__':
 # python3 txNewLast_TX_New.py -m 192.168.20.7 -d "A:AB" -y "TX/RX" -f 70.3125e6 -r 20.0e6 -IPP 400.0e-6 -rx 2.5e6 -file_chirp_A /home/idi/anaconda3/envs/sophy3.10/code/json/chirp_1.json -file_chirp_B /home/idi/anaconda3/envs/sophy3.10/code/json/chirp_2.json
 
 # python3 txNewLast_TX_New.py -m 192.168.10.2 -d "A:AB" -y "TX/RX" -f 70.3125e6 -r 20.0e6 -IPP 400.0e-6 -rx 2.5e6 -file_chirp_A /home/idi/anaconda3/envs/sophy3.10/code/json/chirp_1.json -file_chirp_B /home/idi/anaconda3/envs/sophy3.10/code/json/chirp_2.json
-# python3 txNewLast_TX_New.py -m 192.168.10.2 -d "A:AB" -y "TX/RX" -f 70.3125e6 -r 20.0e6 -IPP 400.0e-6 -rx 2.5e6 -file_chirp_A /home/idi/Documents/schain-v3.14/scripts/zmq/json/chirp_1.json
+# python3 txNewLast_TX_New.py -m 192.168.10.2 -d "A:AB" -y "TX/RX" -f 70.3125e6 -r 20.0e6 -IPP 400.0e-6 -rx 2.5e6 -file_chirp_A /home/idi/anaconda3/envs/sophy3.10/code/json/chirp_1.json --nosync
