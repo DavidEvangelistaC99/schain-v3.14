@@ -34,7 +34,7 @@ def max_index(r, sample_rate, ipp, h0,ipp_km):
 def main(args):
 
     experiment = args.experiment
-    fp = open(os.path.join(PATH, experiment, 'experiment_zmq.json'))
+    fp = open(os.path.join(PATH, experiment, 'experiment.json'))
     conf = json.loads(fp.read())
 
     ipp_km = conf['usrp_tx']['ipp']
@@ -102,18 +102,19 @@ def main(args):
 
     reader = project.addReadUnit(datatype='DigitalRFReader',
         path=path,
-        startDate=start_date,
-        endDate=end_date,
-        startTime=start_time,
-        endTime=end_time,
+        startDate="2026/01/01",
+        endDate="2026/12/30",
+        startTime='00:00:00',
+        endTime='23:59:59',
         delay=10,
         online=args.online,
         walk=1,
         ippKm = ipp_km,
         getByBlock = 1,
         nProfileBlocks = N,
-        server=True,
         verbose=False,
+
+        server = True,
     )
 
     if not conf['usrp_tx']['enable_2']: # One Pulse
@@ -694,4 +695,4 @@ En este experimento se observa que la h0 = -1.4
 """
 
 # python3 sophy_proc.py CHIRP@2025-10-16T19-30-55 --parameters SNR --plot --save --rmDC --label 31_03_26 --range 60 --mask -9.0
-# python3 sophy_proc_zmq.py CHIRP_DP@2025-12-11T15-20-07 --parameters SNR --plot --save --rmDC --label 10_06_26 --range 60 --mask -9.0
+# python3 sophy_proc.py CHIRP_DP@2025-12-11T15-20-07 --parameters SNR --plot --save --rmDC --label 14_04_26 --range 60 --mask -9.0
