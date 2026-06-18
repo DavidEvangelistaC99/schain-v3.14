@@ -39,13 +39,14 @@ python setup.py develop
 ```
 
 ```
-pip install click
+pip install "click<8.2"
 pip install "numpy<1.24"
 pip install zmq
 pip install matplotlib==3.5.1
 pip install scipy==1.8.0
 pip install digital_rf==2.6.7
 pip install cartopy
+pip install mysql-connector-python
 ```
 
 Adittional:
