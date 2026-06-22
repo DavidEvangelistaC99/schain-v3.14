@@ -120,7 +120,7 @@ opObj11.addParameter(name='n', value='1', format='float')
 
 procUnitConfObj2 = controllerObj.addProcUnit(datatype='ParametersProc', inputId=procUnitConfObj1.getId())
 opObj20 = procUnitConfObj2.addOperation(name='SpectralFitting', optype='other')
-opObj20.addParameter(name='path', value='/home/pcondor/DIR_MADRIGAL/schain/schainpy/model/proc', format='str')
+opObj20.addParameter(name='path', value='/home/idi/Documents/schainDrifts/schain/schainpy/model/proc', format='str')
 opObj20.addParameter(name='file', value='modelSpectralFitting', format='str')
 opObj20.addParameter(name='groupList', value='(0,1),(2,3)',format='multiList')
 opObj20.addParameter(name='taver', value='5')
