@@ -35,14 +35,14 @@ def modelFunction(p, constants):
     fm = numpy.hstack((fm_c[0],fm_c[1]))
     return fm
 
-def errorFunction(p, constants, LT):
+def errorFunction(p, constants, LT,s_sq):
     
     J=makeJacobian(p, constants) 
     J =numpy.dot(LT,J)
     covm =numpy.linalg.inv(numpy.dot(J.T ,J))
     #calculate error as the square root of the covariance matrix diagonal 
     #multiplying by 1.96 would give 95% confidence interval
-    err =numpy.sqrt(numpy.diag(covm))
+    err =numpy.sqrt(numpy.diag(s_sq*covm))
     return err
 
 #-----------------------------------------------------------------------------------

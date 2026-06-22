@@ -137,7 +137,7 @@ class BasicHeader(Header):
     timeZone = None
     dstFlag = None
     errorCount = None
-    datatime = None
+    F = None
     structure = BASIC_STRUCTURE
     __LOCALTIME = None
 
@@ -363,6 +363,7 @@ class RadarControllerHeader(Header):
         self.expType = int(header['nExpType'][0])
         self.nTx = int(header['nNTx'][0])
         self.ipp = float(header['fIpp'][0])
+        #print(self.ipp)
         self.txA = float(header['fTxA'][0])
         self.txB = float(header['fTxB'][0])
         self.nWindows = int(header['nNumWindows'][0])
@@ -516,7 +517,7 @@ class RadarControllerHeader(Header):
                     for j in range(len(code_selected) - 1, -1, -1):
                         if code_selected[j] == 1:
                             tempx[i] = tempx[i] + \
-                                2 ** (len(code_selected) - 1 - j)
+                                2**(len(code_selected) - 1 - j)
                     start = start + 32
                     end = end + 32
 
@@ -534,6 +535,7 @@ class RadarControllerHeader(Header):
     def get_ippSeconds(self):
         '''
         '''
+
         ippSeconds = 2.0 * 1000 * self.ipp / SPEED_OF_LIGHT
 
         return ippSeconds
@@ -640,6 +642,7 @@ class ProcessingHeader(Header):
         self.nWindows = int(header['nNumWindows'][0])
         self.processFlags = header['nProcessFlags']
         self.nCohInt = int(header['nCoherentIntegrations'][0])
+
         self.nIncohInt = int(header['nIncoherentIntegrations'][0])
         self.totalSpectra = int(header['nTotalSpectra'][0])
 

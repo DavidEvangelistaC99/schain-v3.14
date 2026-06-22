@@ -23,26 +23,26 @@ from schainpy.utils import log
 
 
 PLOT_CODES = {
-    'rti': 0,  # Range time intensity (RTI).
-    'spc': 1,  # Spectra (and Cross-spectra) information.
-    'cspc': 2,  # Cross-Correlation information.
-    'coh': 3,  # Coherence map.
-    'base': 4,  # Base lines graphic.
-    'row': 5,  # Row Spectra.
-    'total': 6,  # Total Power.
-    'drift': 7,  # Drifts graphics.
-    'height': 8,  # Height profile.
-    'phase': 9,  # Signal Phase.
+    'rti': 0,            # Range time intensity (RTI).
+    'spc': 1,            # Spectra (and Cross-spectra) information.
+    'cspc': 2,           # Cross-Correlation information.
+    'coh': 3,            # Coherence map.
+    'base': 4,           # Base lines graphic.
+    'row': 5,            # Row Spectra.
+    'total': 6,          # Total Power.
+    'drift': 7,          # Drifts graphics.
+    'height': 8,         # Height profile.
+    'phase': 9,          # Signal Phase.
     'power': 16,
     'noise': 17,
     'beacon': 18,
     'wind': 22,
     'skymap': 23,
     'Unknown': 24,
-    'V-E': 25,  # PIP Velocity.
-    'Z-E': 26,  # PIP Reflectivity.
-    'V-A': 27,  # RHI Velocity.
-    'Z-A': 28,  # RHI Reflectivity.
+    'V-E': 25,          # PIP Velocity.
+    'Z-E': 26,          # PIP Reflectivity.
+    'V-A': 27,          # RHI Velocity.
+    'Z-A': 28,          # RHI Reflectivity.
 }
 
 def get_plot_code(s):
@@ -247,7 +247,7 @@ class SendToFTP(Operation):
 
         try:
             if not self.ready:
-                if time.time() - self.current_time < self.timeout:
+                if time.time()-self.current_time < self.timeout:
                     return
                 else:
                     self.current_time = time.time()
@@ -281,8 +281,8 @@ class SendToFTP(Operation):
     def upload(self, src, dst):
 
         log.log('Uploading {} -> {} '.format(
-            src.split('/')[-1], dst.split('/')[-1]),
-            self.name,
+            src.split('/')[-1], dst.split('/')[-1]), 
+            self.name, 
             nl=False
             )
 
@@ -338,10 +338,10 @@ class SendToFTP(Operation):
 
         if not self.isConfig:
             self.setup(
-                server=server,
-                username=username,
-                password=password,
-                timeout=timeout,
+                server=server, 
+                username=username, 
+                password=password, 
+                timeout=timeout, 
                 **kwargs
                 )
             self.isConfig = True

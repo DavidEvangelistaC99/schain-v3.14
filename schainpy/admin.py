@@ -129,7 +129,7 @@ class SchainConfigure():
     __SCHAIN_SENDER_EMAIL = "MAILSERVER_ACCOUNT"
     __SCHAIN_SENDER_PASS = "MAILSERVER_PASSWORD"
     
-    def __init__(self, initFile=None):
+    def __init__(self, initFile = None):
         
         # Set configuration file
         if (initFile == None):
@@ -251,7 +251,7 @@ class SchainNotify:
     Written by "Miguel Urco":mailto:miguel.urco@jro.igp.gob.pe  Dec. 1, 2015
     """
 
-    # constants
+    #constants
     
     def __init__(self):
         """__init__ initializes SchainNotify by getting some basic information from SchainDB and SchainSite.
@@ -275,7 +275,7 @@ class SchainNotify:
         self.__emailFromAddress = confObj.getSenderEmail()
         self.__emailPass = confObj.getSenderPass()
         self.__emailToAddress = confObj.getAdminEmail()
-        self.__emailServer = confObj.getEmailServer()
+        self.__emailServer  = confObj.getEmailServer()
 
     def sendEmail(self, email_from, email_to, subject='Error running ...', message="", subtitle="", filename="", html_format=True):
 
@@ -297,7 +297,7 @@ class SchainNotify:
         msg.preamble = 'SChainPy'
         
         if html_format:
-            message = "<h1> %s </h1>" % subject + "<h3>" + subtitle.replace("\n", "</h3><h3>\n") + "</h3>" + message.replace("\n", "<br>\n")
+            message = "<h1> %s </h1>" %subject + "<h3>" + subtitle.replace("\n", "</h3><h3>\n") + "</h3>" + message.replace("\n", "<br>\n")
             message = "<html>\n" + message + '</html>'
         
             # This is the textual part:
@@ -310,8 +310,8 @@ class SchainNotify:
         
         if filename and os.path.isfile(filename):
             # This is the binary part(The Attachment):
-            part = MIMEApplication(open(filename, "rb").read())
-            part.add_header('Content-Disposition',
+            part = MIMEApplication(open(filename,"rb").read())
+            part.add_header('Content-Disposition', 
                             'attachment',
                             filename=os.path.basename(filename))
             msg.attach(part)
@@ -342,7 +342,7 @@ class SchainNotify:
         
         return 1
     
-    def sendAlert(self, message, subject="", subtitle="", filename=""):
+    def sendAlert(self, message, subject = "", subtitle="", filename=""):
         """sendAlert sends an email with the given message and optional title.
 
         Inputs: message (string), and optional title (string)
@@ -357,14 +357,14 @@ class SchainNotify:
         if not self.__emailToAddress:
             return 0
         
-        print("***** Sending alert to %s *****" % self.__emailToAddress)
+        print("***** Sending alert to %s *****" %self.__emailToAddress)
         # set up message
     
-        sent = self.sendEmail(email_from=self.__emailFromAddress,
+        sent=self.sendEmail(email_from=self.__emailFromAddress,
                            email_to=self.__emailToAddress,
                            subject=subject,
                            message=message,
-                           subtitle=subtitle,
+                           subtitle=subtitle, 
                            filename=filename)
         
         if not sent:
@@ -372,7 +372,7 @@ class SchainNotify:
         
         return 1
         
-    def notify(self, email, message, subject="", subtitle="", filename=""):
+    def notify(self, email, message, subject = "", subtitle="", filename=""):
         """notify sends an email with the given message and title to email.
 
         Inputs: email (string), message (string), and subject (string)
@@ -392,7 +392,7 @@ class SchainNotify:
             email_to=email,
             subject=subject,
             message=message,
-            subtitle=subtitle,
+            subtitle=subtitle, 
             filename=filename
             )
 

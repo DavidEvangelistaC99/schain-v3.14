@@ -136,7 +136,7 @@ class SCPClient(object):
         self._pushed = 0
         self.channel.settimeout(self.socket_timeout)
         scp_command = (b'scp -t ', b'scp -r -t ')[recursive]
-        self.channel.exec_command(scp_command + 
+        self.channel.exec_command(scp_command +
                                   self.sanitize(asbytes(remote_path)))
         self._recv_confirm()
 
@@ -174,20 +174,20 @@ class SCPClient(object):
                         not os.path.isdir(os.path.abspath(local_path)))
         if len(remote_path) > 1:
             if not os.path.exists(self._recv_dir):
-                raise SCPException("Local path '%s' does not exist" % 
+                raise SCPException("Local path '%s' does not exist" %
                                    asunicode(self._recv_dir))
             elif not os.path.isdir(self._recv_dir):
-                raise SCPException("Local path '%s' is not a directory" % 
+                raise SCPException("Local path '%s' is not a directory" %
                                    asunicode(self._recv_dir))
         rcsv = (b'', b' -r')[recursive]
         prsv = (b'', b' -p')[preserve_times]
         self.channel = self._open()
         self._pushed = 0
         self.channel.settimeout(self.socket_timeout)
-        self.channel.exec_command(b"scp" + 
-                                  rcsv + 
-                                  prsv + 
-                                  b" -f " + 
+        self.channel.exec_command(b"scp" +
+                                  rcsv +
+                                  prsv +
+                                  b" -f " +
                                   b' '.join(remote_path))
         self._recv_all()
         self.close()
@@ -227,7 +227,7 @@ class SCPClient(object):
             # The protocol can't handle \n in the filename.
             # Quote them as the control sequence \^J for now,
             # which is how openssh handles it.
-            self.channel.sendall(("C%s %d " % (mode, size)).encode('ascii') + 
+            self.channel.sendall(("C%s %d " % (mode, size)).encode('ascii') +
                                  basename.replace(b'\n', b'\\^J') + b"\n")
             self._recv_confirm()
             file_pos = 0
@@ -287,7 +287,7 @@ class SCPClient(object):
         basename = asbytes(os.path.basename(directory))
         if self.preserve_times:
             self._send_time(mtime, atime)
-        self.channel.sendall(('D%s 0 ' % mode).encode('ascii') + 
+        self.channel.sendall(('D%s 0 ' % mode).encode('ascii') +
                              basename.replace(b'\n', b'\\^J') + b'\n')
         self._recv_confirm()
         self._pushed += 1

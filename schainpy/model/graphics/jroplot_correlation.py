@@ -32,8 +32,8 @@ class CorrelationPlot(Plot):
 
     def getSubplots(self):
 
-        ncol = int(numpy.sqrt(self.nplots) + 0.9)
-        nrow = int(self.nplots * 1. / ncol + 0.9)
+        ncol = int(numpy.sqrt(self.nplots)+0.9)
+        nrow = int(self.nplots*1./ncol + 0.9)
 
         return nrow, ncol
 
@@ -50,10 +50,10 @@ class CorrelationPlot(Plot):
             colspan = 2
             self.__nsubplots = 2
 
-        self.createFigure(id=id,
-                          wintitle=wintitle,
-                          widthplot=self.WIDTH + self.WIDTHPROF,
-                          heightplot=self.HEIGHT + self.HEIGHTPROF,
+        self.createFigure(id = id,
+                          wintitle = wintitle,
+                          widthplot = self.WIDTH + self.WIDTHPROF,
+                          heightplot = self.HEIGHT + self.HEIGHTPROF,
                           show=show)
 
         nrow, ncol = self.getSubplots()
@@ -65,10 +65,10 @@ class CorrelationPlot(Plot):
                 if counter >= self.nplots:
                     break
 
-                self.addAxes(nrow, ncol * ncolspan, y, x * ncolspan, colspan, 1)
+                self.addAxes(nrow, ncol*ncolspan, y, x*ncolspan, colspan, 1)
 
                 if showprofile:
-                    self.addAxes(nrow, ncol * ncolspan, y, x * ncolspan + colspan, 1, 1)
+                    self.addAxes(nrow, ncol*ncolspan, y, x*ncolspan+colspan, 1, 1)
 
                 counter += 1
 
@@ -98,7 +98,7 @@ class CorrelationPlot(Plot):
             return None
 
         if realtime:
-            if not(isRealtime(utcdatatime=dataOut.utctime)):
+            if not(isRealtime(utcdatatime = dataOut.utctime)):
                 print('Skipping this plot function')
                 return
 
@@ -116,16 +116,16 @@ class CorrelationPlot(Plot):
         x = dataOut.getLagTRange(1)
         y = dataOut.heightList
 
-        z = copy.copy(dataOut.data_corr[:, :, 0, :])
+        z = copy.copy(dataOut.data_corr[:,:,0,:])
         for i in range(dataOut.data_corr.shape[0]):
-            z[i, :, :] = z[i, :, :] / factor[i, :]
+            z[i,:,:] = z[i,:,:]/factor[i,:]
         zdB = numpy.abs(z)
 
         avg = numpy.average(z, axis=1)
 #         avg = numpy.nanmean(z, axis=1)
 #         noise = dataOut.noise/factor
 
-        # thisDatetime = dataOut.datatime
+        #thisDatetime = dataOut.datatime
         thisDatetime = datetime.datetime.utcfromtimestamp(dataOut.getTimeRange()[0])
         title = wintitle + " Correlation"
         xlabel = "Lag T (s)"
@@ -158,10 +158,10 @@ class CorrelationPlot(Plot):
         self.setWinTitle(title)
 
         for i in range(self.nplots):
-            str_datetime = '%s %s' % (thisDatetime.strftime("%Y/%m/%d"), thisDatetime.strftime("%H:%M:%S"))
-            title = "Channel %d and %d: : %s" % (dataOut.pairsList[i][0], dataOut.pairsList[i][1] , str_datetime)
-            axes = self.axesList[i * self.__nsubplots]
-            axes.pcolor(x, y, zdB[i, :, :],
+            str_datetime = '%s %s'%(thisDatetime.strftime("%Y/%m/%d"),thisDatetime.strftime("%H:%M:%S"))
+            title = "Channel %d and %d: : %s" %(dataOut.pairsList[i][0],dataOut.pairsList[i][1] , str_datetime)
+            axes = self.axesList[i*self.__nsubplots]
+            axes.pcolor(x, y, zdB[i,:,:],
                         xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, zmin=zmin, zmax=zmax,
                         xlabel=xlabel, ylabel=ylabel, title=title,
                         ticksize=9, cblabel='')

@@ -5,4 +5,4 @@ try:
 except:
     pass
 
-__version__ = '3.0.0b6'
+__version__ = '3.0.1rc1'

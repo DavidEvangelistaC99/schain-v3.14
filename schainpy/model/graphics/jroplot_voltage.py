@@ -54,9 +54,9 @@ class ScopePlot(Plot):
 
     def plot_iq(self, x, y, channelIndexList, thisDatetime, wintitle):
 
-        yreal = y[channelIndexList, :].real
-        yimag = y[channelIndexList, :].imag
-        title = wintitle + " Scope: %s" % (thisDatetime.strftime("%d-%b-%Y"))
+        yreal = y[channelIndexList,:].real
+        yimag = y[channelIndexList,:].imag
+        title = wintitle + " Scope: %s" %(thisDatetime.strftime("%d-%b-%Y"))
         self.xlabel = "Range (Km)"
         self.ylabel = "Intensity - IQ"
 
@@ -65,32 +65,32 @@ class ScopePlot(Plot):
 
         self.titles[0] = title
 
-        for i, ax in enumerate(self.axes):
-            title = "Channel %d" % (i)
+        for i,ax in enumerate(self.axes):
+            title = "Channel %d" %(i)
             if ax.firsttime:
                 self.xmin = min(x)
                 self.xmax = max(x)
-                ax.plt_r = ax.plot(x, yreal[i, :], color='b')[0]
-                ax.plt_i = ax.plot(x, yimag[i, :], color='r')[0]
+                ax.plt_r = ax.plot(x, yreal[i,:], color='b')[0]
+                ax.plt_i = ax.plot(x, yimag[i,:], color='r')[0]
             else:
-                ax.plt_r.set_data(x, yreal[i, :])
-                ax.plt_i.set_data(x, yimag[i, :])
+                ax.plt_r.set_data(x, yreal[i,:])
+                ax.plt_i.set_data(x, yimag[i,:])
 
     def plot_power(self, x, y, channelIndexList, thisDatetime, wintitle):
-        y = y[channelIndexList, :] * numpy.conjugate(y[channelIndexList, :])
+        y = y[channelIndexList,:] * numpy.conjugate(y[channelIndexList,:])
         yreal = y.real
-        yreal = 10 * numpy.log10(yreal)
+        yreal = 10*numpy.log10(yreal)
         self.y = yreal
-        title = wintitle + " Power: %s" % (thisDatetime.strftime("%d-%b-%Y"))
+        title = wintitle + " Power: %s" %(thisDatetime.strftime("%d-%b-%Y"))
         self.xlabel = "Range (Km)"
         self.ylabel = "Intensity [dB]"
 
 
         self.titles[0] = title
 
-        for i, ax in enumerate(self.axes):
-            title = "Channel %d" % (i)
-            ychannel = yreal[i, :]
+        for i,ax in enumerate(self.axes):
+            title = "Channel %d" %(i)
+            ychannel = yreal[i,:]
 
             if ax.firsttime:
                 self.xmin = min(x)
@@ -102,66 +102,66 @@ class ScopePlot(Plot):
     def plot_weatherpower(self, x, y, channelIndexList, thisDatetime, wintitle):
 
 
-        y = y[channelIndexList, :]
-        yreal = y.real
-        yreal = 10 * numpy.log10(yreal)
+        y      = y[channelIndexList,:]
+        yreal  = y.real
+        yreal  = 10*numpy.log10(yreal)
         self.y = yreal
-        title = wintitle + " Scope: %s" % (thisDatetime.strftime("%d-%b-%Y %H:%M:%S"))
+        title  = wintitle + " Scope: %s" %(thisDatetime.strftime("%d-%b-%Y %H:%M:%S"))
         self.xlabel = "Range (Km)"
         self.ylabel = "Intensity"
-        self.xmin = min(x)
-        self.xmax = max(x)
+        self.xmin   = min(x)
+        self.xmax   = max(x)
 
-        self.titles[0] = title
-        for i, ax in enumerate(self.axes):
-            title = "Channel %d" % (i)
+        self.titles[0] =title
+        for i,ax in enumerate(self.axes):
+            title    = "Channel %d" %(i)
 
-            ychannel = yreal[i, :]
+            ychannel = yreal[i,:]
 
             if ax.firsttime:
                 ax.plt_r = ax.plot(x, ychannel)[0]
             else:
-                # pass
+                #pass
                 ax.plt_r.set_data(x, ychannel)
 
     def plot_weathervelocity(self, x, y, channelIndexList, thisDatetime, wintitle):
 
-        x = x[channelIndexList, :]
-        yreal = y
+        x = x[channelIndexList,:]
+        yreal  = y
         self.y = yreal
-        title = wintitle + " Scope: %s" % (thisDatetime.strftime("%d-%b-%Y %H:%M:%S"))
+        title = wintitle + " Scope: %s" %(thisDatetime.strftime("%d-%b-%Y %H:%M:%S"))
         self.xlabel = "Velocity (m/s)"
         self.ylabel = "Range (Km)"
-        self.xmin = numpy.min(x)
-        self.xmax = numpy.max(x)
-        self.titles[0] = title
-        for i, ax in enumerate(self.axes):
-            title = "Channel %d" % (i)
-            xchannel = x[i, :]
+        self.xmin   = numpy.min(x)
+        self.xmax   = numpy.max(x)
+        self.titles[0] =title
+        for i,ax in enumerate(self.axes):
+            title    = "Channel %d" %(i)
+            xchannel    = x[i,:]
             if ax.firsttime:
                 ax.plt_r = ax.plot(xchannel, yreal)[0]
             else:
-                # pass
+                #pass
                 ax.plt_r.set_data(xchannel, yreal)
 
     def plot_weatherspecwidth(self, x, y, channelIndexList, thisDatetime, wintitle):
 
-        x = x[channelIndexList, :]
-        yreal = y
+        x = x[channelIndexList,:]
+        yreal  = y
         self.y = yreal
-        title = wintitle + " Scope: %s" % (thisDatetime.strftime("%d-%b-%Y %H:%M:%S"))
+        title = wintitle + " Scope: %s" %(thisDatetime.strftime("%d-%b-%Y %H:%M:%S"))
         self.xlabel = "width "
         self.ylabel = "Range (Km)"
-        self.xmin = numpy.min(x)
-        self.xmax = numpy.max(x)
-        self.titles[0] = title
-        for i, ax in enumerate(self.axes):
-            title = "Channel %d" % (i)
-            xchannel = x[i, :]
+        self.xmin   = numpy.min(x)
+        self.xmax   = numpy.max(x)
+        self.titles[0] =title
+        for i,ax in enumerate(self.axes):
+            title    = "Channel %d" %(i)
+            xchannel    = x[i,:]
             if ax.firsttime:
                 ax.plt_r = ax.plot(xchannel, yreal)[0]
             else:
-                # pass
+                #pass
                 ax.plt_r.set_data(xchannel, yreal)
 
     def plot(self):
@@ -178,11 +178,11 @@ class ScopePlot(Plot):
 
             for i in range(self.data.nProfiles):
 
-                wintitle1 = " [Profile = %d] " % i
-                if self.CODE == "scope":
+                wintitle1 = " [Profile = %d] " %i
+                if self.CODE =="scope":
                     if self.type == "power":
                         self.plot_power(self.data.yrange,
-                                        scope[:, i, :],
+                                        scope[:,i,:],
                                         channels,
                                         thisDatetime,
                                         wintitle1
@@ -190,42 +190,42 @@ class ScopePlot(Plot):
 
                     if self.type == "iq":
                         self.plot_iq(self.data.yrange,
-                                     scope[:, i, :],
+                                     scope[:,i,:],
                                      channels,
                                      thisDatetime,
                                      wintitle1
                                     )
-                if self.CODE == "pp_power":
+                if self.CODE=="pp_power":
                     self.plot_weatherpower(self.data.yrange,
-                               scope[:, i, :],
+                               scope[:,i,:],
                                channels,
                                thisDatetime,
                                wintitle
                                )
-                if self.CODE == "pp_signal":
+                if self.CODE=="pp_signal":
                     self.plot_weatherpower(self.data.yrange,
-                               scope[:, i, :],
+                               scope[:,i,:],
                                channels,
                                thisDatetime,
                                wintitle
                                )
-                if self.CODE == "pp_velocity":
-                    self.plot_weathervelocity(scope[:, i, :],
+                if self.CODE=="pp_velocity":
+                    self.plot_weathervelocity(scope[:,i,:],
                                self.data.yrange,
                                channels,
                                thisDatetime,
                                wintitle
                                )
-                if self.CODE == "pp_spcwidth":
-                    self.plot_weatherspecwidth(scope[:, i, :],
+                if self.CODE=="pp_spcwidth":
+                    self.plot_weatherspecwidth(scope[:,i,:],
                                self.data.yrange,
                                channels,
                                thisDatetime,
                                wintitle
                                )
         else:
-            wintitle = " [Profile = %d] " % self.data.profileIndex
-            if self.CODE == "scope":
+            wintitle = " [Profile = %d] " %self.data.profileIndex
+            if self.CODE== "scope":
                 if self.type == "power":
                      self.plot_power(self.data.yrange,
                                 scope,
@@ -241,28 +241,28 @@ class ScopePlot(Plot):
                                 thisDatetime,
                                 wintitle
                                 )
-            if self.CODE == "pp_power":
+            if self.CODE=="pp_power":
                 self.plot_weatherpower(self.data.yrange,
                                     scope,
                                     channels,
                                     thisDatetime,
                                     wintitle
                                        )
-            if self.CODE == "pp_signal":
+            if self.CODE=="pp_signal":
                 self.plot_weatherpower(self.data.yrange,
                                     scope,
                                     channels,
                                     thisDatetime,
                                     wintitle
                                        )
-            if self.CODE == "pp_velocity":
+            if self.CODE=="pp_velocity":
                 self.plot_weathervelocity(scope,
                                        self.data.yrange,
                                        channels,
                                        thisDatetime,
                                        wintitle
                                        )
-            if self.CODE == "pp_specwidth":
+            if self.CODE=="pp_specwidth":
                 self.plot_weatherspecwidth(scope,
                                        self.data.yrange,
                                        channels,

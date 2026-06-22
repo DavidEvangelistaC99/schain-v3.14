@@ -6,21 +6,21 @@ from schainpy.controller import Project
 desc = "USRP_test"
 filename = "USRP_processing.xml"
 controllerObj = Project()
-controllerObj.setup(id='191', name='Test_USRP', description=desc)
+controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 
 ############## USED TO PLOT IQ VOLTAGE, POWER AND SPECTRA #############
 ######PATH DE LECTURA, ESCRITURA, GRAFICOS Y ENVIO WEB#################
-path = '/home/alex/Downloads/test_rawdata'
+path    = '/home/alex/Downloads/test_rawdata'
 figpath = '/home/alex/Downloads'
 ######################## UNIDAD DE LECTURA#############################
 readUnitConfObj = controllerObj.addReadUnit(datatype='VoltageReader',
                                             path=path,
-                                            startDate="2020/01/01",  # "2020/01/01",#today,
-                                            endDate="2020/12/01",  # "2020/12/30",#today,
+                                            startDate="2020/01/01",   #"2020/01/01",#today,
+                                            endDate= "2020/12/01",  #"2020/12/30",#today,
                                             startTime='00:00:00',
                                             endTime='23:59:59',
                                             delay=0,
-                                            # set=0,
+                                            #set=0,
                                             online=0,
                                             walk=1)
 
@@ -40,14 +40,14 @@ procUnitConfObjB.addParameter(name='nProfiles', value=64, format='int')
 opObj11 = procUnitConfObjB.addOperation(name='removeDC')
 opObj11.addParameter(name='mode', value=2)
 
-# opObj11 = procUnitConfObjB.addOperation(name='IncohInt', optype='other')
-# opObj11.addParameter(name='n', value='20', format='int')
+#opObj11 = procUnitConfObjB.addOperation(name='IncohInt', optype='other')
+#opObj11.addParameter(name='n', value='20', format='int')
 
 procUnitConfObjC = controllerObj.addProcUnit(datatype='ParametersProc', inputId=procUnitConfObjB.getId())
 procUnitConfObjC.addOperation(name='SpectralMoments')
 opObj11 = procUnitConfObjC.addOperation(name='SpectralMomentsPlot')
-# opObj11.addParameter(name='xmin', value=14)
+#opObj11.addParameter(name='xmin', value=14)
 opObj11.addParameter(name='xmax', value=6)
-# opObj11.addParameter(name='save', value=figpath)
+#opObj11.addParameter(name='save', value=figpath)
 opObj11.addParameter(name='showprofile', value=1)
 controllerObj.start()

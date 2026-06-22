@@ -38,7 +38,7 @@ DEF_CATALOG = {
     'sciRemarks': '',
     'instRemarks': ''
     }
-    
+
 DEF_HEADER = {
     'kindatDesc': '',
     'analyst': 'Jicamarca User',
@@ -49,6 +49,8 @@ DEF_HEADER = {
 MNEMONICS = {
     10: 'jro',
     11: 'jbr',
+    12: 'jro',
+    14: 'jmp', #Added by R. Flores
     840: 'jul',
     13: 'jas',
     1000: 'pbr',
@@ -75,7 +77,7 @@ def load_json(obj):
             for k, v in list(iterable.items())}
     elif isinstance(iterable, (list, tuple)):
         return [str(v) if isinstance(v, basestring) else v for v in iterable]
-    
+
     return iterable
 
 
@@ -85,18 +87,18 @@ class MADReader(Reader, ProcessingUnit):
 
         ProcessingUnit.__init__(self)
 
-        self.dataOut = Parameters()    
+        self.dataOut = Parameters()
         self.counter_records = 0
         self.nrecords = None
         self.flagNoMoreFiles = 0
-        self.filename = None        
+        self.filename = None
         self.intervals = set()
-        self.datatime = datetime.datetime(1900, 1, 1)
+        self.datatime = datetime.datetime(1900,1,1)
         self.format = None
         self.filefmt = "***%Y%m%d*******"
-        
+
     def setup(self, **kwargs):
-                
+
         self.set_kwargs(**kwargs)
         self.oneDDict = load_json(self.oneDDict)
         self.twoDDict = load_json(self.twoDDict)
@@ -132,7 +134,7 @@ class MADReader(Reader, ProcessingUnit):
                     fullpath = next(fullpath)
                 except:
                     fullpath = None
-                
+
                 if fullpath:
                     break
 
@@ -144,13 +146,13 @@ class MADReader(Reader, ProcessingUnit):
 
             if not(fullpath):
                 raise schainpy.admin.SchainError(
-                    'There isn\'t any valid file in {}'.format(self.path))            
-           
+                    'There isn\'t any valid file in {}'.format(self.path))
+
         else:
             log.log("Searching files in {}".format(self.path), self.name)
             self.filenameList = self.searchFilesOffLine(self.path, self.startDate,
                 self.endDate, self.expLabel, self.ext, self.walk, self.filefmt, self.folderfmt)
-        
+
         self.setNextFile()
 
     def readFirstHeader(self):
@@ -159,8 +161,8 @@ class MADReader(Reader, ProcessingUnit):
         self.parseHeader()
         self.parseData()
         self.blockIndex = 0
-        
-        return        
+
+        return
 
     def parseHeader(self):
         '''
@@ -183,7 +185,7 @@ class MADReader(Reader, ProcessingUnit):
         if s_parameters:
             log.success('Spatial parameters found: {}'.format(s_parameters),
                         'MADReader')
-        
+
         for param in list(self.oneDDict.keys()):
             if param.lower() not in self.parameters:
                 log.warning(
@@ -191,7 +193,7 @@ class MADReader(Reader, ProcessingUnit):
                         param),
                     'MADReader')
                 self.oneDDict.pop(param, None)
-        
+
         for param, value in list(self.twoDDict.items()):
             if param.lower() not in self.parameters:
                 log.warning(
@@ -212,7 +214,7 @@ class MADReader(Reader, ProcessingUnit):
         if self.ext == '.txt':
             self.data = numpy.genfromtxt(self.fp, missing_values=('missing'))
             self.nrecords = self.data.shape[0]
-            self.ranges = numpy.unique(self.data[:, self.parameters.index(self.independentParam.lower())])
+            self.ranges = numpy.unique(self.data[:,self.parameters.index(self.independentParam.lower())])
             self.counter_records = 0
         elif self.ext == '.hdf5':
             self.data = self.fp['Data']
@@ -226,10 +228,10 @@ class MADReader(Reader, ProcessingUnit):
         while True:
             self.flagDiscontinuousBlock = 0
             if self.counter_records == self.nrecords:
-                self.setNextFile()                
+                self.setNextFile()
 
             self.readBlock()
-            
+
             if (self.datatime < datetime.datetime.combine(self.startDate, self.startTime)) or \
                (self.datatime > datetime.datetime.combine(self.endDate, self.endTime)):
                 log.warning(
@@ -268,63 +270,63 @@ class MADReader(Reader, ProcessingUnit):
                     if self.counter_records == self.nrecords:
                         break
                     continue
-                self.intervals.add((datatime - self.datatime).seconds)                
+                self.intervals.add((datatime-self.datatime).seconds)
                 break
         elif self.ext == '.hdf5':
             datatime = datetime.datetime.utcfromtimestamp(
                 self.times[self.counter_records])
-            dum = self.data['Table Layout'][self.data['Table Layout']['recno'] == self.counter_records]
-            self.intervals.add((datatime - self.datatime).seconds)
-            if datatime.date() > self.datatime.date():
+            dum = self.data['Table Layout'][self.data['Table Layout']['recno']==self.counter_records]
+            self.intervals.add((datatime-self.datatime).seconds)
+            if datatime.date()>self.datatime.date():
                 self.flagDiscontinuousBlock = 1
             self.datatime = datatime
-            self.counter_records += 1            
-        
+            self.counter_records += 1
+
         self.buffer = numpy.array(dum)
         return
 
     def set_output(self):
         '''
         Storing data from buffer to dataOut object
-        '''        
+        '''
 
         parameters = [None for __ in self.parameters]
 
-        for param, attr in list(self.oneDDict.items()):            
+        for param, attr in list(self.oneDDict.items()):
             x = self.parameters.index(param.lower())
             setattr(self.dataOut, attr, self.buffer[0][x])
 
         for param, value in list(self.twoDDict.items()):
-            dummy = numpy.zeros(self.ranges.shape) + numpy.nan               
+            dummy = numpy.zeros(self.ranges.shape) + numpy.nan
             if self.ext == '.txt':
                 x = self.parameters.index(param.lower())
-                y = self.parameters.index(self.independentParam.lower())            
-                ranges = self.buffer[:, y]
-                # if self.ranges.size == ranges.size:
+                y = self.parameters.index(self.independentParam.lower())
+                ranges = self.buffer[:,y]
+                #if self.ranges.size == ranges.size:
                 #    continue
                 index = numpy.where(numpy.in1d(self.ranges, ranges))[0]
-                dummy[index] = self.buffer[:, x]
+                dummy[index] = self.buffer[:,x]
             else:
                 ranges = self.buffer[self.independentParam.lower()]
                 index = numpy.where(numpy.in1d(self.ranges, ranges))[0]
                 dummy[index] = self.buffer[param.lower()]
-            
+
             if isinstance(value, str):
-                if value not in self.independentParam:             
-                    setattr(self.dataOut, value, dummy.reshape(1, -1))
-            elif isinstance(value, list):                
+                if value not in self.independentParam:
+                    setattr(self.dataOut, value, dummy.reshape(1,-1))
+            elif isinstance(value, list):
                 self.output[value[0]][value[1]] = dummy
                 parameters[value[1]] = param
         for key, value in list(self.output.items()):
             setattr(self.dataOut, key, numpy.array(value))
-        
+
         self.dataOut.parameters = [s for s in parameters if s]
         self.dataOut.heightList = self.ranges
         self.dataOut.utctime = (self.datatime - datetime.datetime(1970, 1, 1)).total_seconds()
-        self.dataOut.utctimeInit = self.dataOut.utctime  
+        self.dataOut.utctimeInit = self.dataOut.utctime
         self.dataOut.paramInterval = min(self.intervals)
-        self.dataOut.useLocalTime = False        
-        self.dataOut.flagNoData = False        
+        self.dataOut.useLocalTime = False
+        self.dataOut.flagNoData = False
         self.dataOut.nrecords = self.nrecords
         self.dataOut.flagDiscontinuousBlock = self.flagDiscontinuousBlock
 
@@ -354,7 +356,7 @@ class MADReader(Reader, ProcessingUnit):
 @MPDecorator
 class MADWriter(Operation):
     '''Writing module for Madrigal files
-    
+
 type: external
 
 Inputs:
@@ -382,9 +384,10 @@ Inputs:
             format      hdf5, cedar
             blocks      number of blocks per file'''
 
-    __attrs__ = ['path', 'oneDDict', 'ind2DList', 'twoDDict', 'metadata', 'format', 'blocks']
+    __attrs__ = ['path', 'oneDDict', 'ind2DList', 'twoDDict','metadata', 'format', 'blocks']
     missing = -32767
-    
+    currentDay = None
+
     def __init__(self):
 
         Operation.__init__(self)
@@ -395,27 +398,30 @@ Inputs:
 
     def run(self, dataOut, path, oneDDict, ind2DList='[]', twoDDict='{}',
             metadata='{}', format='cedar', **kwargs):
-        
+
+        #if dataOut.AUX==1: #Modified
+
         if not self.isConfig:
             self.setup(path, oneDDict, ind2DList, twoDDict, metadata, format, **kwargs)
             self.isConfig = True
-        
-        self.dataOut = dataOut        
-        self.putData() 
+
+        self.dataOut = dataOut
+        self.putData()
+
         return 1
-    
+
     def setup(self, path, oneDDict, ind2DList, twoDDict, metadata, format, **kwargs):
         '''
-        Configure Operation        
+        Configure Operation
         '''
-                
+
         self.path = path
         self.blocks = kwargs.get('blocks', None)
         self.counter = 0
         self.oneDDict = load_json(oneDDict)
         self.twoDDict = load_json(twoDDict)
         self.ind2DList = load_json(ind2DList)
-        meta = load_json(metadata)        
+        meta = load_json(metadata)
         self.kinst = meta.get('kinst')
         self.kindat = meta.get('kindat')
         self.catalog = meta.get('catalog', DEF_CATALOG)
@@ -426,8 +432,8 @@ Inputs:
         elif format == 'hdf5':
             self.ext = '.hdf5'
             self.extra_args = {'ind2DList': self.ind2DList}
-        
-        self.keys = [k.lower() for k in self.twoDDict]        
+
+        self.keys = [k.lower() for k in self.twoDDict]
         if 'range' in self.keys:
             self.keys.remove('range')
         if 'gdalt' in self.keys:
@@ -438,22 +444,25 @@ Inputs:
         Create new cedar file object
         '''
 
-        self.mnemonic = MNEMONICS[self.kinst]  # TODO get mnemonic from madrigal
+        self.mnemonic = MNEMONICS[self.kinst]   #TODO get mnemonic from madrigal
         date = datetime.datetime.utcfromtimestamp(self.dataOut.utctime)
+        #if self.dataOut.input_dat_type:
+            #date=datetime.datetime.fromtimestamp(self.dataOut.TimeBlockSeconds_for_dp_power)
+        #print("date",date)
 
         filename = '{}{}{}'.format(self.mnemonic,
                                    date.strftime('%Y%m%d_%H%M%S'),
                                    self.ext)
-       
+
         self.fullname = os.path.join(self.path, filename)
-    
-        if os.path.isfile(self.fullname) : 
+
+        if os.path.isfile(self.fullname) :
             log.warning(
                 'Destination file {} already exists, previous file deleted.'.format(
                     self.fullname),
                 'MADWriter')
             os.remove(self.fullname)
-        
+
         try:
             log.success(
                 'Creating file: {}'.format(self.fullname),
@@ -461,6 +470,8 @@ Inputs:
             if not os.path.exists(self.path):
                 os.makedirs(self.path)
             self.fp = madrigal.cedar.MadrigalCedarFile(self.fullname, True)
+
+
         except ValueError as e:
             log.error(
                 'Impossible to create a cedar object with "madrigal.cedar.MadrigalCedarFile"',
@@ -475,11 +486,26 @@ Inputs:
         attributes.
         Allowed parameters in: parcodes.tab
         '''
-
+        #self.dataOut.paramInterval=2
         startTime = datetime.datetime.utcfromtimestamp(self.dataOut.utctime)
+        print(self.dataOut.paramInterval)
         endTime = startTime + datetime.timedelta(seconds=self.dataOut.paramInterval)
-        heights = self.dataOut.heightList
 
+        #if self.dataOut.input_dat_type:
+        #if self.dataOut.experiment=="DP":
+            #startTime=datetime.datetime.fromtimestamp(self.dataOut.TimeBlockSeconds_for_dp_power)
+            #endTime = startTime + datetime.timedelta(seconds=self.dataOut.paramInterval)
+
+
+        #print("2: ",startTime)
+        #print(endTime)
+        heights = self.dataOut.heightList
+        #print(heights)
+        #print(self.blocks)
+        #print(startTime)
+        #print(endTime)
+        #print(heights)
+        #input()
         if self.ext == '.dat':
             for key, value in list(self.twoDDict.items()):
                 if isinstance(value, str):
@@ -499,19 +525,27 @@ Inputs:
                 if 'db' in value.lower():
                     tmp = getattr(self.dataOut, value.replace('_db', ''))
                     SNRavg = numpy.average(tmp, axis=0)
-                    tmp = 10 * numpy.log10(SNRavg)
+                    tmp = 10*numpy.log10(SNRavg)
                 else:
                     tmp = getattr(self.dataOut, value)
                 out[key] = tmp.flatten()[:len(heights)]
             elif isinstance(value, (tuple, list)):
                 attr, x = value
-                data = getattr(self.dataOut, attr)                
+                data = getattr(self.dataOut, attr)
+                #print(x)
+                #print(len(heights))
+                #print(data[int(x)][:len(heights)])
+                #print(numpy.shape(out))
+                #print(numpy.shape(data))
+
                 out[key] = data[int(x)][:len(heights)]
-        
+
         a = numpy.array([out[k] for k in self.keys])
+        #print(a)
         nrows = numpy.array([numpy.isnan(a[:, x]).all() for x in range(len(heights))])
         index = numpy.where(nrows == False)[0]
 
+        #print(startTime.minute)
         rec = madrigal.cedar.MadrigalDataRecord(
             self.kinst,
             self.kindat,
@@ -521,35 +555,37 @@ Inputs:
             startTime.hour,
             startTime.minute,
             startTime.second,
-            startTime.microsecond / 10000,
+            startTime.microsecond/10000,
             endTime.year,
             endTime.month,
             endTime.day,
             endTime.hour,
             endTime.minute,
             endTime.second,
-            endTime.microsecond / 10000,
+            endTime.microsecond/10000,
             list(self.oneDDict.keys()),
             list(self.twoDDict.keys()),
             len(index),
             **self.extra_args
         )
-
-        # Setting 1d values        
+        #print("rec",rec)
+        # Setting 1d values
         for key in self.oneDDict:
             rec.set1D(key, getattr(self.dataOut, self.oneDDict[key]))
 
         # Setting 2d values
         nrec = 0
-        for n in index:            
+        for n in index:
             for key in out:
                 rec.set2D(key, nrec, out[key][n])
-            nrec += 1 
+            nrec += 1
 
         self.fp.append(rec)
-        if self.ext == '.hdf5' and self.counter % 500 == 0 and self.counter > 0:
+        if self.ext == '.hdf5' and self.counter %2 == 0 and self.counter > 0:
+            #print("here")
             self.fp.dump()
         if self.counter % 20 == 0 and self.counter > 0:
+            #self.fp.write()
             log.log(
                 'Writing {} records'.format(
                     self.counter),
@@ -558,8 +594,8 @@ Inputs:
     def setHeader(self):
         '''
         Create an add catalog and header to cedar file
-        ''' 
-        
+        '''
+
         log.success('Closing file {}'.format(self.fullname), 'MADWriter')
 
         if self.ext == '.dat':
@@ -567,29 +603,46 @@ Inputs:
         else:
             self.fp.dump()
             self.fp.close()
-        
-        header = madrigal.cedar.CatalogHeaderCreator(self.fullname)        
+
+        header = madrigal.cedar.CatalogHeaderCreator(self.fullname)
         header.createCatalog(**self.catalog)
         header.createHeader(**self.header)
         header.write()
-              
+
+    def timeFlag(self):
+        currentTime = self.dataOut.utctime
+        timeTuple = time.localtime(currentTime)
+        dataDay = timeTuple.tm_yday
+
+        if self.currentDay is None:
+            self.currentDay = dataDay
+            return False
+
+        #Si el dia es diferente
+        if dataDay != self.currentDay:
+            self.currentDay = dataDay
+            return True
+
+        else:
+            return False
+
     def putData(self):
 
         if self.dataOut.flagNoData:
-            return 0        
-        
-        if self.dataOut.flagDiscontinuousBlock or self.counter == self.blocks:
+            return 0
+
+        if self.dataOut.flagDiscontinuousBlock or self.counter == self.blocks or self.timeFlag():
             if self.counter > 0:
                 self.setHeader()
             self.counter = 0
 
         if self.counter == 0:
             self.setFile()
-        
+
         self.writeBlock()
-        self.counter += 1        
-        
+        self.counter += 1
+
     def close(self):
-        
-        if self.counter > 0:                
+
+        if self.counter > 0:
             self.setHeader()

@@ -31,21 +31,22 @@ class SpectraHeisPlot(Plot):
 
         data = {}
         meta = {}
-        spc = 10 * numpy.log10(dataOut.data_spc / dataOut.normFactor)
+        spc = 10*numpy.log10(dataOut.data_spc / dataOut.normFactor)
         data['spc_heis'] = spc
-    
-        return data, meta 
+
+        return data, meta
 
     def plot(self):
 
         c = 3E8
         deltaHeight = self.data.yrange[1] - self.data.yrange[0]
-        x = numpy.arange(-1 * len(self.data.yrange) / 2., len(self.data.yrange) / 2.) * (c / (2 * deltaHeight * len(self.data.yrange) * 1000))
+        x = numpy.arange(-1*len(self.data.yrange)/2., len(self.data.yrange)/2.)*(c/(2*deltaHeight*len(self.data.yrange)*1000))
         self.y = self.data[-1]['spc_heis']
         self.titles = []
+        print("x: ",x)
 
         for n, ax in enumerate(self.axes):
-            ychannel = self.y[n, :]
+            ychannel = self.y[n,:]
             if ax.firsttime:
                 self.xmin = min(x) if self.xmin is None else self.xmin
                 self.xmax = max(x) if self.xmax is None else self.xmax
@@ -78,10 +79,10 @@ class RTIHeisPlot(Plot):
         data = {}
         meta = {}
         spc = dataOut.data_spc / dataOut.normFactor
-        spc = 10 * numpy.log10(numpy.average(spc, axis=1))
+        spc = 10*numpy.log10(numpy.average(spc, axis=1))
         data['rti_heis'] = spc
-    
-        return data, meta 
+
+        return data, meta
 
     def plot(self):
 

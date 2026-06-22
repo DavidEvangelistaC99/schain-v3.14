@@ -31,7 +31,7 @@ else:
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from matplotlib.ticker import FuncFormatter, LinearLocator, MultipleLocator
+from matplotlib.ticker import FuncFormatter, LinearLocator, MultipleLocator,AutoMinorLocator
 
 from schainpy.model.data.jrodata import PlotterData
 from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation, MPDecorator
@@ -52,13 +52,13 @@ EARTH_RADIUS = 6.3710e3
 def ll2xy(lat1, lon1, lat2, lon2):
 
     p = 0.017453292519943295
-    a = 0.5 - numpy.cos((lat2 - lat1) * p) / 2 + numpy.cos(lat1 * p) * \
+    a = 0.5 - numpy.cos((lat2 - lat1) * p)/2 + numpy.cos(lat1 * p) * \
         numpy.cos(lat2 * p) * (1 - numpy.cos((lon2 - lon1) * p)) / 2
     r = 12742 * numpy.arcsin(numpy.sqrt(a))
-    theta = numpy.arctan2(numpy.sin((lon2 - lon1) * p) * numpy.cos(lat2 * p), numpy.cos(lat1 * p)
-                          * numpy.sin(lat2 * p) - numpy.sin(lat1 * p) * numpy.cos(lat2 * p) * numpy.cos((lon2 - lon1) * p))
-    theta = -theta + numpy.pi / 2
-    return r * numpy.cos(theta), r * numpy.sin(theta)
+    theta = numpy.arctan2(numpy.sin((lon2-lon1)*p)*numpy.cos(lat2*p), numpy.cos(lat1*p)
+                          * numpy.sin(lat2*p)-numpy.sin(lat1*p)*numpy.cos(lat2*p)*numpy.cos((lon2-lon1)*p))
+    theta = -theta + numpy.pi/2
+    return r*numpy.cos(theta), r*numpy.sin(theta)
 
 
 def km2deg(km):
@@ -66,7 +66,7 @@ def km2deg(km):
     Convert distance in km to degrees
     '''
 
-    return numpy.rad2deg(km / EARTH_RADIUS)
+    return numpy.rad2deg(km/EARTH_RADIUS)
 
 
 def figpause(interval):
@@ -220,6 +220,10 @@ class Plot(Operation):
         self.zmin = kwargs.get('zmin', None)
         self.zmax = kwargs.get('zmax', None)
         self.zlimits = kwargs.get('zlimits', None)
+        self.xlimits = kwargs.get('xlimits', None)
+        self.xstep_given = kwargs.get('xstep_given', None)
+        self.ystep_given = kwargs.get('ystep_given', None)
+        self.autoxticks = kwargs.get('autoxticks', True)
         self.xmin = kwargs.get('xmin', None)
         self.xmax = kwargs.get('xmax', None)
         self.xrange = kwargs.get('xrange', 12)
@@ -252,7 +256,8 @@ class Plot(Operation):
         self.__throttle_plot = apply_throttle(self.throttle)
         code = self.attr_data if self.attr_data else self.CODE
         self.data = PlotterData(self.CODE, self.exp_code, self.localtime)
-        
+        #self.EEJtype = kwargs.get('EEJtype', 2)
+
         if self.server:
             if not self.server.startswith('tcp://'):
                 self.server = 'tcp://{}'.format(self.server)
@@ -271,7 +276,7 @@ class Plot(Operation):
 
         self.setup()
 
-        self.time_label = 'LT' if self.localtime else 'UTC'        
+        self.time_label = 'LT' if self.localtime else 'UTC'
 
         if self.width is None:
             self.width = 8
@@ -324,7 +329,6 @@ class Plot(Operation):
                     self.pf_axes.append(cax)
 
         for n in range(self.nrows):
-            print(self.nrows)
             if self.colormaps is not None:
                 cmap = plt.get_cmap(self.colormaps[n])
             else:
@@ -377,7 +381,7 @@ class Plot(Operation):
         '''
         Set min and max values, labels, ticks and titles
         '''
-            
+
         for n, ax in enumerate(self.axes):
             if ax.firsttime:
                 if self.xaxis != 'time':
@@ -385,23 +389,26 @@ class Plot(Operation):
                     xmax = self.xmax
                 else:
                     xmin = self.tmin
-                    xmax = self.tmin + self.xrange * 60 * 60
+                    xmax = self.tmin + self.xrange*60*60
                     ax.xaxis.set_major_formatter(FuncFormatter(self.__fmtTime))
                     ax.xaxis.set_major_locator(LinearLocator(9))
                 ymin = self.ymin if self.ymin is not None else numpy.nanmin(self.y[numpy.isfinite(self.y)])
                 ymax = self.ymax if self.ymax is not None else numpy.nanmax(self.y[numpy.isfinite(self.y)])
                 ax.set_facecolor(self.bgcolor)
+                ax.xaxis.set_minor_locator(AutoMinorLocator(5))
                 if self.xscale:
                     ax.xaxis.set_major_formatter(FuncFormatter(
-                        lambda x, pos: '{0:g}'.format(x * self.xscale)))
+                        lambda x, pos: '{0:g}'.format(x*self.xscale)))
                 if self.yscale:
                     ax.yaxis.set_major_formatter(FuncFormatter(
-                        lambda x, pos: '{0:g}'.format(x * self.yscale)))
+                        lambda x, pos: '{0:g}'.format(x*self.yscale)))
                 if self.xlabel is not None:
                     ax.set_xlabel(self.xlabel)
                 if self.ylabel is not None:
                     ax.set_ylabel(self.ylabel)
                 if self.showprofile:
+                    if self.zlimits is not None:
+                        self.zmin, self.zmax = self.zlimits[n]
                     self.pf_axes[n].set_ylim(ymin, ymax)
                     self.pf_axes[n].set_xlim(self.zmin, self.zmax)
                     self.pf_axes[n].set_xlabel('dB')
@@ -429,7 +436,10 @@ class Plot(Operation):
                     self.titles[n],
                     self.getDateTime(self.data.max_time).strftime(
                         '%Y-%m-%d %H:%M:%S'),
-                    self.time_label),
+                    #self.getDateTime(self.data.max_time).strftime(
+                    #    '%Y-%m-%d'),                        
+                    #self.time_label),
+                    ''),
                     size=8)
             else:
                 ax.set_title('{}'.format(self.titles[n]), size=8)
@@ -447,7 +457,7 @@ class Plot(Operation):
         Reset axes for redraw plots
         '''
 
-        for ax in self.axes + self.pf_axes + self.cb_axes:
+        for ax in self.axes+self.pf_axes+self.cb_axes:
             ax.clear()
             ax.firsttime = True
             if hasattr(ax, 'cbar') and ax.cbar:
@@ -460,14 +470,14 @@ class Plot(Operation):
 
         self.plot()
         self.format()
-        
+
         for n, fig in enumerate(self.figures):
             if self.nrows == 0 or self.nplots == 0:
                 log.warning('No data', self.name)
                 fig.text(0.5, 0.5, 'No Data', fontsize='large', ha='center')
                 fig.canvas.manager.set_window_title(self.CODE)
                 continue
-            
+
             fig.canvas.manager.set_window_title('{} - {}'.format(self.title,
                                                                  self.getDateTime(self.data.max_time).strftime('%Y/%m/%d')))
             fig.canvas.draw()
@@ -477,7 +487,7 @@ class Plot(Operation):
 
             if self.save:
                 self.save_figure(n)
-        
+
         if self.server:
             self.send_to_server()
 
@@ -490,11 +500,11 @@ class Plot(Operation):
             'interval': dataOut.timeInterval,
             'channels': dataOut.channelList
         }
-        
+
         data, meta = self.update(dataOut)
         metadata.update(meta)
         self.data.update(data, timestamp, metadata)
-    
+
     def save_figure(self, n):
         '''
         '''
@@ -524,6 +534,7 @@ class Plot(Operation):
 
         figname = os.path.join(
             self.save,
+            #self.save_code,
             '{}_{}.png'.format(
                 self.save_code,
                 self.getDateTime(self.data.min_time).strftime(
@@ -531,6 +542,9 @@ class Plot(Operation):
                     ),
                 )
             )
+        log.log('Saving figure: {}'.format(figname), self.name)
+        if not os.path.isdir(os.path.dirname(figname)):
+            os.makedirs(os.path.dirname(figname))
         fig.savefig(figname)
 
     def send_to_server(self):
@@ -539,15 +553,15 @@ class Plot(Operation):
 
         if self.exp_code == None:
             log.warning('Missing `exp_code` skipping sending to server...')
-        
+
         last_time = self.data.max_time
         interval = last_time - self.sender_time
         if interval < self.sender_period:
             return
 
         self.sender_time = last_time
-        
-        attrs = ['titles', 'zmin', 'zmax', 'tag', 'ymin', 'ymax']
+
+        attrs = ['titles', 'zmin', 'zmax', 'tag', 'ymin', 'ymax', 'zlimits']
         for attr in attrs:
             value = getattr(self, attr)
             if value:
@@ -561,9 +575,11 @@ class Plot(Operation):
         else:
             self.data.meta['colormap'] = 'Viridis'
         self.data.meta['interval'] = int(interval)
-
+        #print(last_time)
+        #print(time.time())
+        #exit(1)
         self.sender_queue.append(last_time)
-        
+
         while True:
             try:
                 tm = self.sender_queue.popleft()
@@ -602,7 +618,7 @@ class Plot(Operation):
         self.ncols: number of cols
         self.nplots: number of plots (channels or pairs)
         self.ylabel: label for Y axes
-        self.titles: list of axes title 
+        self.titles: list of axes title
 
         '''
         raise NotImplementedError
@@ -617,14 +633,14 @@ class Plot(Operation):
         '''
         Must be defined in the child class, update self.data with new data
         '''
-        
+
         data = {
             self.CODE: getattr(dataOut, 'data_{}'.format(self.CODE))
         }
         meta = {}
 
         return data, meta
-    
+
     def run(self, dataOut, **kwargs):
         '''
         Main plotting routine
@@ -648,11 +664,12 @@ class Plot(Operation):
                 self.poll.register(self.socket, zmq.POLLIN)
 
         tm = getattr(dataOut, self.attr_time)
-        
-        if self.data and 'time' in self.xaxis and (tm - self.tmin) >= self.xrange * 60 * 60:
+        if self.data and 'time' in self.xaxis and (tm - self.tmin) >= self.xrange*60*60:
             self.save_time = tm
             self.__plot()
-            self.tmin += self.xrange * 60 * 60
+            #self.tmin += self.xrange*60*60 #Modified by R. Flores
+            self.tmin += 24*60*60 #Modified by R. Flores
+
             self.data.setup()
             self.clear_figures()
 
@@ -663,12 +680,13 @@ class Plot(Operation):
             self.isPlotConfig = True
             if self.xaxis == 'time':
                 dt = self.getDateTime(tm)
+
                 if self.xmin is None:
                     self.tmin = tm
-                    self.xmin = dt.hour    
-                minutes = (self.xmin - int(self.xmin)) * 60
+                    self.xmin = dt.hour
+                minutes = (self.xmin-int(self.xmin)) * 60
                 seconds = (minutes - int(minutes)) * 60
-                self.tmin = (dt.replace(hour=int(self.xmin), minute=int(minutes), second=int(seconds)) - 
+                self.tmin = (dt.replace(hour=int(self.xmin), minute=int(minutes), second=int(seconds)) -
                         datetime.datetime(1970, 1, 1)).total_seconds()
                 if self.localtime:
                     self.tmin += time.timezone
@@ -679,13 +697,12 @@ class Plot(Operation):
         if self.throttle == 0:
             self.__plot()
         else:
-            self.__throttle_plot(self.__plot)  # , coerce=coerce)
+            self.__throttle_plot(self.__plot)#, coerce=coerce)
 
     def close(self):
 
         if self.data and not self.data.flagNoData:
-            self.save_time = self.data.max_time
+            self.save_time = 0
             self.__plot()
         if self.data and not self.data.flagNoData and self.pause:
             figpause(10)
-

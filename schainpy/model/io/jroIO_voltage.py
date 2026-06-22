@@ -73,27 +73,28 @@ class VoltageReader(JRODataReader, ProcessingUnit):
         """
 
         ProcessingUnit.__init__(self)
-        
+
         self.ext = ".r"
         self.optchar = "D"
         self.basicHeaderObj = BasicHeader(LOCALTIME)
         self.systemHeaderObj = SystemHeader()
         self.radarControllerHeaderObj = RadarControllerHeader()
+
         self.processingHeaderObj = ProcessingHeader()
         self.lastUTTime = 0
-        self.profileIndex = 2 ** 32 - 1        
+        self.profileIndex = 2**32 - 1
         self.dataOut = Voltage()
         self.selBlocksize = None
         self.selBlocktime = None
-
+        ##print("1--OKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK")
     def createObjByDefault(self):
-
+        ##print("2--OKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK")
         dataObj = Voltage()
 
         return dataObj
 
     def __hasNotDataInBuffer(self):
-
+        ##print("3--OKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK")
         if self.profileIndex >= self.processingHeaderObj.profilesPerBlock * self.nTxs:
             return 1
 
@@ -109,11 +110,13 @@ class VoltageReader(JRODataReader, ProcessingUnit):
             Return:
                 None
         """
+        ##print("4--OKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK")
         pts2read = self.processingHeaderObj.profilesPerBlock * \
             self.processingHeaderObj.nHeights * self.systemHeaderObj.nChannels
         self.blocksize = pts2read
 
     def readBlock(self):
+
         """
             readBlock lee el bloque de datos desde la posicion actual del puntero del archivo
             (self.fp) y actualiza todos los parametros relacionados al bloque de datos
@@ -133,10 +136,10 @@ class VoltageReader(JRODataReader, ProcessingUnit):
                 self.flagIsNewBlock
                 self.nTotalBlocks
 
-            Exceptions: 
+            Exceptions:
                 Si un bloque leido no es un bloque valido
         """
-
+        ##print("5--OKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK")
         # if self.server is not None:
         #     self.zBlock = self.receiver.recv()
         #     self.zHeader = self.zBlock[:24]
@@ -177,6 +180,7 @@ class VoltageReader(JRODataReader, ProcessingUnit):
         return 1
 
     def getFirstHeader(self):
+        ##print("6--OKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK")
 
         self.getBasicHeader()
 
@@ -186,8 +190,12 @@ class VoltageReader(JRODataReader, ProcessingUnit):
 
         self.dataOut.radarControllerHeaderObj = self.radarControllerHeaderObj.copy()
 
+        #self.dataOut.ippSeconds_general=self.radarControllerHeaderObj.ippSeconds
+        #print(self.nTxs)
         if self.nTxs > 1:
+            #print(self.radarControllerHeaderObj.ippSeconds)
             self.dataOut.radarControllerHeaderObj.ippSeconds = self.radarControllerHeaderObj.ippSeconds / self.nTxs
+            #print(self.radarControllerHeaderObj.ippSeconds)
         # Time interval and code are propierties of dataOut. Its value depends of radarControllerHeaderObj.
 
         #         self.dataOut.timeInterval = self.radarControllerHeaderObj.ippSeconds * self.processingHeaderObj.nCohInt
@@ -220,7 +228,7 @@ class VoltageReader(JRODataReader, ProcessingUnit):
         self.dataOut.flagShiftFFT = self.processingHeaderObj.shif_fft
 
     def reshapeData(self):
-
+        ##print("7--OKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK")
         if self.nTxs < 0:
             return
 
@@ -247,11 +255,12 @@ class VoltageReader(JRODataReader, ProcessingUnit):
 
     def readFirstHeaderFromServer(self):
 
+        ##print("8--OKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK")
         self.getFirstHeader()
 
         self.firstHeaderSize = self.basicHeaderObj.size
 
-        datatype = int(numpy.log2((self.processingHeaderObj.processFlags & 
+        datatype = int(numpy.log2((self.processingHeaderObj.processFlags &
                                    PROCFLAG.DATATYPE_MASK)) - numpy.log2(PROCFLAG.DATATYPE_CHAR))
         if datatype == 0:
             datatype_str = numpy.dtype([('real', '<i1'), ('imag', '<i1')])
@@ -269,7 +278,7 @@ class VoltageReader(JRODataReader, ProcessingUnit):
             raise ValueError('Data type was not defined')
 
         self.dtype = datatype_str
-        # self.ippSeconds = 2 * 1000 * self.radarControllerHeaderObj.ipp / self.c
+        #self.ippSeconds = 2 * 1000 * self.radarControllerHeaderObj.ipp / self.c
         self.fileSizeByHeader = self.processingHeaderObj.dataBlocksPerFile * self.processingHeaderObj.blockSize + \
             self.firstHeaderSize + self.basicHeaderSize * \
             (self.processingHeaderObj.dataBlocksPerFile - 1)
@@ -278,6 +287,7 @@ class VoltageReader(JRODataReader, ProcessingUnit):
         self.getBlockDimension()
 
     def getFromServer(self):
+        ##print("9--OKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK")
         self.flagDiscontinuousBlock = 0
         self.profileIndex = 0
         self.flagIsNewBlock = 1
@@ -382,6 +392,8 @@ class VoltageReader(JRODataReader, ProcessingUnit):
                 self.flagDiscontinuousBlock
                 self.flagIsNewBlock
         """
+
+        ##print("10--OKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK")
         if self.flagNoMoreFiles:
             self.dataOut.flagNoData = True
             return 0
@@ -409,6 +421,7 @@ class VoltageReader(JRODataReader, ProcessingUnit):
             self.dataOut.flagDataAsBlock = False
             self.dataOut.data = self.datablock[:, self.profileIndex, :]
             self.dataOut.profileIndex = self.profileIndex
+
 
             self.profileIndex += 1
 
@@ -448,7 +461,7 @@ class VoltageReader(JRODataReader, ProcessingUnit):
                     blockIndex = self.selBlocksize - datasize
                     datablock1 = self.datablock[:, :blockIndex, :]
 
-                    buffer[:, datasize:datasize + 
+                    buffer[:, datasize:datasize +
                            datablock1.shape[1], :] = datablock1
                     datasize += datablock1.shape[1]
 
@@ -458,9 +471,13 @@ class VoltageReader(JRODataReader, ProcessingUnit):
             self.dataOut.flagDataAsBlock = True
             self.dataOut.nProfiles = self.dataOut.data.shape[1]
 
+#######################DP#######################
+        self.dataOut.CurrentBlock=self.nReadBlocks
+        self.dataOut.LastBlock=self.processingHeaderObj.dataBlocksPerFile
+#######################DP#######################
         self.dataOut.flagNoData = False
 
-        self.getBasicHeader()
+        #self.getBasicHeader()
 
         self.dataOut.realtime = self.online
 
@@ -480,7 +497,7 @@ class VoltageWriter(JRODataWriter, Operation):
 
     shapeBuffer = None
 
-    def __init__(self):  # , **kwargs):
+    def __init__(self):#, **kwargs):
         """
         Inicializador de la clase VoltageWriter para la escritura de datos de espectros.
 
@@ -489,7 +506,7 @@ class VoltageWriter(JRODataWriter, Operation):
 
         Return: None
         """
-        Operation.__init__(self)  # , **kwargs)
+        Operation.__init__(self)#, **kwargs)
 
         self.nTotalBlocks = 0
 
@@ -606,9 +623,13 @@ class VoltageWriter(JRODataWriter, Operation):
         if self.profileIndex == 0:
             self.setBasicHeader()
 
-        self.datablock[:, self.profileIndex, :] = self.dataOut.data
+        if not self.dataOut.flagDataAsBlock:
+            self.datablock[:, self.profileIndex, :] = self.dataOut.data
 
-        self.profileIndex += 1
+            self.profileIndex += 1
+        else:
+            self.datablock[:,:,:] = self.dataOut.data
+            self.profileIndex = self.processingHeaderObj.profilesPerBlock
 
         if self.hasAllDataInBuffer():
             # if self.flagIsNewFile:
@@ -624,7 +645,7 @@ class VoltageWriter(JRODataWriter, Operation):
 
         dtype_width = self.getDtypeWidth()
 
-        blocksize = int(self.dataOut.nHeights * self.dataOut.nChannels * 
+        blocksize = int(self.dataOut.nHeights * self.dataOut.nChannels *
                         self.profilesPerBlock * dtype_width * 2)
 
         return blocksize
@@ -673,4 +694,3 @@ class VoltageWriter(JRODataWriter, Operation):
         self.processingHeaderObj.processFlags = self.getProcessFlags()
 
         self.setBasicHeader()
-        

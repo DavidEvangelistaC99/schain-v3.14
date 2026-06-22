@@ -22,7 +22,7 @@ class USRPReaderAPI(USRPReader, threading.Thread):
     
 #     __isBufferEmpty = True
     
-    __DATAKEYLIST = ['data', 'utctime', 'flagNoData']
+    __DATAKEYLIST = ['data','utctime','flagNoData']
     
     def __init__(self, serializer='msgpack'):
         
@@ -71,7 +71,7 @@ class USRPReaderAPI(USRPReader, threading.Thread):
             return None
         
         myMetadataSerial = obj2Serial(self.dataOut,
-                                      serializer=self.__serializer)
+                                      serializer = self.__serializer)
         
         return myMetadataSerial
     
@@ -125,8 +125,8 @@ class USRPReaderAPI(USRPReader, threading.Thread):
             print(".", end=' ')
             
             self.__mySerial = obj2Serial(self.dataOut,
-                                         keyList=self.__DATAKEYLIST,
-                                         serializer=self.__serializer)
+                                         keyList = self.__DATAKEYLIST,
+                                         serializer = self.__serializer)
             self.__isBufferEmpty = False
              
 #             print self.profileIndex

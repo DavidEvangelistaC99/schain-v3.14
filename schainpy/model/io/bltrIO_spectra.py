@@ -181,8 +181,8 @@ class RecordHeaderBLTR():
         self.Off2StartData = int(header['Off2StartData'][0])
         self.nUtime = header['nUtime'][0]
         self.nMilisec = header['nMilisec'][0]
-        self.ExpTagName = ''  # str(header['ExpTagName'][0])
-        self.ExpComment = ''  # str(header['ExpComment'][0])
+        self.ExpTagName = '' # str(header['ExpTagName'][0])
+        self.ExpComment = '' # str(header['ExpComment'][0])
         self.SiteLatDegrees = header['SiteLatDegrees'][0]
         self.SiteLongDegrees = header['SiteLongDegrees'][0]
         self.RTCgpsStatus = header['RTCgpsStatus'][0]
@@ -293,7 +293,7 @@ class BLTRSpectraReader (ProcessingUnit):
 
         self.getData()
 
-    def setup(self,
+    def setup(self, 
               path=None,
               startDate=None,
               endDate=None,
@@ -374,7 +374,7 @@ class BLTRSpectraReader (ProcessingUnit):
                 return
         
         if self.mode == 1:
-            self.rheader.read(self.BlockCounter + 1)
+            self.rheader.read(self.BlockCounter+1)
         elif self.mode == 0:
             self.rheader.read(self.BlockCounter)
 
@@ -393,13 +393,13 @@ class BLTRSpectraReader (ProcessingUnit):
         self.dataOut.nRdPairs = self.nRdPairs
         self.dataOut.heightList = (self.rheader.StartRangeSamp + numpy.arange(self.nHeights) * self.rheader.SampResolution) / 1000.
         self.dataOut.channelList = range(self.nChannels)
-        self.dataOut.nProfiles = self.rheader.nProfiles
-        self.dataOut.nIncohInt = self.rheader.nIncohInt
-        self.dataOut.nCohInt = self.rheader.nCohInt
-        self.dataOut.ippSeconds = 1 / float(self.rheader.PRFhz)
-        self.dataOut.PRF = self.rheader.PRFhz
-        self.dataOut.nFFTPoints = self.rheader.nProfiles
-        self.dataOut.utctime = self.rheader.nUtime + self.rheader.nMilisec / 1000.
+        self.dataOut.nProfiles=self.rheader.nProfiles
+        self.dataOut.nIncohInt=self.rheader.nIncohInt
+        self.dataOut.nCohInt=self.rheader.nCohInt
+        self.dataOut.ippSeconds= 1/float(self.rheader.PRFhz)
+        self.dataOut.PRF=self.rheader.PRFhz
+        self.dataOut.nFFTPoints=self.rheader.nProfiles
+        self.dataOut.utctime = self.rheader.nUtime + self.rheader.nMilisec/1000.
         self.dataOut.timeZone = 0
         self.dataOut.useLocalTime = False
         self.dataOut.nmodes = 2
@@ -408,10 +408,10 @@ class BLTRSpectraReader (ProcessingUnit):
             self.Off2StartNxtRec + self.Off2StartData
         self.fp.seek(OffDATA, os.SEEK_SET)
             
-        self.data_fft = numpy.fromfile(self.fp, [('complex', '<c8')], self.nProfiles * self.nChannels * self.nHeights)
+        self.data_fft = numpy.fromfile(self.fp, [('complex','<c8')], self.nProfiles*self.nChannels*self.nHeights )
         self.data_fft = self.data_fft.astype(numpy.dtype('complex'))
-        self.data_block = numpy.reshape(self.data_fft, (self.nHeights, self.nChannels, self.nProfiles))
-        self.data_block = numpy.transpose(self.data_block, (1, 2, 0))
+        self.data_block = numpy.reshape(self.data_fft,(self.nHeights, self.nChannels, self.nProfiles))
+        self.data_block = numpy.transpose(self.data_block, (1,2,0))
         copy = self.data_block.copy()
         spc = copy * numpy.conjugate(copy)
         self.data_spc = numpy.absolute(spc)  # valor absoluto o magnitud
@@ -450,4 +450,4 @@ class BLTRSpectraReader (ProcessingUnit):
 
         self.BlockCounter += 2
         self.dataOut.data_spc = self.data_spc
-        self.dataOut.data_cspc = self.data_cspc
+        self.dataOut.data_cspc =self.data_cspc

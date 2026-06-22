@@ -6,39 +6,39 @@ import os, sys
 import datetime
 import time
 
-# path = os.path.dirname(os.getcwd())
-# path = os.path.dirname(path)
-# sys.path.insert(0, path)
+#path = os.path.dirname(os.getcwd())
+#path = os.path.dirname(path)
+#sys.path.insert(0, path)
 
 from schainpy.controller import Project
 
 desc = "USRP_test"
 filename = "USRP_processing.xml"
 controllerObj = Project()
-controllerObj.setup(id='191', name='Test_USRP', description=desc)
+controllerObj.setup(id = '191', name='Test_USRP', description=desc)
 
 ############## USED TO PLOT IQ VOLTAGE, POWER AND SPECTRA #############
 
 #######################################################################
 ######PATH DE LECTURA, ESCRITURA, GRAFICOS Y ENVIO WEB#################
 #######################################################################
-# path = '/media/data/data/vientos/57.2063km/echoes/NCO_Woodman'
+#path = '/media/data/data/vientos/57.2063km/echoes/NCO_Woodman'
 
 
-# path = '/home/soporte/data_hdf5' #### with clock   35.16 db noise
-path = '/home/alex/Downloads'
+#path = '/home/soporte/data_hdf5' #### with clock   35.16 db noise
+path    = '/home/alex/Downloads'
 figpath = '/home/alex/Downloads'
-pathfile = '/home/alex/Downloads/test_rawdata2'
+pathfile    = '/home/alex/Downloads/test_rawdata2'
 
-# figpath = '/home/soporte/data_hdf5_imag'
-# remotefolder = "/home/wmaster/graficos"
+#figpath = '/home/soporte/data_hdf5_imag'
+#remotefolder = "/home/wmaster/graficos"
 #######################################################################
 ################# RANGO DE PLOTEO######################################
 #######################################################################
 dBmin = '30'
 dBmax = '60'
 xmin = '0'
-xmax = '24'
+xmax ='24'
 ymin = '0'
 ymax = '600'
 #######################################################################
@@ -53,17 +53,17 @@ yesterday = str2.strftime("%Y/%m/%d")
 #######################################################################
 readUnitConfObj = controllerObj.addReadUnit(datatype='VoltageReader',
                                             path=path,
-                                            startDate="2020/01/01",  # "2020/01/01",#today,
-                                            endDate="2020/12/01",  # "2020/12/30",#today,
+                                            startDate="2020/01/01",   #"2020/01/01",#today,
+                                            endDate= "2020/12/01",  #"2020/12/30",#today,
                                             startTime='00:00:00',
                                             endTime='23:59:59',
                                             delay=0,
-                                            # set=0,
+                                            #set=0,
                                             online=0,
                                             walk=1)
 
 opObj11 = readUnitConfObj.addOperation(name='printInfo')
-# opObj11 = readUnitConfObj.addOperation(name='printNumberOfBlock')
+#opObj11 = readUnitConfObj.addOperation(name='printNumberOfBlock')
 #######################################################################
 ################ OPERACIONES DOMINIO DEL TIEMPO########################
 #######################################################################

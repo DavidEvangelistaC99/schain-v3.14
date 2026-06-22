@@ -17,11 +17,12 @@ controllerObj.setup(id = '191', name='test01', description=desc)
 #path = "/data/dia"
 #path = '/home/pcondor/data'
 #path = '/media/pcondor/DATA1/Database/ewdriftsschain2023prue/data'
+#path = '/home/idi/Documents/DATA/DRIFTS/rawdata'
 path = '/mnt/compartido'
 #path = '/data/isr_julia'
 #pathFigure = '/media/pcondor/DATA1/Database/ewdriftsschain2023wh5'
 #pathFile = '/media/pcondor/DATA1/Database/ewdriftsdic2024MPsch/EW_Drifts_01dic'
-pathFile = '/home/idi/Documents/DATA/DRIFTS'
+pathFile = '/home/idi/Documents/DATA/DRIFTS/rawdata/Drifts'
 pathFigure = pathFile
 pathFileavg = pathFile+'/avg'
 pathFiledata = pathFile+'/Drifts-data'
@@ -31,8 +32,8 @@ xmax = 24
 #------------------------------------------------------------------------------------------------
 readUnitConfObj = controllerObj.addReadUnit(datatype='VoltageReader',
                                             path=path,
-                                            startDate='2026/03/05',
-                                            endDate=  '2026/03/09',
+                                            startDate='2026/03/29',
+                                            endDate=  '2026/03/29',
                                             startTime='03:30:00',
                                             endTime=  '03:40:59',
                                             online=0,
@@ -119,15 +120,15 @@ opObj11.addParameter(name='n', value='1', format='float')
 
 procUnitConfObj2 = controllerObj.addProcUnit(datatype='ParametersProc', inputId=procUnitConfObj1.getId())
 opObj20 = procUnitConfObj2.addOperation(name='SpectralFitting', optype='other')
-opObj20.addParameter(name='path', value='/home/idi/Documents/schain-v3.14/schainpy/model/proc', format='str')
+opObj20.addParameter(name='path', value='/home/idi/Documents/schainDrifts/schain/schainpy/model/proc', format='str')
 opObj20.addParameter(name='file', value='modelSpectralFitting', format='str')
 opObj20.addParameter(name='groupList', value='(0,1),(2,3)',format='multiList')
-#opObj20.addParameter(name='taver', value='5')
-#opObj20.addParameter(name='coh_th', value='[1]',format='multiList')
-#opObj20.addParameter(name='hei_th', value='[2000]',format='multiList')
-#opObj20.addParameter(name='filec', value='weightfit2025', format='str')
-#opObj20.addParameter(name='snr_coh', value='7')
-#opObj20.addParameter(name='snr_th', value='-12')
+opObj20.addParameter(name='taver', value='5')
+opObj20.addParameter(name='coh_th', value='[1]',format='multiList')
+opObj20.addParameter(name='hei_th', value='[2000]',format='multiList')
+opObj20.addParameter(name='filec', value='weightfit2025', format='str')
+opObj20.addParameter(name='snr_coh', value='7')
+opObj20.addParameter(name='snr_th', value='-12')
 
 opObj22 = procUnitConfObj2.addOperation(name='HDFWriter', optype='other')
 opObj22.addParameter(name='path', value=pathFiledata)
@@ -146,8 +147,8 @@ opObj22.addParameter(name='dataList',value='tmp_spectra_i,tmp_cspectra_i,tmp_spe
 opObj21 = procUnitConfObj2.addOperation(name='EWDriftsEstimation', optype='other')
 opObj21.addParameter(name='zenith', value='-2.09883, 3.73543', format='floatlist')
 opObj21.addParameter(name='zenithCorrection', value='0.0', format='float')
-# opObj21.addParameter(name='beam_pos', value='-120.83, 86.16, 124.46, 87.12',format='floatlist')
-# opObj21.addParameter(name='fileDrifts', value=pathFile)
+opObj21.addParameter(name='beam_pos', value='-120.83, 86.16, 124.46, 87.12',format='floatlist')
+opObj21.addParameter(name='fileDrifts', value=pathFile)
 
 # Drifts en h5
 one = {'gdlatr': 'lat', 'gdlonr': 'lon', 'spcst':'spcst','pl':'pl','cbadn':'cbadn','inttms': 'inttms','azdir7':'azw','eldir7':'elw','azdir8':'aze','eldir8':'ele','jro14':'jro14','jro15':'jro15','jro16':'jro16','nwlos':'nwlos'}

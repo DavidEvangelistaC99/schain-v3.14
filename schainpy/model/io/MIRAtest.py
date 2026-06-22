@@ -24,9 +24,9 @@ except:
     from time import sleep
 
 from schainpy.model.data.jrodata import Spectra
-# from schainpy.model.data.BLTRheaderIO import FileHeader, RecordHeader
+#from schainpy.model.data.BLTRheaderIO import FileHeader, RecordHeader
 from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation
-# from schainpy.model.io.jroIO_bltr import BLTRReader
+#from schainpy.model.io.jroIO_bltr import BLTRReader
 from numpy import imag, shape, NaN
 
 
@@ -225,26 +225,26 @@ SPARprc = header['SPARprc'][0]
 
 SRVI_STRUCTURE = numpy.dtype([
                             ('frame_cnt', '<u4'),
-                            ('time_t', '<u4'),  #
-                            ('tpow', '<f4'),  #
-                            ('npw1', '<f4'),  #
-                            ('npw2', '<f4'),  #
-                            ('cpw1', '<f4'),  #
-                            ('pcw2', '<f4'),  #
-                            ('ps_err', '<u4'),  #
-                            ('te_err', '<u4'),  #
-                            ('rc_err', '<u4'),  #
-                            ('grs1', '<u4'),  #
-                            ('grs2', '<u4'),  #
-                            ('azipos', '<f4'),  #
-                            ('azivel', '<f4'),  #
-                            ('elvpos', '<f4'),  #
-                            ('elvvel', '<f4'),  #
+                            ('time_t', '<u4'),   #
+                            ('tpow', '<f4'),     #
+                            ('npw1', '<f4'),     #
+                            ('npw2', '<f4'),     #
+                            ('cpw1', '<f4'),     #
+                            ('pcw2', '<f4'),     #
+                            ('ps_err', '<u4'),   #
+                            ('te_err', '<u4'),   #
+                            ('rc_err', '<u4'),   #
+                            ('grs1', '<u4'),     #
+                            ('grs2', '<u4'),     #
+                            ('azipos', '<f4'),     #
+                            ('azivel', '<f4'),     #
+                            ('elvpos', '<f4'),     #
+                            ('elvvel', '<f4'),     #
                             ('northAngle', '<f4'),
-                            ('microsec', '<u4'),  #
+                            ('microsec', '<u4'),   #
                             ('azisetvel', '<f4'),  #
                             ('elvsetpos', '<f4'),  #
-                            ('RadarConst', '<f4'), ])  #
+                            ('RadarConst', '<f4'), ])   #
 
 JUMP_STRUCTURE = numpy.dtype([
                             ('jump', '<u140'),
@@ -289,34 +289,34 @@ RadarConst5 = RadarConst
 # RecCounter=0
 # Off2StartNxtRec=811248
 # print 'OffsetStartHeader ',self.OffsetStartHeader,'RecCounter ', self.RecCounter, 'Off2StartNxtRec ' , self.Off2StartNxtRec
-# OffRHeader= self.OffsetStartHeader + self.RecCounter*self.Off2StartNxtRec
-# startFp.seek(OffRHeader, os.SEEK_SET)
+#OffRHeader= self.OffsetStartHeader + self.RecCounter*self.Off2StartNxtRec
+#startFp.seek(OffRHeader, os.SEEK_SET)
 print('debe ser 48, RecCounter*811248', self.OffsetStartHeader, self.RecCounter, self.Off2StartNxtRec)
 print('Posicion del bloque:        ', OffRHeader)
 
 header = numpy.fromfile(startFp, SRVI_STRUCTURE, 1)
 
 self.frame_cnt = header['frame_cnt'][0]
-self.time_t = header['frame_cnt'][0]  #
-self.tpow = header['frame_cnt'][0]  #
-self.npw1 = header['frame_cnt'][0]  #
-self.npw2 = header['frame_cnt'][0]  #
-self.cpw1 = header['frame_cnt'][0]  #
-self.pcw2 = header['frame_cnt'][0]  #
-self.ps_err = header['frame_cnt'][0]  #
-self.te_err = header['frame_cnt'][0]  #
-self.rc_err = header['frame_cnt'][0]  #
-self.grs1 = header['frame_cnt'][0]  #
-self.grs2 = header['frame_cnt'][0]  #
-self.azipos = header['frame_cnt'][0]  #
-self.azivel = header['frame_cnt'][0]  #
-self.elvpos = header['frame_cnt'][0]  #
-self.elvvel = header['frame_cnt'][0]  #
-self.northAngle = header['frame_cnt'][0]  #
-self.microsec = header['frame_cnt'][0]  #
-self.azisetvel = header['frame_cnt'][0]  #
-self.elvsetpos = header['frame_cnt'][0]  #
-self.RadarConst = header['frame_cnt'][0]  #
+self.time_t = header['frame_cnt'][0]   #
+self.tpow = header['frame_cnt'][0]     #
+self.npw1 = header['frame_cnt'][0]     #
+self.npw2 = header['frame_cnt'][0]     #
+self.cpw1 = header['frame_cnt'][0]     #
+self.pcw2 = header['frame_cnt'][0]     #
+self.ps_err = header['frame_cnt'][0]    #
+self.te_err = header['frame_cnt'][0]    #
+self.rc_err = header['frame_cnt'][0]    #
+self.grs1 = header['frame_cnt'][0]      #
+self.grs2 = header['frame_cnt'][0]      #
+self.azipos = header['frame_cnt'][0]     #
+self.azivel = header['frame_cnt'][0]     #
+self.elvpos = header['frame_cnt'][0]     #
+self.elvvel = header['frame_cnt'][0]     #
+self.northAngle = header['frame_cnt'][0]    #
+self.microsec = header['frame_cnt'][0]      #
+self.azisetvel = header['frame_cnt'][0]     #
+self.elvsetpos = header['frame_cnt'][0]     #
+self.RadarConst = header['frame_cnt'][0]    #
 
 
 self.ipp = 0.5 * (SPEED_OF_LIGHT / self.PRFhz)

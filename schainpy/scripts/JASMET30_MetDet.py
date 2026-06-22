@@ -4,27 +4,27 @@ import os, sys
 from schainpy.controller import Project
 
 controllerObj = Project()
-controllerObj.setup(id='002', name='script02', description="JASMET Meteor Detection")
+controllerObj.setup(id = '002', name='script02', description="JASMET Meteor Detection")
 
 #--------------------------------------    Setup    -----------------------------------------
-# Verificar estas variables
+#Verificar estas variables
 
-# Path para los archivos
+#Path para los archivos
 # path = '/mnt/jars/2016_08/NOCHE'
 # path = '/media/joscanoa/DATA_JASMET/JASMET/2016_08/DIA' 
 # path = '/media/joscanoa/DATA_JASMET/JASMET/2016_08/NOCHE' 
 path = '/home/nanosat/data/jasmet' 
 
-# Path para los graficos
-pathfig = os.path.join(os.environ['HOME'], 'Pictures/JASMET30/201608/graphics')
+#Path para los graficos
+pathfig = os.path.join(os.environ['HOME'],'Pictures/JASMET30/201608/graphics')
 
-# Path para los archivos HDF5 de meteoros
-pathfile = os.path.join(os.environ['HOME'], 'Pictures/JASMET30/201608/meteor')
+#Path para los archivos HDF5 de meteoros
+pathfile = os.path.join(os.environ['HOME'],'Pictures/JASMET30/201608/meteor')
 
-# Fechas para busqueda de archivos
+#Fechas para busqueda de archivos
 startDate = '2010/08/29'
 endDate = '2017/09/11'
-# Horas para busqueda de archivos
+#Horas para busqueda de archivos
 startTime = '00:00:00'
 endTime = '23:59:59'
                             
@@ -84,9 +84,9 @@ opObj10.addParameter(name='hmax', value='120', format='float')
 opObj12 = procUnitConfObj1.addOperation(name='ParamWriter', optype='other')
 opObj12.addParameter(name='path', value=pathfile)
 opObj12.addParameter(name='blocksPerFile', value='1000', format='int')
-opObj12.addParameter(name='metadataList', value='type,heightList,paramInterval,timeZone', format='list')
-opObj12.addParameter(name='dataList', value='data_param,utctime', format='list')
-opObj12.addParameter(name='mode', value='2', format='int')
+opObj12.addParameter(name='metadataList',value='type,heightList,paramInterval,timeZone',format='list')
+opObj12.addParameter(name='dataList',value='data_param,utctime',format='list')
+opObj12.addParameter(name='mode',value='2',format='int')
 
 #--------------------------------------------------------------------------------------------------
 

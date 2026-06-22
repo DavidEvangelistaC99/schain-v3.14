@@ -25,7 +25,7 @@ FILE_HEADER_STRUCTURE = numpy.dtype([
     ('navg', 'f'),
     ('fh', 'f'),
     ('dh', 'f'),
-    ('nheights', 'f'),
+    ('nheights', 'f'),    
     ('ipp', 'f')
 ])
 
@@ -82,7 +82,7 @@ class JULIAParamReader(JRODataReader, ProcessingUnit):
               path=None,
               startDate=None,
               endDate=None,
-              ext=None,
+              ext=None,              
               startTime=datetime.time(0, 0, 0),
               endTime=datetime.time(23, 59, 59),
               timezone=0,
@@ -146,7 +146,7 @@ class JULIAParamReader(JRODataReader, ProcessingUnit):
                 continue
 
             year, month, day = int(year), int(month), int(day)
-            dateFile = datetime.date(year + 2000, month, day)
+            dateFile = datetime.date(year+2000, month, day)
             
             if (startDate > dateFile) or (endDate < dateFile):
                 continue
@@ -259,7 +259,7 @@ class JULIAParamReader(JRODataReader, ProcessingUnit):
             nheights = int(self.header_rec['nheights'])            
             hours = float(self.header_rec['hours'][0])
             heights = numpy.arange(nheights) * self.dH + self.header_rec['h0']
-            datatime = datetime.datetime(self.year, 1, 1) + datetime.timedelta(days=self.doy - 1, hours=hours)            
+            datatime = datetime.datetime(self.year, 1, 1) + datetime.timedelta(days=self.doy-1, hours=hours)            
             return heights, datatime
         else:
             return False
@@ -269,30 +269,30 @@ class JULIAParamReader(JRODataReader, ProcessingUnit):
         Parse data
         '''
 
-        buffer = numpy.fromfile(self.fp, 'f', 8 * N).reshape(N, 8)
+        buffer = numpy.fromfile(self.fp, 'f', 8*N).reshape(N, 8)
         
         pow0 = buffer[:, 0]
         pow1 = buffer[:, 1]
-        acf0 = (buffer[:, 2] + buffer[:, 3] * 1j) / pow0
-        acf1 = (buffer[:, 4] + buffer[:, 5] * 1j) / pow1
-        dccf = (buffer[:, 6] + buffer[:, 7] * 1j) / (pow0 * pow1)
+        acf0 = (buffer[:,2] + buffer[:,3]*1j) / pow0
+        acf1 = (buffer[:,4] + buffer[:,5]*1j) / pow1
+        dccf = (buffer[:,6] + buffer[:,7]*1j) / (pow0*pow1)
 
-        # ## SNR
+        ### SNR
         sno = (pow0 + pow1 - self.header_rec['snr']) / self.header_rec['snr']
         sno10 = numpy.log10(sno)
         # dsno = 1.0 / numpy.sqrt(self.header_file['nint'] * self.header_file['navg']) * (1 + (1 / sno))
         
-        # ## Vertical Drift
-        sp = numpy.sqrt(numpy.abs(acf0) * numpy.abs(acf1))
+        ### Vertical Drift
+        sp = numpy.sqrt(numpy.abs(acf0)*numpy.abs(acf1))
         sp[numpy.where(numpy.abs(sp) >= 1.0)] = numpy.sqrt(0.9999)
                     
-        vzo = -numpy.arctan2(acf0.imag + acf1.imag, acf0.real + acf1.real) * 1.5E5 * 1.5 / (self.ipp * numpy.pi)
-        dvzo = numpy.sqrt(1.0 - sp * sp) * 0.338 * 1.5E5 / (numpy.sqrt(self.header_file['nint'] * self.header_file['navg']) * sp * self.ipp)            
+        vzo = -numpy.arctan2(acf0.imag + acf1.imag,acf0.real + acf1.real)*1.5E5*1.5/(self.ipp*numpy.pi)
+        dvzo = numpy.sqrt(1.0 - sp*sp)*0.338*1.5E5/(numpy.sqrt(self.header_file['nint']*self.header_file['navg'])*sp*self.ipp)            
         err = numpy.where(dvzo <= 0.1)
         dvzo[err] = 0.1
 
-        # Zonal Drifts
-        dt = self.header_file['nint'] * self.ipp / 1.5E5
+        #Zonal Drifts
+        dt = self.header_file['nint']*self.ipp / 1.5E5
         coh = numpy.sqrt(numpy.abs(dccf))
         err = numpy.where(coh >= 1.0)            
         coh[err] = numpy.sqrt(0.99999)
@@ -300,8 +300,8 @@ class JULIAParamReader(JRODataReader, ProcessingUnit):
         err = numpy.where(coh <= 0.1)
         coh[err] = numpy.sqrt(0.1)
                 
-        vxo = numpy.arctan2(dccf.imag, dccf.real) * self.header_rec['h0'] * 1.0E3 / (self.kd * dt)
-        dvxo = numpy.sqrt(1.0 - coh * coh) * self.header_rec['h0'] * 1.0E3 / (numpy.sqrt(self.header_file['nint'] * self.header_file['navg']) * coh * self.kd * dt)
+        vxo = numpy.arctan2(dccf.imag, dccf.real)*self.header_rec['h0']*1.0E3/(self.kd*dt)
+        dvxo = numpy.sqrt(1.0 - coh*coh)*self.header_rec['h0']*1.0E3/(numpy.sqrt(self.header_file['nint']*self.header_file['navg'])*coh*self.kd*dt)
         
         err = numpy.where(dvxo <= 0.1)            
         dvxo[err] = 0.1
@@ -315,7 +315,7 @@ class JULIAParamReader(JRODataReader, ProcessingUnit):
         
         self.dataOut.data_snr = self.buffer[4].reshape(1, -1)
         self.dataOut.heightList = self.heights
-        self.dataOut.data_param = self.buffer[0:4, ]
+        self.dataOut.data_param = self.buffer[0:4,]
         self.dataOut.utctimeInit = self.time
         self.dataOut.utctime = self.time
         self.dataOut.useLocalTime = True

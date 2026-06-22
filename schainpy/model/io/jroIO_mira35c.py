@@ -23,9 +23,9 @@ except:
     from time import sleep
 
 from schainpy.model.data.jrodata import Spectra
-# from schainpy.model.data.BLTRheaderIO import FileHeader, RecordHeader
+#from schainpy.model.data.BLTRheaderIO import FileHeader, RecordHeader
 from schainpy.model.proc.jroproc_base import ProcessingUnit, Operation
-# from schainpy.model.io.jroIO_bltr import BLTRReader
+#from schainpy.model.io.jroIO_bltr import BLTRReader
 from numpy import imag, shape, NaN, empty
 
 
@@ -315,7 +315,7 @@ SRVI_HEADER = numpy.dtype([
 
 
 class SRVIHeader(Header):
-    def __init__(self, SignatureSRVI1=0, SizeOfDataBlock1=0, DataBlockTitleSRVI1=0, SizeOfSRVI1=0):
+    def __init__(self,     SignatureSRVI1=0,     SizeOfDataBlock1=0,     DataBlockTitleSRVI1=0,    SizeOfSRVI1=0):
 
         self.SignatureSRVI1 = SignatureSRVI1
         self.SizeOfDataBlock1 = SizeOfDataBlock1
@@ -338,34 +338,34 @@ class SRVIHeader(Header):
 
 SRVI_STRUCTURE = numpy.dtype([
                             ('frame_cnt', '<u4'),
-                            ('time_t', '<u4'),  #
-                            ('tpow', '<f4'),  #
-                            ('npw1', '<f4'),  #
-                            ('npw2', '<f4'),  #
-                            ('cpw1', '<f4'),  #
-                            ('pcw2', '<f4'),  #
-                            ('ps_err', '<u4'),  #
-                            ('te_err', '<u4'),  #
-                            ('rc_err', '<u4'),  #
-                            ('grs1', '<u4'),  #
-                            ('grs2', '<u4'),  #
-                            ('azipos', '<f4'),  #
-                            ('azivel', '<f4'),  #
-                            ('elvpos', '<f4'),  #
-                            ('elvvel', '<f4'),  #
+                            ('time_t', '<u4'),   #
+                            ('tpow', '<f4'),     #
+                            ('npw1', '<f4'),     #
+                            ('npw2', '<f4'),     #
+                            ('cpw1', '<f4'),     #
+                            ('pcw2', '<f4'),     #
+                            ('ps_err', '<u4'),   #
+                            ('te_err', '<u4'),   #
+                            ('rc_err', '<u4'),   #
+                            ('grs1', '<u4'),     #
+                            ('grs2', '<u4'),     #
+                            ('azipos', '<f4'),     #
+                            ('azivel', '<f4'),     #
+                            ('elvpos', '<f4'),     #
+                            ('elvvel', '<f4'),     #
                             ('northAngle', '<f4'),
-                            ('microsec', '<u4'),  #
+                            ('microsec', '<u4'),   #
                             ('azisetvel', '<f4'),  #
                             ('elvsetpos', '<f4'),  #
-                            ('RadarConst', '<f4'), ])  #
+                            ('RadarConst', '<f4'), ])   #
 
 
 class RecordHeader(Header):
 
-    def __init__(self, frame_cnt=0, time_t=0, tpow=0, npw1=0, npw2=0,
-                 cpw1=0, pcw2=0, ps_err=0, te_err=0, rc_err=0, grs1=0,
-                 grs2=0, azipos=0, azivel=0, elvpos=0, elvvel=0, northangle=0,
-                 microsec=0, azisetvel=0, elvsetpos=0, RadarConst=0, RecCounter=0, Off2StartNxtRec=0):
+    def __init__(self,     frame_cnt=0,  time_t=0,  tpow=0,   npw1=0,   npw2=0,
+                 cpw1=0,   pcw2=0,       ps_err=0,   te_err=0,   rc_err=0,   grs1=0,
+                 grs2=0,   azipos=0,   azivel=0,   elvpos=0,   elvvel=0,   northangle=0,
+                 microsec=0,   azisetvel=0,   elvsetpos=0,   RadarConst=0, RecCounter=0, Off2StartNxtRec=0):
 
         self.frame_cnt = frame_cnt
         self.dwell = time_t
@@ -396,44 +396,44 @@ class RecordHeader(Header):
 
         # startFp = open(fp,"rb") #The method tell() returns the current position of the file read/write pointer within the file.
 
-        # OffRHeader= 1180 + self.RecCounter*(self.Off2StartNxtRec)
-        # startFp.seek(OffRHeader, os.SEEK_SET)
+        #OffRHeader= 1180 + self.RecCounter*(self.Off2StartNxtRec)
+        #startFp.seek(OffRHeader, os.SEEK_SET)
 
         # print 'Posicion del bloque:        ',OffRHeader
 
         header = numpy.fromfile(fp, SRVI_STRUCTURE, 1)
 
         self.frame_cnt = header['frame_cnt'][0]
-        self.time_t = header['time_t'][0]  #
-        self.tpow = header['tpow'][0]  #
-        self.npw1 = header['npw1'][0]  #
-        self.npw2 = header['npw2'][0]  #
-        self.cpw1 = header['cpw1'][0]  #
-        self.pcw2 = header['pcw2'][0]  #
-        self.ps_err = header['ps_err'][0]  #
-        self.te_err = header['te_err'][0]  #
-        self.rc_err = header['rc_err'][0]  #
-        self.grs1 = header['grs1'][0]  #
-        self.grs2 = header['grs2'][0]  #
-        self.azipos = header['azipos'][0]  #
-        self.azivel = header['azivel'][0]  #
-        self.elvpos = header['elvpos'][0]  #
-        self.elvvel = header['elvvel'][0]  #
-        self.northAngle = header['northAngle'][0]  #
-        self.microsec = header['microsec'][0]  #
-        self.azisetvel = header['azisetvel'][0]  #
-        self.elvsetpos = header['elvsetpos'][0]  #
-        self.RadarConst = header['RadarConst'][0]  #
+        self.time_t = header['time_t'][0]   #
+        self.tpow = header['tpow'][0]     #
+        self.npw1 = header['npw1'][0]     #
+        self.npw2 = header['npw2'][0]     #
+        self.cpw1 = header['cpw1'][0]     #
+        self.pcw2 = header['pcw2'][0]     #
+        self.ps_err = header['ps_err'][0]    #
+        self.te_err = header['te_err'][0]    #
+        self.rc_err = header['rc_err'][0]    #
+        self.grs1 = header['grs1'][0]      #
+        self.grs2 = header['grs2'][0]      #
+        self.azipos = header['azipos'][0]     #
+        self.azivel = header['azivel'][0]     #
+        self.elvpos = header['elvpos'][0]     #
+        self.elvvel = header['elvvel'][0]     #
+        self.northAngle = header['northAngle'][0]    #
+        self.microsec = header['microsec'][0]      #
+        self.azisetvel = header['azisetvel'][0]     #
+        self.elvsetpos = header['elvsetpos'][0]     #
+        self.RadarConst = header['RadarConst'][0]    #
         # 84
 
         # print 'Pointer fp RECheader', fp.tell()
 
-        # self.ipp= 0.5*(SPEED_OF_LIGHT/self.PRFhz)
+        #self.ipp= 0.5*(SPEED_OF_LIGHT/self.PRFhz)
 
-        # self.RHsize = 180+20*self.nChannels
-        # self.Datasize= self.nProfiles*self.nChannels*self.nHeights*2*4
+        #self.RHsize = 180+20*self.nChannels
+        #self.Datasize= self.nProfiles*self.nChannels*self.nHeights*2*4
         # print 'Datasize',self.Datasize
-        # endFp = self.OffsetStartHeader + self.RecCounter*self.Off2StartNxtRec
+        #endFp = self.OffsetStartHeader + self.RecCounter*self.Off2StartNxtRec
 
         print('==============================================')
 
@@ -626,11 +626,11 @@ class MIRA35CReader (ProcessingUnit, FileHeaderMIRA35c, SRVIHeader, RecordHeader
 
             self.Num_inCoh = self.fheader.PPARavc
             self.dataOut.PRF = self.fheader.PPARprf
-            self.dataOut.frequency = 34.85 * 10 ** 9
+            self.dataOut.frequency = 34.85 * 10**9
             self.Lambda = SPEED_OF_LIGHT / self.dataOut.frequency
             self.dataOut.ippSeconds = 1. / float(self.dataOut.PRF)
 
-            pulse_width = self.fheader.PPARpdr * 10 ** -9
+            pulse_width = self.fheader.PPARpdr * 10**-9
             self.__deltaHeigth = 0.5 * SPEED_OF_LIGHT * pulse_width
 
             self.data_spc = numpy.zeros((self.Num_Hei, self.Num_Bins, 2))
@@ -790,8 +790,8 @@ class MIRA35CReader (ProcessingUnit, FileHeaderMIRA35c, SRVIHeader, RecordHeader
         # print 'SHAPE', self.dataOut_spc.shape
         # For nyquist correction:
         # fix = 20 # ~3m/s
-        # shift = self.Num_Bins/2 + fix
-        # self.data_spc = numpy.array([ self.data_spc[: , self.Num_Bins-shift+1: , :] , self.data_spc[: , 0:self.Num_Bins-shift , :]])
+        #shift = self.Num_Bins/2 + fix
+        #self.data_spc = numpy.array([ self.data_spc[: , self.Num_Bins-shift+1: , :] , self.data_spc[: , 0:self.Num_Bins-shift , :]])
 
         '''Block Reading, the Block Data is received and Reshape is used to give it
         shape.
