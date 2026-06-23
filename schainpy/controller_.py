@@ -14,8 +14,7 @@ import datetime
 import traceback
 import time
 import multiprocessing
-import signal as sig
-from multiprocessing import Process, Queue, active_children
+from multiprocessing import Process, Queue
 from threading import Thread
 from xml.etree.ElementTree import ElementTree, Element, SubElement
 
@@ -25,15 +24,6 @@ from schainpy.utils import log
 
 if 'darwin' in sys.platform and sys.version_info[0] == 3 and sys.version_info[1] > 7:
     multiprocessing.set_start_method('fork')
-
-def handler(sig, frame):
-    # get all active child processes
-    active = active_children()
-    # terminate all active children
-    for child in active:
-        child.terminate()
-    # terminate the process
-    sys.exit(0)
 
 class ConfBase():
 
@@ -49,7 +39,7 @@ class ConfBase():
     def getId(self):
 
         return self.id
-    
+
     def getNewId(self):
 
         return int(self.id) * 10 + len(self.operations) + 1
@@ -71,23 +61,18 @@ class ConfBase():
         for key, value in self.parameters.items():
             if value not in (None, '', ' '):
                 params[key] = value
-        
+
         return params
 
     def update(self, **kwargs):
-        
-        if 'format' not in kwargs:
-            kwargs['format'] = None
-        for key, value, fmt in kwargs.items():
-            self.addParameter(name=key, value=value, format=fmt)
+
+        for key, value in kwargs.items():
+            self.addParameter(name=key, value=value)
 
     def addParameter(self, name, value, format=None):
         '''
         '''
 
-        # if format is not None:
-        #     self.parameters[name] = eval(format)(value)
-        # elif isinstance(value, str) and re.search(r'(\d+/\d+/\d+)', value):
         if isinstance(value, str) and re.search(r'(\d+/\d+/\d+)', value):
             self.parameters[name] = datetime.date(*[int(x) for x in value.split('/')])
         elif isinstance(value, str) and re.search(r'(\d+:\d+:\d+)', value):
@@ -114,21 +99,21 @@ class ConfBase():
                 params[key] = str(value)
 
         return params
-    
+
     def makeXml(self, element):
 
         xml = SubElement(element, self.ELEMENTNAME)
         for label in self.xml_labels:
             xml.set(label, str(getattr(self, label)))
-        
+
         for key, value in self.getParameters().items():
             xml_param = SubElement(xml, 'Parameter')
             xml_param.set('name', key)
             xml_param.set('value', value)
-        
+
         for conf in self.operations:
             conf.makeXml(xml)
-            
+
     def __str__(self):
 
         if self.ELEMENTNAME == 'Operation':
@@ -141,7 +126,7 @@ class ConfBase():
                 s += '    {}: {}\n'.format(key, value)
             else:
                 s += '  {}: {}\n'.format(key, value)
-        
+
         for conf in self.operations:
             s += str(conf)
 
@@ -194,7 +179,7 @@ class ProcUnitConf(ConfBase):
     def setup(self, project_id, id, name, datatype, inputId, err_queue):
         '''
         '''
-        
+
         if datatype == None and name == None:
             raise ValueError('datatype or name should be defined')
 
@@ -220,7 +205,7 @@ class ProcUnitConf(ConfBase):
 
         i = [1 if x.id == id else 0 for x in self.operations]
         self.operations.pop(i.index(1))
-        
+
     def getOperation(self, id):
 
         for conf in self.operations:
@@ -248,7 +233,7 @@ class ProcUnitConf(ConfBase):
         self.err_queue = err_queue
         self.operations = []
         self.parameters = {}
-        
+
         for elm in element:
             if elm.tag == 'Parameter':
                 self.addParameter(elm.get('name'), elm.get('value'))
@@ -269,21 +254,22 @@ class ProcUnitConf(ConfBase):
         log.success('creating process...', self.name)
 
         for conf in self.operations:
-            
+
             opObj = conf.createObject()
-            
+
             log.success('adding operation: {}, type:{}'.format(
                 conf.name,
                 conf.type), self.name)
-            
+
             procUnitObj.addOperation(conf, opObj)
-     
+
         self.object = procUnitObj
 
     def run(self):
         '''
         '''
-        
+        #self.object.call(**self.getKwargs())
+
         return self.object.call(**self.getKwargs())
 
 
@@ -299,10 +285,10 @@ class ReadUnitConf(ProcUnitConf):
         self.inputId = None
         self.operations = []
         self.parameters = {}
-    
+
     def setup(self, project_id, id, name, datatype, err_queue, path='', startDate='', endDate='',
-              startTime='', endTime='', server=None, topic='', **kwargs):
-        
+              startTime='', endTime='', server=None, **kwargs):
+
         if datatype == None and name == None:
             raise ValueError('datatype or name should be defined')
         if name == None:
@@ -322,15 +308,13 @@ class ReadUnitConf(ProcUnitConf):
         self.project_id = project_id
         self.name = name
         self.datatype = datatype
-        self.err_queue = err_queue        
-        
-        self.addParameter(name='path', value=path, format='str')
+        self.err_queue = err_queue
+
+        self.addParameter(name='path', value=path)
         self.addParameter(name='startDate', value=startDate)
         self.addParameter(name='endDate', value=endDate)
         self.addParameter(name='startTime', value=startTime)
         self.addParameter(name='endTime', value=endTime)
-        self.addParameter(name='server', value=server)
-        self.addParameter(name='topic', value=topic)
 
         for key, value in kwargs.items():
             self.addParameter(name=key, value=value)
@@ -394,7 +378,7 @@ class Project(Process):
     def setup(self, id=1, name='', description='', email=None, alarm=[]):
 
         self.id = str(id)
-        self.description = description 
+        self.description = description
         self.email = email
         self.alarm = alarm
         if name:
@@ -428,7 +412,7 @@ class Project(Process):
         conf = ReadUnitConf()
         conf.setup(self.id, idReadUnit, name, datatype, self.err_queue, **kwargs)
         self.configurations[conf.id] = conf
-        
+
         return conf
 
     def addProcUnit(self, id=None, inputId='0', datatype=None, name=None):
@@ -440,7 +424,7 @@ class Project(Process):
             idProcUnit = self.getNewId()
         else:
             idProcUnit = id
-        
+
         conf = ProcUnitConf()
         conf.setup(self.id, idProcUnit, name, datatype, inputId, self.err_queue)
         self.configurations[conf.id] = conf
@@ -475,7 +459,7 @@ class Project(Process):
     def updateUnit(self, id, **kwargs):
 
         conf = self.configurations[id].update(**kwargs)
-    
+
     def makeXml(self):
 
         xml = Element('Project')
@@ -546,7 +530,7 @@ class Project(Process):
                 self.configurations[conf.id] = conf
 
         self.filename = abs_file
-        
+
         return 1
 
     def __str__(self):
@@ -569,10 +553,6 @@ class Project(Process):
         for key in keys:
             conf = self.configurations[key]
             conf.createObjects()
-            if 'Reader' in str(conf):
-                reader = conf.object
-            else:
-                conf.object.reader = reader
             if conf.inputId is not None:
                 if isinstance(conf.inputId, list):
                     conf.object.setInput([self.configurations[x].object for x in conf.inputId])
@@ -583,14 +563,14 @@ class Project(Process):
 
         t = Thread(target=self._monitor, args=(self.err_queue, self.ctx))
         t.start()
-    
+
     def _monitor(self, queue, ctx):
 
         import socket
-        
+
         procs = 0
         err_msg = ''
-        
+
         while True:
             msg = queue.get()
             if '#_start_#' in msg:
@@ -599,11 +579,11 @@ class Project(Process):
                 procs -= 1
             else:
                 err_msg = msg
-            
-            if procs == 0 or 'Traceback' in err_msg:                
+
+            if procs == 0 or 'Traceback' in err_msg:
                 break
             time.sleep(0.1)
-        
+
         if '|' in err_msg:
             name, err = err_msg.split('|')
             if 'SchainWarning' in err:
@@ -612,11 +592,11 @@ class Project(Process):
                 log.error(err.split('SchainError:')[-1].split('\n')[0].strip(), name)
             else:
                 log.error(err, name)
-        else:            
+        else:
             name, err = self.name, err_msg
-        
+
         time.sleep(1)
-            
+
         ctx.term()
 
         message = ''.join(err)
@@ -655,57 +635,34 @@ class Project(Process):
 
         self.filename = filename
 
-    '''
-    Llamada del método run de cada unidad de procesamiento. El método call 
-    de cada unidad de procesamiento se encarga de ejecutar las operaciones 
-    y retornar un valor que indica si la unidad de procesamiento ha termi-
-    nado su ejecución o si ha ocurrido un error.
-    '''
     def runProcs(self):
 
         err = False
         n = len(self.configurations)
-        flag_no_read = False
-        nProc_noRead = 0
-        
+        #print(n)
+
         while not err:
-            n_proc = 0
+            #print(self.getUnits())
             for conf in self.getUnits():
-                if flag_no_read:
-                    if n_proc >= nProc_noRead:
-                        ok = conf.run()
-                    else:
-                        n_proc += 1
-                        continue
-                else:
-                    ok = conf.run()
-
-                n_proc += 1
-
+                #print(conf)
+                ok = conf.run()
+                #print("ok", ok)
                 if ok == 'Error':
                     n -= 1
                     continue
-                elif ok == 'no_Read' and (not flag_no_read):
-                    nProc_noRead = n_proc - 1
-                    flag_no_read = True
-                    continue
-                elif ok == 'new_Read':
-                    nProc_noRead = 0
-                    flag_no_read = False
-                    continue
                 elif not ok:
                     break
+            #print("****************************************************end")
+            #exit(1)
             if n == 0:
                 err = True
-                break
-        
+
     def run(self):
 
         log.success('\nStarting Project {} [id={}]'.format(self.name, self.id), tag='')
         self.started = True
-        self.start_time = time.time()        
+        self.start_time = time.time()
         self.createObjects()
-        sig.signal(sig.SIGTERM, handler)
         self.runProcs()
         log.success('{} Done (Time: {:4.2f}s)'.format(
             self.name,

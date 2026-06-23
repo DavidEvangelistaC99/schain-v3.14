@@ -96,6 +96,7 @@ static PyObject *hildebrand_sekhon2(PyObject *self, PyObject *args) {
 
 static PyMethodDef noiseMethods[] = {
   { "hildebrand_sekhon", hildebrand_sekhon, METH_VARARGS, "Get noise with hildebrand_sekhon algorithm" },
+  { "hildebrand_sekhon2", hildebrand_sekhon2, METH_VARARGS, "Variation for satellite cleaning" },
   { NULL, NULL, 0, NULL }
 };
 
