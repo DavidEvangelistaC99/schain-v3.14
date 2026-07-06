@@ -42,6 +42,8 @@ import csv
 from scipy import signal
 import matplotlib.pyplot as plt
 
+from scipy.signal import savgol_filter
+
 SPEED_OF_LIGHT = 299792458
 
 '''solving pickling issue'''

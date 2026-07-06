@@ -885,6 +885,8 @@ class HDFWriter(Operation):
         if (self.blockIndex == self.blocksPerFile) or self.timeFlag():
             self.closeFile()
             self.setNextFile()
+        
+        '''
             self.dataOut.flagNoData = False
             self.blockIndex = 0
             
@@ -901,23 +903,32 @@ class HDFWriter(Operation):
         else:
 
             log.log('Block No. {}/{}'.format(self.blockIndex+1, self.blocksPerFile), self.name)
-            
+        '''
 
         for i, ds in enumerate(self.ds):
             attr, ch = self.data[i]
             if ch == -1:
                 ds[self.blockIndex] = getattr(self.dataOut, attr)
             else:
-                #if self.uniqueChannel and self.blockIndex != 0: #Creates extra dimension to avoid the creation of multiple channels
-                #    setattr(self.dataOut, attr, numpy.expand_dims(getattr(self.dataOut, attr), axis=0))
-                if self.blocksPerFile == 1:
-                    tmp = getattr(self.dataOut, attr)[self.weather_vars[self.weather_var]][ch]
-                    if self.mask:
-                        mask = self.dataOut.data_param[:,3,:][ch] < self.mask
-                        tmp[mask] = numpy.nan
-                    ds[:] = tmp
+                if hasattr(self.dataOut, "weather_vars"):
+                
+                    if self.blocksPerFile == 1:
+                        
+                        tmp = getattr(self.dataOut, attr)[self.weather_vars[self.weather_var]][ch]
+                        if self.mask:
+                            mask = self.dataOut.data_param[:,3,:][ch] < self.mask
+                            tmp[mask] = numpy.nan
+                        ds[:] = tmp
+                    else:
+                        ds[self.blockIndex] = getattr(self.dataOut, attr)[ch]
                 else:
+                    #if self.uniqueChannel and self.blockIndex != 0: #Creates extra dimension to avoid the creation of multiple channels
+                    #    setattr(self.dataOut, attr, numpy.expand_dims(getattr(self.dataOut, attr), axis=0))
+                    
                     ds[self.blockIndex] = getattr(self.dataOut, attr)[ch]
+                    
+                    #if self.uniqueChannel: #Deletes extra dimension created to avoid the creation of multiple channels
+                    #    setattr(self.dataOut, attr, getattr(self.dataOut, attr)[0])
                 #if self.uniqueChannel: #Deletes extra dimension created to avoid the creation of multiple channels
                 #    setattr(self.dataOut, attr, getattr(self.dataOut, attr)[0])
 
