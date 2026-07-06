@@ -48,8 +48,8 @@ DEF_HEADER = {
 
 MNEMONICS = {
     10: 'jro',
-    12: 'jmp',
     11: 'jbr',
+    12: 'jro',
     14: 'jmp', #Added by R. Flores
     840: 'jul',
     13: 'jas',
@@ -93,7 +93,7 @@ class MADReader(Reader, ProcessingUnit):
         self.flagNoMoreFiles = 0
         self.filename = None
         self.intervals = set()
-        self.datatime = datetime.datetime(1900, 1, 1)
+        self.datatime = datetime.datetime(1900,1,1)
         self.format = None
         self.filefmt = "***%Y%m%d*******"
 
@@ -214,7 +214,7 @@ class MADReader(Reader, ProcessingUnit):
         if self.ext == '.txt':
             self.data = numpy.genfromtxt(self.fp, missing_values=('missing'))
             self.nrecords = self.data.shape[0]
-            self.ranges = numpy.unique(self.data[:, self.parameters.index(self.independentParam.lower())])
+            self.ranges = numpy.unique(self.data[:,self.parameters.index(self.independentParam.lower())])
             self.counter_records = 0
         elif self.ext == '.hdf5':
             self.data = self.fp['Data']
@@ -270,14 +270,14 @@ class MADReader(Reader, ProcessingUnit):
                     if self.counter_records == self.nrecords:
                         break
                     continue
-                self.intervals.add((datatime - self.datatime).seconds)                
+                self.intervals.add((datatime-self.datatime).seconds)
                 break
         elif self.ext == '.hdf5':
             datatime = datetime.datetime.utcfromtimestamp(
                 self.times[self.counter_records])
-            dum = self.data['Table Layout'][self.data['Table Layout']['recno'] == self.counter_records]
-            self.intervals.add((datatime - self.datatime).seconds)
-            if datatime.date() > self.datatime.date():
+            dum = self.data['Table Layout'][self.data['Table Layout']['recno']==self.counter_records]
+            self.intervals.add((datatime-self.datatime).seconds)
+            if datatime.date()>self.datatime.date():
                 self.flagDiscontinuousBlock = 1
             self.datatime = datatime
             self.counter_records += 1
@@ -300,21 +300,21 @@ class MADReader(Reader, ProcessingUnit):
             dummy = numpy.zeros(self.ranges.shape) + numpy.nan
             if self.ext == '.txt':
                 x = self.parameters.index(param.lower())
-                y = self.parameters.index(self.independentParam.lower())            
-                ranges = self.buffer[:, y]
-                # if self.ranges.size == ranges.size:
+                y = self.parameters.index(self.independentParam.lower())
+                ranges = self.buffer[:,y]
+                #if self.ranges.size == ranges.size:
                 #    continue
                 index = numpy.where(numpy.in1d(self.ranges, ranges))[0]
-                dummy[index] = self.buffer[:, x]
+                dummy[index] = self.buffer[:,x]
             else:
                 ranges = self.buffer[self.independentParam.lower()]
                 index = numpy.where(numpy.in1d(self.ranges, ranges))[0]
                 dummy[index] = self.buffer[param.lower()]
 
             if isinstance(value, str):
-                if value not in self.independentParam:             
-                    setattr(self.dataOut, value, dummy.reshape(1, -1))
-            elif isinstance(value, list):                
+                if value not in self.independentParam:
+                    setattr(self.dataOut, value, dummy.reshape(1,-1))
+            elif isinstance(value, list):
                 self.output[value[0]][value[1]] = dummy
                 parameters[value[1]] = param
         for key, value in list(self.output.items()):
@@ -384,7 +384,7 @@ Inputs:
             format      hdf5, cedar
             blocks      number of blocks per file'''
 
-    __attrs__ = ['path', 'oneDDict', 'ind2DList', 'twoDDict', 'metadata', 'format', 'blocks']
+    __attrs__ = ['path', 'oneDDict', 'ind2DList', 'twoDDict','metadata', 'format', 'blocks']
     missing = -32767
     currentDay = None
 
@@ -398,7 +398,6 @@ Inputs:
 
     def run(self, dataOut, path, oneDDict, ind2DList='[]', twoDDict='{}',
             metadata='{}', format='cedar', **kwargs):
-
 
         #if dataOut.AUX==1: #Modified
 
@@ -445,7 +444,7 @@ Inputs:
         Create new cedar file object
         '''
 
-        self.mnemonic = MNEMONICS[self.kinst]  # TODO get mnemonic from madrigal
+        self.mnemonic = MNEMONICS[self.kinst]   #TODO get mnemonic from madrigal
         date = datetime.datetime.utcfromtimestamp(self.dataOut.utctime)
         #if self.dataOut.input_dat_type:
             #date=datetime.datetime.fromtimestamp(self.dataOut.TimeBlockSeconds_for_dp_power)
@@ -470,8 +469,6 @@ Inputs:
                 'MADWriter')
             if not os.path.exists(self.path):
                 os.makedirs(self.path)
-
-            # We need to install Madrigal in the schain enviroment
             self.fp = madrigal.cedar.MadrigalCedarFile(self.fullname, True)
 
 
@@ -491,7 +488,7 @@ Inputs:
         '''
         #self.dataOut.paramInterval=2
         startTime = datetime.datetime.utcfromtimestamp(self.dataOut.utctime)
-
+        print(self.dataOut.paramInterval)
         endTime = startTime + datetime.timedelta(seconds=self.dataOut.paramInterval)
 
         #if self.dataOut.input_dat_type:
@@ -503,7 +500,7 @@ Inputs:
         #print("2: ",startTime)
         #print(endTime)
         heights = self.dataOut.heightList
-
+        #print(heights)
         #print(self.blocks)
         #print(startTime)
         #print(endTime)
@@ -528,7 +525,7 @@ Inputs:
                 if 'db' in value.lower():
                     tmp = getattr(self.dataOut, value.replace('_db', ''))
                     SNRavg = numpy.average(tmp, axis=0)
-                    tmp = 10 * numpy.log10(SNRavg)
+                    tmp = 10*numpy.log10(SNRavg)
                 else:
                     tmp = getattr(self.dataOut, value)
                 out[key] = tmp.flatten()[:len(heights)]
@@ -558,14 +555,14 @@ Inputs:
             startTime.hour,
             startTime.minute,
             startTime.second,
-            startTime.microsecond / 10000,
+            startTime.microsecond/10000,
             endTime.year,
             endTime.month,
             endTime.day,
             endTime.hour,
             endTime.minute,
             endTime.second,
-            endTime.microsecond / 10000,
+            endTime.microsecond/10000,
             list(self.oneDDict.keys()),
             list(self.twoDDict.keys()),
             len(index),
@@ -646,6 +643,6 @@ Inputs:
         self.counter += 1
 
     def close(self):
-        
-        if self.counter > 0:                
+
+        if self.counter > 0:
             self.setHeader()
