@@ -30,6 +30,7 @@ the repository and install as normal python package:
 conda create -n schain-v3.14 python=3.9
 conda activate schain-v3.14
 pip install "setuptools<60"
+pip install "numpy<1.24"
 pip install -e .
 ```
 Alternative:
@@ -37,6 +38,7 @@ Alternative:
 ```
 python setup.py develop
 ```
+Next:
 
 ```
 pip install "click<8.2"
@@ -47,16 +49,12 @@ pip install scipy==1.8.0
 pip install digital_rf==2.6.7
 pip install cartopy
 pip install mysql-connector-python
-```
-
-Adittional:
-
-```
 pip install pandas
 ```
 
-Drifts and All-ISR need to install Madrigal. In the project script, we omit this operation and its parameters.
+Considerations:
 
+Drifts and All-ISR need to install Madrigal. In the project script, we omit this operation and its parameters.
 Also, copy and paste *.json* files in *proc* folder.
 
 ### Using Docker
