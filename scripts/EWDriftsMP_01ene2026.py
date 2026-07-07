@@ -189,13 +189,13 @@ meta = {
     }
 }
 
-op_writer = procUnitConfObj2.addOperation(name='MADWriter')
-op_writer.addParameter(name='path', value=pathFile)
-op_writer.addParameter(name='format', value='hdf5')
-op_writer.addParameter(name='oneDDict', value=json.dumps(one))
-op_writer.addParameter(name='twoDDict', value=json.dumps(two))
-op_writer.addParameter(name='ind2DList', value=json.dumps(ind))
-op_writer.addParameter(name='metadata', value=json.dumps(meta))
+#op_writer = procUnitConfObj2.addOperation(name='MADWriter')
+#op_writer.addParameter(name='path', value=pathFile)
+#op_writer.addParameter(name='format', value='hdf5')
+#op_writer.addParameter(name='oneDDict', value=json.dumps(one))
+#op_writer.addParameter(name='twoDDict', value=json.dumps(two))
+#op_writer.addParameter(name='ind2DList', value=json.dumps(ind))
+#op_writer.addParameter(name='metadata', value=json.dumps(meta))
 
 op_writer = procUnitConfObj2.addOperation(name='setHeightDriftsavg')
 
@@ -224,13 +224,14 @@ meta = {
     }
 }
 #dataOut.heightList = dataOut.params_avg[4]
-op_writer = procUnitConfObj2.addOperation(name='MADWriter')
-op_writer.addParameter(name='path', value=pathFileavg)
-op_writer.addParameter(name='format', value='hdf5')
-op_writer.addParameter(name='oneDDict', value=json.dumps(one_avg))
-op_writer.addParameter(name='twoDDict', value=json.dumps(two_avg))
-op_writer.addParameter(name='ind2DList', value=json.dumps(ind_avg))
-op_writer.addParameter(name='metadata', value=json.dumps(meta))
+
+#op_writer = procUnitConfObj2.addOperation(name='MADWriter')
+#op_writer.addParameter(name='path', value=pathFileavg)
+#op_writer.addParameter(name='format', value='hdf5')
+#op_writer.addParameter(name='oneDDict', value=json.dumps(one_avg))
+#op_writer.addParameter(name='twoDDict', value=json.dumps(two_avg))
+#op_writer.addParameter(name='ind2DList', value=json.dumps(ind_avg))
+#op_writer.addParameter(name='metadata', value=json.dumps(meta))
 
 op_writer = procUnitConfObj2.addOperation(name='setHeightDrifts')
 
