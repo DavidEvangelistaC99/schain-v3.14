@@ -55,7 +55,7 @@ Adittional:
 pip install pandas
 ```
 
-Drifts needs to install Madrigal. In the project script, we omit this operation and its parameters.
+Drifts and All-ISR need to install Madrigal. In the project script, we omit this operation and its parameters.
 
 Also, copy and paste *.json* files in *proc* folder.
 

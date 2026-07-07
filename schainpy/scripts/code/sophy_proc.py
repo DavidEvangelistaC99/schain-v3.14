@@ -238,7 +238,7 @@ def main(args):
                 if args.save: op.addParameter(name='save', value=path_plots, format='str')
                 op.addParameter(name='save_period', value=-1)
                 op.addParameter(name='show', value=args.show)
-                op.addParameter(name='channels', value='0,')
+                op.addParameter(name='channels', value='0,1')
                 op.addParameter(name='zmin', value=PARAM[param]['zmin'])
                 op.addParameter(name='zmax', value=PARAM[param]['zmax'])
                 op.addParameter(name='yrange', value=0.15, format='float')# esto estaba en 20
@@ -302,8 +302,11 @@ def main(args):
                 writer.addParameter(name='variable_unit', value=PARAM[param]['cb_label'])
                 writer.addParameter(name='n_pulses', value=n_pulses)
                 # writer.addParameter(name='pulse1_range', value=RMIX)
-                writer.addParameter(name='pulse_width', value=pulse_1_width)                
-                writer.addParameter(name='pulse_repetitions', value=pulse_1_repetitions)
+                writer.addParameter(name='pulse1_width', value=pulse_1_width)
+                writer.addParameter(name='pulse1_range', value=60)
+                writer.addParameter(name='pulse2_width', value=0)
+                writer.addParameter(name='pulse1_repetitions', value=pulse_1_repetitions)
+                writer.addParameter(name='pulse2_repetitions', value=0)
                 writer.addParameter(name='pulse_width_unit', value='microseconds')
                 writer.addParameter(name='snr_threshold', value=MASK1)
 

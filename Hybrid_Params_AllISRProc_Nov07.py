@@ -297,6 +297,7 @@ meta = {
 }
 #f.close()
 
+'''
 op_writer = merge.addOperation(name='MADWriter')
 op_writer.addParameter(name='path', value=figpath)
 op_writer.addParameter(name='format', value='hdf5')
@@ -305,5 +306,6 @@ op_writer.addParameter(name='twoDDict', value=json.dumps(two))
 op_writer.addParameter(name='ind2DList', value=json.dumps(ind))
 op_writer.addParameter(name='metadata', value=json.dumps(meta))
 #op_writer.addParameter(name='blocks', value=60)
+'''
 
 controller.start()
