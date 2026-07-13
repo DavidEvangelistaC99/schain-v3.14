@@ -29,6 +29,7 @@ the repository and install as normal python package:
 ```
 conda create -n schain-v3.14 python=3.9
 conda activate schain-v3.14
+pip install pip==23.3.1
 pip install "setuptools<60"
 pip install "numpy<1.24"
 pip install -e .
