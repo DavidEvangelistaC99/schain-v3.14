@@ -9,7 +9,8 @@ import h5py
 import numpy
 
 from scipy.optimize import curve_fit
-from scipy import asarray as ar, exp
+#from scipy import asarray as ar, exp
+from numpy import asarray as ar, exp
 from scipy import stats
 
 from numpy.ma.core import getdata

@@ -10,17 +10,23 @@ data.
 """
 
 import os
+import re
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext as _build_ext
 from schainpy import __version__
 
 DOCLINES = __doc__.split("\n")
 
+gfor = os.popen("gfortran --version").read()
+match = re.search(r'\d+',gfor)
+gfor_ver = int(match.group())
+
 class build_ext(_build_ext):
     def finalize_options(self):
         _build_ext.finalize_options(self)
         # Prevent numpy from thinking it is still in its setup process:
-        __builtins__.__NUMPY_SETUP__ = False
+        import builtins
+        builtins.__NUMPY_SETUP__ = False
         import numpy
         self.include_dirs.append(numpy.get_include())
 
@@ -74,6 +80,7 @@ setup(
     cmdclass = {'build_ext': build_ext},
     ext_modules=[
         Extension("schainpy.model.data._noise", ["schainc/_noise.c"]),
+        Extension("schainpy.model.data._HS_algorithm", ["schainc/_HS_algorithm.c"]),
         ],
     setup_requires = ["numpy"],
     install_requires = [

@@ -4,21 +4,21 @@ import time
 from schainpy.controller import Project
 #path='/DATA_RM/TEST_HDF5/d2021200'
 #path='/DATA_RM/TEST_HDF5/d2021200'
-path='/DATA_RM/TEST_HDF5/d2021203'
+path='/home/david/Documents/DATA/CHIRP@2025-10-07T19-57-06/param-01_AUG/SNR_PPI_EL_1.0'
 
 path_adq=path
 #path_ped='/DATA_RM/TEST_PEDESTAL/P2021200'
-path_ped='/DATA_RM/TEST_PEDESTAL/P2021203'
+path_ped='/home/david/Documents/DATA/CHIRP@2025-10-07T19-57-06/position/2025-10-07T19-00-00'
 
-figpath = '/home/soporte/Pictures'
+figpath = '/home/david/Documents/DATA/CHIRP@2025-10-07T19-57-06/Pictures'
 desc            = "Simulator Test"
 
 controllerObj   = Project()
 controllerObj.setup(id='10',name='Test Simulator',description=desc)
 readUnitConfObj = controllerObj.addReadUnit(datatype='HDFReader',
                                             path=path,
-                                            startDate="2021/01/01",   #"2020/01/01",#today,
-                                            endDate= "2021/12/01",  #"2020/12/30",#today,
+                                            startDate="2025/10/07",   #"2020/01/01",#today,
+                                            endDate= "2025/10/08",  #"2020/12/30",#today,
                                             startTime='00:00:00',
                                             endTime='23:59:59',
                                             t_Interval_p=0.01,
