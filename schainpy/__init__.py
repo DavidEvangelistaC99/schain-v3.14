@@ -1,8 +1,3 @@
-"""Signal chain python package"""
-
-try:
-    from schainpy.controller import Project
-except:
-    pass
-
-__version__ = '3.0.1rc1'
+# __init__.py
+# Signal Chain
+# Python version 3.14
