@@ -2,12 +2,23 @@ import os
 import h5py
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 import cartopy.crs as ccrs
 import cartopy.io.shapereader as shpreader
 
 from cartopy.feature import ShapelyFeature
 from matplotlib.patches import Circle
+
+
+# ==========================================================
+# Fuente Times New Roman
+# ==========================================================
+
+mpl.rcParams['font.family'] = 'Times New Roman'
+mpl.rcParams['font.serif'] = ['Times New Roman']
+mpl.rcParams['mathtext.fontset'] = 'stix'
+mpl.rcParams['font.size'] = 12
 
 
 # ==========================================================
@@ -18,9 +29,10 @@ RADAR_LAT = -12.04042
 RADAR_LON = -75.29591
 
 XRANGE = 60       # km
+h0 = 38   # índice PARA CHIRP 145, 38 para CC
 
-# PATH = "/home/david/Documents/DATA/HYO@2025-11-11T00-00-34/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251031_000826_E1.0_SNR.hdf5"
-PATH = "/home/david/Documents/DATA/CHIRP@2025-10-07T19-57-06/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251007_200049_E1.0_SNR.hdf5"
+PATH = "/home/david/Documents/DATA/HYO@2025-11-11T00-00-34/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251031_000826_E1.0_SNR.hdf5"
+# PATH = "/home/david/Documents/DATA/CHIRP@2025-10-07T19-57-06/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251007_200049_E1.0_SNR.hdf5"
 
 SHAPES = "/home/david/Documents/schain-v3.14/scripts/shapes"
 
@@ -39,8 +51,14 @@ def km2deg(km):
 with h5py.File(PATH,"r") as f:
 
     mask = -2.75
+
     H = f["Data/snr/H"][:]
+
+    # Conversión a dB
     H = 10*np.log10(H)
+
+    # Eliminar valores iniciales hasta h0
+    H[:, :h0] = np.nan
 
     #mask_array = H < mask
     #H[mask_array] = np.nan
@@ -78,6 +96,7 @@ lat = km2deg(y) + RADAR_LAT
 # ==========================================================
 
 fig = plt.figure(figsize=(11,11))
+fig.patch.set_facecolor("#EEEEEE")
 
 ax = plt.axes(projection=ccrs.PlateCarree())
 
@@ -236,9 +255,10 @@ for R in [10,20,30,40,50,60]:
 # RADAR
 # ==========================================================
 
+
 ax.plot(
-    -75.3199751, 
-    -12.041787,
+    -75.29591, 
+    -12.04042,
     # RADAR_LON,
     # RADAR_LAT,
     marker="*",
@@ -298,8 +318,12 @@ print("\nAzimuth")
 print(np.nanmin(az), np.nanmax(az))
 
 cbar = plt.colorbar(pcm, pad=0.02)
-cbar.set_label("SNR (dB)")
+cbar.set_label(
+    "SNR (dB)",
+    fontsize=12,
+    fontname="Times New Roman"
+)
 
-plt.title(f"PPI SNR  EL={mean_el:.1f}°")
+#plt.title(f"PPI SNR  EL={mean_el:.1f}°")
 
 plt.show()
