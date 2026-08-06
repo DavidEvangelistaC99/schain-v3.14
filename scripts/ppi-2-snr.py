@@ -3,6 +3,7 @@ import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import matplotlib.image as mpimg
 
 import cartopy.crs as ccrs
 import cartopy.io.shapereader as shpreader
@@ -11,6 +12,11 @@ from cartopy.feature import ShapelyFeature
 from matplotlib.patches import Circle
 
 
+LOGO = "/home/david/Documents/schain-v3.14/scripts/LogoIGP.png"
+
+LOGO_SIZE = 0.12
+LOGO_MARGIN = 0.02
+
 # ==========================================================
 # Fuente Times New Roman
 # ==========================================================
@@ -18,7 +24,7 @@ from matplotlib.patches import Circle
 mpl.rcParams['font.family'] = 'Times New Roman'
 mpl.rcParams['font.serif'] = ['Times New Roman']
 mpl.rcParams['mathtext.fontset'] = 'stix'
-mpl.rcParams['font.size'] = 12
+mpl.rcParams['font.size'] = 15
 
 
 # ==========================================================
@@ -30,6 +36,10 @@ RADAR_LON = -75.29591
 
 XRANGE = 60       # km
 h0 = 38   # índice PARA CHIRP 145, 38 para CC
+
+
+
+SHOW_H0_CIRCLE = True 
 
 PATH = "/home/david/Documents/DATA/HYO@2025-11-11T00-00-34/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251031_000826_E1.0_SNR.hdf5"
 # PATH = "/home/david/Documents/DATA/CHIRP@2025-10-07T19-57-06/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251007_200049_E1.0_SNR.hdf5"
@@ -69,6 +79,12 @@ with h5py.File(PATH,"r") as f:
 
     r = f["Metadata/range"][:]
 
+# Radio correspondiente al índice h0
+if 0 <= h0 < len(r):
+    h0_radius = r[h0]
+else:
+    raise ValueError(f"h0={h0} está fuera del rango [0,{len(r)-1}]")
+
 # Si el rango está en metros
 
 # r = r/1000.
@@ -97,6 +113,7 @@ lat = km2deg(y) + RADAR_LAT
 
 fig = plt.figure(figsize=(11,11))
 fig.patch.set_facecolor("#EEEEEE")
+
 
 ax = plt.axes(projection=ccrs.PlateCarree())
 
@@ -252,6 +269,26 @@ for R in [10,20,30,40,50,60]:
 
 
 # ==========================================================
+# CÍRCULO EN h0
+# ==========================================================
+
+if SHOW_H0_CIRCLE:
+
+    c = Circle(
+        (RADAR_LON, RADAR_LAT),
+        km2deg(h0_radius),
+        fill=False,
+        edgecolor="black",
+        linewidth=1.2,
+        linestyle="--",      # línea punteada
+        transform=ccrs.PlateCarree(),
+        zorder=20
+    )
+
+    ax.add_patch(c)
+
+
+# ==========================================================
 # RADAR
 # ==========================================================
 
@@ -320,10 +357,60 @@ print(np.nanmin(az), np.nanmax(az))
 cbar = plt.colorbar(pcm, pad=0.02)
 cbar.set_label(
     "SNR (dB)",
-    fontsize=12,
+    fontsize=17,
     fontname="Times New Roman"
 )
 
+# ==========================================================
+# LOGO IGP
+# ==========================================================
+
+'''logo = mpimg.imread(LOGO)
+
+pos = ax.get_position()
+
+logo_w = 0.10
+logo_h = 0.10
+
+dx = 0.01
+dy = -0.065
+
+logo_ax = fig.add_axes([
+    pos.x1 - logo_w - dx,
+    pos.y1 - logo_h - dy,
+    logo_w,
+    logo_h
+], zorder=100)
+
+logo_ax.imshow(logo)
+logo_ax.axis("off")'''
+
 #plt.title(f"PPI SNR  EL={mean_el:.1f}°")
+
+#plt.show()
+
+# ==========================================================
+# SALIDA
+# ==========================================================
+
+SAVE_FIGURE = True
+
+OUTPUT_FILE = "PPI_SNR_CC.png"
+
+DPI = 600     # 300 para artículos, 600 para alta resolución
+
+# ==========================================================
+# GUARDAR FIGURA
+# ==========================================================
+
+if SAVE_FIGURE:
+    fig.savefig(
+        OUTPUT_FILE,
+        dpi=DPI,
+        bbox_inches="tight",
+        facecolor=fig.get_facecolor(),
+        edgecolor="none"
+    )
+    print(f"Figura guardada en:\n{OUTPUT_FILE}")
 
 plt.show()
