@@ -1,19 +1,23 @@
 [build-system]
-# Create temporal installation
+
 requires = [
-    "meson>=1.6",
-    "meson-python>=0.17",
-    "numpy>2.3",
+    "meson-python",
+    "numpy>=2.3",
+    "ninja"
 ]
+
 build-backend = "mesonpy"
 
+
 [project]
+
 name = "schain"
-version = "3.14.0"
-description = "Signal Chain Radar Processing Library"
+
+version = "1.0.0"
+
 requires-python = ">=3.14"
 
 dependencies = [
     "numpy>=2.3",
-    "scipy>=1.16",
+    "scipy>=1.16"
 ]

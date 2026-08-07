@@ -1,38 +1,129 @@
 project(
     'schain',
-    ['c', 'fortran'],
-    version : '3.14.0',
-    meson_version : '>=1.6',
+    ['fortran', 'c'],
+    version: '1.0.0'
 )
 
-# Resolve incompatibilites in Fortran version files
-add_project_arguments(
-    '-fallow-argument-mismatch',
-    language : 'fortran'
+
+py = import('python').find_installation(
+    pure: false
 )
 
-py = import('python').find_installation(pure: false)
 
-# Steps for Fortran module installation
+numpy_include = run_command(
+    py,
+    '-c',
+    'import numpy; print(numpy.get_include())',
+    check: true
+).stdout().strip()
 
-bfmodel_path = join_paths(
-    meson.project_source_root(),
-    'schainf',
-    'Ffiles',
-    'bfmodel'
+
+f2py_include = run_command(
+    py,
+    '-c',
+    '''
+import numpy.f2py
+import os
+print(
+    os.path.join(
+        os.path.dirname(numpy.f2py.__file__),
+        "src"
+    )
+)
+''',
+    check:true
+).stdout().strip()
+
+
+
+numpy_inc = include_directories(numpy_include)
+f2py_inc = include_directories(f2py_include)
+
+
+
+#
+# Generar wrapper C de f2py
+#
+
+wrapper = custom_target(
+    'routine_wrapper',
+
+    output: '_routinemodule.c',
+
+    input: 'schainf/routine.pyf',
+
+    command:[
+        py,
+        '-m',
+        'numpy.f2py',
+        '@INPUT@',
+        '-m',
+        '_routine'
+    ]
 )
 
-config = configuration_data()
 
-config.set(
-    'BFMODEL_PATH',
-    bfmodel_path
+
+#
+# f2py runtime
+#
+
+fortranobject_c = files(
+    join_paths(
+        f2py_include,
+        'fortranobject.c'
+    )
 )
 
-get_path_generated = configure_file(
-    input : 'schainf/Ffiles/get_path.f90.in',
-    output : 'get_path.f90',
-    configuration : config
+
+
+#
+# Extension module
+#
+
+py.extension_module(
+    '_routine',
+
+    [
+        'schainf/routine.f90',
+        wrapper,
+        fortranobject_c
+    ],
+
+    include_directories:[
+        numpy_inc,
+        f2py_inc
+    ],
+
+    install:true,
+
+    subdir:'schainpy/model/proc',
+
+    dependencies: py.dependency()
 )
 
-subdir('schainpy')
+
+
+#
+# Python package
+#
+
+py.install_sources(
+    'src/schainpy/__init__.py',
+    subdir:'schainpy'
+)
+
+
+py.install_sources(
+    'src/schainpy/model/__init__.py',
+    subdir:'schainpy/model'
+)
+
+
+py.install_sources(
+[
+    'src/schainpy/model/proc/__init__.py',
+    'src/schainpy/model/proc/routine.py'
+],
+subdir:'schainpy/model/proc'
+)
