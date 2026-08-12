@@ -35,14 +35,14 @@ RADAR_LAT = -12.04042
 RADAR_LON = -75.29591
 
 XRANGE = 60       # km
-h0 = 38   # índice PARA CHIRP 145, 38 para CC
+h0 = 145   # índice PARA CHIRP 145, 38 para CC
 
 
 
 SHOW_H0_CIRCLE = True 
 
-PATH = "/home/david/Documents/DATA/HYO@2025-11-11T00-00-34/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251031_000826_E1.0_SNR.hdf5"
-# PATH = "/home/david/Documents/DATA/CHIRP@2025-10-07T19-57-06/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251007_200049_E1.0_SNR.hdf5"
+# PATH = "/home/david/Documents/DATA/HYO@2025-11-11T00-00-34/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251031_000826_E1.0_SNR.hdf5"
+PATH = "/home/david/Documents/DATA/CHIRP@2025-10-07T19-57-06/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251007_200049_E1.0_SNR.hdf5"
 
 SHAPES = "/home/david/Documents/schain-v3.14/scripts/shapes"
 
@@ -139,6 +139,16 @@ gl = ax.gridlines(draw_labels=True,
 
 gl.top_labels=False
 gl.right_labels=False
+
+gl.xlabel_style = {
+    'size': 20,
+    'family': 'Times New Roman'
+}
+
+gl.ylabel_style = {
+    'size': 20,
+    'family': 'Times New Roman'
+}
 
 
 # ==========================================================
@@ -357,9 +367,10 @@ print(np.nanmin(az), np.nanmax(az))
 cbar = plt.colorbar(pcm, pad=0.02)
 cbar.set_label(
     "SNR (dB)",
-    fontsize=17,
+    fontsize=22,
     fontname="Times New Roman"
 )
+cbar.ax.tick_params(labelsize=20)
 
 # ==========================================================
 # LOGO IGP

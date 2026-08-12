@@ -135,6 +135,16 @@ gl = ax.gridlines(draw_labels=True,
 gl.top_labels=False
 gl.right_labels=False
 
+gl.xlabel_style = {
+    'size': 20,
+    'family': 'Times New Roman'
+}
+
+gl.ylabel_style = {
+    'size': 20,
+    'family': 'Times New Roman'
+}
+
 
 # ==========================================================
 # SHAPEFILES
@@ -361,9 +371,11 @@ cbar = plt.colorbar(
 
 cbar.set_label(
     "Reflectivity (dBZ)",
-    fontsize=17,
+    fontsize=22,
     fontname="Times New Roman"
 )
+
+cbar.ax.tick_params(labelsize=20)
 
 print("Radar")
 print(RADAR_LAT, RADAR_LON)
