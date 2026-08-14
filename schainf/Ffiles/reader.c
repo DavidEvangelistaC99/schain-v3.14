@@ -6,6 +6,8 @@
 #include <time.h>
 #include "complex.h"
 
+extern void get_path_reader_(char *fqual, int *the_len);
+
 #define NFREQ 512
 #define LNES 12
 #define LTES 16

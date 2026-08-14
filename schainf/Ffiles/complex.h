@@ -4,7 +4,7 @@ extern float Cmod();
 extern fcomplex Cadd();
 extern fcomplex Csub();
 extern fcomplex Cmul();
-extern fcomplex Complex();
+extern fcomplex Complex(float re, float im);
 extern fcomplex Conjg();
 extern fcomplex Cdiv();
 extern float Cabs();
