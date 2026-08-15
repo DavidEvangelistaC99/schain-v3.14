@@ -12,7 +12,7 @@ from cartopy.feature import ShapelyFeature
 from matplotlib.patches import Circle
 
 
-LOGO = "/home/david/Documents/schain-v3.14/scripts/LogoIGP.png"
+LOGO = "/home/david/Documents/schain-v3.0/scripts/LogoIGP.png"
 
 LOGO_SIZE = 0.12
 LOGO_MARGIN = 0.02
@@ -35,16 +35,16 @@ RADAR_LAT = -12.04042
 RADAR_LON = -75.29591
 
 XRANGE = 60       # km
-h0 = 145   # índice PARA CHIRP 145, 38 para CC
+h0 = 145  # índice PARA CHIRP 145, 38 para CC
 
 
 
 SHOW_H0_CIRCLE = True 
 
-# PATH = "/home/david/Documents/DATA/HYO@2025-11-11T00-00-34/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251031_000826_E1.0_SNR.hdf5"
-PATH = "/home/david/Documents/DATA/CHIRP@2025-10-07T19-57-06/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251007_200049_E1.0_SNR.hdf5"
+# PATH = "/home/david/Documents/DATA/SOPHy/HYO@2025-11-11T00-00-34/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251031_000826_E1.0_SNR.hdf5"
+PATH = "/home/david/Documents/DATA/SOPHy/CHIRP@2025-10-07T19-57-06/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251007_200049_E1.0_SNR.hdf5"
 
-SHAPES = "/home/david/Documents/schain-v3.14/scripts/shapes"
+SHAPES = "/home/david/Documents/schain-v3.0/scripts/shapes"
 
 # ==========================================================
 # Conversión km -> grados
@@ -112,7 +112,8 @@ lat = km2deg(y) + RADAR_LAT
 # ==========================================================
 
 fig = plt.figure(figsize=(11,11))
-fig.patch.set_facecolor("#EEEEEE")
+fig.patch.set_facecolor("#FFFFFF")
+#fig.patch.set_facecolor("#EEEEEE")
 
 
 ax = plt.axes(projection=ccrs.PlateCarree())

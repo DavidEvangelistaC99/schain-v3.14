@@ -36,14 +36,13 @@ mpl.rcParams['font.size'] = 15
 RADAR_LAT = -12.04042
 RADAR_LON = -75.29591
 
-XRANGE = 60  # km
-h0 = 37 # Para SNR índice para chirp 145, para cc 38
+XRANGE = 30  # km
+h0 = 106 # Para SNR índice para chirp 145, para cc 38
+h0__ = 36
 
 SHOW_H0_CIRCLE = True 
 
-PATH = '/home/david/Documents/schain-v3.0/scripts/DATA/SOPHY_20260302_075140_E4.2_V.hdf5'
-# PATH = '/home/david/Documents/schain-v3.0/scripts/DATA/SOPHY_20250303_000413_E4.2_V.hdf5'
-# PATH = "/home/david/Documents/schain-v3.0/scripts/DATA/SOPHY_20260302_005800_E4.2_V.hdf5"
+PATH = "/home/david/Documents/schain-v3.0/scripts/DATA/SOPHY_20260302_075140_E4.2_Z.hdf5"
 # PATH = "/home/david/Documents/DATA/CHIRP@2025-10-07T19-57-06/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251007_200049_E1.0_SNR.hdf5"
 
 SHAPES = "/home/david/Documents/schain-v3.0/scripts/shapes"
@@ -64,14 +63,14 @@ with h5py.File(PATH,"r") as f:
 
     #mask = -2.75
 
-    H = f["Data/velocity/H"][:]
+    H = f["Data/reflectivity/H"][:]
 
     az = f["Metadata/azimuth"][:]
     ele = f["Metadata/elevation"][:]
     r = f["Metadata/range"][:]
 
     # Eliminar todo lo que esté antes de ese radio
-    H[:, :h0] = np.nan
+    H[:, :h0__] = np.nan
 
     # Aumentar 5 dB solamente donde no hay NaN
     # H[~np.isnan(H)] += 4.7
@@ -109,13 +108,13 @@ lat = km2deg(y) + RADAR_LAT
 # ==========================================================
 
 fig = plt.figure(figsize=(11,11))
-#fig.patch.set_facecolor("#EEEEEE")
 fig.patch.set_facecolor("#FFFFFF")
+
 
 ax = plt.axes(projection=ccrs.PlateCarree())
 
 # ax.set_facecolor("#202020")
-ax.set_facecolor("#FFE8CD")
+ax.set_facecolor("#FFEBCD")
 
 ax.set_extent([
     RADAR_LON-km2deg(XRANGE),
@@ -136,7 +135,6 @@ gl = ax.gridlines(draw_labels=True,
 
 gl.top_labels=False
 gl.right_labels=False
-
 
 gl.xlabel_style = {
     'size': 20,
@@ -230,7 +228,7 @@ reader = shpreader.Reader(
 ciudades = (
     "CONCEPCIÓN",
     "HUANCAYO",
-    "JAUJA",
+    #"JAUJA",
     #"LA OROYA",
     "CHUPACA"
 )
@@ -253,7 +251,7 @@ for rec in reader.records():
 # ANILLOS
 # ==========================================================
 
-for R in [10,20,30,40,50,60]:
+for R in [10,20,30]:
 
     c = Circle(
         (RADAR_LON,RADAR_LAT),
@@ -293,7 +291,7 @@ if SHOW_H0_CIRCLE:
         zorder=20
     )
 
-    #ax.add_patch(c)
+    ax.add_patch(c)
 
 
 # ==========================================================
@@ -316,21 +314,15 @@ ax.plot(
 # ==========================================================
 # ESCALA DE REFLECTIVIDAD (dBZ)
 # ==========================================================
-# pasos
-levels = np.arange(-20, 21, 2.5)
-#levels = np.arange(-10, 12, 2)
+
+levels = np.arange(-20, 85, 5)
 
 colors = [
-    "#003300", "#005500", "#007700", "#009900", "#00bb00", "#24ce24", "#6cd26c", "#b4d6b4",
-    "#d6b4b4", "#d26c6c", "#ce2424", "#bb0000", "#980000", "#760000", "#540000", "#330000",
-]
-
-'''levels = np.arange(-20, 22.5, 2.5)
-
-colors = [
-    "#003300", "#005500", "#007700", "#009900", "#00bb00", "#24ce24", "#6cd26c", "#b4d6b4",
-    "#d6b4b4", "#d26c6c", "#ce2424", "#bb0000", "#980000", "#760000", "#540000", "#330000",
-]'''
+    "#2a323b", "#3f4c59", "#556576", "#6a7f94", "#7f99b2",
+    "#00ffff", "#007fff", "#0000ff", "#00ff00", "#00bf00",
+    "#007f00", "#ffff00", "#ffbf00", "#ff7f00", "#ff0000",
+    "#bf0000", "#7f0000", "#fe00fe", "#8e59ff", "#f0f0f0",
+    ]
 
 '''colors = [
     "#2b2b2b",  # -20
@@ -375,25 +367,31 @@ pcm = ax.pcolormesh(
 cbar = plt.colorbar(
     pcm,
     pad=0.02,
-    # pasos en los labels del grafico  de barras
-    ticks=np.arange(-20, 21, 10)
-    #ticks=np.arange(-10, 11, 2)
+    ticks=np.arange(-20, 81, 20)
 )
 
-'''cbar = plt.colorbar(
-    pcm,
-    pad=0.02,
-    ticks=np.arange(-20, 21, 10)
-)'''
-
 cbar.set_label(
-    "Velocity (m/s)",
+    "Reflectivity (dBZ)",
     fontsize=22,
     fontname="Times New Roman"
 )
 
 cbar.ax.tick_params(labelsize=20)
 
+print("Radar")
+print(RADAR_LAT, RADAR_LON)
+
+print("\nLongitud")
+print(np.nanmin(lon), np.nanmax(lon))
+
+print("\nLatitud")
+print(np.nanmin(lat), np.nanmax(lat))
+
+print("\nRange")
+print(r[0], r[-1])
+
+print("\nAzimuth")
+print(np.nanmin(az), np.nanmax(az))
 
 # ==========================================================
 # LOGO IGP
@@ -429,7 +427,7 @@ logo_ax.axis("off")'''
 
 SAVE_FIGURE = True
 
-OUTPUT_FILE = "PPI_V_2.png"
+OUTPUT_FILE = "PPI_Z-ZOOM.png"
 
 DPI = 600     # 300 para artículos, 600 para alta resolución
 

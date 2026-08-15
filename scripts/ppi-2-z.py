@@ -16,7 +16,7 @@ from cartopy.feature import ShapelyFeature
 # Logo
 # ==========================================================
 
-LOGO = "/home/david/Documents/schain-v3.14/scripts/LogoIGP.png"
+LOGO = "/home/david/Documents/schain-v3.0/scripts/LogoIGP.png"
 LOGO_SIZE = 0.12
 LOGO_MARGIN = 0.02
 
@@ -37,14 +37,14 @@ RADAR_LAT = -12.04042
 RADAR_LON = -75.29591
 
 XRANGE = 60  # km
-h0 = 37 # Para SNR índice para chirp 145, para cc 38
+h0 = 105 # Para SNR índice para chirp 145, para cc 38
 
 SHOW_H0_CIRCLE = True 
 
-PATH = "/home/david/Documents/schain-v3.14/scripts/DATA/SOPHY_20260302_005800_E4.2_Z.hdf5"
+PATH = "/home/david/Documents/schain-v3.0/scripts/DATA/SOPHY_20260302_075140_E4.2_Z.hdf5"
 # PATH = "/home/david/Documents/DATA/CHIRP@2025-10-07T19-57-06/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251007_200049_E1.0_SNR.hdf5"
 
-SHAPES = "/home/david/Documents/schain-v3.14/scripts/shapes"
+SHAPES = "/home/david/Documents/schain-v3.0/scripts/shapes"
 
 # ==========================================================
 # Conversión km -> grados
@@ -69,7 +69,7 @@ with h5py.File(PATH,"r") as f:
     r = f["Metadata/range"][:]
 
     # Eliminar todo lo que esté antes de ese radio
-    H[:, :h0] = np.nan
+    # H[:, :h0] = np.nan
 
     # Aumentar 5 dB solamente donde no hay NaN
     # H[~np.isnan(H)] += 4.7
@@ -290,7 +290,7 @@ if SHOW_H0_CIRCLE:
         zorder=20
     )
 
-    #ax.add_patch(c)
+    ax.add_patch(c)
 
 
 # ==========================================================
