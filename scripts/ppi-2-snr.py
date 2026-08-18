@@ -35,14 +35,14 @@ RADAR_LAT = -12.04042
 RADAR_LON = -75.29591
 
 XRANGE = 60       # km
-h0 = 145  # índice PARA CHIRP 145, 38 para CC
+h0 = 38  # índice PARA CHIRP 145, 38 para CC
 
 
 
 SHOW_H0_CIRCLE = True 
 
-# PATH = "/home/david/Documents/DATA/SOPHy/HYO@2025-11-11T00-00-34/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251031_000826_E1.0_SNR.hdf5"
-PATH = "/home/david/Documents/DATA/SOPHy/CHIRP@2025-10-07T19-57-06/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251007_200049_E1.0_SNR.hdf5"
+PATH = "/home/david/Documents/DATA/SOPHy/HYO@2025-11-11T00-00-34/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251031_000826_E1.0_SNR.hdf5"
+# PATH = "/home/david/Documents/DATA/SOPHy/CHIRP@2025-10-07T19-57-06/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251007_200049_E1.0_SNR.hdf5"
 
 SHAPES = "/home/david/Documents/schain-v3.0/scripts/shapes"
 
@@ -112,8 +112,8 @@ lat = km2deg(y) + RADAR_LAT
 # ==========================================================
 
 fig = plt.figure(figsize=(11,11))
-fig.patch.set_facecolor("#FFFFFF")
-#fig.patch.set_facecolor("#EEEEEE")
+# fig.patch.set_facecolor("#FFFFFF")
+fig.patch.set_facecolor("#EEEEEE")
 
 
 ax = plt.axes(projection=ccrs.PlateCarree())
@@ -133,7 +133,7 @@ ax.set_extent([
 # GRID
 # ==========================================================
 
-gl = ax.gridlines(draw_labels=True,
+gl = ax.gridlines(draw_labels=False,
                   linewidth=0.7,
                   linestyle='--',
                   alpha=0.5)
@@ -231,11 +231,11 @@ reader = shpreader.Reader(
 )
 
 ciudades = (
-    "CONCEPCIÓN",
-    "HUANCAYO",
-    "JAUJA",
+    #"CONCEPCIÓN",
+    #"HUANCAYO",
+    #"JAUJA",
     #"LA OROYA",
-    "CHUPACA"
+    #"CHUPACA"
 )
 
 for rec in reader.records():
@@ -271,10 +271,11 @@ for R in [10,20,30,40,50,60]:
     ax.add_patch(c)
 
     ax.text(
-        RADAR_LON+km2deg(R/np.sqrt(2)),
-        RADAR_LAT+km2deg(R/np.sqrt(2)),
+        RADAR_LON-km2deg(R/np.sqrt(2)),
+        RADAR_LAT-km2deg(R/np.sqrt(2)),
         f"{R} km",
-        fontsize=7,
+        fontsize=10,
+        fontweight="bold",
         color="#4682B4"
     )
 
@@ -290,13 +291,27 @@ if SHOW_H0_CIRCLE:
         km2deg(h0_radius),
         fill=False,
         edgecolor="black",
-        linewidth=1.2,
+        linewidth=1.5,
         linestyle="--",      # línea punteada
         transform=ccrs.PlateCarree(),
         zorder=20
     )
 
     ax.add_patch(c)
+
+    # Label del círculo
+    ax.text(
+        RADAR_LON - km2deg(h0_radius+4),
+        RADAR_LAT,
+        "2.4 km",
+        transform=ccrs.PlateCarree(),
+        ha="center",
+        va="bottom",
+        fontsize=10,
+        color="black",
+        fontweight="bold",
+        zorder=21
+    )
 
 
 # ==========================================================

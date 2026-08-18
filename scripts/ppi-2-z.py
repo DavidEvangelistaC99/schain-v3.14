@@ -36,8 +36,9 @@ mpl.rcParams['font.size'] = 15
 RADAR_LAT = -12.04042
 RADAR_LON = -75.29591
 
-XRANGE = 60  # km
-h0 = 105 # Para SNR índice para chirp 145, para cc 38
+XRANGE = 30  # km
+h0 = 106 # Para SNR índice para chirp 145, para cc 38
+
 
 SHOW_H0_CIRCLE = True 
 
@@ -67,9 +68,9 @@ with h5py.File(PATH,"r") as f:
     az = f["Metadata/azimuth"][:]
     ele = f["Metadata/elevation"][:]
     r = f["Metadata/range"][:]
-
+    h0___=37
     # Eliminar todo lo que esté antes de ese radio
-    # H[:, :h0] = np.nan
+    H[:, :h0___] = np.nan
 
     # Aumentar 5 dB solamente donde no hay NaN
     # H[~np.isnan(H)] += 4.7
@@ -127,7 +128,7 @@ ax.set_extent([
 # GRID
 # ==========================================================
 
-gl = ax.gridlines(draw_labels=True,
+gl = ax.gridlines(draw_labels=False,
                   linewidth=0.7,
                   linestyle='--',
                   alpha=0.5)
@@ -225,11 +226,11 @@ reader = shpreader.Reader(
 )
 
 ciudades = (
-    "CONCEPCIÓN",
-    "HUANCAYO",
-    "JAUJA",
+    #"CONCEPCIÓN",
+    #"HUANCAYO",
+    #"JAUJA",
     #"LA OROYA",
-    "CHUPACA"
+    #"CHUPACA"
 )
 
 for rec in reader.records():
@@ -250,7 +251,8 @@ for rec in reader.records():
 # ANILLOS
 # ==========================================================
 
-for R in [10,20,30,40,50,60]:
+#for R in [10,20,30,40,50,60]:
+for R in [10,20,30]:
 
     c = Circle(
         (RADAR_LON,RADAR_LAT),
@@ -264,11 +266,14 @@ for R in [10,20,30,40,50,60]:
 
     ax.add_patch(c)
 
+
+    offset = 1.5
     ax.text(
-        RADAR_LON+km2deg(R/np.sqrt(2)),
-        RADAR_LAT+km2deg(R/np.sqrt(2)),
+        RADAR_LON-km2deg(R/np.sqrt(2)),
+        RADAR_LAT-km2deg(R/np.sqrt(2)),
         f"{R} km",
-        fontsize=7,
+        fontsize=17.5,
+        fontweight="bold",
         color="#4682B4"
     )
 
@@ -284,13 +289,27 @@ if SHOW_H0_CIRCLE:
         km2deg(h0_radius),
         fill=False,
         edgecolor="black",
-        linewidth=1.2,
+        linewidth=1.75,
         linestyle="--",      # línea punteada
         transform=ccrs.PlateCarree(),
         zorder=20
     )
 
     ax.add_patch(c)
+
+    # Label del círculo
+    ax.text(
+        RADAR_LON - km2deg(h0_radius+3.3),
+        RADAR_LAT,
+        "7.2 km",
+        transform=ccrs.PlateCarree(),
+        ha="center",
+        va="bottom",
+        fontsize=17.5,
+        color="black",
+        fontweight="bold",
+        zorder=21
+    )
 
 
 # ==========================================================

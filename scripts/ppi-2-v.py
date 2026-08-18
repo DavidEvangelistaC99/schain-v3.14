@@ -36,13 +36,13 @@ mpl.rcParams['font.size'] = 15
 RADAR_LAT = -12.04042
 RADAR_LON = -75.29591
 
-XRANGE = 60  # km
+XRANGE = 30  # km
 h0 = 37 # Para SNR índice para chirp 145, para cc 38
 
 SHOW_H0_CIRCLE = True 
 
-PATH = '/home/david/Documents/schain-v3.0/scripts/DATA/SOPHY_20260302_075140_E4.2_V.hdf5'
-# PATH = '/home/david/Documents/schain-v3.0/scripts/DATA/SOPHY_20250303_000413_E4.2_V.hdf5'
+# PATH = '/home/david/Documents/schain-v3.0/scripts/DATA/SOPHY_20260302_075140_E4.2_V.hdf5'
+PATH = '/home/david/Documents/schain-v3.0/scripts/DATA/SOPHY_20250303_000413_E4.2_V.hdf5'
 # PATH = "/home/david/Documents/schain-v3.0/scripts/DATA/SOPHY_20260302_005800_E4.2_V.hdf5"
 # PATH = "/home/david/Documents/DATA/CHIRP@2025-10-07T19-57-06/param-01_AUG/SNR_PPI_EL_1.0/SOPHY_20251007_200049_E1.0_SNR.hdf5"
 
@@ -109,8 +109,8 @@ lat = km2deg(y) + RADAR_LAT
 # ==========================================================
 
 fig = plt.figure(figsize=(11,11))
-#fig.patch.set_facecolor("#EEEEEE")
-fig.patch.set_facecolor("#FFFFFF")
+fig.patch.set_facecolor("#EEEEEE")
+#fig.patch.set_facecolor("#FFFFFF")
 
 ax = plt.axes(projection=ccrs.PlateCarree())
 
@@ -129,7 +129,7 @@ ax.set_extent([
 # GRID
 # ==========================================================
 
-gl = ax.gridlines(draw_labels=True,
+gl = ax.gridlines(draw_labels=False,
                   linewidth=0.7,
                   linestyle='--',
                   alpha=0.5)
@@ -228,11 +228,11 @@ reader = shpreader.Reader(
 )
 
 ciudades = (
-    "CONCEPCIÓN",
-    "HUANCAYO",
-    "JAUJA",
+    #"CONCEPCIÓN",
+    #"HUANCAYO",
+    #"JAUJA",
     #"LA OROYA",
-    "CHUPACA"
+    #"CHUPACA"
 )
 
 for rec in reader.records():
@@ -253,7 +253,8 @@ for rec in reader.records():
 # ANILLOS
 # ==========================================================
 
-for R in [10,20,30,40,50,60]:
+for R in [10,20,30]:
+# for R in [10,20,30,40,50,60]:
 
     c = Circle(
         (RADAR_LON,RADAR_LAT),
@@ -268,10 +269,11 @@ for R in [10,20,30,40,50,60]:
     ax.add_patch(c)
 
     ax.text(
-        RADAR_LON+km2deg(R/np.sqrt(2)),
-        RADAR_LAT+km2deg(R/np.sqrt(2)),
+        RADAR_LON-km2deg(R/np.sqrt(2)),
+        RADAR_LAT-km2deg(R/np.sqrt(2)),
         f"{R} km",
-        fontsize=7,
+        fontsize=17.5,
+        fontweight="bold",
         color="#4682B4"
     )
 
@@ -287,7 +289,7 @@ if SHOW_H0_CIRCLE:
         km2deg(h0_radius),
         fill=False,
         edgecolor="black",
-        linewidth=1.2,
+        linewidth=2,
         linestyle="--",      # línea punteada
         transform=ccrs.PlateCarree(),
         zorder=20
@@ -317,8 +319,8 @@ ax.plot(
 # ESCALA DE REFLECTIVIDAD (dBZ)
 # ==========================================================
 # pasos
-levels = np.arange(-20, 21, 2.5)
-#levels = np.arange(-10, 12, 2)
+# levels = np.arange(-20, 21, 2.5)
+levels = np.arange(-10, 12, 2)
 
 colors = [
     "#003300", "#005500", "#007700", "#009900", "#00bb00", "#24ce24", "#6cd26c", "#b4d6b4",
@@ -376,8 +378,8 @@ cbar = plt.colorbar(
     pcm,
     pad=0.02,
     # pasos en los labels del grafico  de barras
-    ticks=np.arange(-20, 21, 10)
-    #ticks=np.arange(-10, 11, 2)
+    # ticks=np.arange(-20, 21, 10)
+    ticks=np.arange(-10, 11, 2)
 )
 
 '''cbar = plt.colorbar(
