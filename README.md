@@ -27,7 +27,7 @@ First, ensure that you have the above-listed dependencies installed, then clone
 the repository and install following next steps:
 
 ```
-conda create -n schain-proc python=3.9
+conda create -n schain-proc python=3.6
 conda activate schain-proc
 pip install pip==23.3.1
 pip install "setuptools<60"
