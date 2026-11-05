@@ -13,14 +13,6 @@ data.
 
 ## Installation
 
-To get started the easiest way to install it is through
-[PyPI](https://pypi.org/project/schainpy/) with pip. We strongly recommend to
-use an virtual environment like virtualenv or anaconda.
-
-```bash
-pip install schainpy
-```
-
 ### From source
 
 First, ensure that you have the above-listed dependencies installed, then clone
@@ -54,29 +46,6 @@ pip install cartopy
 pip install mysql-connector-python
 pip install pandas
 ```
-
-### Using Docker
-
-Download Dockerfile from the repository, and create a docker image:
-
-```bash
-docker build -t schain .
-```
-
-You can run a container using an xml file or a schain script also you need to
-mount a volume for the data input and for the output files/plots:
-
-```bash
-docker run -it --rm --volume /path/to/host/data:/data schain xml /data/test.xml
-docker run -it --rm --volume /path/to/host/data:/data --entrypoint /urs/local/bin/python schain /data/test.py
-```
-
-## CLI (command line interface)
-
-Signal Chain provides the following commands:
-
-- schainGUI: Open the GUI
-- schain: Signal chain command line
 
 ## Example
 
