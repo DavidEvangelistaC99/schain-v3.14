@@ -780,7 +780,8 @@ class SpectrogramPlot(Plot):
     '''
 
     CODE = 'Spectrogram_Profile'
-    colormap = 'binary'
+    #colormap = 'binary'
+    colormap = 'jet'
     plot_type = 'pcolorbuffer'
 
     def setup(self):
