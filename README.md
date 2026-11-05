@@ -6,7 +6,7 @@ data.
 
 ## Dependencies
 
-- GCC (gcc or gfortran)
+- GCC (gcc and gfortran)
 - Python.h (python-dev or python-devel)
 - Python-TK (python-tk)
 - HDF5 libraries (libhdf5-dev)
@@ -24,21 +24,36 @@ pip install schainpy
 ### From source
 
 First, ensure that you have the above-listed dependencies installed, then clone
-the repository and install as normal python package:
-
-```bash
-git clone https://github.com/JRO-Peru/schainpy.git
-cd schain
-git checkout `branch-name` (optional)
-sudo pip install ./
-```
-
-For All-ISR (Christian) needs to import pandas library. 
+the repository and install following next steps:
 
 ```
+conda create -n schain-proc python=3.9
+conda activate schain-proc
+pip install pip==23.3.1
+pip install "setuptools<60"
+pip install "numpy<1.24"
+pip install -e .
+```
+
+Alternative:
+
+```
+python setup.py develop
+```
+
+Next:
+
+```
+pip install "click<8.2"
+pip install "numpy<1.24"
+pip install zmq
+pip install matplotlib==3.5.1
+pip install scipy==1.8.0
+pip install digital_rf==2.6.7
+pip install cartopy
+pip install mysql-connector-python
 pip install pandas
 ```
-
 
 ### Using Docker
 
